@@ -1,32 +1,28 @@
+// frontend/src/components/UserList.js
 import React, { useEffect, useState } from "react";
 import { getUsers } from "../services/api";
 
-const UserList = () => {
+function UserList() {
   const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        const data = await getUsers();
-        setUsers(data);
-      } catch (error) {
-        console.error("Error fetching users:", error);
-      }
-    };
-
-    fetchUsers();
+    getUsers().then(data => {
+      setUsers(data || []);
+      setLoading(false);
+    }).catch(err => console.error(err));
   }, []);
 
+  if (loading) return <p>Loading users...</p>;
+
   return (
-    <div>
-      <h2>Users</h2>
+    <section>
+      <h2>Users ({users.length})</h2>
       <ul>
-        {users.map((user) => (
-          <li key={user.id}>{user.name}</li>
-        ))}
+        {users.map(u => <li key={u.id}>{u.name} ({u.email})</li>)}
       </ul>
-    </div>
+    </section>
   );
-};
+}
 
 export default UserList;

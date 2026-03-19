@@ -32,27 +32,27 @@ export const deleteUser = async (id) => {
 
 /* -------------------- FEEDBACK -------------------- */
 export const getFeedbacks = async () => {
-  const response = await axios.get(`${API_BASE}/feedback/`);
+  const response = await axios.get(`${API_BASE}/feedbacks/`); // must match FastAPI router
   return response.data;
 };
 
 export const getFeedbackById = async (id) => {
-  const response = await axios.get(`${API_BASE}/feedback/${id}`);
+  const response = await axios.get(`${API_BASE}/feedbacks/${id}`);
   return response.data;
 };
 
 export const createFeedback = async (feedback) => {
-  const response = await axios.post(`${API_BASE}/feedback/`, feedback);
+  const response = await axios.post(`${API_BASE}/feedbacks/`, feedback);
   return response.data;
 };
 
 export const updateFeedback = async (id, feedback) => {
-  const response = await axios.put(`${API_BASE}/feedback/${id}`, feedback);
+  const response = await axios.put(`${API_BASE}/feedbacks/${id}`, feedback);
   return response.data;
 };
 
 export const deleteFeedback = async (id) => {
-  const response = await axios.delete(`${API_BASE}/feedback/${id}`);
+  const response = await axios.delete(`${API_BASE}/feedbacks/${id}`);
   return response.data;
 };
 
@@ -69,12 +69,12 @@ export const createCategory = async (category) => {
 
 /* -------------------- DEPARTMENTS -------------------- */
 export const getDepartments = async () => {
-  const response = await axios.get(`${API_BASE}/department/`);
+  const response = await axios.get(`${API_BASE}/departments/`); // fixed typo: "departmens" → "departments"
   return response.data;
 };
 
 export const createDepartment = async (department) => {
-  const response = await axios.post(`${API_BASE}/department/`, department);
+  const response = await axios.post(`${API_BASE}/departments/`, department); // match router path
   return response.data;
 };
 
