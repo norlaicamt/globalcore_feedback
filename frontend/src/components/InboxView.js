@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-// 1. IMPORT getDepartments
-import { getFeedbacks, getDepartments } from "../services/api"; 
+import { getDepartments, getUserNotifications } from "../services/api"; 
+import axios from "axios";
 import CustomModal from './CustomModal';
 
 const Icons = {
@@ -8,28 +8,18 @@ const Icons = {
   Search: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>,
   Close: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#64748B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>,
   Clock: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>,
-  Check: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>,
-  Star: ({ filled, size = 16 }) => (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill={filled ? "#FFB800" : "none"} stroke={filled ? "#FFB800" : "#CBD5E1"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  Star: ({ filled, size = 18 }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill={filled ? "#FBBF24" : "none"} stroke={filled ? "#FBBF24" : "#CBD5E1"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
     </svg>
   )
 };
 
-const formatDateTime = (dateStr) => {
-  if (!dateStr) return { date: "N/A", time: "N/A" };
-  const date = new Date(dateStr);
-  return {
-    date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-    time: date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
-  };
-};
-
-const HistoryView = ({ currentUser, onBack, minimalist = false }) => {
-  const [history, setHistory] = useState([]);
+const InboxView = ({ currentUser, onBack, initialTab = "All", minimalist = false }) => {
+  const [feedbacks, setFeedbacks] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("All");
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedItem, setSelectedItem] = useState(null);
   const [dialogState, setDialogState] = useState({ isOpen: false });
@@ -37,58 +27,35 @@ const HistoryView = ({ currentUser, onBack, minimalist = false }) => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [historyData, deptsData] = await Promise.all([
-          getFeedbacks(currentUser.id),
+        const [feedbackData, deptsData] = await Promise.all([
+          axios.get(`http://${window.location.hostname}:8000/feedbacks/?recipient_user_id=${currentUser?.id}`).then(r => r.data).catch(() => []),
           getDepartments().catch(() => [])
         ]);
-        setHistory(historyData);
+        
+        // Filter to only feedback where current user is the individual recipient
+        const myFeedbacks = feedbackData.filter(f => 
+          f.recipient_user_id === currentUser?.id
+        );
+        
+        setFeedbacks(myFeedbacks);
         setDepartments(deptsData);
       } catch (error) {
-        console.error("Failed to load history:", error);
+        console.error("Failed to load inbox:", error);
       } finally {
         setIsLoading(false);
       }
     };
-    if (currentUser?.id) fetchData();
+    if (currentUser) fetchData();
   }, [currentUser]);
 
-  const getFeedbackType = (item) => {
-    const title = item?.title || ""; 
-    return (title.toLowerCase().includes("praise") || title.toLowerCase().includes("general")) ? "FEED" : "TICKET";
-  };
-
-  const getUiStatus = (item) => {
-    if (getFeedbackType(item) === "FEED") return "Shared";
-    const map = { "OPEN": "Pending", "IN_PROGRESS": "Pending", "RESOLVED": "Resolved", "CLOSED": "Closed" };
-    return map[item?.status] || "Pending";
-  };
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'Pending': return '#FCD34D';
-      case 'Resolved': return '#34D399';
-      case 'Closed': return '#94A3B8';
-      case 'Shared': return '#60A5FA';
-      default: return 'transparent';
-    }
-  };
-
-  const getStatusStyle = (status) => ({
-    padding: '3px 8px', borderRadius: '6px', fontSize: '10px', 
-    fontWeight: 'bold', textTransform: 'uppercase', color: 'white',
-    backgroundColor: getStatusColor(status)
-  });
-
-  const getDepartmentName = (deptId) => {
-    if (!deptId) return null;
-    const dept = departments.find(d => d.id === parseInt(deptId));
-    return dept ? dept.name : `Dept ID: ${deptId}`;
-  };
+  useEffect(() => {
+    if (initialTab) setActiveTab(initialTab);
+  }, [initialTab]);
 
   const renderStars = (rating) => {
     if (!rating) return null;
     return (
-      <div style={{ display: 'flex', gap: '2px', marginBottom: '8px' }}>
+      <div style={{ display: 'flex', gap: '2px', marginBottom: '4px' }}>
         {[1, 2, 3, 4, 5].map(s => (
           <Icons.Star key={s} filled={s <= rating} size={14} />
         ))}
@@ -96,19 +63,35 @@ const HistoryView = ({ currentUser, onBack, minimalist = false }) => {
     );
   };
 
-  const filteredHistory = history.filter(item => {
-    const title = item?.title || "";
-    const matchesSearch = title.toLowerCase().includes(searchQuery.toLowerCase());
-    const status = getUiStatus(item);
-    return matchesSearch && (activeTab === "All" || status === activeTab);
-  });
+  const getDepartmentName = (deptId) => {
+    if (!deptId) return null;
+    const dept = departments.find(d => d.id === parseInt(deptId));
+    return dept ? dept.name : `Dept ID: ${deptId}`;
+  };
+
+  const formatDateTime = (dateStr) => {
+    if (!dateStr) return { date: "N/A", time: "N/A" };
+    const date = new Date(dateStr);
+    return {
+      date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      time: date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+    };
+  };
+  
+  const getFilteredFeedbacks = () => {
+    return feedbacks.filter(item => {
+      const title = item?.title || item?.subject || item?.description || "";
+      const matchesSearch = title.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchesSearch;
+    });
+  };
 
   return (
     <div style={minimalist ? styles.minimalContainer : styles.container}>
       {!minimalist && (
         <header style={styles.header}>
           <button onClick={onBack} style={styles.iconBtn}><Icons.Back /></button>
-          <h1 style={styles.headerTitle}>Sent Feedback</h1>
+          <h1 style={styles.headerTitle}>My Inbox</h1>
           <div style={{ width: 24 }}></div> 
         </header>
       )}
@@ -118,50 +101,57 @@ const HistoryView = ({ currentUser, onBack, minimalist = false }) => {
           <div style={styles.searchIcon}><Icons.Search /></div>
           <input 
             type="text" 
-            placeholder="Search sent feedback..." 
+            placeholder="Search feedback..." 
             style={styles.searchInput}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
 
-        <div style={styles.tabContainer}>
-          {["All", "Pending", "Resolved", "Shared"].map(tab => (
-            <button 
-              key={tab}
-              style={{
-                ...styles.tabBtn,
-                backgroundColor: activeTab === tab ? '#1f2a56' : 'transparent',
-                color: activeTab === tab ? 'white' : '#64748B',
-              }}
-              onClick={() => setActiveTab(tab)}
-            >
-              {tab}
-            </button>
-          ))}
-        </div>
+        {/* Tabs removed as per request */}
 
         <div style={styles.listContainer}>
-          {filteredHistory.map((item) => {
-            const isFeed = getFeedbackType(item) === "FEED";
-            const dt = formatDateTime(item.created_at);
-            return (
-              <div key={item.id} style={isFeed ? styles.feedCard : styles.historyCard} onClick={() => setSelectedItem(item)}>
-                <div style={styles.cardHeader}>
-                  <span style={styles.itemType}>{isFeed ? "✨ Informational" : `Ticket #${item.id}`}</span>
-                  <span style={styles.itemDate}>{dt.date}</span>
-                </div>
-                {renderStars(item.rating)}
-                <h3 style={styles.itemTitle}>{item.title}</h3>
-                <div style={styles.cardFooter}>
-                  {isFeed ? <div style={styles.sharedBadge}><Icons.Check /> Shared</div> : <div style={getStatusStyle(getUiStatus(item))}>{getUiStatus(item)}</div>}
-                  <div style={styles.timeLabel}><Icons.Clock /> {dt.time}</div>
-                </div>
+          {isLoading ? (
+            <p style={{textAlign: 'center', color: '#94A3B8', marginTop: 40}}>Loading...</p>
+          ) : (
+            getFilteredFeedbacks().length === 0 ? (
+              <div style={styles.emptyState}>
+                 <p style={{color: '#94A3B8', textAlign: 'center'}}>No feedback received</p>
               </div>
-            );
-          })}
+            ) : (
+              getFilteredFeedbacks().sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).map(item => (
+                <div 
+                  key={`feedback-${item.id}`} 
+                  style={styles.historyCard}
+                  onClick={() => setSelectedItem(item)}
+                >
+                  <div style={styles.cardHeader}>
+                    <span style={styles.itemDate}>{formatDateTime(item.created_at).date}</span>
+                    <span style={styles.senderText}>
+                      From: {item.user_name || 'Anonymous'}
+                    </span>
+                  </div>
+                  
+                  {renderStars(item.rating)}
+                  <h3 style={styles.itemTitle}>
+                    {item.title || item.subject || 'Feedback Received'}
+                  </h3>
+
+                  <div style={styles.cardFooter}>
+                    <div style={styles.regularBadge}>Feedback</div>
+                    <div style={styles.timeLabel}><Icons.Clock /> {formatDateTime(item.created_at).time}</div>
+                  </div>
+                </div>
+              ))
+            )
+          )}
         </div>
       </main>
+
+      {/* --- RECONSTRUCTING HEADER TO BE STICKY TOO --- */}
+      <style>{`
+        header { position: sticky; top: 0; z-index: 20; background-color: #F8FAFC; }
+      `}</style>
 
       {/* --- DETAIL MODAL --- */}
       {selectedItem && (
@@ -173,83 +163,44 @@ const HistoryView = ({ currentUser, onBack, minimalist = false }) => {
 
             <div style={styles.modalHeader}>
               <span style={styles.modalTag}>
-                {getFeedbackType(selectedItem) === "FEED" ? "✨ Informational Feed" : "🛠 Service Ticket"}
+                {"📝 Feedback"}
               </span>
-              <h2 style={styles.modalTitle}>{selectedItem.title}</h2>
+              <h2 style={styles.modalTitle}>{selectedItem.title || selectedItem.subject || 'Feedback'}</h2>
               <div style={styles.modalMeta}>
                 <span>{formatDateTime(selectedItem.created_at).date}</span>
                 <span style={styles.bullet}>•</span>
                 <span style={{display: 'flex', alignItems: 'center', gap: '4px'}}>
                   <Icons.Clock /> {formatDateTime(selectedItem.created_at).time}
                 </span>
+                <span style={styles.bullet}>•</span>
+                <span>From: {selectedItem.user_name || selectedItem.sender_name || 'Anonymous'}</span>
               </div>
             </div>
 
             <div style={styles.divider} />
 
             <div style={styles.modalBody}>
-              {/* SUBJECT (Fallback to title if subject doesn't exist) */}
-              <div style={styles.infoSection}>
-                <h4 style={styles.sectionLabel}>Subject</h4>
-                <p style={styles.infoValue}>{selectedItem.subject || selectedItem.title}</p>
-              </div>
-
-              {/* 5. DEPARTMENT REVEALED */}
-              {(selectedItem.department_name || selectedItem.recipient_dept_id) && (
-                <div style={styles.infoSection}>
-                  <h4 style={styles.sectionLabel}>Target Department</h4>
-                  <p style={styles.infoValue}>
-                    {selectedItem.department_name || getDepartmentName(selectedItem.recipient_dept_id)}
-                  </p>
-                </div>
-              )}
-
-              {/* 6. MESSAGE CONTENT REVEALED (Added .description) */}
               <div style={styles.infoSection}>
                 <h4 style={styles.sectionLabel}>Message Details</h4>
                 <p style={styles.messageText}>
-                  {selectedItem.description || selectedItem.details || selectedItem.message || selectedItem.idea || "No message content."}
+                  {selectedItem.description || selectedItem.details || selectedItem.message || selectedItem.idea || selectedItem.comment || "No message content."}
                 </p>
               </div>
-
-              {getFeedbackType(selectedItem) === "TICKET" && (
-                <div style={styles.statusBox}>
-                  <span style={styles.sectionLabel}>Status:</span>
-                  <div style={getStatusStyle(getUiStatus(selectedItem))}>{getUiStatus(selectedItem)}</div>
-                </div>
-              )}
             </div>
 
             <div style={{ display: 'flex', gap: '12px' }}>
-              {getFeedbackType(selectedItem) === "TICKET" && getUiStatus(selectedItem) !== "Resolved" && getUiStatus(selectedItem) !== "Closed" && (
-                <button 
-                  style={{ ...styles.primaryAction, backgroundColor: '#059669', color: 'white' }} 
-                  onClick={() => { 
-                    setDialogState({
-                      isOpen: true,
-                      title: 'Ticket Resolved ✅',
-                      message: 'This ticket has been successfully marked as resolved.',
-                      confirmText: 'Done',
-                      onConfirm: () => { setDialogState({ isOpen: false }); setSelectedItem(null); }
-                    });
-                  }}
-                >✅ Mark Resolved</button>
-              )}
-              <button style={styles.primaryAction} onClick={() => setSelectedItem(null)}>Close View</button>
+              <button style={styles.primaryAction} onClick={() => setSelectedItem(null)}>Close</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Custom Alert Modal */}
       <CustomModal 
         isOpen={dialogState.isOpen}
         title={dialogState.title}
         message={dialogState.message}
-        type={dialogState.type}
-        confirmText={dialogState.confirmText}
         onConfirm={dialogState.onConfirm}
-        onCancel={dialogState.onCancel}
+        onCancel={() => setDialogState({ isOpen: false })}
       />
     </div>
   );
@@ -306,4 +257,4 @@ const styles = {
   primaryAction: { width: '100%', padding: '14px', borderRadius: '12px', border: 'none', backgroundColor: '#1f2a56', color: 'white', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer' }
 };
 
-export default HistoryView;
+export default InboxView;

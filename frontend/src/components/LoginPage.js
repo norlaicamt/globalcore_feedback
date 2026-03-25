@@ -1,11 +1,13 @@
 import React, { useState } from "react";
 import axios from "axios";
+import CustomModal from "./CustomModal";
 
 const LoginPage = ({ onLoginSuccess }) => {
   const [isSignUp, setIsSignUp] = useState(false);
   const [emailInput, setEmailInput] = useState("");
   const [nameInput, setNameInput] = useState(""); 
   const [password, setPassword] = useState("");
+  const [dialogState, setDialogState] = useState({ isOpen: false });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -18,8 +20,14 @@ const LoginPage = ({ onLoginSuccess }) => {
           is_active: true
           // Note: Your current backend schema might not support 'password' yet
         });
-        alert("Account created! You can now log in.");
-        setIsSignUp(false);
+        setDialogState({
+          isOpen: true,
+          type: 'alert',
+          title: 'Account Created! 🎉',
+          message: 'You can now log in with your credentials.',
+          confirmText: 'Awesome',
+          onConfirm: () => { setDialogState({ isOpen: false }); setIsSignUp(false); }
+        });
       } else {
         // --- LOGIN LOGIC ---
         // Match the backend: Send email as a query parameter
@@ -30,7 +38,15 @@ const LoginPage = ({ onLoginSuccess }) => {
       }
     } catch (err) {
       const msg = err.response?.data?.detail || "Action failed. Check your connection.";
-      alert(typeof msg === 'object' ? JSON.stringify(msg) : msg);
+      setDialogState({
+        isOpen: true,
+        type: 'alert',
+        title: 'Authentication Error',
+        message: typeof msg === 'object' ? JSON.stringify(msg) : msg,
+        confirmText: 'Try Again',
+        isDestructive: true,
+        onConfirm: () => setDialogState({ isOpen: false })
+      });
     }
   };
 
@@ -108,6 +124,17 @@ const LoginPage = ({ onLoginSuccess }) => {
           </button>
         </p>
       </div>
+
+      <CustomModal 
+        isOpen={dialogState.isOpen}
+        title={dialogState.title}
+        message={dialogState.message}
+        type={dialogState.type}
+        confirmText={dialogState.confirmText}
+        isDestructive={dialogState.isDestructive}
+        onConfirm={dialogState.onConfirm}
+        onCancel={dialogState.onCancel}
+      />
     </div>
   );
 };

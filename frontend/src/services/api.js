@@ -30,6 +30,16 @@ export const deleteUser = async (id) => {
   return response.data;
 };
 
+export const getUserNotifications = async (id) => {
+  const response = await axios.get(`${API_BASE}/users/${id}/notifications`);
+  return response.data;
+};
+
+export const markNotificationsAsRead = async (id) => {
+  const response = await axios.post(`${API_BASE}/users/${id}/notifications/read`);
+  return response.data;
+};
+
 /* -------------------- FEEDBACK -------------------- */
 export const getFeedbacks = async () => {
   const response = await axios.get(`${API_BASE}/feedbacks/`); // must match FastAPI router
@@ -53,6 +63,50 @@ export const updateFeedback = async (id, feedback) => {
 
 export const deleteFeedback = async (id) => {
   const response = await axios.delete(`${API_BASE}/feedbacks/${id}`);
+  return response.data;
+};
+
+export const getFeedbackReplies = async (feedbackId, userId = null) => {
+  const params = userId ? { user_id: userId } : {};
+  const response = await axios.get(`${API_BASE}/feedbacks/${feedbackId}/replies`, { params });
+  return response.data;
+};
+
+export const createFeedbackReply = async (feedbackId, reply) => {
+  const response = await axios.post(`${API_BASE}/feedbacks/${feedbackId}/replies`, reply);
+  return response.data;
+};
+
+export const updateFeedbackReply = async (feedbackId, replyId, reply) => {
+  const response = await axios.put(`${API_BASE}/feedbacks/${feedbackId}/replies/${replyId}`, reply);
+  return response.data;
+};
+
+export const deleteFeedbackReply = async (feedbackId, replyId) => {
+  const response = await axios.delete(`${API_BASE}/feedbacks/${feedbackId}/replies/${replyId}`);
+  return response.data;
+};
+
+/* -------------------- REACTIONS -------------------- */
+export const toggleReaction = async (feedbackId, userId, isLike) => {
+  const response = await axios.post(`${API_BASE}/feedbacks/${feedbackId}/reactions`, {
+    user_id: userId,
+    is_like: isLike
+  });
+  return response.data;
+};
+
+export const toggleReplyReaction = async (feedbackId, replyId, userId, isLike) => {
+  const response = await axios.post(`${API_BASE}/feedbacks/${feedbackId}/replies/${replyId}/reactions`, {
+    user_id: userId,
+    is_like: isLike
+  });
+  return response.data;
+};
+
+export const getReactionsSummary = async (feedbackId, userId) => {
+  const params = userId ? { user_id: userId } : {};
+  const response = await axios.get(`${API_BASE}/feedbacks/${feedbackId}/reactions`, { params });
   return response.data;
 };
 

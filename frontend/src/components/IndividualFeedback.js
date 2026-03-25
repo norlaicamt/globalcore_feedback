@@ -4,11 +4,18 @@ import { getUsers, createFeedback } from "../services/api"; // Import both
 const Icons = {
   Back: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1f2a56" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>,
   Search: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>,
+  Star: ({ filled }) => (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill={filled ? "#FFB800" : "none"} stroke={filled ? "#FFB800" : "#CBD5E1"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+    </svg>
+  )
 };
 
-const IndividualFeedback = ({ currentUser, onBack }) => { // Add currentUser
+const IndividualFeedback = ({ currentUser, onBack, onSuccess }) => { // Add currentUser
   const [isAnonymous, setIsAnonymous] = useState(false);
+  const [allowComments, setAllowComments] = useState(true);
   const [type, setType] = useState("praise");
+  const [rating, setRating] = useState(0);
   
   // New States for API
   const [message, setMessage] = useState("");
@@ -45,15 +52,16 @@ const IndividualFeedback = ({ currentUser, onBack }) => { // Add currentUser
     setIsSubmitting(true);
     try {
       await createFeedback({
-        title: `Individual Feedback: ${type.toUpperCase()}`,
+        title: `Individual Feedback`,
         description: message,
         is_anonymous: isAnonymous,
+        allow_comments: allowComments,
         sender_id: currentUser.id,
         recipient_user_id: selectedRecipientId,
-        category_id: 1 // ADD THIS LINE! (Assuming 1 is a valid category ID)
+        category_id: 2, // Individual
+        rating: rating > 0 ? rating : null
       });
-      alert("Feedback Submitted Successfully!");
-      onBack();
+      onSuccess();
     } catch (error) {
       console.error("Error submitting individual feedback:", error);
       alert("Error submitting. Check console.");
@@ -71,7 +79,7 @@ const IndividualFeedback = ({ currentUser, onBack }) => { // Add currentUser
       </header>
 
       <main style={styles.mainScroll}>
-        <p style={styles.description}>Recognize a colleague's hard work or provide constructive, private feedback.</p>
+        <p style={styles.description}>Provide helpful feedback or recognition to your colleague.</p>
 
         <div style={styles.formGroup}>
           <label style={styles.label}>Who is this for?</label>
@@ -112,13 +120,7 @@ const IndividualFeedback = ({ currentUser, onBack }) => { // Add currentUser
           </div>
         </div>
 
-        <div style={styles.formGroup}>
-          <label style={styles.label}>Feedback Type</label>
-          <div style={styles.tabRow}>
-            <button style={type === "praise" ? styles.tabActive : styles.tabInactive} onClick={() => setType("praise")}>Praise / Recognition</button>
-            <button style={type === "constructive" ? styles.tabActive : styles.tabInactive} onClick={() => setType("constructive")}>Constructive</button>
-          </div>
-        </div>
+        {/* Feedback Type removed as per request */}
 
         <div style={styles.formGroup}>
           <label style={styles.label}>Your Message</label>
@@ -130,6 +132,22 @@ const IndividualFeedback = ({ currentUser, onBack }) => { // Add currentUser
           ></textarea>
         </div>
 
+        <div style={styles.formGroup}>
+          <label style={styles.label}>Rating</label>
+          <div style={styles.starRow}>
+            {[1, 2, 3, 4, 5].map((star) => (
+              <button 
+                key={star} 
+                style={styles.starBtn} 
+                onClick={() => setRating(star)}
+              >
+                <Icons.Star filled={star <= rating} />
+              </button>
+            ))}
+            {rating > 0 && <span style={styles.ratingText}>{rating}/5 Stars</span>}
+          </div>
+        </div>
+
         <div style={styles.toggleRowContainer}>
           <div style={styles.itemText}>
             <p style={{...styles.itemTitle, color: isAnonymous ? '#10B981' : '#1E293B'}}>Submit Anonymously</p>
@@ -137,6 +155,16 @@ const IndividualFeedback = ({ currentUser, onBack }) => { // Add currentUser
           </div>
           <div style={{...styles.toggleBg, backgroundColor: isAnonymous ? '#10B981' : '#E2E8F0'}} onClick={() => setIsAnonymous(!isAnonymous)}>
             <div style={{...styles.toggleCircle, transform: isAnonymous ? 'translateX(20px)' : 'translateX(2px)'}} />
+          </div>
+        </div>
+
+        <div style={styles.toggleRowContainer}>
+          <div style={styles.itemText}>
+            <p style={{...styles.itemTitle, color: allowComments ? '#10B981' : '#1E293B'}}>Allow Comments</p>
+            <p style={styles.itemSubtitle}>Let others discuss and reply to your feedback.</p>
+          </div>
+          <div style={{...styles.toggleBg, backgroundColor: allowComments ? '#10B981' : '#E2E8F0'}} onClick={() => setAllowComments(!allowComments)}>
+            <div style={{...styles.toggleCircle, transform: allowComments ? 'translateX(20px)' : 'translateX(2px)'}} />
           </div>
         </div>
 
@@ -161,7 +189,7 @@ const styles = {
   dropdownItem: { padding: '12px 16px', fontSize: '14px', color: '#1E293B', cursor: 'pointer', borderBottom: '1px solid #F1F5F9' },
   
   // I included your other existing styles here for reference:
-  container: { height: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: '#F8FAFC', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' },
+  container: { height: '100%', display: 'flex', flexDirection: 'column', backgroundColor: '#F8FAFC', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' },
   header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px', backgroundColor: '#F8FAFC' },
   headerTitle: { fontSize: '18px', fontWeight: 'bold', color: '#1f2a56', margin: 0 },
   iconBtn: { background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' },
@@ -182,7 +210,10 @@ const styles = {
   itemSubtitle: { fontSize: '12px', color: '#94A3B8', margin: 0, lineHeight: '1.4' },
   toggleBg: { width: '46px', height: '26px', borderRadius: '13px', display: 'flex', alignItems: 'center', cursor: 'pointer', transition: 'background-color 0.3s ease' },
   toggleCircle: { width: '22px', height: '22px', backgroundColor: 'white', borderRadius: '50%', boxShadow: '0 2px 4px rgba(0,0,0,0.2)', transition: 'transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)' },
-  submitBtn: { width: '100%', padding: '16px', backgroundColor: '#1f2a56', color: 'white', border: 'none', borderRadius: '14px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 12px rgba(31, 42, 86, 0.2)' }
+  submitBtn: { width: '100%', padding: '16px', backgroundColor: '#1f2a56', color: 'white', border: 'none', borderRadius: '14px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 12px rgba(31, 42, 86, 0.2)' },
+  starRow: { display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 0' },
+  starBtn: { background: 'none', border: 'none', cursor: 'pointer', padding: 0 },
+  ratingText: { marginLeft: '8px', fontSize: '14px', color: '#64748B', fontWeight: '600' }
 };
 
 export default IndividualFeedback;

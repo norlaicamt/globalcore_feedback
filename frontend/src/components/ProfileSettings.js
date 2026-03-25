@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import CustomModal from "./CustomModal";
+import { deleteUser, updateUser } from "../services/api";
 
 // --- PROFESSIONAL SVGs (Strict Navy/Grey Palette) ---
 const Icons = {
@@ -15,17 +17,40 @@ const Icons = {
   Shield: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
 };
 
-const ProfileSettings = ({ currentUser, onBack }) => {
+const ProfileSettings = ({ currentUser, onBack, onLogout, onUserUpdate }) => {
   const [subView, setSubView] = useState("main");
+  const [toastMessage, setToastMessage] = useState(null);
+  const fileInputRef = React.useRef(null);
 
-  if (subView === "personal_info") return <PersonalInfoView currentUser={currentUser} onBack={() => setSubView("main")} />;
-  if (subView === "role_management") return <RoleManagementView onBack={() => setSubView("main")} />;
-  if (subView === "alert_prefs") return <AlertPreferencesView onBack={() => setSubView("main")} />;
-  if (subView === "privacy_security") return <PrivacySecurityView onBack={() => setSubView("main")} />;
+  const showToast = (message) => {
+    setToastMessage(message);
+    setTimeout(() => setToastMessage(null), 2500);
+  };
 
-  return (
-    <div style={styles.container}>
-      <header style={styles.header}>
+  const handleAvatarUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const base64 = reader.result;
+      try {
+        const updated = await updateUser(currentUser.id, { avatar_url: base64 });
+        if (onUserUpdate) onUserUpdate({ ...currentUser, avatar_url: base64 });
+        showToast("Profile picture updated!");
+      } catch { showToast("Failed to upload photo"); }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const renderView = () => {
+    if (subView === "personal_info") return <PersonalInfoView currentUser={currentUser} onBack={() => setSubView("main")} showToast={showToast} onUserUpdate={onUserUpdate} />;
+    if (subView === "role_management") return <RoleManagementView onBack={() => setSubView("main")} showToast={showToast} currentUser={currentUser} onUserUpdate={onUserUpdate} />;
+    if (subView === "alert_prefs") return <AlertPreferencesView currentUser={currentUser} onBack={() => setSubView("main")} showToast={showToast} onUserUpdate={onUserUpdate} />;
+    if (subView === "privacy_security") return <PrivacySecurityView currentUser={currentUser} onBack={() => setSubView("main")} onLogout={onLogout} showToast={showToast} onUserUpdate={onUserUpdate} />;
+
+    return (
+      <div style={styles.container}>
+        <header style={styles.header}>
         <button onClick={onBack} style={styles.iconBtn}>
           <Icons.Back />
         </button>
@@ -37,10 +62,15 @@ const ProfileSettings = ({ currentUser, onBack }) => {
 
       <main style={styles.mainScroll}>
         <section style={styles.profileSection}>
-          <div style={styles.avatarContainer}>
-            <div style={styles.avatar}>{currentUser?.name?.charAt(0) || "U"}</div>
-            <button style={styles.editBadge}><Icons.Edit /></button>
-          </div>
+           <div style={styles.avatarContainer}>
+              {currentUser?.avatar_url ? (
+                <img src={currentUser.avatar_url} alt="avatar" style={{...styles.avatar, objectFit: 'cover'}} />
+              ) : (
+                <div style={styles.avatar}>{currentUser?.name?.charAt(0) || "U"}</div>
+              )}
+              <button style={styles.editBadge} onClick={() => fileInputRef.current?.click()}><Icons.Edit /></button>
+              <input ref={fileInputRef} type="file" accept="image/*" style={{display:'none'}} onChange={handleAvatarUpload} />
+           </div>
           <h2 style={styles.userName}>{currentUser?.name || "Alex Johnson"}</h2>
           <div style={styles.roleBadges}>
             <span style={styles.badge}>Maker</span>
@@ -67,30 +97,74 @@ const ProfileSettings = ({ currentUser, onBack }) => {
         <p style={styles.versionText}>APP VERSION 2.4.1 (BUILD 890)</p>
       </main>
     </div>
+    );
+  };
+
+  return (
+    <>
+      {renderView()}
+      {toastMessage && (
+        <div style={styles.toastModal}>
+          ✅ {toastMessage}
+        </div>
+      )}
+    </>
   );
 };
 
-const PersonalInfoView = ({ currentUser, onBack }) => (
-  <div style={styles.container}>
-    <header style={styles.header}>
-      <button onClick={onBack} style={styles.iconBtn}><Icons.Back /></button>
-      <h1 style={styles.headerTitle}>Personal Info</h1>
-      <div style={{ width: 24 }}></div>
-    </header>
+const PersonalInfoView = ({ currentUser, onBack, showToast, onUserUpdate }) => {
+  const [name, setName] = useState(currentUser?.name || "");
+  const [email, setEmail] = useState(currentUser?.email || "");
+  const [phone, setPhone] = useState(currentUser?.phone || "");
+  const [department, setDepartment] = useState(currentUser?.department || "");
+  const [username, setUsername] = useState(currentUser?.username || "");
 
-    <main style={styles.mainScroll}>
-      <div style={styles.formGroup}><label style={styles.inputLabel}>Full Name</label><input type="text" style={styles.inputField} defaultValue={currentUser?.name || "Alex Johnson"} /></div>
-      <div style={styles.formGroup}><label style={styles.inputLabel}>Username</label><input type="text" style={styles.inputField} defaultValue={currentUser?.username || "@alex_j"} /></div>
-      <div style={styles.formGroup}><label style={styles.inputLabel}>Email Address</label><input type="email" style={styles.inputField} defaultValue={currentUser?.email || "alex.johnson@company.com"} /></div>
-      <div style={styles.formGroup}><label style={styles.inputLabel}>Phone Number</label><input type="tel" style={styles.inputField} defaultValue={currentUser?.phone || "+63 917 123 4567"} /></div>
-      <div style={styles.formGroup}><label style={styles.inputLabel}>Department / Office Address</label><input type="text" style={styles.inputField} defaultValue={currentUser?.department || "IT Department, Floor 3"} /></div>
-      <button style={styles.saveBtn}>Save Changes</button>
-    </main>
-  </div>
-);
+  const handleSave = async () => {
+    try {
+      const updated = await updateUser(currentUser.id, { name, email, phone, department, username });
+      // Merge server response with existing - ensures all fields (id, role, etc.) preserved
+      const merged = { ...currentUser, ...updated };
+      if (onUserUpdate) onUserUpdate(merged);
+      showToast("Personal Information saved");
+      onBack();
+    } catch (err) {
+      showToast("Failed to save. Make sure you are logged in.");
+    }
+  };
 
-const RoleManagementView = ({ onBack }) => {
-  const [activeRole, setActiveRole] = useState("maker");
+  return (
+    <div style={styles.container}>
+      <header style={styles.header}>
+        <button onClick={onBack} style={styles.iconBtn}><Icons.Back /></button>
+        <h1 style={styles.headerTitle}>Personal Info</h1>
+        <div style={{ width: 24 }}></div>
+      </header>
+      <main style={styles.mainScroll}>
+        <div style={styles.formGroup}><label style={styles.inputLabel}>Full Name</label><input type="text" style={styles.inputField} value={name} onChange={e => setName(e.target.value)} /></div>
+        <div style={styles.formGroup}><label style={styles.inputLabel}>Username</label><input type="text" style={styles.inputField} value={username} onChange={e => setUsername(e.target.value)} /></div>
+        <div style={styles.formGroup}><label style={styles.inputLabel}>Email Address</label><input type="email" style={styles.inputField} value={email} onChange={e => setEmail(e.target.value)} /></div>
+        <div style={styles.formGroup}><label style={styles.inputLabel}>Phone Number</label><input type="tel" style={styles.inputField} value={phone} onChange={e => setPhone(e.target.value)} /></div>
+        <div style={styles.formGroup}><label style={styles.inputLabel}>Department / Office</label><input type="text" style={styles.inputField} value={department} onChange={e => setDepartment(e.target.value)} /></div>
+        <button style={styles.saveBtn} onClick={handleSave}>Save Changes</button>
+      </main>
+    </div>
+  );
+};
+
+const RoleManagementView = ({ onBack, showToast, currentUser, onUserUpdate }) => {
+  const [activeRole, setActiveRole] = useState(currentUser?.role || "maker");
+
+  const handleRoleSave = async () => {
+    try {
+      const updated = await updateUser(currentUser.id, { role: activeRole });
+      const merged = { ...currentUser, ...updated };
+      if (onUserUpdate) onUserUpdate(merged);
+      showToast(`Role changed to ${activeRole === "maker" ? "Maker" : "Recipient"}`);
+      onBack();
+    } catch (err) {
+      showToast("Failed to save role");
+    }
+  };
 
   return (
     <div style={styles.container}>
@@ -126,18 +200,30 @@ const RoleManagementView = ({ onBack }) => {
           </div>
           <p style={styles.roleDesc}>Review incoming feedback for your department, resolve open tickets, and reply to users.</p>
         </div>
-        <button style={styles.saveBtn}>Apply Role Change</button>
+        <button style={styles.saveBtn} onClick={handleRoleSave}>Apply Role Change</button>
       </main>
     </div>
   );
 };
 
-const AlertPreferencesView = ({ onBack }) => {
-  const [pushEnabled, setPushEnabled] = useState(true);
-  const [emailEnabled, setEmailEnabled] = useState(false);
-  const [statusUpdates, setStatusUpdates] = useState(true);
-  const [newReplies, setNewReplies] = useState(true);
-  const [weeklyDigest, setWeeklyDigest] = useState(false);
+const AlertPreferencesView = ({ currentUser, onBack, showToast, onUserUpdate }) => {
+  const [pushEnabled, setPushEnabled] = useState(currentUser?.push_notifications ?? true);
+  const [emailEnabled, setEmailEnabled] = useState(currentUser?.email_notifications ?? false);
+  const [statusUpdates, setStatusUpdates] = useState(currentUser?.status_updates ?? true);
+  const [newReplies, setNewReplies] = useState(currentUser?.reply_notifications ?? true);
+  const [weeklyDigest, setWeeklyDigest] = useState(currentUser?.weekly_digest ?? false);
+
+  const handleToggle = async (field, currentVal, setter, label) => {
+    const next = !currentVal;
+    try {
+      const updated = await updateUser(currentUser.id, { [field]: next });
+      setter(next);
+      if (onUserUpdate) onUserUpdate({ ...currentUser, ...updated });
+      showToast(`${label} updated`);
+    } catch {
+      showToast(`Failed to update ${label}`);
+    }
+  };
 
   return (
     <div style={styles.container}>
@@ -151,25 +237,107 @@ const AlertPreferencesView = ({ onBack }) => {
         
         <h3 style={styles.sectionLabel}>DELIVERY METHODS</h3>
         <div style={styles.cardGroup}>
-          <ToggleRow title="Push Notifications" subtitle="Receive alerts on your mobile device" isOn={pushEnabled} onToggle={() => setPushEnabled(!pushEnabled)} />
-          <ToggleRow title="Email Notifications" subtitle="Receive updates to your company email" isOn={emailEnabled} onToggle={() => setEmailEnabled(!emailEnabled)} />
+          <ToggleRow title="Push Notifications" subtitle="Receive alerts on your mobile device" isOn={pushEnabled} onToggle={() => handleToggle("push_notifications", pushEnabled, setPushEnabled, "Push Notifications")} />
+          <ToggleRow title="Email Notifications" subtitle="Receive updates to your company email" isOn={emailEnabled} onToggle={() => handleToggle("email_notifications", emailEnabled, setEmailEnabled, "Email Notifications")} />
         </div>
 
         <h3 style={{...styles.sectionLabel, marginTop: '24px'}}>NOTIFY ME WHEN...</h3>
         <div style={styles.cardGroup}>
-          <ToggleRow title="Status Changes" subtitle="A report you made is marked resolved or active" isOn={statusUpdates} onToggle={() => setStatusUpdates(!statusUpdates)} />
-          <ToggleRow title="New Replies" subtitle="Someone comments on your feedback thread" isOn={newReplies} onToggle={() => setNewReplies(!newReplies)} />
-          <ToggleRow title="Weekly Digest" subtitle="A summary of department activity every Friday" isOn={weeklyDigest} onToggle={() => setWeeklyDigest(!weeklyDigest)} />
+          <ToggleRow title="Status Changes" subtitle="A report you made is marked resolved or active" isOn={statusUpdates} onToggle={() => handleToggle("status_updates", statusUpdates, setStatusUpdates, "Status Updates")} />
+          <ToggleRow title="New Replies" subtitle="Someone comments on your feedback thread" isOn={newReplies} onToggle={() => handleToggle("reply_notifications", newReplies, setNewReplies, "Reply Notifications")} />
+          <ToggleRow title="Weekly Digest" subtitle="A summary of department activity every Friday" isOn={weeklyDigest} onToggle={() => handleToggle("weekly_digest", weeklyDigest, setWeeklyDigest, "Weekly Digest")} />
         </div>
       </main>
     </div>
   );
 };
 
-const PrivacySecurityView = ({ onBack }) => {
-  const [isAnonymous, setIsAnonymous] = useState(false);
-  const [showStatus, setShowStatus] = useState(true);
-  const [biometrics, setBiometrics] = useState(true);
+const PrivacySecurityView = ({ currentUser, onBack, onLogout, showToast, onUserUpdate }) => {
+  const [showStatus, setShowStatus] = useState(currentUser?.show_activity_status ?? true);
+  const [biometrics, setBiometrics] = useState(currentUser?.biometrics_enabled ?? true);
+  const [twoFA, setTwoFA] = useState(currentUser?.two_factor_enabled || false);
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
+  const [oldPassword, setOldPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+
+  // Delete account state
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleteCountdown, setDeleteCountdown] = useState(5);
+  const [deleteTimerStarted, setDeleteTimerStarted] = useState(false);
+
+  const startDeleteTimer = () => {
+    setDeleteCountdown(5);
+    setDeleteTimerStarted(true);
+    const interval = setInterval(() => {
+      setDeleteCountdown(prev => {
+        if (prev <= 1) { clearInterval(interval); return 0; }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  const handleToggleActivityStatus = async () => {
+    const next = !showStatus;
+    try {
+      const updated = await updateUser(currentUser.id, { show_activity_status: next });
+      setShowStatus(next);
+      if (onUserUpdate) onUserUpdate({ ...currentUser, ...updated });
+      showToast(next ? "Activity Status is now Visible" : "Activity Status Hidden");
+    } catch { showToast("Failed to update activity status"); }
+  };
+
+  const handleToggle2FA = async () => {
+    const next = !twoFA;
+    try {
+      const updated = await updateUser(currentUser.id, { two_factor_enabled: next });
+      setTwoFA(next);
+      if (onUserUpdate) onUserUpdate({ ...currentUser, ...updated });
+      showToast(next ? "Two-Factor Authentication Enabled" : "Two-Factor Authentication Disabled");
+    } catch { showToast("Failed to update 2FA"); }
+  };
+
+  const handleToggleBiometrics = async () => {
+    const next = !biometrics;
+    try {
+      const updated = await updateUser(currentUser.id, { biometrics_enabled: next });
+      setBiometrics(next);
+      if (onUserUpdate) onUserUpdate({ ...currentUser, ...updated });
+      showToast(next ? "Biometric Login Enabled" : "Biometric Login Disabled");
+    } catch { showToast("Failed to update biometrics"); }
+  };
+
+  const handleChangePassword = async () => {
+    if (!oldPassword || !newPassword) { showToast("Please fill both fields"); return; }
+    const stored = JSON.parse(localStorage.getItem("currentUser") || "{}");
+    if (stored.password && stored.password !== oldPassword) {
+      showToast("Current password is incorrect"); return;
+    }
+    try {
+      const updated = await updateUser(currentUser.id, { password: newPassword });
+      if (onUserUpdate) onUserUpdate({ ...currentUser, password: newPassword });
+      showToast("Password changed successfully!");
+      setShowPasswordForm(false);
+      setOldPassword(""); setNewPassword("");
+    } catch { showToast("Failed to change password"); }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!deletePassword) { showToast("Please enter your password to confirm"); return; }
+    const stored = JSON.parse(localStorage.getItem("currentUser") || "{}");
+    if (stored.password && stored.password !== deletePassword) {
+      showToast("Incorrect password"); return;
+    }
+    try {
+      if (currentUser?.id) await deleteUser(currentUser.id);
+      localStorage.removeItem("token");
+      localStorage.removeItem("currentUser");
+      if (onLogout) onLogout();
+      else window.location.reload();
+    } catch (err) {
+      showToast("Failed to delete account");
+    }
+  };
 
   return (
     <div style={styles.container}>
@@ -182,21 +350,57 @@ const PrivacySecurityView = ({ onBack }) => {
         
         <h3 style={styles.sectionLabel}>PRIVACY</h3>
         <div style={styles.cardGroup}>
-          <ToggleRow 
-            title="Anonymous Mode" 
-            subtitle="Hide your identity when submitting general feedback" 
-            isOn={isAnonymous} 
-            onToggle={() => setIsAnonymous(!isAnonymous)} 
-            highlight={true}
-          />
-          <ToggleRow title="Show Activity Status" subtitle="Let others see when you are online" isOn={showStatus} onToggle={() => setShowStatus(!showStatus)} />
+          <ToggleRow title="Show Activity Status" subtitle={showStatus ? "Online — others can see you are active" : "Hidden — your status is private"} isOn={showStatus} onToggle={handleToggleActivityStatus} />
         </div>
 
         <h3 style={{...styles.sectionLabel, marginTop: '24px'}}>SECURITY</h3>
         <div style={styles.cardGroup}>
-          <SettingItem icon={<Icons.Lock />} title="Change Password" subtitle="Last updated 3 months ago" onClick={() => alert("Change password flow")} />
-          <SettingItem icon={<Icons.Shield />} title="Two-Factor Authentication" subtitle="Add an extra layer of security" onClick={() => alert("2FA Setup")} />
-          <ToggleRow title="Biometric Login" subtitle="Use Face ID / Touch ID to open the app" isOn={biometrics} onToggle={() => setBiometrics(!biometrics)} />
+          <SettingItem icon={<Icons.Lock />} title="Change Password" subtitle={showPasswordForm ? "Enter your details below" : "Click to update your password"} onClick={() => setShowPasswordForm(!showPasswordForm)} />
+          {showPasswordForm && (
+            <div style={{padding: '16px', backgroundColor: 'white', borderRadius: '16px', border: '1px solid #E2E8F0', display: 'flex', flexDirection: 'column', gap: '12px'}}>
+              <input type="password" placeholder="Current Password" value={oldPassword} onChange={e => setOldPassword(e.target.value)} style={{...styles.inputField, padding: '12px'}} />
+              <input type="password" placeholder="New Password" value={newPassword} onChange={e => setNewPassword(e.target.value)} style={{...styles.inputField, padding: '12px'}} />
+              <button style={{...styles.saveBtn, marginTop: 0, padding: '12px'}} onClick={handleChangePassword}>Update Password</button>
+            </div>
+          )}
+          <ToggleRow title="Two-Factor Authentication" subtitle={twoFA ? "2FA is Active — your account is protected" : "Enable for extra security"} isOn={twoFA} onToggle={handleToggle2FA} />
+          <ToggleRow title="Biometric Login" subtitle="Use Face ID / Touch ID to open the app" isOn={biometrics} onToggle={handleToggleBiometrics} />
+        </div>
+
+        <h3 style={{...styles.sectionLabel, marginTop: '32px', color: '#EF4444'}}>DANGER ZONE</h3>
+        <div style={{...styles.cardGroup, backgroundColor: '#FEF2F2', padding: '16px', borderRadius: '16px', border: '1px solid #FEE2E2', display: 'flex', flexDirection: 'column', gap: '12px'}}>
+          <p style={{fontSize: '14px', color: '#991B1B', margin: 0, fontWeight: '500'}}>
+            Deleting your account is permanent. All your data will be erased and cannot be recovered.
+          </p>
+          {!showDeleteConfirm ? (
+            <button style={{backgroundColor: '#EF4444', color: 'white', padding: '12px', border: 'none', borderRadius: '10px', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer'}} 
+              onClick={() => { setShowDeleteConfirm(true); startDeleteTimer(); }}>
+              Delete Account
+            </button>
+          ) : (
+            <div style={{display: 'flex', flexDirection: 'column', gap: '12px'}}>
+              <input
+                type="password"
+                placeholder="Enter your password to confirm"
+                value={deletePassword}
+                onChange={e => setDeletePassword(e.target.value)}
+                style={{...styles.inputField, padding: '12px', border: '2px solid #FCA5A5'}}
+              />
+              <div style={{display: 'flex', gap: '10px'}}>
+                <button
+                  style={{flex: 1, backgroundColor: '#E2E8F0', color: '#475569', padding: '12px', border: 'none', borderRadius: '10px', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer'}}
+                  onClick={() => { setShowDeleteConfirm(false); setDeletePassword(""); setDeleteTimerStarted(false); setDeleteCountdown(5); }}>
+                  Cancel
+                </button>
+                <button
+                  disabled={deleteCountdown > 0}
+                  onClick={handleDeleteAccount}
+                  style={{flex: 1, backgroundColor: deleteCountdown > 0 ? '#FCA5A5' : '#EF4444', color: 'white', padding: '12px', border: 'none', borderRadius: '10px', fontSize: '14px', fontWeight: 'bold', cursor: deleteCountdown > 0 ? 'not-allowed' : 'pointer', transition: 'background-color 0.3s'}}>
+                  {deleteCountdown > 0 ? `Confirm (${deleteCountdown}s)` : 'Confirm Delete'}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </main>
     </div>
@@ -233,11 +437,11 @@ const ToggleRow = ({ title, subtitle, isOn, onToggle, highlight }) => (
 // --- STYLES ---
 const styles = {
   container: { height: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: '#F8FAFC', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' },
-  header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px', backgroundColor: '#F8FAFC' },
-  headerTitle: { fontSize: '18px', fontWeight: 'bold', color: '#1f2a56', margin: 0 },
-  iconBtn: { background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' },
+  header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 20px', backgroundColor: '#F8FAFC', flexShrink: 0, maxWidth: '800px', margin: '0 auto', width: '100%', borderBottom: '1px solid #F1F5F9' },
+  headerTitle: { fontSize: '16px', fontWeight: '800', color: '#1f2a56', margin: 0 },
+  iconBtn: { background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', color: '#1f2a56' },
   
-  mainScroll: { flex: 1, overflowY: 'auto', padding: '0 20px 40px 20px' },
+  mainScroll: { flex: 1, overflowY: 'auto', padding: '16px', maxWidth: '800px', margin: '0 auto', width: '100%' },
   
   profileSection: { display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '32px' },
   avatarContainer: { position: 'relative', marginBottom: '16px' },
@@ -276,7 +480,8 @@ const styles = {
 
   toggleRowContainer: { display: 'flex', alignItems: 'center', backgroundColor: 'white', padding: '16px', borderRadius: '16px', border: '1px solid #F1F5F9', justifyContent: 'space-between' },
   toggleBg: { width: '46px', height: '26px', borderRadius: '13px', display: 'flex', alignItems: 'center', cursor: 'pointer', transition: 'background-color 0.3s ease' },
-  toggleCircle: { width: '22px', height: '22px', backgroundColor: 'white', borderRadius: '50%', boxShadow: '0 2px 4px rgba(0,0,0,0.2)', transition: 'transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)' }
+  toggleCircle: { width: '22px', height: '22px', backgroundColor: 'white', borderRadius: '50%', boxShadow: '0 2px 4px rgba(0,0,0,0.2)', transition: 'transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)' },
+  toastModal: { position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', padding: '16px 24px', backgroundColor: '#10B981', color: 'white', fontWeight: 'bold', fontSize: '15px', borderRadius: '30px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)', zIndex: 9999, animation: 'fadeIn 0.2s ease-out', pointerEvents: 'none'}
 };
 
 export default ProfileSettings;
