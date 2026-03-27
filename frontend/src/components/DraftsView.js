@@ -6,7 +6,7 @@ const Icons = {
   Clock: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
 };
 
-const DraftsView = ({ currentUser, onBack }) => {
+const DraftsView = ({ currentUser, onBack, onResumeDraft }) => {
   const [drafts, setDrafts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -49,10 +49,10 @@ const DraftsView = ({ currentUser, onBack }) => {
             </div>
           ) : (
             drafts.map((draft) => (
-              <div key={draft.id} style={styles.draftCard}>
+              <div key={draft.id} style={styles.draftCard} onClick={() => onResumeDraft && onResumeDraft(draft)}>
                 <div style={styles.cardHeader}>
                   <span style={styles.itemDate}>{formatDateTime(draft.created_at).date}</span>
-                  <button style={styles.deleteBtn} onClick={() => deleteDraft(draft.id)}><Icons.Trash /></button>
+                  <button style={styles.deleteBtn} onClick={(e) => { e.stopPropagation(); deleteDraft(draft.id); }}><Icons.Trash /></button>
                 </div>
                 <h3 style={styles.itemTitle}>{draft.title || draft.subject || "Untitled Draft"}</h3>
                 <p style={styles.itemDesc}>{draft.description || draft.message || "No content..."}</p>
@@ -76,7 +76,7 @@ const styles = {
   iconBtn: { background: 'none', border: 'none', cursor: 'pointer', color: '#1f2a56' },
   mainContainer: { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: '16px', maxWidth: '800px', margin: '0 auto', width: '100%' },
   listContainer: { flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px' },
-  draftCard: { backgroundColor: 'white', borderRadius: '16px', padding: '16px', border: '1px solid #E2E8F0' },
+  draftCard: { backgroundColor: 'white', borderRadius: '16px', padding: '16px', border: '1px solid #E2E8F0', cursor: 'pointer' },
   cardHeader: { display: 'flex', justifyContent: 'space-between', marginBottom: '8px', alignItems: 'center' },
   itemDate: { fontSize: '11px', color: '#94A3B8' },
   deleteBtn: { background: 'none', border: 'none', cursor: 'pointer', padding: '4px' },

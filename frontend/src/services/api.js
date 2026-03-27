@@ -35,6 +35,11 @@ export const getUserNotifications = async (id) => {
   return response.data;
 };
 
+export const getUserActivity = async (id) => {
+  const response = await axios.get(`${API_BASE}/users/${id}/activity`);
+  return response.data;
+};
+
 export const markNotificationsAsRead = async (id) => {
   const response = await axios.post(`${API_BASE}/users/${id}/notifications/read`);
   return response.data;
@@ -135,5 +140,16 @@ export const createDepartment = async (department) => {
 /* -------------------- ANALYTICS -------------------- */
 export const getAnalyticsSummary = async () => {
   const response = await axios.get(`${API_BASE}/analytics/dashboard`);
+  return response.data;
+};
+
+/* -------------------- ADMIN SETTINGS -------------------- */
+export const getAdminSettings = async () => {
+  const response = await axios.get(`${API_BASE}/admin/settings`);
+  return response.data;
+};
+
+export const updateAdminSetting = async (key, value) => {
+  const response = await axios.patch(`${API_BASE}/admin/settings/${key}?value=${value}`);
   return response.data;
 };

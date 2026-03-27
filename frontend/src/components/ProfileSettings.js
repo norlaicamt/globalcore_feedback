@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import CustomModal from "./CustomModal";
-import { deleteUser, updateUser } from "../services/api";
+import { deleteUser, updateUser, getUserById } from "../services/api";
 
 // --- PROFESSIONAL SVGs (Strict Navy/Grey Palette) ---
 const Icons = {
@@ -12,7 +12,6 @@ const Icons = {
   Bell: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>,
   Lock: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>,
   Chevron: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>,
-  CheckCircle: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="#1f2a56" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>,
   Circle: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#CBD5E1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle></svg>,
   Shield: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
 };
@@ -22,6 +21,23 @@ const ProfileSettings = ({ currentUser, onBack, onLogout, onUserUpdate }) => {
   const [toastMessage, setToastMessage] = useState(null);
   const fileInputRef = React.useRef(null);
 
+  const [impactPoints, setImpactPoints] = useState(0);
+  const [postsCount, setPostsCount] = useState(0);
+  const [likesCount, setLikesCount] = useState(0);
+
+  useEffect(() => {
+    const fetchImpact = async () => {
+      if (!currentUser?.id) return;
+      try {
+        const stats = await getUserById(currentUser.id);
+        setImpactPoints(stats.impact_points);
+        setPostsCount(stats.posts_count);
+        setLikesCount(stats.likes_received);
+      } catch(e) { console.error("Error fetching impact points", e); }
+    };
+    fetchImpact();
+  }, [currentUser]);
+
   const showToast = (message) => {
     setToastMessage(message);
     setTimeout(() => setToastMessage(null), 2500);
@@ -30,21 +46,61 @@ const ProfileSettings = ({ currentUser, onBack, onLogout, onUserUpdate }) => {
   const handleAvatarUpload = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    
+    if (file.size < 500000) {
+      const reader = new FileReader();
+      reader.onload = async () => {
+        try {
+          const updated = await updateUser(currentUser.id, { avatar_url: reader.result });
+          if (onUserUpdate) onUserUpdate({ ...currentUser, ...updated, avatar_url: reader.result });
+          showToast("Profile picture updated!");
+        } catch (err) { 
+          const exact = err.response ? err.response.data?.detail || err.message : err.message;
+          showToast(`Upload Failed (${err.response?.status || 'Network'}): ${typeof exact === 'string' ? exact : JSON.stringify(exact)}`); 
+        }
+      };
+      reader.readAsDataURL(file);
+      return;
+    }
+
     const reader = new FileReader();
-    reader.onload = async () => {
-      const base64 = reader.result;
-      try {
-        const updated = await updateUser(currentUser.id, { avatar_url: base64 });
-        if (onUserUpdate) onUserUpdate({ ...currentUser, avatar_url: base64 });
-        showToast("Profile picture updated!");
-      } catch { showToast("Failed to upload photo"); }
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = async () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 200;
+        const MAX_HEIGHT = 200;
+        let width = img.width;
+        let height = img.height;
+        
+        if (width > height) {
+          if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; }
+        } else {
+          if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; }
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        const base64 = canvas.toDataURL('image/jpeg', 0.8);
+        try {
+          const updated = await updateUser(currentUser.id, { avatar_url: base64 });
+          if (onUserUpdate) onUserUpdate({ ...currentUser, ...updated, avatar_url: base64 });
+          showToast("Profile picture updated!");
+        } catch (err) { 
+          const exact = err.response ? err.response.data?.detail || err.message : err.message;
+          showToast(`Upload Failed (${err.response?.status || 'Network'}): ${typeof exact === 'string' ? exact : JSON.stringify(exact)}`); 
+        }
+      };
+      img.src = event.target.result;
     };
     reader.readAsDataURL(file);
   };
 
   const renderView = () => {
     if (subView === "personal_info") return <PersonalInfoView currentUser={currentUser} onBack={() => setSubView("main")} showToast={showToast} onUserUpdate={onUserUpdate} />;
-    if (subView === "role_management") return <RoleManagementView onBack={() => setSubView("main")} showToast={showToast} currentUser={currentUser} onUserUpdate={onUserUpdate} />;
     if (subView === "alert_prefs") return <AlertPreferencesView currentUser={currentUser} onBack={() => setSubView("main")} showToast={showToast} onUserUpdate={onUserUpdate} />;
     if (subView === "privacy_security") return <PrivacySecurityView currentUser={currentUser} onBack={() => setSubView("main")} onLogout={onLogout} showToast={showToast} onUserUpdate={onUserUpdate} />;
 
@@ -71,18 +127,19 @@ const ProfileSettings = ({ currentUser, onBack, onLogout, onUserUpdate }) => {
               <button style={styles.editBadge} onClick={() => fileInputRef.current?.click()}><Icons.Edit /></button>
               <input ref={fileInputRef} type="file" accept="image/*" style={{display:'none'}} onChange={handleAvatarUpload} />
            </div>
-          <h2 style={styles.userName}>{currentUser?.name || "Alex Johnson"}</h2>
-          <div style={styles.roleBadges}>
-            <span style={styles.badge}>Maker</span>
-            <span style={styles.badge}>Recipient</span>
-          </div>
+           {Number(impactPoints) >= 200 && (
+             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', marginTop: '8px', color: '#1f2a56', background: '#E0E7FF', padding: '4px 10px', borderRadius: '12px', width: 'fit-content', margin: '8px auto 0' }}>
+               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+               <span style={{ fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Certified</span>
+             </div>
+           )}
+          <h2 style={{ ...styles.userName, marginTop: Number(impactPoints) >= 200 ? '12px' : '16px' }}>{currentUser?.name || ""}</h2>
         </section>
 
         <div style={styles.sectionWrapper}>
           <h3 style={styles.sectionLabel}>ACCOUNT SETTINGS</h3>
           <div style={styles.cardGroup}>
             <SettingItem icon={<Icons.User />} title="Personal Information" subtitle="Email, Phone, Address" onClick={() => setSubView("personal_info")} />
-            <SettingItem icon={<Icons.Role />} title="Role Management" subtitle="Switch between Maker and Recipient" onClick={() => setSubView("role_management")} />
           </div>
         </div>
 
@@ -105,7 +162,7 @@ const ProfileSettings = ({ currentUser, onBack, onLogout, onUserUpdate }) => {
       {renderView()}
       {toastMessage && (
         <div style={styles.toastModal}>
-          ✅ {toastMessage}
+          {toastMessage}
         </div>
       )}
     </>
@@ -151,61 +208,7 @@ const PersonalInfoView = ({ currentUser, onBack, showToast, onUserUpdate }) => {
   );
 };
 
-const RoleManagementView = ({ onBack, showToast, currentUser, onUserUpdate }) => {
-  const [activeRole, setActiveRole] = useState(currentUser?.role || "maker");
-
-  const handleRoleSave = async () => {
-    try {
-      const updated = await updateUser(currentUser.id, { role: activeRole });
-      const merged = { ...currentUser, ...updated };
-      if (onUserUpdate) onUserUpdate(merged);
-      showToast(`Role changed to ${activeRole === "maker" ? "Maker" : "Recipient"}`);
-      onBack();
-    } catch (err) {
-      showToast("Failed to save role");
-    }
-  };
-
-  return (
-    <div style={styles.container}>
-      <header style={styles.header}>
-        <button onClick={onBack} style={styles.iconBtn}><Icons.Back /></button>
-        <h1 style={styles.headerTitle}>Role Management</h1>
-        <div style={{ width: 24 }}></div>
-      </header>
-
-      <main style={styles.mainScroll}>
-        <p style={styles.pageDescription}>Select your active workspace role. This changes the layout of your Command Center.</p>
-
-        <div style={{...styles.roleCard, borderColor: activeRole === "maker" ? "#1f2a56" : "#E2E8F0", backgroundColor: activeRole === "maker" ? "#F8FAFC" : "white"}} onClick={() => setActiveRole("maker")}>
-          <div style={styles.roleHeader}>
-            <div style={{...styles.roleIconBox, backgroundColor: '#F1F5F9', color: '#1f2a56'}}><Icons.User /></div>
-            <div style={styles.roleTitleBox}>
-              <h3 style={styles.roleTitle}>Maker (Feedback Giver)</h3>
-              <p style={styles.roleSubtitle}>Default account view</p>
-            </div>
-            {activeRole === "maker" ? <Icons.CheckCircle /> : <Icons.Circle />}
-          </div>
-          <p style={styles.roleDesc}>Submit reports, recognize colleagues, and track the status of feedback you have given to others.</p>
-        </div>
-
-        <div style={{...styles.roleCard, borderColor: activeRole === "recipient" ? "#1f2a56" : "#E2E8F0", backgroundColor: activeRole === "recipient" ? "#F8FAFC" : "white"}} onClick={() => setActiveRole("recipient")}>
-          <div style={styles.roleHeader}>
-            <div style={{...styles.roleIconBox, backgroundColor: '#F1F5F9', color: '#1f2a56'}}><Icons.Role /></div>
-            <div style={styles.roleTitleBox}>
-              <h3 style={styles.roleTitle}>Recipient (Manager)</h3>
-              <p style={styles.roleSubtitle}>Requires admin privileges</p>
-            </div>
-            {activeRole === "recipient" ? <Icons.CheckCircle /> : <Icons.Circle />}
-          </div>
-          <p style={styles.roleDesc}>Review incoming feedback for your department, resolve open tickets, and reply to users.</p>
-        </div>
-        <button style={styles.saveBtn} onClick={handleRoleSave}>Apply Role Change</button>
-      </main>
-    </div>
-  );
-};
-
+ 
 const AlertPreferencesView = ({ currentUser, onBack, showToast, onUserUpdate }) => {
   const [pushEnabled, setPushEnabled] = useState(currentUser?.push_notifications ?? true);
   const [emailEnabled, setEmailEnabled] = useState(currentUser?.email_notifications ?? false);
@@ -422,19 +425,26 @@ const SettingItem = ({ icon, title, subtitle, onClick }) => (
 const ToggleRow = ({ title, subtitle, isOn, onToggle, highlight }) => (
   <div style={styles.toggleRowContainer}>
     <div style={styles.itemText}>
-      <p style={{...styles.itemTitle, color: highlight && isOn ? '#10B981' : '#1E293B'}}>{title}</p>
+      <p style={{...styles.itemTitle, color: highlight && isOn ? '#1f2a56' : '#1E293B'}}>{title}</p>
       <p style={styles.itemSubtitle}>{subtitle}</p>
     </div>
     <div 
-      style={{...styles.toggleBg, backgroundColor: isOn ? '#10B981' : '#E2E8F0'}} 
+      style={{...styles.toggleBg, backgroundColor: isOn ? '#1f2a56' : '#E2E8F0', position: 'relative'}} 
       onClick={onToggle}
     >
-      <div style={{...styles.toggleCircle, transform: isOn ? 'translateX(20px)' : 'translateX(2px)'}} />
+      <span style={{position: 'absolute', fontSize: '10px', fontWeight: 'bold', color: 'white', left: isOn ? '6px' : '22px', transition: 'all 0.3s ease', userSelect: 'none'}}>
+        {isOn ? 'ON' : 'OFF'}
+      </span>
+      <div style={{...styles.toggleCircle, transform: isOn ? 'translateX(24px)' : 'translateX(2px)'}} />
     </div>
   </div>
 );
 
 // --- STYLES ---
+const statsCard = { flex: 1, background: 'white', padding: '16px', borderRadius: '20px', border: '1px solid #E2E8F0', textAlign: 'center', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' };
+const statsValue = { fontSize: '24px', fontWeight: '900', color: '#1f2a56', display: 'block' };
+const statsLabel = { fontSize: '10px', fontWeight: '800', color: '#94A3B8', letterSpacing: '0.05em', marginTop: '4px' };
+
 const styles = {
   container: { height: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: '#F8FAFC', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' },
   header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 20px', backgroundColor: '#F8FAFC', flexShrink: 0, maxWidth: '800px', margin: '0 auto', width: '100%', borderBottom: '1px solid #F1F5F9' },
@@ -479,9 +489,9 @@ const styles = {
   roleDesc: { margin: 0, fontSize: '13px', color: '#475569', lineHeight: '1.5' },
 
   toggleRowContainer: { display: 'flex', alignItems: 'center', backgroundColor: 'white', padding: '16px', borderRadius: '16px', border: '1px solid #F1F5F9', justifyContent: 'space-between' },
-  toggleBg: { width: '46px', height: '26px', borderRadius: '13px', display: 'flex', alignItems: 'center', cursor: 'pointer', transition: 'background-color 0.3s ease' },
+  toggleBg: { width: '50px', height: '26px', borderRadius: '13px', display: 'flex', alignItems: 'center', cursor: 'pointer', transition: 'background-color 0.3s ease' },
   toggleCircle: { width: '22px', height: '22px', backgroundColor: 'white', borderRadius: '50%', boxShadow: '0 2px 4px rgba(0,0,0,0.2)', transition: 'transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)' },
-  toastModal: { position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', padding: '16px 24px', backgroundColor: '#10B981', color: 'white', fontWeight: 'bold', fontSize: '15px', borderRadius: '30px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)', zIndex: 9999, animation: 'fadeIn 0.2s ease-out', pointerEvents: 'none'}
+  toastModal: { position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', padding: '16px 24px', backgroundColor: '#1f2a56', color: 'white', fontWeight: 'bold', fontSize: '15px', borderRadius: '16px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)', zIndex: 9999, animation: 'fadeIn 0.2s ease-out', pointerEvents: 'none'}
 };
 
 export default ProfileSettings;

@@ -1,0 +1,231 @@
+from pydantic import BaseModel, ConfigDict
+from typing import List, Optional
+from datetime import datetime
+from app.models import FeedbackStatus
+
+# --- USER SCHEMAS ---
+class UserBase(BaseModel):
+    name: str
+    email: str
+    is_active: Optional[bool] = True
+    username: Optional[str] = None
+    phone: Optional[str] = None
+    department: Optional[str] = None
+    two_factor_enabled: Optional[bool] = False
+    role: Optional[str] = "maker"
+    show_activity_status: Optional[bool] = True
+    push_notifications: Optional[bool] = True
+    email_notifications: Optional[bool] = False
+    status_updates: Optional[bool] = True
+    reply_notifications: Optional[bool] = True
+    weekly_digest: Optional[bool] = False
+    biometrics_enabled: Optional[bool] = True
+    avatar_url: Optional[str] = None
+
+class UserCreate(UserBase):
+    password: Optional[str] = "password" # Dummy init
+
+class UserUpdate(BaseModel):
+    name: Optional[str] = None
+    username: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    department: Optional[str] = None
+    password: Optional[str] = None
+    two_factor_enabled: Optional[bool] = None
+    role: Optional[str] = None
+    show_activity_status: Optional[bool] = None
+    push_notifications: Optional[bool] = None
+    email_notifications: Optional[bool] = None
+    status_updates: Optional[bool] = True
+    reply_notifications: Optional[bool] = True
+    weekly_digest: Optional[bool] = False
+    biometrics_enabled: Optional[bool] = True
+    avatar_url: Optional[str] = None
+
+class User(UserBase):
+    id: int
+    impact_points: float = 0.0
+    likes_received: int = 0
+    posts_count: int = 0
+    model_config = ConfigDict(from_attributes=True)
+
+# --- DEPARTMENT SCHEMAS ---
+class DepartmentBase(BaseModel):
+    name: str
+
+class DepartmentCreate(DepartmentBase):
+    pass
+
+class Department(DepartmentBase):
+    id: int
+    model_config = ConfigDict(from_attributes=True)
+
+# --- CATEGORY SCHEMAS ---
+class CategoryBase(BaseModel):
+    name: str
+    description: Optional[str] = None
+
+class CategoryCreate(CategoryBase):
+    pass
+
+class Category(CategoryBase):
+    id: int
+    model_config = ConfigDict(from_attributes=True)
+
+# --- REPLY SCHEMAS ---
+class ReplyBase(BaseModel):
+    message: str
+    user_id: int
+    parent_id: Optional[int] = None
+
+class ReplyCreate(ReplyBase):
+    feedback_id: int
+    parent_id: Optional[int] = None
+
+class Reply(ReplyBase):
+    id: int
+    feedback_id: int
+    parent_id: Optional[int] = None
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+class ReplyWithUser(Reply):
+    user: Optional[User] = None
+    likes_count: Optional[int] = 0
+    dislikes_count: Optional[int] = 0
+    user_reaction: Optional[bool] = None
+
+# --- REACTION SCHEMAS ---
+class ReplyReactionBase(BaseModel):
+    is_like: bool
+
+class ReplyReactionCreate(ReplyReactionBase):
+    user_id: int
+
+class ReplyReaction(ReplyReactionBase):
+    id: int
+    user_id: int
+    reply_id: int
+    model_config = ConfigDict(from_attributes=True)
+
+class ReactionBase(BaseModel):
+    is_like: bool
+
+class ReactionCreate(ReactionBase):
+    user_id: int
+
+class Reaction(ReactionBase):
+    id: int
+    user_id: int
+    feedback_id: int
+    model_config = ConfigDict(from_attributes=True)
+
+# --- FEEDBACK SCHEMAS ---
+class FeedbackBase(BaseModel):
+    title: str
+    description: str
+    category_id: int
+    recipient_dept_id: Optional[int] = None
+    recipient_user_id: Optional[int] = None
+    allow_comments: Optional[bool] = True
+    is_anonymous: Optional[bool] = False
+    rating: Optional[int] = None # 1-5 stars
+    address: Optional[str] = None
+    region: Optional[str] = None
+    city: Optional[str] = None
+    barangay: Optional[str] = None
+    employee_name: Optional[str] = None
+    product_name: Optional[str] = None
+    attachments: Optional[str] = None
+
+class FeedbackCreate(FeedbackBase):
+    sender_id: int
+
+class FeedbackUpdate(BaseModel):
+    status: Optional[FeedbackStatus] = None
+
+class FeedbackUpdateFull(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+
+class Feedback(FeedbackBase):
+    id: int
+    sender_id: int
+    status: FeedbackStatus
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    barangay: Optional[str] = None
+    employee_name: Optional[str] = None
+    product_name: Optional[str] = None
+    attachments: Optional[str] = None
+    
+    # UI Helper fields populated via Joins
+    user_name: Optional[str] = None 
+    sender_avatar_url: Optional[str] = None
+    sender_show_status: Optional[bool] = True
+    recipient_dept_name: Optional[str] = None
+    recipient_user_name: Optional[str] = None
+    likes_count: Optional[int] = 0
+    dislikes_count: Optional[int] = 0
+    replies_count: Optional[int] = 0
+    user_reaction: Optional[bool] = None
+
+class NotificationBase(BaseModel):
+    user_id: int
+    actor_id: Optional[int] = None
+    type: str # 'comment', 'like', 'dislike', 'broadcast'
+    feedback_id: int
+    reply_id: Optional[int] = None
+    is_read: bool = False
+
+class NotificationCreate(NotificationBase):
+    pass
+
+class Notification(NotificationBase):
+    id: int
+    created_at: datetime
+    actor_name: Optional[str] = None
+    feedback_title: Optional[str] = None
+    reply_message: Optional[str] = None
+    message: Optional[str] = None
+    subject: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+class FeedbackDetail(Feedback):
+    sender: Optional[User] = None
+    recipient_user: Optional[User] = None
+    recipient_dept: Optional[Department] = None
+    category: Optional[Category] = None
+    replies: List[ReplyWithUser] = []
+    reactions: List[Reaction] = []
+
+class ActivityEntry(BaseModel):
+    id: str
+    type: str
+    feedback_id: int
+    title: Optional[str] = None
+    message: Optional[str] = None
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+class SystemSettingBase(BaseModel):
+    key: str
+    value: str
+
+class SystemSetting(SystemSettingBase):
+    model_config = ConfigDict(from_attributes=True)
+
+class BroadcastLogBase(BaseModel):
+    subject: str
+    message: str
+    sent_to_count: int
+
+class BroadcastLog(BroadcastLogBase):
+    id: int
+    created_at: datetime
+    read_count: Optional[int] = 0
+    model_config = ConfigDict(from_attributes=True)

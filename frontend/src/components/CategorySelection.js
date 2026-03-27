@@ -1,10 +1,19 @@
-import React from "react";
+import React, { useState } from "react";
+
+const Icons = {
+  Translate: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+};
 
 const CategorySelection = ({ onBack, onSelect }) => {
+  const [isTranslated, setIsTranslated] = useState(false);
+
   const categories = [
-    { id: 'department', title: 'Department', desc: 'Feedback regarding a specific team or division.', icon: '🏢' },
-    { id: 'individual', title: 'Individual', desc: 'Recognize a coworker or suggest personal improvements.', icon: '👤' },
-    { id: 'general', title: 'General', desc: 'General office culture, facility, or company-wide ideas.', icon: '💬' }
+    { 
+      id: 'general', 
+      title: 'General', 
+      desc: isTranslated ? 'Pangkalahatang kultura ng opisina, pasilidad, o mga ideya para sa buong kumpanya.' : 'General office culture, facility, or company-wide ideas.', 
+      icon: '💬' 
+    }
   ];
 
   return (
@@ -24,6 +33,12 @@ const CategorySelection = ({ onBack, onSelect }) => {
           </div>
         ))}
       </div>
+      
+      <div style={styles.translateRow}>
+         <button style={styles.translateBtn} onClick={() => setIsTranslated(!isTranslated)}>
+            <Icons.Translate /> {isTranslated ? "Show English" : "I-translate sa Filipino"}
+         </button>
+      </div>
     </div>
   );
 };
@@ -39,7 +54,9 @@ const styles = {
   cardContent: { flex: 1 },
   cardTitle: { margin: 0, fontSize: '16px', fontWeight: 'bold', color: '#1e293b' },
   cardDesc: { margin: '4px 0 0 0', fontSize: '12px', color: '#94a3b8' },
-  arrow: { fontSize: '20px', color: '#e2e8f0' }
+  arrow: { fontSize: '20px', color: '#e2e8f0' },
+  translateRow: { marginTop: '20px', display: 'flex', justifyContent: 'center' },
+  translateBtn: { background: 'none', border: 'none', color: '#3B82F6', fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }
 };
 
 export default CategorySelection;

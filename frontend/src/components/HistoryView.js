@@ -29,7 +29,6 @@ const HistoryView = ({ currentUser, onBack, minimalist = false }) => {
   const [history, setHistory] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedItem, setSelectedItem] = useState(null);
   const [dialogState, setDialogState] = useState({ isOpen: false });
@@ -37,10 +36,11 @@ const HistoryView = ({ currentUser, onBack, minimalist = false }) => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [historyData, deptsData] = await Promise.all([
-          getFeedbacks(currentUser.id),
+        const [allFeedbacks, deptsData] = await Promise.all([
+          getFeedbacks(),
           getDepartments().catch(() => [])
         ]);
+        const historyData = allFeedbacks.filter(fb => fb.sender_id === currentUser.id);
         setHistory(historyData);
         setDepartments(deptsData);
       } catch (error) {
@@ -57,28 +57,6 @@ const HistoryView = ({ currentUser, onBack, minimalist = false }) => {
     return (title.toLowerCase().includes("praise") || title.toLowerCase().includes("general")) ? "FEED" : "TICKET";
   };
 
-  const getUiStatus = (item) => {
-    if (getFeedbackType(item) === "FEED") return "Shared";
-    const map = { "OPEN": "Pending", "IN_PROGRESS": "Pending", "RESOLVED": "Resolved", "CLOSED": "Closed" };
-    return map[item?.status] || "Pending";
-  };
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'Pending': return '#FCD34D';
-      case 'Resolved': return '#34D399';
-      case 'Closed': return '#94A3B8';
-      case 'Shared': return '#60A5FA';
-      default: return 'transparent';
-    }
-  };
-
-  const getStatusStyle = (status) => ({
-    padding: '3px 8px', borderRadius: '6px', fontSize: '10px', 
-    fontWeight: 'bold', textTransform: 'uppercase', color: 'white',
-    backgroundColor: getStatusColor(status)
-  });
-
   const getDepartmentName = (deptId) => {
     if (!deptId) return null;
     const dept = departments.find(d => d.id === parseInt(deptId));
@@ -86,22 +64,33 @@ const HistoryView = ({ currentUser, onBack, minimalist = false }) => {
   };
 
   const renderStars = (rating) => {
-    if (!rating) return null;
+    const starCount = rating || 0;
     return (
       <div style={{ display: 'flex', gap: '2px', marginBottom: '8px' }}>
         {[1, 2, 3, 4, 5].map(s => (
-          <Icons.Star key={s} filled={s <= rating} size={14} />
+          <Icons.Star key={s} filled={s <= starCount} size={14} />
         ))}
       </div>
     );
   };
 
+  const [filterType, setFilterType] = useState('ALL');
+
   const filteredHistory = history.filter(item => {
     const title = item?.title || "";
-    const matchesSearch = title.toLowerCase().includes(searchQuery.toLowerCase());
-    const status = getUiStatus(item);
-    return matchesSearch && (activeTab === "All" || status === activeTab);
-  });
+    const description = item?.description || item?.details || item?.message || item?.idea || "";
+    
+    const matchesSearch = title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          description.toLowerCase().includes(searchQuery.toLowerCase());
+                          
+    if (!matchesSearch) return false;
+    
+    const type = getFeedbackType(item);
+    if (filterType === 'FEED' && type !== 'FEED') return false;
+    if (filterType === 'TICKET' && type !== 'TICKET') return false;
+    
+    return true;
+  }).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
   return (
     <div style={minimalist ? styles.minimalContainer : styles.container}>
@@ -125,24 +114,29 @@ const HistoryView = ({ currentUser, onBack, minimalist = false }) => {
           />
         </div>
 
+
+
         <div style={styles.tabContainer}>
-          {["All", "Pending", "Resolved", "Shared"].map(tab => (
-            <button 
-              key={tab}
-              style={{
-                ...styles.tabBtn,
-                backgroundColor: activeTab === tab ? '#1f2a56' : 'transparent',
-                color: activeTab === tab ? 'white' : '#64748B',
-              }}
-              onClick={() => setActiveTab(tab)}
-            >
-              {tab}
-            </button>
-          ))}
+          <button 
+            style={{...styles.tabBtn, backgroundColor: filterType === 'ALL' ? 'white' : 'transparent', color: filterType === 'ALL' ? '#1f2a56' : '#64748B', boxShadow: filterType === 'ALL' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'}}
+            onClick={() => setFilterType('ALL')}
+          >All</button>
+          <button 
+            style={{...styles.tabBtn, backgroundColor: filterType === 'FEED' ? 'white' : 'transparent', color: filterType === 'FEED' ? '#1f2a56' : '#64748B', boxShadow: filterType === 'FEED' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'}}
+            onClick={() => setFilterType('FEED')}
+          >Informational</button>
+          <button 
+            style={{...styles.tabBtn, backgroundColor: filterType === 'TICKET' ? 'white' : 'transparent', color: filterType === 'TICKET' ? '#1f2a56' : '#64748B', boxShadow: filterType === 'TICKET' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'}}
+            onClick={() => setFilterType('TICKET')}
+          >Tickets</button>
         </div>
 
         <div style={styles.listContainer}>
-          {filteredHistory.map((item) => {
+          {filteredHistory.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '40px 20px' }}>
+              <p style={{ color: '#64748B', fontWeight: 'bold' }}>No feedback found.</p>
+            </div>
+          ) : filteredHistory.map((item) => {
             const isFeed = getFeedbackType(item) === "FEED";
             const dt = formatDateTime(item.created_at);
             return (
@@ -154,7 +148,6 @@ const HistoryView = ({ currentUser, onBack, minimalist = false }) => {
                 {renderStars(item.rating)}
                 <h3 style={styles.itemTitle}>{item.title}</h3>
                 <div style={styles.cardFooter}>
-                  {isFeed ? <div style={styles.sharedBadge}><Icons.Check /> Shared</div> : <div style={getStatusStyle(getUiStatus(item))}>{getUiStatus(item)}</div>}
                   <div style={styles.timeLabel}><Icons.Clock /> {dt.time}</div>
                 </div>
               </div>
@@ -211,30 +204,9 @@ const HistoryView = ({ currentUser, onBack, minimalist = false }) => {
                   {selectedItem.description || selectedItem.details || selectedItem.message || selectedItem.idea || "No message content."}
                 </p>
               </div>
-
-              {getFeedbackType(selectedItem) === "TICKET" && (
-                <div style={styles.statusBox}>
-                  <span style={styles.sectionLabel}>Status:</span>
-                  <div style={getStatusStyle(getUiStatus(selectedItem))}>{getUiStatus(selectedItem)}</div>
-                </div>
-              )}
             </div>
 
             <div style={{ display: 'flex', gap: '12px' }}>
-              {getFeedbackType(selectedItem) === "TICKET" && getUiStatus(selectedItem) !== "Resolved" && getUiStatus(selectedItem) !== "Closed" && (
-                <button 
-                  style={{ ...styles.primaryAction, backgroundColor: '#059669', color: 'white' }} 
-                  onClick={() => { 
-                    setDialogState({
-                      isOpen: true,
-                      title: 'Ticket Resolved ✅',
-                      message: 'This ticket has been successfully marked as resolved.',
-                      confirmText: 'Done',
-                      onConfirm: () => { setDialogState({ isOpen: false }); setSelectedItem(null); }
-                    });
-                  }}
-                >✅ Mark Resolved</button>
-              )}
               <button style={styles.primaryAction} onClick={() => setSelectedItem(null)}>Close View</button>
             </div>
           </div>
