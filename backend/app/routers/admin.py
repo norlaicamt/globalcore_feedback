@@ -346,8 +346,8 @@ def admin_get_categories(db: Session = Depends(get_db)):
 
 
 @router.post("/categories")
-def admin_create_category(name: str, description: Optional[str] = None, fields: Optional[List[dict]] = None, db: Session = Depends(get_db)):
-    cat = models.Category(name=name, description=description, fields=fields)
+def admin_create_category(category: schemas.CategoryCreate, db: Session = Depends(get_db)):
+    cat = models.Category(name=category.name, description=category.description, fields=category.fields)
     db.add(cat)
     db.commit()
     db.refresh(cat)
@@ -355,17 +355,17 @@ def admin_create_category(name: str, description: Optional[str] = None, fields: 
 
 
 @router.put("/categories/{cat_id}")
-def admin_update_category(cat_id: int, name: str, description: Optional[str] = None, fields: Optional[List[dict]] = None, db: Session = Depends(get_db)):
-    cat = db.query(models.Category).filter(models.Category.id == cat_id).first()
-    if not cat:
+def admin_update_category(cat_id: int, category: schemas.CategoryCreate, db: Session = Depends(get_db)):
+    db_cat = db.query(models.Category).filter(models.Category.id == cat_id).first()
+    if not db_cat:
         raise HTTPException(status_code=404, detail="Category not found")
-    cat.name = name
-    if description is not None:
-        cat.description = description
-    if fields is not None:
-        cat.fields = fields
+    db_cat.name = category.name
+    if category.description is not None:
+        db_cat.description = category.description
+    if category.fields is not None:
+        db_cat.fields = category.fields
     db.commit()
-    return cat
+    return db_cat
 
 
 @router.delete("/categories/{cat_id}", status_code=204)

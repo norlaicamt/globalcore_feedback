@@ -4,21 +4,44 @@ import AdminUsers from "./pages/AdminUsers";
 import AdminFeedbacks from "./pages/AdminFeedbacks";
 import AdminFeedbackTypes from "./pages/AdminFeedbackTypes";
 import AdminBroadcast from "./pages/AdminBroadcast";
+import AdminUserInfoFields from "./pages/AdminUserInfoFields";
 import AdminSettings from "./pages/AdminSettings";
 import CustomModal from "../CustomModal";
 
 const NAV_ITEMS = [
-  { id: "dashboard",      label: "Dashboard",         icon: <ChartIcon /> },
-  { id: "users",          label: "User Oversight",     icon: <UsersIcon /> },
-  { id: "feedbacks",      label: "Feedback Management",icon: <FeedIcon /> },
-  { id: "feedbacktypes",  label: "Category Types",     icon: <TagIcon /> },
-  { id: "broadcast",      label: "Broadcast",          icon: <BellIcon /> },
-  { id: "settings",       label: "Settings",           icon: <SettingsIcon /> },
+  { id: "dashboard",      label: "Dashboard",           icon: <ChartIcon /> },
+  { id: "users",          label: "User Oversight",      icon: <UsersIcon /> },
+  { id: "feedbacks",      label: "Feedback Management",  icon: <FeedIcon /> },
+  { id: "broadcast",      label: "Broadcast",            icon: <BellIcon /> },
+  { type: "label",        label: "CONFIGURATION" },
+  { id: "feedbacktypes",  label: "Category Setup",       icon: <TagIcon /> },
+  { id: "userinfofields", label: "User Info Fields",     icon: <UsersIcon /> },
+  { type: "label",        label: "SYSTEM" },
+  { id: "settings",       label: "Settings",             icon: <SettingsIcon /> },
 ];
 
 const AdminHub = ({ adminUser, onLogout }) => {
   const [view, setView] = useState(localStorage.getItem("adminView") || "dashboard");
+  const [darkMode, setDarkMode] = useState(localStorage.getItem("adminDarkMode") === "true");
   const [logoutDialog, setLogoutDialog] = useState(false);
+
+  useEffect(() => {
+    localStorage.setItem("adminDarkMode", darkMode);
+  }, [darkMode]);
+
+  const toggleTheme = () => setDarkMode(!darkMode);
+
+  // --- PROFESSIONAL THEME TOKENS ---
+  const theme = {
+    bg: darkMode ? "#0F172A" : "#F1F5F9",
+    surface: darkMode ? "#1E293B" : "#FFFFFF",
+    text: darkMode ? "#F8FAFC" : "#1E293B",
+    textMuted: darkMode ? "#94A3B8" : "#64748B",
+    border: darkMode ? "rgba(255,255,255,0.06)" : "#E2E8F0",
+    headerBg: darkMode ? "#1E293B" : "#FFFFFF",
+    navActive: "rgba(255,255,255,0.12)",
+    navHover: "rgba(255,255,255,0.07)"
+  };
 
   useEffect(() => {
     localStorage.setItem("adminView", view);
@@ -31,19 +54,21 @@ const AdminHub = ({ adminUser, onLogout }) => {
   };
 
   const renderView = () => {
+    const props = { onNavigate: setView, theme, darkMode };
     switch (view) {
-      case "dashboard":     return <AdminDashboard onNavigate={setView} />;
-      case "users":         return <AdminUsers />;
-      case "feedbacks":     return <AdminFeedbacks />;
-      case "feedbacktypes": return <AdminFeedbackTypes />;
-      case "broadcast":     return <AdminBroadcast />;
-      case "settings":      return <AdminSettings />;
-      default:              return <AdminDashboard />;
+      case "dashboard":     return <AdminDashboard {...props} />;
+      case "users":         return <AdminUsers {...props} />;
+      case "feedbacks":     return <AdminFeedbacks {...props} />;
+      case "feedbacktypes": return <AdminFeedbackTypes {...props} />;
+      case "userinfofields":return <AdminUserInfoFields {...props} />;
+      case "broadcast":     return <AdminBroadcast {...props} />;
+      case "settings":      return <AdminSettings {...props} />;
+      default:              return <AdminDashboard {...props} />;
     }
   };
 
   return (
-    <div style={styles.root}>
+    <div style={{ ...styles.root, backgroundColor: theme.bg, color: theme.text }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
         * { box-sizing: border-box; }
@@ -71,16 +96,20 @@ const AdminHub = ({ adminUser, onLogout }) => {
 
         {/* Nav */}
         <nav style={styles.nav}>
-          {NAV_ITEMS.map(item => (
-            <button
-              key={item.id}
-              className={`nav-item${view === item.id ? " active" : ""}`}
-              onClick={() => setView(item.id)}
-              style={{ ...styles.navItem, ...(view === item.id ? styles.navItemActive : {}) }}
-            >
-              <span style={styles.navIcon}>{item.icon}</span>
-              <span>{item.label}</span>
-            </button>
+          {NAV_ITEMS.map((item, idx) => (
+            item.type === "label" ? (
+              <div key={`label-${idx}`} style={styles.navLabel}>{item.label}</div>
+            ) : (
+              <button
+                key={item.id}
+                className={`nav-item${view === item.id ? " active" : ""}`}
+                onClick={() => setView(item.id)}
+                style={{ ...styles.navItem, ...(view === item.id ? styles.navItemActive : {}) }}
+              >
+                <span style={styles.navIcon}>{item.icon}</span>
+                <span>{item.label}</span>
+              </button>
+            )
           ))}
         </nav>
 
@@ -104,10 +133,18 @@ const AdminHub = ({ adminUser, onLogout }) => {
 
       {/* MAIN CONTENT */}
       <main style={styles.main}>
-        <header style={styles.topBar}>
-          <div>
-            <h1 style={styles.pageTitle}>{NAV_ITEMS.find(n => n.id === view)?.label || "Dashboard"}</h1>
-            <p style={styles.pageTime}>{new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}</p>
+        <header style={{ ...styles.topBar, backgroundColor: theme.headerBg, borderBottom: `1px solid ${theme.border}` }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+            <div>
+              <h1 style={{ ...styles.pageTitle, color: theme.text }}>{NAV_ITEMS.find(n => n.id === view)?.label || "Dashboard"}</h1>
+              <p style={styles.pageTime}>{new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}</p>
+            </div>
+            <button 
+              onClick={toggleTheme} 
+              style={{ ...styles.themeToggle, background: darkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)', color: theme.text }}
+            >
+              {darkMode ? <SunIcon /> : <MoonIcon />}
+            </button>
           </div>
         </header>
         <div style={styles.content}>{renderView()}</div>
@@ -130,8 +167,10 @@ function FeedIcon()     { return <svg width="15" height="15" viewBox="0 0 24 24"
 function TagIcon()      { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>; }
 function BellIcon()     { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>; }
 function SettingsIcon() { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg>; }
+function SunIcon()      { return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>; }
+function MoonIcon()     { return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>; }
 
-const SIDEBAR_W = 240;
+const SIDEBAR_W = 280;
 const styles = {
   root: { display: "flex", height: "100vh", fontFamily: '"Inter", sans-serif', backgroundColor: "#F1F5F9" },
   sidebar: { width: SIDEBAR_W, minWidth: SIDEBAR_W, height: "100vh", background: "linear-gradient(180deg, #1f2a56 0%, #1a2347 100%)", display: "flex", flexDirection: "column", color: "white", flexShrink: 0, overflowY: "auto" },
@@ -141,8 +180,9 @@ const styles = {
   logoSub: { fontSize: "10px", color: "rgba(255,255,255,0.4)", margin: 0, fontWeight: "500", textTransform: "uppercase", letterSpacing: "0.08em" },
   divider: { height: "1px", background: "rgba(255,255,255,0.07)", margin: "0 16px 10px" },
   nav: { flex: 1, display: "flex", flexDirection: "column", gap: "1px", padding: "0 10px" },
-  navItem: { display: "flex", alignItems: "center", gap: "10px", padding: "9px 12px", borderRadius: "8px", fontSize: "13px", fontWeight: "500", color: "rgba(255,255,255,0.6)", cursor: "pointer", background: "none", border: "none", width: "100%", textAlign: "left", transition: "all 0.15s", fontFamily: "inherit" },
+  navItem: { display: "flex", alignItems: "center", gap: "10px", padding: "10px 14px", borderRadius: "8px", fontSize: "14px", fontWeight: "600", color: "rgba(255,255,255,0.6)", cursor: "pointer", background: "none", border: "none", width: "100%", textAlign: "left", transition: "all 0.15s", fontFamily: "inherit" },
   navItemActive: { color: "white", fontWeight: "700" },
+  navLabel: { fontSize: "11px", fontWeight: "700", color: "rgba(255,255,255,0.3)", padding: "18px 12px 6px", textTransform: "uppercase", letterSpacing: "0.1em" },
   navIcon: { width: "18px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 },
   sidebarBottom: { borderTop: "1px solid rgba(255,255,255,0.07)", padding: "14px" },
   adminBadge: { display: "flex", alignItems: "center", gap: "10px", marginBottom: "12px" },
@@ -155,6 +195,7 @@ const styles = {
   pageTitle: { fontSize: "16px", fontWeight: "800", color: "#0F172A", margin: "0 0 2px 0" },
   pageTime: { fontSize: "12px", color: "#94A3B8", margin: 0, fontWeight: "500" },
   content: { flex: 1, overflowY: "auto", padding: "24px 28px" },
+  themeToggle: { background: "none", border: "none", cursor: "pointer", width: "36px", height: "36px", borderRadius: "10px", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s" },
 };
 
 export default AdminHub;

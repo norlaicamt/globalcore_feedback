@@ -2,7 +2,35 @@ import React, { useState, useEffect } from "react";
 import { adminBroadcast, adminGetBroadcastLogs } from "../../../services/adminApi";
 import CustomModal from "../../CustomModal";
 
-const AdminBroadcast = () => {
+const BROADCAST_TEMPLATES = [
+  { 
+    id: 'maint', label: 'Maintenance', 
+    subject: 'Scheduled System Maintenance', 
+    message: 'We will be performing a routine system update on [Date] at [Time]. The platform will be unavailable for approximately 30 minutes to ensure peak performance. Thank you for your patience.' 
+  },
+  { 
+    id: 'feature', label: 'New Feature', 
+    subject: 'Exciting New Feature: [Feature Name]', 
+    message: "We've just launched [Feature Name]! You can now [brief benefit] to improve your workflow. Check it out in your dashboard and let us know what you think." 
+  },
+  { 
+    id: 'security', label: 'Security', 
+    subject: 'Security Reminder: Update Your Password', 
+    message: 'To keep your account secure, we recommend updating your password. You can do this in your Account Settings. If you notice any suspicious activity, please report it immediately.' 
+  },
+  { 
+    id: 'policy', label: 'Policy Update', 
+    subject: 'Important: Policy Update', 
+    message: "We've updated our Terms of Service and Community Guidelines. These changes aim to improve user experience and transparency. Please review the updated policy in the Help section." 
+  },
+  { 
+    id: 'milestone', label: 'Milestone', 
+    subject: 'System Milestone Achievement!', 
+    message: 'Congratulations to all users! We have reached a significant milestone in our community feedback goal. Your participation has been instrumental in this success. Thank you for your continued engagement!' 
+  }
+];
+
+const AdminBroadcast = ({ theme, darkMode }) => {
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
@@ -57,19 +85,51 @@ const AdminBroadcast = () => {
     return d.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
   };
 
+  const applyTemplate = (t) => {
+    setSubject(t.subject);
+    setMessage(t.message);
+  };
+
   return (
-    <div style={{ maxWidth: "1280px", display: 'flex', gap: '24px', alignItems: 'flex-start' }}>
+    <div style={{ maxWidth: "1000px", margin: "0 auto", display: 'flex', gap: '24px', alignItems: 'flex-start' }}>
       
       {/* Left Column: Form */}
-      <div style={{ flex: '0 0 450px', background: "white", borderRadius: "12px", padding: "28px", border: "1px solid #E2E8F0", boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-        <p style={{ margin: "0 0 4px 0", fontSize: "16px", fontWeight: "800", color: "#0F172A" }}>System Announcement</p>
-        <p style={{ margin: "0 0 24px 0", fontSize: "13px", color: "#64748B", lineHeight: '1.5' }}>
+      <div style={{ flex: '0 0 450px', background: theme.surface, borderRadius: "12px", padding: "28px", border: `1px solid ${theme.border}`, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+        <p style={{ margin: "0 0 6px 0", fontSize: "18px", fontWeight: "800", color: theme.text }}>System Announcement</p>
+        <p style={{ margin: "0 0 24px 0", fontSize: "14px", color: theme.textMuted, lineHeight: '1.6' }}>
           Send a notification to all registered users. Use this for important system-wide alerts.
         </p>
 
         <form onSubmit={handleSend} style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+          
           <div>
-            <label style={{ display: "block", fontSize: "11px", fontWeight: "700", color: "#475569", marginBottom: "8px", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+            <label style={{ display: "block", fontSize: "11px", fontWeight: "700", color: theme.textMuted, marginBottom: "10px", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+              Quick Templates
+            </label>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '4px' }}>
+              {BROADCAST_TEMPLATES.map(t => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => applyTemplate(t)}
+                  style={{
+                    padding: '6px 14px', borderRadius: '20px', border: `1.5px solid ${theme.border}`,
+                    background: theme.bg, color: theme.text, fontSize: '12px', fontWeight: '600',
+                    cursor: 'pointer', transition: 'all 0.2s', outline: 'none',
+                    display: 'flex', alignItems: 'center', gap: '6px'
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.borderColor = '#3B82F6'}
+                  onMouseLeave={e => e.currentTarget.style.borderColor = theme.border}
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label style={{ display: "block", fontSize: "11px", fontWeight: "700", color: theme.textMuted, marginBottom: "8px", textTransform: "uppercase", letterSpacing: "0.05em" }}>
               Subject Line
             </label>
             <input
@@ -78,10 +138,10 @@ const AdminBroadcast = () => {
               onChange={e => setSubject(e.target.value)}
               placeholder="E.g. System Maintenance Update"
               style={{
-                width: "100%", padding: "12px 14px", border: "1.5px solid #E2E8F0",
+                width: "100%", padding: "12px 14px", border: `1.5px solid ${theme.border}`,
                 borderRadius: "10px", fontSize: "13px", outline: "none",
-                fontFamily: "inherit", color: "#1E293B", boxSizing: "border-box",
-                transition: 'border-color 0.2s', backgroundColor: '#F8FAFC'
+                fontFamily: "inherit", color: theme.text, boxSizing: "border-box",
+                transition: 'border-color 0.2s', backgroundColor: theme.bg
               }}
               onFocus={(e) => e.target.style.borderColor = '#1f2a56'}
               onBlur={(e) => e.target.style.borderColor = '#E2E8F0'}
@@ -89,7 +149,7 @@ const AdminBroadcast = () => {
           </div>
 
           <div>
-            <label style={{ display: "block", fontSize: "11px", fontWeight: "700", color: "#475569", marginBottom: "8px", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+            <label style={{ display: "block", fontSize: "11px", fontWeight: "700", color: theme.textMuted, marginBottom: "8px", textTransform: "uppercase", letterSpacing: "0.05em" }}>
               Detailed Message
             </label>
             <textarea
@@ -98,10 +158,10 @@ const AdminBroadcast = () => {
               placeholder="Write your announcement content here..."
               rows={6}
               style={{
-                width: "100%", padding: "12px 14px", border: "1.5px solid #E2E8F0",
+                width: "100%", padding: "12px 14px", border: `1.5px solid ${theme.border}`,
                 borderRadius: "10px", fontSize: "13px", resize: "none", outline: "none",
-                fontFamily: "inherit", color: "#1E293B", boxSizing: "border-box", lineHeight: "1.6",
-                backgroundColor: '#F8FAFC'
+                fontFamily: "inherit", color: theme.text, boxSizing: "border-box", lineHeight: "1.6",
+                backgroundColor: theme.bg
               }}
               onFocus={(e) => e.target.style.borderColor = '#1f2a56'}
               onBlur={(e) => e.target.style.borderColor = '#E2E8F0'}
@@ -110,8 +170,8 @@ const AdminBroadcast = () => {
           </div>
 
           <div style={{
-            background: "#FEFCE8", borderRadius: "10px", padding: "12px 16px",
-            border: "1px solid #FEF08A", fontSize: "12px", color: "#854D0E", display: 'flex', gap: '10px'
+            background: darkMode ? "rgba(254, 252, 232, 0.05)" : "#FEFCE8", borderRadius: "10px", padding: "12px 16px",
+            border: `1px solid ${darkMode ? "rgba(254, 240, 138, 0.2)" : "#FEF08A"}`, fontSize: "12px", color: darkMode ? "#FDE047" : "#854D0E", display: 'flex', gap: '10px'
           }}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
             <span>This announcement will be pinned to every user's notification feed.</span>
@@ -134,32 +194,32 @@ const AdminBroadcast = () => {
       </div>
 
       {/* Right Column: History Section */}
-      <div style={{ flex: 1, background: "white", borderRadius: "12px", padding: "28px", border: "1px solid #E2E8F0", boxShadow: '0 1px 3px rgba(0,0,0,0.05)', minHeight: '500px' }}>
-        <p style={{ margin: "0 0 16px 0", fontSize: "14px", fontWeight: "800", color: "#0F172A", textTransform: 'uppercase', letterSpacing: '0.05em' }}>Recent Announcements</p>
+      <div style={{ flex: 1, background: theme.surface, borderRadius: "12px", padding: "28px", border: `1px solid ${theme.border}`, boxShadow: '0 1px 3px rgba(0,0,0,0.05)', minHeight: '500px' }}>
+        <p style={{ margin: "0 0 16px 0", fontSize: "15px", fontWeight: "800", color: theme.text, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Recent Announcements</p>
         
         {loadingHistory ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {[1,2,3].map(i => <div key={i} style={{ height: '40px', background: '#F8FAFC', borderRadius: '8px', animation: 'pulse 1.5s infinite' }} />)}
+            {[1,2,3].map(i => <div key={i} style={{ height: '40px', background: theme.bg, borderRadius: '8px', animation: 'pulse 1.5s infinite' }} />)}
           </div>
         ) : history.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '60px 0', color: '#94A3B8' }}>
+          <div style={{ textAlign: 'center', padding: '60px 0', color: theme.textMuted }}>
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: '16px', opacity: 0.5 }}><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
             <p style={{ fontSize: '13px' }}>No announcements have been sent yet.</p>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {history.map(log => (
-              <div key={log.id} style={{ padding: '16px', borderRadius: '12px', border: '1px solid #F1F5F9', backgroundColor: '#FFFFFF', transition: 'transform 0.2s', cursor: 'default' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                   <p style={{ margin: 0, fontSize: '14px', fontWeight: '700', color: '#1E293B', flex: 1 }}>{log.subject}</p>
-                   <span style={{ fontSize: '11px', fontWeight: '700', color: '#3B82F6', backgroundColor: '#EFF6FF', padding: '2px 8px', borderRadius: '6px' }}>
-                     {log.read_count || 0} / {log.sent_to_count} Seen
+              <div key={log.id} style={{ padding: '18px', borderRadius: '12px', border: `1px solid ${theme.border}`, backgroundColor: darkMode ? theme.bg : '#FFFFFF', transition: 'transform 0.2s', cursor: 'default' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
+                   <p style={{ margin: 0, fontSize: '15px', fontWeight: '700', color: theme.text, flex: 1 }}>{log.subject}</p>
+                   <span style={{ fontSize: '11px', fontWeight: '800', color: '#3B82F6', backgroundColor: darkMode ? 'rgba(59, 130, 246, 0.1)' : '#EFF6FF', padding: '3px 10px', borderRadius: '6px' }}>
+                     {log.read_count || 0} / {log.sent_to_count} Acknowledged
                    </span>
                 </div>
-                <p style={{ margin: '0 0 12px 0', fontSize: '12px', color: '#64748B', lineHeight: '1.5', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                <p style={{ margin: '0 0 12px 0', fontSize: '13px', color: theme.textMuted, lineHeight: '1.6', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
                   {log.message}
                 </p>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: '#94A3B8' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: theme.textMuted }}>
                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
                    {formatDate(log.created_at)}
                 </div>

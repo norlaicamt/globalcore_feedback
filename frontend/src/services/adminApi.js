@@ -45,8 +45,10 @@ export const adminDeleteDepartment = (id) => adminApi.delete(`/departments/${id}
 
 // Categories
 export const adminGetCategories = () => adminApi.get("/categories").then(r => r.data);
-export const adminCreateCategory = (name, description = "") => adminApi.post(`/categories?name=${encodeURIComponent(name)}&description=${encodeURIComponent(description)}`).then(r => r.data);
-export const adminUpdateCategory = (id, name, description = "") => adminApi.put(`/categories/${id}?name=${encodeURIComponent(name)}&description=${encodeURIComponent(description)}`).then(r => r.data);
+export const adminCreateCategory = (name, description = "", fields = []) => 
+  adminApi.post("/categories", { name, description, fields }).then(r => r.data);
+export const adminUpdateCategory = (id, name, description = "", fields = []) => 
+  adminApi.put(`/categories/${id}`, { name, description, fields }).then(r => r.data);
 export const adminDeleteCategory = (id) => adminApi.delete(`/categories/${id}`);
 
 // Broadcast

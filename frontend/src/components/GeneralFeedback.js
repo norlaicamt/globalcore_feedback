@@ -106,6 +106,9 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
 
+  // Dynamic values for category-specific fields
+  const [dynamicValues, setDynamicValues] = useState({});
+
   const handleCancelClick = () => {
     if (idea.trim() || specificName || region) setShowDraftModal(true);
     else onBack();
@@ -248,14 +251,15 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
   }, [city, region]);
 
   const allBusinessTypes = [
-    ...businessTypes,
-    ...dbCategories
-      .filter(cat => !businessTypes.some(bt => bt.label.toLowerCase() === cat.name.toLowerCase()))
-      .map(cat => ({
-        id: cat.id,
-        label: cat.name,
-        icon: <Icons.Building />
-      }))
+    // Pre-bind icons to db categories by name if available, otherwise fallback to defaults
+    ...dbCategories.map(cat => ({
+      id: cat.id,
+      label: cat.name,
+      fields: cat.fields || [],
+      icon: businessTypes.find(bt => bt.label.toLowerCase().includes(cat.name.toLowerCase()))?.icon || <Icons.Building />
+    })),
+    // Keep static business types but avoid duplicates from DB
+    ...businessTypes.filter(bt => !dbCategories.some(cat => cat.name.toLowerCase() === bt.label.toLowerCase()))
   ];
 
   const filteredBusinesses = allBusinessTypes.filter(b =>
@@ -284,11 +288,22 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
     if (!city) { setModalConfig({ isOpen: true, title: "Missing City", message: "Please select a City.", type: "alert" }); return; }
     if (!barangay) { setModalConfig({ isOpen: true, title: "Missing Barangay", message: "Please select a Barangay.", type: "alert" }); return; }
     if (!idea.trim()) { setModalConfig({ isOpen: true, title: "Empty Message", message: "Please enter your feedback message.", type: "alert" }); return; }
+    
+    // Check dynamic fields
+    if (selectedBusiness?.fields) {
+      for (const field of selectedBusiness.fields) {
+        if (field.required && (!dynamicValues[field.label] || !dynamicValues[field.label].trim())) {
+          setModalConfig({ isOpen: true, title: "Field Required", message: `Please fill out the "${field.label}" field.`, type: "alert" });
+          return;
+        }
+      }
+    }
+
     setIsSubmitting(true);
     try {
       const bizLabel = selectedBusiness?.label || "General";
       let matchedDeptId = null;
-      if (selectedBusiness?.id === 'department') {
+      if (selectedBusiness?.id === 'department' || bizLabel.toLowerCase().includes('department')) {
         const matched = dbDepartments.find(d => d.name.toLowerCase() === finalName.toLowerCase());
         if (matched) matchedDeptId = matched.id;
       }
@@ -300,13 +315,14 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
         is_anonymous: isAnonymous,
         allow_comments: allowComments,
         sender_id: currentUser.id,
-        category_id: generalCategoryId || 1,
+        category_id: selectedBusiness?.id || generalCategoryId || 1,
         recipient_dept_id: matchedDeptId || null,
         rating: rating > 0 ? rating : null,
         region, city, barangay,
         employee_name: employeeName || null,
         product_name: productName || null,
-        attachments: base64Files.length > 0 ? JSON.stringify(base64Files) : null
+        attachments: base64Files.length > 0 ? JSON.stringify(base64Files) : null,
+        custom_data: dynamicValues
       });
       onSuccess();
     } catch (error) {
@@ -426,6 +442,22 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
               <input type="text" placeholder="Name of the person who assisted you" style={styles.inputBox}
                 value={employeeName} onChange={(e) => setEmployeeName(e.target.value)} />
             </div>
+
+            {/* DYNAMIC CATEGORY FIELDS */}
+            {selectedBusiness?.fields && selectedBusiness.fields.map((field, fIdx) => (
+              <div key={fIdx} style={styles.formGroup}>
+                <label style={styles.label}>
+                  {field.label} {field.required && <span style={{ color: '#EF4444' }}>*</span>}
+                </label>
+                <input 
+                  type={field.type === 'number' ? 'number' : 'text'}
+                  placeholder={field.placeholder || `Enter ${field.label}...`}
+                  style={styles.inputBox}
+                  value={dynamicValues[field.label] || ""}
+                  onChange={(e) => setDynamicValues({ ...dynamicValues, [field.label]: e.target.value })}
+                />
+              </div>
+            ))}
 
             <div style={styles.formGroup}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '5px' }}>
