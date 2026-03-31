@@ -16,14 +16,18 @@ const Icons = {
   Shield: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
 };
 
-const ProfileSettings = ({ currentUser, onBack, onLogout, onUserUpdate }) => {
-  const [subView, setSubView] = useState("main");
+const ProfileSettings = ({ currentUser, onBack, onLogout, onUserUpdate, initialSubView = "main" }) => {
+  const [subView, setSubView] = useState(initialSubView);
   const [toastMessage, setToastMessage] = useState(null);
   const fileInputRef = React.useRef(null);
 
   const [impactPoints, setImpactPoints] = useState(0);
   const [postsCount, setPostsCount] = useState(0);
   const [likesCount, setLikesCount] = useState(0);
+
+  useEffect(() => {
+    setSubView(initialSubView);
+  }, [initialSubView]);
 
   useEffect(() => {
     const fetchImpact = async () => {
@@ -100,7 +104,7 @@ const ProfileSettings = ({ currentUser, onBack, onLogout, onUserUpdate }) => {
   };
 
   const renderView = () => {
-    if (subView === "personal_info") return <PersonalInfoView currentUser={currentUser} onBack={() => setSubView("main")} showToast={showToast} onUserUpdate={onUserUpdate} />;
+    if (subView === "personal_info") return <PersonalInfoView currentUser={currentUser} onBack={initialSubView === "personal_info" ? onBack : () => setSubView("main")} showToast={showToast} onUserUpdate={onUserUpdate} fileInputRef={fileInputRef} handleAvatarUpload={handleAvatarUpload} />;
     if (subView === "alert_prefs") return <AlertPreferencesView currentUser={currentUser} onBack={() => setSubView("main")} showToast={showToast} onUserUpdate={onUserUpdate} />;
     if (subView === "privacy_security") return <PrivacySecurityView currentUser={currentUser} onBack={() => setSubView("main")} onLogout={onLogout} showToast={showToast} onUserUpdate={onUserUpdate} />;
 
@@ -110,40 +114,14 @@ const ProfileSettings = ({ currentUser, onBack, onLogout, onUserUpdate }) => {
         <button onClick={onBack} style={styles.iconBtn}>
           <Icons.Back />
         </button>
-        <h1 style={styles.headerTitle}>Profile</h1>
+        <h1 style={styles.headerTitle}>Settings</h1>
         <button style={styles.iconBtn}>
           <Icons.Gear />
         </button>
       </header>
 
       <main style={styles.mainScroll}>
-        <section style={styles.profileSection}>
-           <div style={styles.avatarContainer}>
-              {currentUser?.avatar_url ? (
-                <img src={currentUser.avatar_url} alt="avatar" style={{...styles.avatar, objectFit: 'cover'}} />
-              ) : (
-                <div style={styles.avatar}>{currentUser?.name?.charAt(0) || "U"}</div>
-              )}
-              <button style={styles.editBadge} onClick={() => fileInputRef.current?.click()}><Icons.Edit /></button>
-              <input ref={fileInputRef} type="file" accept="image/*" style={{display:'none'}} onChange={handleAvatarUpload} />
-           </div>
-           {Number(impactPoints) >= 200 && (
-             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', marginTop: '8px', color: '#1f2a56', background: '#E0E7FF', padding: '4px 10px', borderRadius: '12px', width: 'fit-content', margin: '8px auto 0' }}>
-               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-               <span style={{ fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Certified</span>
-             </div>
-           )}
-          <h2 style={{ ...styles.userName, marginTop: Number(impactPoints) >= 200 ? '12px' : '16px' }}>{currentUser?.name || ""}</h2>
-        </section>
-
-        <div style={styles.sectionWrapper}>
-          <h3 style={styles.sectionLabel}>ACCOUNT SETTINGS</h3>
-          <div style={styles.cardGroup}>
-            <SettingItem icon={<Icons.User />} title="Personal Information" subtitle="Email, Phone, Address" onClick={() => setSubView("personal_info")} />
-          </div>
-        </div>
-
-        <div style={styles.sectionWrapper}>
+        <div style={{ ...styles.sectionWrapper, marginTop: '8px' }}>
           <h3 style={styles.sectionLabel}>PREFERENCES</h3>
           <div style={styles.cardGroup}>
             <SettingItem icon={<Icons.Bell />} title="Alert Preferences" subtitle="Manage push and email alerts" onClick={() => setSubView("alert_prefs")} />
@@ -169,7 +147,7 @@ const ProfileSettings = ({ currentUser, onBack, onLogout, onUserUpdate }) => {
   );
 };
 
-const PersonalInfoView = ({ currentUser, onBack, showToast, onUserUpdate }) => {
+const PersonalInfoView = ({ currentUser, onBack, showToast, onUserUpdate, fileInputRef, handleAvatarUpload }) => {
   const [name, setName] = useState(currentUser?.name || "");
   const [email, setEmail] = useState(currentUser?.email || "");
   const [phone, setPhone] = useState(currentUser?.phone || "");
@@ -197,6 +175,17 @@ const PersonalInfoView = ({ currentUser, onBack, showToast, onUserUpdate }) => {
         <div style={{ width: 24 }}></div>
       </header>
       <main style={styles.mainScroll}>
+        <section style={{ ...styles.profileSection, marginBottom: '24px' }}>
+           <div style={styles.avatarContainer}>
+              {currentUser?.avatar_url ? (
+                <img src={currentUser.avatar_url} alt="avatar" style={{...styles.avatar, objectFit: 'cover'}} />
+              ) : (
+                <div style={styles.avatar}>{currentUser?.name?.charAt(0) || "U"}</div>
+              )}
+              <button style={styles.editBadge} onClick={() => fileInputRef.current?.click()}><Icons.Edit /></button>
+              <input ref={fileInputRef} type="file" accept="image/*" style={{display:'none'}} onChange={handleAvatarUpload} />
+           </div>
+        </section>
         <div style={styles.formGroup}><label style={styles.inputLabel}>Full Name</label><input type="text" style={styles.inputField} value={name} onChange={e => setName(e.target.value)} /></div>
         <div style={styles.formGroup}><label style={styles.inputLabel}>Username</label><input type="text" style={styles.inputField} value={username} onChange={e => setUsername(e.target.value)} /></div>
         <div style={styles.formGroup}><label style={styles.inputLabel}>Email Address</label><input type="email" style={styles.inputField} value={email} onChange={e => setEmail(e.target.value)} /></div>

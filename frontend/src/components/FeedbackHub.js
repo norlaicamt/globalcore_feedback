@@ -6,7 +6,7 @@ import NotificationsView from './NotificationsView';
 import CustomModal from './CustomModal';
 import GeneralFeedback from './GeneralFeedback';
 import ActivityView from './ActivityView';
-import { getFeedbacks, getUserById, getUserNotifications, getFeedbackReplies, createFeedbackReply, updateFeedbackReply, deleteFeedbackReply, toggleReaction, toggleReplyReaction, getReactionsSummary, markNotificationsAsRead, updateFeedback, deleteFeedback, getAdminSettings } from "../services/api";
+import { getFeedbacks, getUserById, getUserNotifications, getFeedbackReplies, createFeedbackReply, updateFeedbackReply, deleteFeedbackReply, toggleReaction, toggleReplyReaction, getReactionsSummary, markNotificationsAsRead, updateFeedback, deleteFeedback, getAdminSettings, getCategories } from "../services/api";
 import { QRCodeCanvas } from "qrcode.react";
 
 const Icons = {
@@ -37,6 +37,7 @@ const Icons = {
   ),
   Moon: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>,
   Sun: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>,
+  Gear: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>,
   Alert: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>,
   TrendingUp: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>,
   TrendingDownGood: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"></polyline><polyline points="17 18 23 18 23 12"></polyline></svg>
@@ -74,16 +75,21 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
   });
 
   const [publicFeedEnabled, setPublicFeedEnabled] = useState(true);
+  const [categories, setCategories] = useState([]);
 
   useEffect(() => {
-    const fetchSettings = async () => {
+    const fetchData = async () => {
       try {
-        const data = await getAdminSettings();
-        const found = data.find(s => s.key === 'public_feed');
+        const [settings, cats] = await Promise.all([
+          getAdminSettings(),
+          getCategories()
+        ]);
+        const found = settings.find(s => s.key === 'public_feed');
         if (found) setPublicFeedEnabled(found.value === 'true');
-      } catch (e) { }
+        setCategories(cats);
+      } catch (e) { console.error("Error fetching initial data", e); }
     };
-    fetchSettings();
+    fetchData();
   }, []);
 
   const handleUserUpdate = (updatedUser) => {
@@ -237,7 +243,9 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
         { id: 'activity', label: 'Activity', icon: <Icons.Bell /> }
       ]
     },
-    { id: 'profile', label: 'Settings', icon: <Icons.User /> },
+    { type: 'label', label: 'ACCOUNT' },
+    { id: 'settings', label: 'Settings', icon: <Icons.Gear /> },
+    { id: 'profile', label: 'Profile', icon: <Icons.User /> },
     { id: 'logout', label: 'Logout', icon: <Icons.Logout />, color: '#EF4444', action: triggerLogout },
   ];
 
@@ -278,6 +286,7 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
             setFullscreenImg={setFullscreenImg}
             onRefresh={fetchCommunityFeed}
             publicFeedEnabled={publicFeedEnabled}
+            categories={categories}
           />
         ) : view === "history" ? (
           <HistoryView currentUser={localUser} onBack={() => { setView("home"); setIsMenuOpen(true); }} />
@@ -321,8 +330,14 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
               if (post) setCommentingFeedback(post);
             }}
           />
-        ) : view === "profile" ? (
-          <ProfileSettings currentUser={localUser} onBack={() => { setView("home"); setIsMenuOpen(true); }} onLogout={onLogout} onUserUpdate={handleUserUpdate} />
+        ) : (view === "profile" || view === "settings") ? (
+          <ProfileSettings 
+            currentUser={localUser} 
+            onBack={() => { setView("home"); setIsMenuOpen(true); }} 
+            onLogout={onLogout} 
+            onUserUpdate={handleUserUpdate} 
+            initialSubView={view === "profile" ? "personal_info" : "main"}
+          />
         ) : null}
       </main>
 
@@ -375,7 +390,17 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
               </div>
             </div>
             <nav style={styles.menuLinks}>
-              {menuItems.map((item) => {
+              {menuItems.map((item, idx) => {
+                if (item.type === 'label') {
+                  return (
+                    <div key={`label-${idx}`} style={{ 
+                      fontSize: '11px', fontWeight: '800', color: 'rgba(255,255,255,0.4)', 
+                      letterSpacing: '1px', marginTop: '24px', marginBottom: '12px', paddingLeft: '16px' 
+                    }}>
+                      {item.label}
+                    </div>
+                  );
+                }
                 const isActive = view === item.id || (item.subItems && item.subItems.some(sub => sub.id === view));
                 return (
                   <div key={item.id} style={{ marginTop: item.id === 'logout' ? 'auto' : '0' }}>
@@ -668,8 +693,13 @@ const CommentModal = ({ item, currentUser, onClose, onShowToast, onRefreshProfil
             backgroundColor: isReply ? '#E2E8F0' : '#1f2a56',
             color: isReply ? '#64748B' : 'white',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: isReply ? '11px' : '13px', fontWeight: 'bold'
-          }}>{(node.user?.name || node.user_name || 'U').charAt(0)}</div>
+            fontSize: isReply ? '11px' : '13px', fontWeight: 'bold',
+            overflow: 'hidden'
+          }}>
+            {node.user?.avatar_url ? (
+              <img src={node.user.avatar_url} alt="avatar" style={{width: '100%', height: '100%', objectFit: 'cover'}} />
+            ) : (node.user?.name || node.user_name || 'U').charAt(0)}
+          </div>
           <div style={{ flex: 1 }}>
             <div style={{ ...styles.commentBubble, backgroundColor: isReply ? 'rgba(0,0,0,0.02)' : '#FFFFFF', borderColor: '#E2E8F0' }}>
               {editingCommentId === node.id ? (
@@ -728,7 +758,11 @@ const CommentModal = ({ item, currentUser, onClose, onShowToast, onRefreshProfil
           {/* Original Post with Reactions */}
           <div style={{ ...styles.originalPostSnippetExtended, backgroundColor: '#FFFFFF', borderColor: '#E2E8F0' }}>
             <div style={styles.snippetUserRow}>
-              <div style={{ ...styles.snippetAvatar, backgroundColor: '#F1F5F9', color: '#1E293B' }}>{(itemMeta.user_name || 'U').charAt(0)}</div>
+              <div style={{ ...styles.snippetAvatar, backgroundColor: '#F1F5F9', color: '#1E293B', overflow: 'hidden' }}>
+                {itemMeta.sender_avatar_url ? (
+                  <img src={itemMeta.sender_avatar_url} alt="avatar" style={{width: '100%', height: '100%', objectFit: 'cover'}} />
+                ) : (itemMeta.user_name || 'U').charAt(0)}
+              </div>
               <div style={{ flex: 1 }}>
                 <div style={{ ...styles.snippetUser, color: '#1E293B' }}>{itemMeta.user_name || 'Anonymous'}</div>
                 <div style={styles.snippetMeta}>{formatDate(itemMeta.created_at)}</div>
@@ -1090,20 +1124,30 @@ const FeedCard = ({ item: initialItem, currentUser, onShowToast, onOpenComments,
   );
 };
 
-const DashboardView = ({ feed, loading, onAction, currentUser, onShowToast, onOpenComments, onRefresh, publicFeedEnabled }) => {
+const DashboardView = ({ feed, loading, onAction, currentUser, onShowToast, onOpenComments, onRefresh, publicFeedEnabled, categories, setFullscreenImg }) => {
   const [activeTab, setActiveTab] = useState('All');
   const [isTrendingExpanded, setIsTrendingExpanded] = useState(false);
   const [searchDash, setSearchDash] = useState("");
 
+  const getTabIcon = (catName) => {
+    const name = (catName || "").toLowerCase();
+    if (name.includes('dept') || name.includes('department')) return <Icons.Building />;
+    if (name.includes('food')) return <Icons.Food />;
+    if (name.includes('cosmetic') || name.includes('beauty')) return <Icons.Cosmetics />;
+    if (name.includes('furniture')) return <Icons.Furniture />;
+    if (name.includes('car') || name.includes('transport')) return <Icons.Car />;
+    if (name.includes('resort')) return <Icons.Resort />;
+    if (name.includes('hotel')) return <Icons.Hotel />;
+    return <Icons.Message />;
+  };
+
   const tabs = [
     { id: 'All', label: 'All', icon: <Icons.History /> },
-    { id: 'department', label: 'Dept', icon: <Icons.Building /> },
-    { id: 'food', label: 'Food', icon: <Icons.Food /> },
-    { id: 'cosmetics', label: 'Beauty', icon: <Icons.Cosmetics /> },
-    { id: 'furniture', label: 'Furniture', icon: <Icons.Furniture /> },
-    { id: 'car', label: 'Transport', icon: <Icons.Car /> },
-    { id: 'resort', label: 'Resort', icon: <Icons.Resort /> },
-    { id: 'hotel', label: 'Hotel', icon: <Icons.Hotel /> },
+    ...(categories || []).map(cat => ({
+      id: cat.name,
+      label: cat.name.charAt(0).toUpperCase() + cat.name.slice(1),
+      icon: getTabIcon(cat.name)
+    }))
   ];
 
   const filteredFeed = feed.filter(item => {
@@ -1114,13 +1158,8 @@ const DashboardView = ({ feed, loading, onAction, currentUser, onShowToast, onOp
     
     let matchesTab = false;
     if (activeTab === 'All') matchesTab = true;
-    else if (activeLower === 'department' && (catName.includes('department') || deptName)) matchesTab = true;
-    else if (activeLower === 'food' && catName.includes('food')) matchesTab = true;
-    else if (activeLower === 'cosmetics' && catName.includes('cosmetic')) matchesTab = true;
-    else if (activeLower === 'furniture' && catName.includes('furniture')) matchesTab = true;
-    else if (activeLower === 'car' && (catName.includes('car') || catName.includes('transport'))) matchesTab = true;
-    else if (activeLower === 'resort' && catName.includes('resort')) matchesTab = true;
-    else if (activeLower === 'hotel' && catName.includes('hotel')) matchesTab = true;
+    else if (catName === activeLower) matchesTab = true;
+    else if (activeLower === 'dept' && (catName.includes('dept') || catName.includes('department') || deptName)) matchesTab = true;
     
     if (!matchesTab) return false;
 
@@ -1273,7 +1312,7 @@ const DashboardView = ({ feed, loading, onAction, currentUser, onShowToast, onOp
                   <p style={styles.emptyText}>Loading feed...</p>
                 ) : filteredFeed.length > 0 ? (
                   filteredFeed.map(item => (
-                    <FeedCard key={item.id} item={item} currentUser={currentUser} onShowToast={onShowToast} onOpenComments={onOpenComments} onRefresh={onRefresh} />
+                    <FeedCard key={item.id} item={item} currentUser={currentUser} onShowToast={onShowToast} onOpenComments={onOpenComments} onRefresh={onRefresh} setFullscreenImg={setFullscreenImg} />
                   ))
                 ) : (
                   <div style={styles.emptyState}>
@@ -1368,7 +1407,7 @@ const styles = {
   actionCount: { fontSize: '12px', fontWeight: '600', marginLeft: '2px' },
 
   feedImages: { display: 'flex', flexDirection: 'row', gap: '8px', overflowX: 'auto', padding: '4px 0', marginBottom: '8px', scrollbarWidth: 'none' },
-  feedImg: { height: '140px', minWidth: '100px', maxWidth: '200px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #E2E8F0', cursor: 'zoom-in' },
+  feedImg: { height: '80px', minWidth: '80px', maxWidth: '160px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #E2E8F0', cursor: 'zoom-in' },
 
   imageModal: { position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0.9)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-out' },
   modalImg: { maxWidth: '95%', maxHeight: '95%', objectFit: 'contain', borderRadius: '8px' },

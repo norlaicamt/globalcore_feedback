@@ -1,4 +1,5 @@
 from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime, Boolean, Enum, UniqueConstraint
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
 from app.database import Base
@@ -32,6 +33,8 @@ class User(Base):
     reply_notifications = Column(Boolean, default=True)
     weekly_digest = Column(Boolean, default=False)
     biometrics_enabled = Column(Boolean, default=True)
+    avatar_url = Column(Text, nullable=True)
+    impact_points = Column(Integer, default=0)
 
 
 class Department(Base):
@@ -44,6 +47,7 @@ class Category(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, index=True)
     description = Column(String, nullable=True)
+    fields = Column(JSONB, nullable=True) # stores List[dict] of field definitions
 
 class Feedback(Base):
     __tablename__ = "feedbacks"
@@ -64,6 +68,7 @@ class Feedback(Base):
     employee_name = Column(String, nullable=True)
     product_name = Column(String, nullable=True)
     attachments = Column(Text, nullable=True) # JSON-encoded list of Base64 strings or URLs
+    custom_data = Column(JSONB, nullable=True) # stores dict of field values
     
     status = Column(Enum(FeedbackStatus), default=FeedbackStatus.OPEN)
     allow_comments = Column(Boolean, default=True)

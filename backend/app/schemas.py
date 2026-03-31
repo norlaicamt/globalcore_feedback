@@ -65,6 +65,7 @@ class Department(DepartmentBase):
 class CategoryBase(BaseModel):
     name: str
     description: Optional[str] = None
+    fields: Optional[List[dict]] = None # List of {label, type, placeholder, required}
 
 class CategoryCreate(CategoryBase):
     pass
@@ -138,6 +139,7 @@ class FeedbackBase(BaseModel):
     employee_name: Optional[str] = None
     product_name: Optional[str] = None
     attachments: Optional[str] = None
+    custom_data: Optional[dict] = None # Stores key-value pairs of dynamic fields
 
 class FeedbackCreate(FeedbackBase):
     sender_id: int
@@ -161,6 +163,7 @@ class Feedback(FeedbackBase):
     employee_name: Optional[str] = None
     product_name: Optional[str] = None
     attachments: Optional[str] = None
+    custom_data: Optional[dict] = None
     
     # UI Helper fields populated via Joins
     user_name: Optional[str] = None 

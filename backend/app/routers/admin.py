@@ -217,7 +217,7 @@ def admin_get_feedbacks(
     q = db.query(
         models.Feedback.id, models.Feedback.title, models.Feedback.description,
         models.Feedback.status, models.Feedback.is_anonymous, models.Feedback.created_at,
-        models.Feedback.rating, models.Feedback.sender_id,
+        models.Feedback.rating, models.Feedback.sender_id, models.Feedback.custom_data,
         models.User.name.label("user_name"),
         models.Category.name.label("category_name"),
         models.Department.name.label("dept_name"),
@@ -240,7 +240,8 @@ def admin_get_feedbacks(
         "is_anonymous": r.is_anonymous, "created_at": str(r.created_at),
         "rating": r.rating, "sender_id": r.sender_id,
         "user_name": r.user_name, "category_name": r.category_name,
-        "dept_name": r.dept_name, "comments_count": r.comments_count
+        "dept_name": r.dept_name, "comments_count": r.comments_count,
+        "custom_data": r.custom_data
     } for r in rows]
 
 
@@ -336,16 +337,17 @@ def admin_get_categories(db: Session = Depends(get_db)):
         models.Category.id,
         models.Category.name,
         models.Category.description,
+        models.Category.fields,
         func.count(models.Feedback.id).label("count")
     ).outerjoin(models.Feedback, models.Feedback.category_id == models.Category.id)\
-     .group_by(models.Category.id, models.Category.name, models.Category.description)\
+     .group_by(models.Category.id, models.Category.name, models.Category.description, models.Category.fields)\
      .order_by(models.Category.name).all()
-    return [{"id": r.id, "name": r.name, "description": r.description, "count": r.count} for r in rows]
+    return [{"id": r.id, "name": r.name, "description": r.description, "fields": r.fields, "count": r.count} for r in rows]
 
 
 @router.post("/categories")
-def admin_create_category(name: str, description: Optional[str] = None, db: Session = Depends(get_db)):
-    cat = models.Category(name=name, description=description)
+def admin_create_category(name: str, description: Optional[str] = None, fields: Optional[List[dict]] = None, db: Session = Depends(get_db)):
+    cat = models.Category(name=name, description=description, fields=fields)
     db.add(cat)
     db.commit()
     db.refresh(cat)
@@ -353,13 +355,15 @@ def admin_create_category(name: str, description: Optional[str] = None, db: Sess
 
 
 @router.put("/categories/{cat_id}")
-def admin_update_category(cat_id: int, name: str, description: Optional[str] = None, db: Session = Depends(get_db)):
+def admin_update_category(cat_id: int, name: str, description: Optional[str] = None, fields: Optional[List[dict]] = None, db: Session = Depends(get_db)):
     cat = db.query(models.Category).filter(models.Category.id == cat_id).first()
     if not cat:
         raise HTTPException(status_code=404, detail="Category not found")
     cat.name = name
     if description is not None:
         cat.description = description
+    if fields is not None:
+        cat.fields = fields
     db.commit()
     return cat
 

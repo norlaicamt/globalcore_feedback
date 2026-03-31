@@ -287,6 +287,16 @@ def delete_reply(db: Session, reply_id: int):
 def get_reactions(db: Session, feedback_id: int):
     return db.query(models.Reaction).filter(models.Reaction.feedback_id == feedback_id).all()
 
+def get_reactions_summary(db: Session, feedback_id: int, current_user_id: int = None):
+    likes = db.query(models.Reaction).filter(models.Reaction.feedback_id == feedback_id, models.Reaction.is_like == True).count()
+    dislikes = db.query(models.Reaction).filter(models.Reaction.feedback_id == feedback_id, models.Reaction.is_like == False).count()
+    user_reaction = None
+    if current_user_id:
+        existing = db.query(models.Reaction).filter(models.Reaction.feedback_id == feedback_id, models.Reaction.user_id == current_user_id).first()
+        if existing:
+            user_reaction = existing.is_like
+    return {"likes": likes, "dislikes": dislikes, "user_reaction": user_reaction}
+
 def create_reaction(db: Session, reaction: schemas.ReactionCreate):
     db_reaction = models.Reaction(**reaction.model_dump())
     db.add(db_reaction)
