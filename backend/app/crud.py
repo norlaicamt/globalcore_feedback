@@ -106,6 +106,7 @@ def get_feedbacks(db: Session, skip: int = 0, limit: int = 100, user_id: int = N
         models.Feedback.employee_name,
         models.Feedback.product_name,
         models.Feedback.attachments,
+        models.Feedback.is_approved,
         models.User.name.label("user_name"), 
         models.Department.name.label("recipient_dept_name"),
         RecipientUser.name.label("recipient_user_name"),
@@ -122,11 +123,15 @@ def get_feedbacks(db: Session, skip: int = 0, limit: int = 100, user_id: int = N
         )
     if dept_id:
         query = query.filter(models.Feedback.recipient_dept_id == dept_id)
+        
+    # Moderation check: Regular lists skip unapproved
+    query = query.filter(models.Feedback.is_approved == True)
 
     return query.order_by(models.Feedback.created_at.desc()).offset(skip).limit(limit).all()
 
 def create_feedback(db: Session, feedback: schemas.FeedbackCreate):
-    db_feedback = models.Feedback(**feedback.model_dump())
+    data = feedback.model_dump()
+    db_feedback = models.Feedback(**data)
     db.add(db_feedback)
     db.commit()
     db.refresh(db_feedback)
@@ -204,6 +209,7 @@ def get_public_feed(db: Session):
         models.Feedback.employee_name,
         models.Feedback.product_name,
         models.Feedback.attachments,
+        models.Feedback.is_approved,
         models.User.name.label("user_name"), 
         models.User.avatar_url.label("sender_avatar_url"),
         models.User.show_activity_status.label("sender_show_status"),
@@ -214,6 +220,7 @@ def get_public_feed(db: Session):
     ).outerjoin(models.User, models.Feedback.sender_id == models.User.id) \
      .outerjoin(models.Department, models.Feedback.recipient_dept_id == models.Department.id) \
      .outerjoin(RecipientUser, models.Feedback.recipient_user_id == RecipientUser.id) \
+     .filter(models.Feedback.is_approved == True) \
      .order_by(models.Feedback.created_at.desc()) \
      .all()
 
@@ -431,19 +438,24 @@ def mark_notifications_as_read(db: Session, user_id: int):
 
 # Analytics & Performance
 def get_user_impact_stats(db: Session, user_id: int):
-    posts_count = db.query(func.count(models.Feedback.id)).filter(models.Feedback.sender_id == user_id).scalar() or 0
+    posts_count = db.query(func.count(models.Feedback.id))\
+        .filter(models.Feedback.sender_id == user_id, models.Feedback.is_approved == True).scalar() or 0
+    
     received_reactions = db.query(func.count(models.Reaction.id))\
         .join(models.Feedback, models.Reaction.feedback_id == models.Feedback.id)\
-        .filter(models.Feedback.sender_id == user_id).scalar() or 0
+        .filter(models.Feedback.sender_id == user_id, models.Feedback.is_approved == True).scalar() or 0
+    
     received_comments = db.query(func.count(models.Reply.id))\
         .join(models.Feedback, models.Reply.feedback_id == models.Feedback.id)\
-        .filter(models.Feedback.sender_id == user_id, models.Reply.parent_id == None).scalar() or 0
+        .filter(models.Feedback.sender_id == user_id, models.Reply.parent_id == None, models.Feedback.is_approved == True).scalar() or 0
+    
     given_comments = db.query(func.count(models.Reply.id)).filter(models.Reply.user_id == user_id).scalar() or 0
     given_reactions = db.query(func.count(models.Reaction.id)).filter(models.Reaction.user_id == user_id).scalar() or 0
     given_reply_reactions = db.query(func.count(models.ReplyReaction.id)).filter(models.ReplyReaction.user_id == user_id).scalar() or 0
+    
     likes_received = db.query(func.count(models.Reaction.id))\
         .join(models.Feedback, models.Reaction.feedback_id == models.Feedback.id)\
-        .filter(models.Feedback.sender_id == user_id, models.Reaction.is_like == True).scalar() or 0
+        .filter(models.Feedback.sender_id == user_id, models.Reaction.is_like == True, models.Feedback.is_approved == True).scalar() or 0
 
     total_points = (posts_count * 3) + (received_reactions * 1.5) + (received_comments * 1) + \
                    ((given_reactions + given_reply_reactions) * 0.5) + (given_comments * 0.5)
@@ -494,6 +506,70 @@ def create_broadcast_log(db: Session, subject: str, message: str, count: int):
     db.commit()
     db.refresh(log)
     return log
+
+# Moderation Operations
+def get_pending_feedbacks(db: Session, skip: int = 0, limit: int = 100):
+    from sqlalchemy.orm import aliased
+    RecipientUser = aliased(models.User)
+    
+    return db.query(
+        models.Feedback.id,
+        models.Feedback.title,
+        models.Feedback.description,
+        models.Feedback.category_id,
+        models.Feedback.sender_id,
+        models.Feedback.recipient_user_id,
+        models.Feedback.recipient_dept_id,
+        models.Feedback.status,
+        models.Feedback.is_approved,
+        models.Feedback.created_at,
+        models.User.name.label("user_name"),
+        models.Category.name.label("category_name")
+    ).join(models.User, models.Feedback.sender_id == models.User.id) \
+     .join(models.Category, models.Feedback.category_id == models.Category.id) \
+     .filter(models.Feedback.is_approved == False) \
+     .order_by(models.Feedback.created_at.desc()) \
+     .offset(skip).limit(limit).all()
+
+def approve_feedback_choice(db: Session, feedback_id: int, approved_name: str):
+    import json
+    from datetime import datetime, timezone
+    db_fb = db.query(models.Feedback).filter(models.Feedback.id == feedback_id).first()
+    if not db_fb: return None
+    
+    # 1. Update Category choices list
+    db_cat = db.query(models.Category).filter(models.Category.id == db_fb.category_id).first()
+    if db_cat:
+        try:
+            choices = json.loads(db_cat.description or "[]")
+            if approved_name not in choices:
+                choices.append(approved_name)
+                db_cat.description = json.dumps(choices)
+        except Exception: pass
+    
+    # 2. Update Feedback title and approve
+    # Title is usually "Category Name: Establishment Name"
+    cat_label = db_cat.name if db_cat else "Feedback"
+    db_fb.title = f"{cat_label}: {approved_name}"
+    db_fb.is_approved = True
+    
+    # Update timestamp so it appears "Just Now" in public feed
+    db_fb.created_at = datetime.now(timezone.utc)
+    
+    # 3. Create Notification for user
+    notif = models.Notification(
+        user_id=db_fb.sender_id,
+        actor_id=None, # System/Admin action
+        type="approval",
+        feedback_id=feedback_id,
+        message="Your feedback is approved and you can now see it in the feeds/posts.",
+        is_read=False
+    )
+    db.add(notif)
+    
+    db.commit()
+    db.refresh(db_fb)
+    return db_fb
 
 def get_broadcast_logs(db: Session):
     logs = db.query(models.BroadcastLog).order_by(models.BroadcastLog.created_at.desc()).all()

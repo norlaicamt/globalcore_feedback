@@ -428,3 +428,30 @@ def update_admin_setting(key: str, value: str, db: Session = Depends(get_db)):
 def get_broadcast_history(db: Session = Depends(get_db)):
     """Fetch history of announcements."""
     return crud.get_broadcast_logs(db)
+
+
+# ─────────────────────────────────────────────
+# ESTABLISHMENT MODERATION
+# ─────────────────────────────────────────────
+
+@router.get("/pending-suggestions")
+def admin_get_pending_suggestions(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    """Fetch reports that are pending establishment approval."""
+    rows = crud.get_pending_feedbacks(db, skip=skip, limit=limit)
+    return [{
+        "id": r.id, 
+        "title": r.title, 
+        "description": r.description,
+        "category_id": r.category_id,
+        "category_name": r.category_name,
+        "user_name": r.user_name,
+        "created_at": str(r.created_at)
+    } for r in rows]
+
+@router.post("/approve-suggestion")
+def admin_approve_suggestion(feedback_id: int, approved_name: str, db: Session = Depends(get_db)):
+    """Approve a suggested name, edit it if needed, and update category choices."""
+    feedback = crud.approve_feedback_choice(db, feedback_id=feedback_id, approved_name=approved_name)
+    if not feedback:
+        raise HTTPException(status_code=404, detail="Feedback suggestion not found")
+    return {"status": "approved", "feedback_id": feedback_id, "approved_name": approved_name}

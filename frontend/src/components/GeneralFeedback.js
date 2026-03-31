@@ -139,21 +139,35 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
   const [allowVoiceSetting, setAllowVoiceSetting] = useState(true);
 
   useEffect(() => {
-    const fetchSettings = async () => {
+    const fetchEverything = async () => {
       try {
-        const data = await getAdminSettings();
-        const found = data.find(s => s.key === 'allow_voice');
-        if (found) setAllowVoiceSetting(found.value === 'true');
-      } catch (e) { }
+        const [settings, categories, departments] = await Promise.allSettled([
+          getAdminSettings(),
+          getCategories(),
+          getDepartments()
+        ]);
+
+        if (settings.status === 'fulfilled') {
+          const found = settings.value.find(s => s.key === 'allow_voice');
+          if (found) setAllowVoiceSetting(found.value === 'true');
+        }
+
+        if (categories.status === 'fulfilled') {
+          setDbCategories(categories.value);
+          const genCat = categories.value.find(c => c.name.toLowerCase() === 'general') || categories.value[0];
+          if (genCat) setGeneralCategoryId(genCat.id);
+        }
+
+        if (departments.status === 'fulfilled') {
+          setDbDepartments(departments.value);
+          const merged = [...new Set([...departments.value.map(d => d.name), ...mockSuggestions.department.filter(x => x !== 'Other')])];
+          mockSuggestions.department = [...merged, "Other"];
+        }
+      } catch (err) {
+        console.error("Failed to fetch initial data", err);
+      }
     };
-    const fetchCats = async () => {
-      try {
-        const data = await getCategories();
-        setDbCategories(data);
-      } catch (e) { }
-    };
-    fetchSettings();
-    fetchCats();
+    fetchEverything();
   }, []);
 
   useEffect(() => {
@@ -201,22 +215,6 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
 
   const handleDiscard = () => { setShowDraftModal(false); onBack(); };
 
-  useEffect(() => {
-    const fetchInitialData = async () => {
-      try {
-        const catData = await getCategories();
-        const genCat = catData.find(c => c.name.toLowerCase() === 'general') || catData[0];
-        if (genCat) setGeneralCategoryId(genCat.id);
-        const deptData = await getDepartments();
-        if (deptData && deptData.length > 0) {
-          setDbDepartments(deptData);
-          const merged = [...new Set([...deptData.map(d => d.name), ...mockSuggestions.department.filter(x => x !== 'Other')])];
-          mockSuggestions.department = [...merged, "Other"];
-        }
-      } catch (error) { console.error("Failed to load data:", error); }
-    };
-    fetchInitialData();
-  }, []);
 
   useEffect(() => {
     if (initialDraft) {
@@ -250,17 +248,13 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
     setBarangay("");
   }, [city, region]);
 
-  const allBusinessTypes = [
-    // Pre-bind icons to db categories by name if available, otherwise fallback to defaults
-    ...dbCategories.map(cat => ({
-      id: cat.id,
-      label: cat.name,
-      fields: cat.fields || [],
-      icon: businessTypes.find(bt => bt.label.toLowerCase().includes(cat.name.toLowerCase()))?.icon || <Icons.Building />
-    })),
-    // Keep static business types but avoid duplicates from DB
-    ...businessTypes.filter(bt => !dbCategories.some(cat => cat.name.toLowerCase() === bt.label.toLowerCase()))
-  ];
+  const allBusinessTypes = dbCategories.map(cat => ({
+    id: cat.id,
+    label: cat.name,
+    fields: cat.fields || [],
+    description: cat.description,
+    icon: businessTypes.find(bt => cat.name.toLowerCase().includes(bt.label.toLowerCase().split(' / ')[0]))?.icon || <Icons.Building />
+  }));
 
   const filteredBusinesses = allBusinessTypes.filter(b =>
     b.label.toLowerCase().includes(searchQuery.toLowerCase())
@@ -314,6 +308,7 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
         description: idea,
         is_anonymous: isAnonymous,
         allow_comments: allowComments,
+        is_approved: specificName !== "Other", // Flag for moderation if "Other"
         sender_id: currentUser.id,
         category_id: selectedBusiness?.id || generalCategoryId || 1,
         recipient_dept_id: matchedDeptId || null,
@@ -386,13 +381,23 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
 
             <div style={styles.formGroup}>
               <label style={styles.label}>
-                Select {selectedBusiness.id === 'department' ? 'Department' : 'Establishment'} <span style={{ color: '#EF4444' }}>*</span>
+                Select {selectedBusiness.label.toLowerCase().includes('department') ? 'Department' : 'Establishment'} <span style={{ color: '#EF4444' }}>*</span>
               </label>
               <select style={styles.nativeSelect} value={specificName} onChange={(e) => setSpecificName(e.target.value)}>
                 <option value="">-- Choose One --</option>
-                {(mockSuggestions[selectedBusiness.id] || []).map(name => (
-                  <option key={name} value={name}>{name}</option>
-                ))}
+                {(() => {
+                  try {
+                    const parsed = JSON.parse(selectedBusiness.description || "[]");
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                      return [...parsed, "Other"].map(name => <option key={name} value={name}>{name}</option>);
+                    }
+                  } catch(e) {}
+                  // Fallback to mock suggestions or just Other
+                  const fallback = mockSuggestions[selectedBusiness.id] || [];
+                  return [...fallback, "Other"].map(name => (
+                    <option key={name} value={name}>{name}</option>
+                  ));
+                })()}
               </select>
             </div>
 
@@ -443,21 +448,7 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
                 value={employeeName} onChange={(e) => setEmployeeName(e.target.value)} />
             </div>
 
-            {/* DYNAMIC CATEGORY FIELDS */}
-            {selectedBusiness?.fields && selectedBusiness.fields.map((field, fIdx) => (
-              <div key={fIdx} style={styles.formGroup}>
-                <label style={styles.label}>
-                  {field.label} {field.required && <span style={{ color: '#EF4444' }}>*</span>}
-                </label>
-                <input 
-                  type={field.type === 'number' ? 'number' : 'text'}
-                  placeholder={field.placeholder || `Enter ${field.label}...`}
-                  style={styles.inputBox}
-                  value={dynamicValues[field.label] || ""}
-                  onChange={(e) => setDynamicValues({ ...dynamicValues, [field.label]: e.target.value })}
-                />
-              </div>
-            ))}
+            {/* (Custom Form Fields section removed as requested) */}
 
             <div style={styles.formGroup}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '5px' }}>

@@ -3,10 +3,12 @@ import AdminDashboard from "./pages/AdminDashboard";
 import AdminUsers from "./pages/AdminUsers";
 import AdminFeedbacks from "./pages/AdminFeedbacks";
 import AdminFeedbackTypes from "./pages/AdminFeedbackTypes";
+import AdminPendingSuggestions from "./pages/AdminPendingSuggestions";
 import AdminBroadcast from "./pages/AdminBroadcast";
 import AdminUserInfoFields from "./pages/AdminUserInfoFields";
 import AdminSettings from "./pages/AdminSettings";
 import CustomModal from "../CustomModal";
+import { adminGetPendingSuggestions } from "../../services/adminApi";
 
 const NAV_ITEMS = [
   { id: "dashboard",      label: "Dashboard",           icon: <ChartIcon /> },
@@ -15,6 +17,7 @@ const NAV_ITEMS = [
   { id: "broadcast",      label: "Broadcast",            icon: <BellIcon /> },
   { type: "label",        label: "CONFIGURATION" },
   { id: "feedbacktypes",  label: "Category Setup",       icon: <TagIcon /> },
+  { id: "pendingsuggestions", label: "Pending Suggestions", icon: <ClockIcon />, isSub: true },
   { id: "userinfofields", label: "User Info Fields",     icon: <UsersIcon /> },
   { type: "label",        label: "SYSTEM" },
   { id: "settings",       label: "Settings",             icon: <SettingsIcon /> },
@@ -24,6 +27,19 @@ const AdminHub = ({ adminUser, onLogout }) => {
   const [view, setView] = useState(localStorage.getItem("adminView") || "dashboard");
   const [darkMode, setDarkMode] = useState(localStorage.getItem("adminDarkMode") === "true");
   const [logoutDialog, setLogoutDialog] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
+
+  const fetchPendingCount = () => {
+    adminGetPendingSuggestions().then(data => {
+      setPendingCount(data.length);
+    }).catch(console.error);
+  };
+
+  useEffect(() => {
+    fetchPendingCount();
+    const interval = setInterval(fetchPendingCount, 60000); // refresh every minute
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     localStorage.setItem("adminDarkMode", darkMode);
@@ -60,6 +76,7 @@ const AdminHub = ({ adminUser, onLogout }) => {
       case "users":         return <AdminUsers {...props} />;
       case "feedbacks":     return <AdminFeedbacks {...props} />;
       case "feedbacktypes": return <AdminFeedbackTypes {...props} />;
+      case "pendingsuggestions": return <AdminPendingSuggestions {...props} refreshCount={fetchPendingCount} />;
       case "userinfofields":return <AdminUserInfoFields {...props} />;
       case "broadcast":     return <AdminBroadcast {...props} />;
       case "settings":      return <AdminSettings {...props} />;
@@ -104,10 +121,19 @@ const AdminHub = ({ adminUser, onLogout }) => {
                 key={item.id}
                 className={`nav-item${view === item.id ? " active" : ""}`}
                 onClick={() => setView(item.id)}
-                style={{ ...styles.navItem, ...(view === item.id ? styles.navItemActive : {}) }}
+                style={{ 
+                  ...styles.navItem, 
+                  ...(view === item.id ? styles.navItemActive : {}),
+                  marginLeft: item.isSub ? "20px" : "0",
+                  width: item.isSub ? "calc(100% - 20px)" : "100%",
+                  fontSize: item.isSub ? "13px" : "14px"
+                }}
               >
                 <span style={styles.navIcon}>{item.icon}</span>
-                <span>{item.label}</span>
+                <span style={{ flex: 1 }}>{item.label}</span>
+                {item.id === "pendingsuggestions" && pendingCount > 0 && (
+                  <div style={styles.badge}>{pendingCount}</div>
+                )}
               </button>
             )
           ))}
@@ -169,6 +195,7 @@ function BellIcon()     { return <svg width="15" height="15" viewBox="0 0 24 24"
 function SettingsIcon() { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg>; }
 function SunIcon()      { return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>; }
 function MoonIcon()     { return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>; }
+function ClockIcon()    { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>; }
 
 const SIDEBAR_W = 280;
 const styles = {
@@ -196,6 +223,16 @@ const styles = {
   pageTime: { fontSize: "12px", color: "#94A3B8", margin: 0, fontWeight: "500" },
   content: { flex: 1, overflowY: "auto", padding: "24px 28px" },
   themeToggle: { background: "none", border: "none", cursor: "pointer", width: "36px", height: "36px", borderRadius: "10px", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s" },
+  badge: {
+    backgroundColor: "#EF4444",
+    color: "white",
+    fontSize: "10px",
+    fontWeight: "800",
+    borderRadius: "10px",
+    padding: "2px 6px",
+    minWidth: "16px",
+    textAlign: "center",
+  }
 };
 
 export default AdminHub;

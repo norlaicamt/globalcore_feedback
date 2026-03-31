@@ -73,6 +73,7 @@ class Feedback(Base):
     status = Column(Enum(FeedbackStatus), default=FeedbackStatus.OPEN)
     allow_comments = Column(Boolean, default=True)
     is_anonymous = Column(Boolean, default=False)
+    is_approved = Column(Boolean, default=True) # New moderation field
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     

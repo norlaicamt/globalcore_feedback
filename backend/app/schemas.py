@@ -131,6 +131,7 @@ class FeedbackBase(BaseModel):
     recipient_user_id: Optional[int] = None
     allow_comments: Optional[bool] = True
     is_anonymous: Optional[bool] = False
+    is_approved: Optional[bool] = True # New moderation flag
     rating: Optional[int] = None # 1-5 stars
     address: Optional[str] = None
     region: Optional[str] = None
@@ -155,6 +156,7 @@ class Feedback(FeedbackBase):
     id: int
     sender_id: int
     status: FeedbackStatus
+    is_approved: bool # Moderation status
     created_at: datetime
     updated_at: Optional[datetime] = None
     address: Optional[str] = None

@@ -1,6 +1,9 @@
 import React, { useEffect, useRef, useState } from "react"; // Fixed search state
 import { adminGetFeedbacks, adminDeleteFeedback } from "../../../services/adminApi";
 import CustomModal from "../../CustomModal";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
 
 // 3-dot menu for each feedback row
 const DotsMenu = ({ onDelete, theme, darkMode }) => {
@@ -33,6 +36,54 @@ const DotsMenu = ({ onDelete, theme, darkMode }) => {
           >
             Delete Post
           </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// --- EXPORT DROPDOWN COMPONENT ---
+const ExportDropdown = ({ onExport, theme, darkMode }) => {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const handleSelect = (format) => {
+    onExport(format);
+    setOpen(false);
+  };
+
+  const btnStyle = { padding: "8px 16px", background: theme.surface, color: theme.text, border: `1.5px solid ${theme.border}`, borderRadius: "8px", fontSize: "12px", fontWeight: "600", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: "8px" };
+
+  return (
+    <div ref={ref} style={{ position: "relative", display: "inline-block" }}>
+      <button onClick={() => setOpen(!open)} style={btnStyle}>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Export
+      </button>
+      {open && (
+        <div style={{ position: "absolute", right: 0, top: "40px", background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: "12px", boxShadow: "0 10px 30px rgba(0,0,0,0.15)", zIndex: 100, minWidth: "160px", padding: "6px" }}>
+          {[
+            { id: 'pdf', label: 'PDF Report', icon: '📄' },
+            { id: 'xls', label: 'Excel (XLS)', icon: '📊' },
+            { id: 'doc', label: 'Word (DOC)', icon: '📝' },
+            { id: 'csv', label: 'CSV (Legacy)', icon: '📑' }
+          ].map(fmt => (
+            <button
+              key={fmt.id}
+              onClick={() => handleSelect(fmt.id)}
+              style={{ display: "flex", alignItems: "center", gap: "10px", width: "100%", padding: "10px 14px", background: "none", border: "none", borderRadius: "8px", textAlign: "left", fontSize: "13px", fontWeight: "600", color: theme.text, cursor: "pointer", fontFamily: "inherit" }}
+              onMouseEnter={e => e.currentTarget.style.background = darkMode ? "rgba(255,255,255,0.05)" : "#F1F5F9"}
+              onMouseLeave={e => e.currentTarget.style.background = "none"}
+            >
+              <span>{fmt.icon}</span> {fmt.label}
+            </button>
+          ))}
         </div>
       )}
     </div>
@@ -120,20 +171,107 @@ const AdminFeedbacks = ({ theme, darkMode }) => {
     });
   };
 
-  const exportCSV = () => {
-    const rows = [["ID", "Title", "Author", "Category Type", "Rating", "Comments", "Date"]];
-    filtered.forEach(f => rows.push([
-      f.id, `"${f.title}"`,
-      f.user_name || "—",
+  const handleExport = (format) => {
+    const headers = ["ID", "Category", "Establishment", "Author", "Rating", "Comments", "Date"];
+    const data = filtered.map((f, idx) => [
+      idx + 1,
       f.title?.split(": ")[0] || "General",
-      f.rating || "",
+      f.title?.split(": ")[1] || f.title || "—",
+      f.user_name || "Anonymous",
+      f.rating ? `${f.rating}/5` : "—",
       f.comments_count,
       f.created_at?.split("T")[0]
-    ]));
-    const csv = rows.map(r => r.join(",")).join("\n");
-    const a = document.createElement("a");
-    a.href = "data:text/csv," + encodeURIComponent(csv);
-    a.download = "feedbacks.csv"; a.click();
+    ]);
+
+    if (format === 'csv') {
+      const csvContent = [headers, ...data].map(r => r.join(",")).join("\n");
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `feedbacks_${new Date().getTime()}.csv`);
+      link.click();
+    } else if (format === 'xls') {
+      const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
+      
+      // Auto-width columns for professional look
+      const colWidths = headers.map((h, i) => {
+        const longest = data.reduce((acc, row) => Math.max(acc, String(row[i]).length), h.length);
+        return { wch: longest + 5 };
+      });
+      ws['!cols'] = colWidths;
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Feedbacks");
+      XLSX.writeFile(wb, `feedbacks_report_${new Date().getTime()}.xlsx`);
+    } else if (format === 'pdf') {
+      const doc = new jsPDF();
+      
+      // Header Branding
+      doc.setFillColor(31, 42, 86); // Navy
+      doc.rect(0, 0, 210, 25, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(20);
+      doc.text("FEEDBACK AUDIT REPORT", 14, 17);
+      
+      doc.setFontSize(8);
+      doc.setTextColor(200, 200, 200);
+      doc.text(`Generated: ${new Date().toLocaleString()}`, 160, 17);
+
+      autoTable(doc, {
+        head: [headers],
+        body: data,
+        startY: 30,
+        margin: { horizontal: 14 },
+        styles: { fontSize: 8, cellPadding: 3 },
+        headStyles: { fillColor: [31, 42, 86], textColor: [255, 255, 255], fontStyle: 'bold' },
+        alternateRowStyles: { fillColor: [245, 247, 250] },
+        didDrawPage: (data) => {
+          // Footer with page numbering
+          const str = "Page " + doc.internal.getNumberOfPages();
+          doc.setFontSize(8);
+          doc.setTextColor(150, 150, 150);
+          doc.text(str, data.settings.margin.left, doc.internal.pageSize.height - 10);
+          doc.text("Confidential - Internal Use Only", 140, doc.internal.pageSize.height - 10);
+        }
+      });
+      doc.save(`feedbacks_audit_${new Date().getTime()}.pdf`);
+    } else if (format === 'doc') {
+      let html = `
+        <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+        <head><meta charset='utf-8'><title>Feedback Audit Report</title>
+        <style>
+          body { font-family: 'Segoe UI', Tahoma, Arial, sans-serif; color: #1e293b; padding: 20px; }
+          h1 { color: #1f2a56; border-bottom: 2px solid #3b82f6; padding-bottom: 5px; font-size: 24px; }
+          .meta { color: #64748b; font-size: 11px; margin-bottom: 20px; }
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+          th { background-color: #1f2a56; color: white; text-align: left; padding: 12px; font-size: 13px; }
+          td { border-bottom: 1px solid #e2e8f0; padding: 10px; font-size: 12px; }
+          .stripe { background-color: #f8fafc; }
+        </style>
+        </head>
+        <body>
+          <h1>FEEDBACK AUDIT REPORT</h1>
+          <p class="meta">Exported from GlobalCore Admin on ${new Date().toLocaleString()}</p>
+          <table>
+            <thead>
+              <tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>
+            </thead>
+            <tbody>
+              ${data.map((row, i) => `<tr ${i % 2 === 0 ? '' : 'class="stripe"'}>${row.map(cell => `<td>${cell}</td>`).join('')}</tr>`).join('')}
+            </tbody>
+          </table>
+          <p style="margin-top: 40px; font-size: 10px; color: #94a3b8; text-align: center;">--- End of Report ---</p>
+        </body>
+        </html>
+      `;
+      const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `feedbacks_report_${new Date().getTime()}.doc`;
+      link.click();
+    }
   };
 
   return (
@@ -145,7 +283,7 @@ const AdminFeedbacks = ({ theme, darkMode }) => {
           placeholder="Global Search..."
           style={{ ...inputStyle, background: theme.bg, color: theme.text, borderColor: theme.border }}
         />
-        <button onClick={exportCSV} style={{ ...outlineBtn, background: theme.surface, color: theme.text, borderColor: theme.border }}>Export CSV</button>
+        <ExportDropdown onExport={handleExport} theme={theme} darkMode={darkMode} />
       </div>
 
       {/* Table */}

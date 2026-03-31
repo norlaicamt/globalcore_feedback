@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const BASE = "http://127.0.0.1:8000/admin";
+const BASE = `http://${window.location.hostname}:8000/admin`;
 
 const adminApi = axios.create({ baseURL: BASE });
 
@@ -55,3 +55,8 @@ export const adminDeleteCategory = (id) => adminApi.delete(`/categories/${id}`);
 export const adminBroadcast = (subject, message) => 
   adminApi.post(`/broadcast?subject=${encodeURIComponent(subject)}&message=${encodeURIComponent(message)}`).then(r => r.data);
 export const adminGetBroadcastLogs = () => adminApi.get("/broadcasts").then(r => r.data);
+
+// Moderation
+export const adminGetPendingSuggestions = () => adminApi.get("/pending-suggestions").then(r => r.data);
+export const adminApproveSuggestion = (id, approvedName) => 
+  adminApi.post(`/approve-suggestion?feedback_id=${id}&approved_name=${encodeURIComponent(approvedName)}`).then(r => r.data);
