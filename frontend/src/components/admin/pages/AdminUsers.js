@@ -149,16 +149,20 @@ const AdminUsers = ({ theme, darkMode }) => {
   };
 
   const handleExport = (format) => {
-    const headers = ["ID", "Name", "Email", "Department", "Status", "Posts", "Impact Points"];
-    const data = filtered.map((u, idx) => [
-      idx + 1,
-      u.name || "—",
-      u.email || "—",
-      u.department || "—",
-      u.is_active ? "Active" : "Inactive",
-      u.total_posts || 0,
-      u.impact_points || 0
-    ]);
+    const headers = ["ID", "Name", "Email", "Department", "Created Date", "Status", "Posts", "Impact Points"];
+    const data = filtered.map((u, idx) => {
+      const createdDate = u.created_at ? new Date(u.created_at).toLocaleDateString() : "—";
+      return [
+        idx + 1,
+        u.name || "—",
+        u.email || "—",
+        u.department || "—",
+        createdDate,
+        u.is_active ? "Active" : "Inactive",
+        u.total_posts || 0,
+        u.impact_points || 0
+      ];
+    });
 
     if (format === 'csv') {
       const csvContent = [headers, ...data].map(r => r.join(",")).join("\n");
@@ -264,7 +268,7 @@ const AdminUsers = ({ theme, darkMode }) => {
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
             <thead>
               <tr style={{ background: darkMode ? "rgba(255,255,255,0.02)" : "#F8FAFC", borderBottom: `1px solid ${theme.border}` }}>
-                {["#", "Name", "Email", "Department", "Posts", "Impact Points", "Status", ""].map(h => (
+                {["#", "Name", "Email", "Department", "Created Date", "Posts", "Impact Points", "Status", ""].map(h => (
                   <th key={h} style={{ ...thStyle, color: theme.textMuted }}>{h}</th>
                 ))}
               </tr>
@@ -292,6 +296,7 @@ const AdminUsers = ({ theme, darkMode }) => {
                   </td>
                   <td style={{ ...tdStyle, color: theme.textMuted }}>{u.email}</td>
                   <td style={{ ...tdStyle, color: theme.textMuted }}>{u.department || "—"}</td>
+                  <td style={{ ...tdStyle, color: theme.textMuted }}>{u.created_at ? new Date(u.created_at).toLocaleDateString() : "—"}</td>
                   <td style={{ ...tdStyle, fontWeight: "600", color: theme.text }}>{u.total_posts}</td>
                   <td style={{ ...tdStyle, fontWeight: "800", color: "#10B981" }}>+{u.impact_points ?? 0}</td>
                   <td style={tdStyle}>

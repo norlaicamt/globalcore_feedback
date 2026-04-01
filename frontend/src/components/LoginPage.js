@@ -15,7 +15,7 @@ const LoginPage = ({ onLoginSuccess }) => {
     setIsLoading(true);
     try {
       if (isSignUp) {
-        await axios.post(`http://127.0.0.1:8000/users/`, {
+        await axios.post(`${process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000'}/users/`, {
           name: nameInput,
           email: emailInput,
           is_active: true,
@@ -29,7 +29,7 @@ const LoginPage = ({ onLoginSuccess }) => {
           onConfirm: () => { setDialogState({ isOpen: false }); setIsSignUp(false); },
         });
       } else {
-        const res = await axios.post(`http://127.0.0.1:8000/login?email=${emailInput}`);
+        const res = await axios.post(`${process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000'}/login?email=${emailInput}`);
         localStorage.setItem("user", JSON.stringify(res.data));
         onLoginSuccess(res.data);
       }

@@ -35,6 +35,7 @@ class User(Base):
     biometrics_enabled = Column(Boolean, default=True)
     avatar_url = Column(Text, nullable=True)
     impact_points = Column(Integer, default=0)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 class Department(Base):
@@ -83,6 +84,19 @@ class Feedback(Base):
     category = relationship("Category")
     replies = relationship("Reply", back_populates="feedback")
     reactions = relationship("Reaction", back_populates="feedback", cascade="all, delete-orphan")
+    mentions = relationship("FeedbackMention", back_populates="feedback", cascade="all, delete-orphan")
+
+class FeedbackMention(Base):
+    __tablename__ = "feedback_mentions"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    feedback_id = Column(Integer, ForeignKey("feedbacks.id"))
+    user_id = Column(Integer, ForeignKey("global_user.id"), nullable=True) # Linked User
+    employee_name = Column(String) # For display / typing-only fallback
+    employee_prefix = Column(String, nullable=True)
+    
+    feedback = relationship("Feedback", back_populates="mentions")
+    user = relationship("User")
 
 class Reaction(Base):
     __tablename__ = "reactions"
@@ -91,6 +105,7 @@ class Reaction(Base):
     user_id = Column(Integer, ForeignKey("global_user.id"))
     feedback_id = Column(Integer, ForeignKey("feedbacks.id"))
     is_like = Column(Boolean) # True = Like, False = Dislike
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     
     __table_args__ = (UniqueConstraint('user_id', 'feedback_id', name='_user_feedback_uc'),)
     
@@ -121,6 +136,7 @@ class ReplyReaction(Base):
     user_id = Column(Integer, ForeignKey("global_user.id"))
     reply_id = Column(Integer, ForeignKey("replies.id"))
     is_like = Column(Boolean) # True = Like, False = Dislike
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     
     __table_args__ = (UniqueConstraint('user_id', 'reply_id', name='_user_reply_uc'),)
     

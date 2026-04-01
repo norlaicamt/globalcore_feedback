@@ -48,6 +48,16 @@ class User(UserBase):
     impact_points: float = 0.0
     likes_received: int = 0
     posts_count: int = 0
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+class UserProfile(BaseModel):
+    id: int
+    name: str
+    department: Optional[str] = None
+    avatar_url: Optional[str] = None
+    show_activity_status: Optional[bool] = True
+    created_at: datetime
     model_config = ConfigDict(from_attributes=True)
 
 # --- DEPARTMENT SCHEMAS ---
@@ -122,6 +132,20 @@ class Reaction(ReactionBase):
     feedback_id: int
     model_config = ConfigDict(from_attributes=True)
 
+# --- MENTION SCHEMAS ---
+class MentionBase(BaseModel):
+    employee_name: str
+    employee_prefix: Optional[str] = None
+    user_id: Optional[int] = None
+
+class MentionCreate(MentionBase):
+    pass
+
+class Mention(MentionBase):
+    id: int
+    feedback_id: int
+    model_config = ConfigDict(from_attributes=True)
+
 # --- FEEDBACK SCHEMAS ---
 class FeedbackBase(BaseModel):
     title: str
@@ -129,6 +153,7 @@ class FeedbackBase(BaseModel):
     category_id: int
     recipient_dept_id: Optional[int] = None
     recipient_user_id: Optional[int] = None
+    mentions: List[MentionCreate] = []
     allow_comments: Optional[bool] = True
     is_anonymous: Optional[bool] = False
     is_approved: Optional[bool] = True # New moderation flag
@@ -156,6 +181,7 @@ class Feedback(FeedbackBase):
     id: int
     sender_id: int
     status: FeedbackStatus
+    mentions: List[Mention] = []
     is_approved: bool # Moderation status
     created_at: datetime
     updated_at: Optional[datetime] = None
@@ -215,6 +241,7 @@ class ActivityEntry(BaseModel):
     title: Optional[str] = None
     message: Optional[str] = None
     created_at: datetime
+    mentions: List[Mention] = []
     model_config = ConfigDict(from_attributes=True)
 
 class SystemSettingBase(BaseModel):

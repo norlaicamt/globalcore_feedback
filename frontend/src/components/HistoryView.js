@@ -96,7 +96,7 @@ const HistoryView = ({ currentUser, onBack, minimalist = false }) => {
     <div style={minimalist ? styles.minimalContainer : styles.container}>
       {!minimalist && (
         <header style={styles.header}>
-          <button onClick={onBack} style={styles.iconBtn}><Icons.Back /></button>
+          <div style={{ width: 24 }}></div> 
           <h1 style={styles.headerTitle}>Sent Feedback</h1>
           <div style={{ width: 24 }}></div> 
         </header>

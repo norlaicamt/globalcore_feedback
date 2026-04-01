@@ -2,7 +2,7 @@
 import axios from "axios";
 
 // Base URL for your FastAPI backend
-const API_BASE = `http://${window.location.hostname}:8000`;
+const API_BASE = process.env.REACT_APP_API_URL || `http://${window.location.hostname}:8000`;
 
 /* -------------------- USERS -------------------- */
 export const getUsers = async () => {
@@ -45,9 +45,14 @@ export const markNotificationsAsRead = async (id) => {
   return response.data;
 };
 
+export const getUserProfiles = async () => {
+  const response = await axios.get(`${API_BASE}/users/profiles`);
+  return response.data;
+};
+
 /* -------------------- FEEDBACK -------------------- */
-export const getFeedbacks = async () => {
-  const response = await axios.get(`${API_BASE}/feedbacks/`); // must match FastAPI router
+export const getFeedbacks = async (params = { skip: 0, limit: 10 }) => {
+  const response = await axios.get(`${API_BASE}/feedbacks/`, { params }); // must match FastAPI router
   return response.data;
 };
 

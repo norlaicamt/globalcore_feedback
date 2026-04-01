@@ -25,6 +25,13 @@ const ProfileSettings = ({ currentUser, onBack, onLogout, onUserUpdate, initialS
   const [postsCount, setPostsCount] = useState(0);
   const [likesCount, setLikesCount] = useState(0);
 
+  // Notification states moved from AlertPreferencesView
+  const [pushEnabled, setPushEnabled] = useState(currentUser?.push_notifications ?? true);
+  const [emailEnabled, setEmailEnabled] = useState(currentUser?.email_notifications ?? false);
+  const [statusUpdates, setStatusUpdates] = useState(currentUser?.status_updates ?? true);
+  const [newReplies, setNewReplies] = useState(currentUser?.reply_notifications ?? true);
+  const [weeklyDigest, setWeeklyDigest] = useState(currentUser?.weekly_digest ?? false);
+
   useEffect(() => {
     setSubView(initialSubView);
   }, [initialSubView]);
@@ -103,17 +110,26 @@ const ProfileSettings = ({ currentUser, onBack, onLogout, onUserUpdate, initialS
     reader.readAsDataURL(file);
   };
 
+  const handleToggle = async (field, currentVal, setter, label) => {
+    const next = !currentVal;
+    try {
+      const updated = await updateUser(currentUser.id, { [field]: next });
+      setter(next);
+      if (onUserUpdate) onUserUpdate({ ...currentUser, ...updated });
+      showToast(`${label} updated`);
+    } catch {
+      showToast(`Failed to update ${label}`);
+    }
+  };
+
   const renderView = () => {
     if (subView === "personal_info") return <PersonalInfoView currentUser={currentUser} onBack={initialSubView === "personal_info" ? onBack : () => setSubView("main")} showToast={showToast} onUserUpdate={onUserUpdate} fileInputRef={fileInputRef} handleAvatarUpload={handleAvatarUpload} />;
-    if (subView === "alert_prefs") return <AlertPreferencesView currentUser={currentUser} onBack={() => setSubView("main")} showToast={showToast} onUserUpdate={onUserUpdate} />;
     if (subView === "privacy_security") return <PrivacySecurityView currentUser={currentUser} onBack={() => setSubView("main")} onLogout={onLogout} showToast={showToast} onUserUpdate={onUserUpdate} />;
 
     return (
       <div style={styles.container}>
         <header style={styles.header}>
-        <button onClick={onBack} style={styles.iconBtn}>
-          <Icons.Back />
-        </button>
+        <div style={{ width: 24 }}></div>
         <h1 style={styles.headerTitle}>Settings</h1>
         <button style={styles.iconBtn}>
           <Icons.Gear />
@@ -122,9 +138,19 @@ const ProfileSettings = ({ currentUser, onBack, onLogout, onUserUpdate, initialS
 
       <main style={styles.mainScroll}>
         <div style={{ ...styles.sectionWrapper, marginTop: '8px' }}>
-          <h3 style={styles.sectionLabel}>PREFERENCES</h3>
+          <h3 style={styles.sectionLabel}>ALERT PREFERENCES</h3>
           <div style={styles.cardGroup}>
-            <SettingItem icon={<Icons.Bell />} title="Alert Preferences" subtitle="Manage push and email alerts" onClick={() => setSubView("alert_prefs")} />
+            <ToggleRow title="Push Notifications" subtitle="Receive alerts on your mobile device" isOn={pushEnabled} onToggle={() => handleToggle("push_notifications", pushEnabled, setPushEnabled, "Push Notifications")} />
+            <ToggleRow title="Email Notifications" subtitle="Receive updates to your company email" isOn={emailEnabled} onToggle={() => handleToggle("email_notifications", emailEnabled, setEmailEnabled, "Email Notifications")} />
+            <ToggleRow title="Status Changes" subtitle="A report you made is marked resolved or active" isOn={statusUpdates} onToggle={() => handleToggle("status_updates", statusUpdates, setStatusUpdates, "Status Updates")} />
+            <ToggleRow title="New Replies" subtitle="Someone comments on your feedback thread" isOn={newReplies} onToggle={() => handleToggle("reply_notifications", newReplies, setNewReplies, "Reply Notifications")} />
+            <ToggleRow title="Weekly Digest" subtitle="A summary of department activity every Friday" isOn={weeklyDigest} onToggle={() => handleToggle("weekly_digest", weeklyDigest, setWeeklyDigest, "Weekly Digest")} />
+          </div>
+        </div>
+
+        <div style={styles.sectionWrapper}>
+          <h3 style={styles.sectionLabel}>PRIVACY SETTINGS</h3>
+          <div style={styles.cardGroup}>
             <SettingItem icon={<Icons.Lock />} title="Privacy & Security" subtitle="Anonymous mode, Password, 2FA" onClick={() => setSubView("privacy_security")} />
           </div>
         </div>
@@ -170,7 +196,7 @@ const PersonalInfoView = ({ currentUser, onBack, showToast, onUserUpdate, fileIn
   return (
     <div style={styles.container}>
       <header style={styles.header}>
-        <button onClick={onBack} style={styles.iconBtn}><Icons.Back /></button>
+        <div style={{ width: 24 }}></div>
         <h1 style={styles.headerTitle}>Personal Info</h1>
         <div style={{ width: 24 }}></div>
       </header>
@@ -198,51 +224,6 @@ const PersonalInfoView = ({ currentUser, onBack, showToast, onUserUpdate, fileIn
 };
 
  
-const AlertPreferencesView = ({ currentUser, onBack, showToast, onUserUpdate }) => {
-  const [pushEnabled, setPushEnabled] = useState(currentUser?.push_notifications ?? true);
-  const [emailEnabled, setEmailEnabled] = useState(currentUser?.email_notifications ?? false);
-  const [statusUpdates, setStatusUpdates] = useState(currentUser?.status_updates ?? true);
-  const [newReplies, setNewReplies] = useState(currentUser?.reply_notifications ?? true);
-  const [weeklyDigest, setWeeklyDigest] = useState(currentUser?.weekly_digest ?? false);
-
-  const handleToggle = async (field, currentVal, setter, label) => {
-    const next = !currentVal;
-    try {
-      const updated = await updateUser(currentUser.id, { [field]: next });
-      setter(next);
-      if (onUserUpdate) onUserUpdate({ ...currentUser, ...updated });
-      showToast(`${label} updated`);
-    } catch {
-      showToast(`Failed to update ${label}`);
-    }
-  };
-
-  return (
-    <div style={styles.container}>
-      <header style={styles.header}>
-        <button onClick={onBack} style={styles.iconBtn}><Icons.Back /></button>
-        <h1 style={styles.headerTitle}>Alerts</h1>
-        <div style={{ width: 24 }}></div>
-      </header>
-      <main style={styles.mainScroll}>
-        <p style={styles.pageDescription}>Choose how and when you want to be notified about your feedback activity.</p>
-        
-        <h3 style={styles.sectionLabel}>DELIVERY METHODS</h3>
-        <div style={styles.cardGroup}>
-          <ToggleRow title="Push Notifications" subtitle="Receive alerts on your mobile device" isOn={pushEnabled} onToggle={() => handleToggle("push_notifications", pushEnabled, setPushEnabled, "Push Notifications")} />
-          <ToggleRow title="Email Notifications" subtitle="Receive updates to your company email" isOn={emailEnabled} onToggle={() => handleToggle("email_notifications", emailEnabled, setEmailEnabled, "Email Notifications")} />
-        </div>
-
-        <h3 style={{...styles.sectionLabel, marginTop: '24px'}}>NOTIFY ME WHEN...</h3>
-        <div style={styles.cardGroup}>
-          <ToggleRow title="Status Changes" subtitle="A report you made is marked resolved or active" isOn={statusUpdates} onToggle={() => handleToggle("status_updates", statusUpdates, setStatusUpdates, "Status Updates")} />
-          <ToggleRow title="New Replies" subtitle="Someone comments on your feedback thread" isOn={newReplies} onToggle={() => handleToggle("reply_notifications", newReplies, setNewReplies, "Reply Notifications")} />
-          <ToggleRow title="Weekly Digest" subtitle="A summary of department activity every Friday" isOn={weeklyDigest} onToggle={() => handleToggle("weekly_digest", weeklyDigest, setWeeklyDigest, "Weekly Digest")} />
-        </div>
-      </main>
-    </div>
-  );
-};
 
 const PrivacySecurityView = ({ currentUser, onBack, onLogout, showToast, onUserUpdate }) => {
   const [showStatus, setShowStatus] = useState(currentUser?.show_activity_status ?? true);
@@ -334,7 +315,7 @@ const PrivacySecurityView = ({ currentUser, onBack, onLogout, showToast, onUserU
   return (
     <div style={styles.container}>
       <header style={styles.header}>
-        <button onClick={onBack} style={styles.iconBtn}><Icons.Back /></button>
+        <div style={{ width: 24 }}></div>
         <h1 style={styles.headerTitle}>Privacy & Security</h1>
         <div style={{ width: 24 }}></div>
       </header>

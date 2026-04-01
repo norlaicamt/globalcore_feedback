@@ -38,6 +38,10 @@ models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Global Core - Feedback Module")
 
+@app.get("/")
+def home():
+    return {"status": "online", "message": "Global Core Backend is Running Successfully"}
+
 # Middleware
 app.add_middleware(
     CORSMiddleware,

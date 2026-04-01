@@ -55,9 +55,12 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [view, setView] = useState(localStorage.getItem("userView") || "home");
+  const [activeView, setActiveView] = useState("dashboard");
+  const [feed, setFeed] = useState([]);
+  const [offset, setOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [prevView, setPrevView] = useState("home");
-  const [feedData, setFeedData] = useState([]);
-  const [loadingFeed, setLoadingFeed] = useState(true);
   const [isFeedbackExpanded, setIsFeedbackExpanded] = useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [reportStep, setReportStep] = useState('general');
@@ -97,15 +100,27 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
     localStorage.setItem("currentUser", JSON.stringify(updatedUser));
   };
 
-  const fetchCommunityFeed = async (silent = false) => {
+  const fetchFeed = async (newOffset = 0) => {
+    if (newOffset === 0) setLoading(true);
     try {
-      if (!silent) setLoadingFeed(true);
-      const data = await getFeedbacks();
-      setFeedData(data);
-    } catch (error) {
-      console.error("Could not fetch feed:", error);
+      const data = await getFeedbacks({ skip: newOffset, limit: 10 });
+      if (newOffset === 0) {
+        setFeed(data);
+      } else {
+        setFeed(prev => [...prev, ...data]);
+      }
+      setHasMore(data.length === 10);
+      setOffset(newOffset);
+    } catch (err) {
+      setDialogState({ isOpen: true, title: "Feed Error", message: "Failed to load activity feed.", type: "alert" });
     } finally {
-      if (!silent) setLoadingFeed(false);
+      setLoading(false);
+    }
+  };
+
+  const loadMoreFeed = () => {
+    if (!loading && hasMore) {
+      fetchFeed(offset + 10);
     }
   };
 
@@ -124,16 +139,14 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
   useEffect(() => {
     if (!localUser?.id) return;
     
-    // Initial fetch
     fetchNotifications();
+    fetchFeed(0);
 
-    // SSE Real-time listener
-    const sseUrl = `http://${window.location.hostname}:8000/api/notifications/stream/${localUser.id}`;
+    const sseUrl = `${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/notifications/stream/${localUser.id}`;
     const eventSource = new EventSource(sseUrl);
 
     eventSource.onmessage = (event) => {
       if (event.data === "new_notification") {
-        // Increment count and sync list
         setUnreadNotifCount(prev => prev + 1);
         fetchNotifications();
       }
@@ -172,11 +185,10 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
     } catch (e) { console.error("Could not refresh user profile", e); }
   };
 
-  // FETCH REAL DATA FROM BACKEND
   useEffect(() => {
     localStorage.setItem("userView", view);
     if (view === "home") {
-      fetchCommunityFeed();
+      fetchFeed(0);
       fetchNotifications();
       fetchUserProfile();
     }
@@ -191,7 +203,7 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
     try {
       const token = localStorage.getItem("token");
       if (token) {
-        await fetch(`http://${window.location.hostname}:8000/api/logout`, {
+        await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/logout`, {
           method: "POST",
           headers: { "Authorization": `Bearer ${token}` }
         });
@@ -227,8 +239,8 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
   const showSuccessModal = (message) => {
     setIsReportModalOpen(false);
     showToast(message || "Submitted Confirmed");
-    fetchCommunityFeed(); // Refresh feed without reloading
-    fetchUserProfile();   // Refresh points and post count
+    fetchFeed(0);
+    fetchUserProfile();
   };
 
   const menuItems = [
@@ -248,8 +260,6 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
     { id: 'profile', label: 'Profile', icon: <Icons.User /> },
     { id: 'logout', label: 'Logout', icon: <Icons.Logout />, color: '#EF4444', action: triggerLogout },
   ];
-
-
 
   return (
     <div style={{ ...styles.hubContainer, backgroundColor: '#F8FAFC', color: '#1E293B' }}>
@@ -277,14 +287,16 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
       <main style={styles.mainScroll}>
         {view === "home" ? (
           <DashboardView
-            feed={feedData}
-            loading={loadingFeed}
+            feed={feed}
+            loading={loading}
+            hasMore={hasMore}
+            onLoadMore={loadMoreFeed}
             onAction={() => { setIsReportModalOpen(true); setReportStep('general'); }}
             currentUser={localUser}
             onShowToast={showToast}
             onOpenComments={(f) => setCommentingFeedback(f)}
             setFullscreenImg={setFullscreenImg}
-            onRefresh={fetchCommunityFeed}
+            onRefresh={() => fetchFeed(0)}
             publicFeedEnabled={publicFeedEnabled}
             categories={categories}
           />
@@ -301,10 +313,10 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
             currentUser={localUser} 
             onBack={() => { setView("home"); setIsMenuOpen(true); }} 
             onViewPost={async (feedbackId) => {
-              let post = feedData.find(f => f.id === feedbackId);
+              let post = feed.find(f => f.id === feedbackId);
               if (!post) {
                 try {
-                  const res = await fetch(`http://${window.location.hostname}:8000/feedbacks/${feedbackId}`);
+                  const res = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/feedbacks/${feedbackId}`);
                   if(res.ok) post = await res.json();
                 } catch(e) { console.error(e); }
               }
@@ -315,15 +327,16 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
           <NotificationsView 
             currentUser={localUser} 
             onBack={() => setView("home")} 
+            onRead={() => setUnreadNotifCount(0)}
             onOpenComment={async (n) => {
               if (n.type === 'broadcast') {
                 setSelectedBroadcast(n);
                 return;
               }
-              let post = feedData.find(f => f.id === n.feedback_id);
+              let post = feed.find(f => f.id === n.feedback_id);
               if (!post) {
                 try {
-                  const res = await fetch(`http://${window.location.hostname}:8000/feedbacks/${n.feedback_id}`);
+                  const res = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/feedbacks/${n.feedback_id}`);
                   if(res.ok) post = await res.json();
                 } catch(e) { console.error(e); }
               }
@@ -471,7 +484,7 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
           <div style={styles.reportModalContent} onClick={e => e.stopPropagation()}>
             {reportStep === "general" && (
               <GeneralFeedback 
-                currentUser={currentUser} 
+                currentUser={localUser} 
                 initialDraft={resumeDraft}
                 onBack={() => { setIsReportModalOpen(false); setResumeDraft(null); }} 
                 onSuccess={() => { 
@@ -512,7 +525,7 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
           onClose={() => setCommentingFeedback(null)}
           onShowToast={showToast}
           onRefreshProfile={fetchUserProfile}
-          onRefreshFeed={() => fetchCommunityFeed(true)}
+          onRefreshFeed={() => fetchFeed(0)}
         />
       )}
 
@@ -907,11 +920,12 @@ const FeedCard = ({ item: initialItem, currentUser, onShowToast, onOpenComments,
     try {
       await toggleReaction(item.id, currentUser?.id || 1, isLike);
       // Refresh counts locally and in parent feed for trending
+      // Refresh counts locally instantly
       const data = await getReactionsSummary(item.id, currentUser?.id);
       setLikes(data.likes || 0);
       setDislikes(data.dislikes || 0);
       setUserReaction(data.user_reaction ?? null);
-      if (onRefresh) onRefresh(true);
+      // Removed global refresh to prevent scroll jumping
     } catch (err) {
       console.error("Reaction failed", err);
     }
@@ -992,24 +1006,33 @@ const FeedCard = ({ item: initialItem, currentUser, onShowToast, onOpenComments,
       />
       <div style={styles.cardHeader}>
         {item.is_anonymous || !item.sender_avatar_url ? (
-          <div style={{ ...styles.cardAvatar, backgroundColor: '#F1F5F9', color: '#1E293B' }}>{(item.user_name || 'U').charAt(0)}</div>
+          <div style={{ ...styles.cardAvatar, backgroundColor: '#1f2a56', color: '#FFFFFF' }}>{(item.user_name || 'U').charAt(0)}</div>
         ) : (
           <img
             src={item.sender_avatar_url}
             alt={item.user_name}
-            style={{ ...styles.cardAvatar, objectFit: 'cover', border: '2px solid #E2E8F0' }}
+            style={{ ...styles.cardAvatar, objectFit: 'cover', border: '2px solid #3B82F6' }}
           />
         )}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
           <div style={styles.fbSenderRow}>
-            <span style={{ ...styles.cardSender, color: '#1E293B' }}>{senderName}</span>
+            <span style={{ ...styles.cardSender, color: '#1E293B', fontWeight: 'bold' }}>{senderName}</span>
             {emotion ? (
-              <span style={{color: '#64748B'}}> is feeling {emotion} at <span style={{fontWeight: '600', color: '#1E293B'}}>{establishmentName}</span></span>
+              <span style={{color: '#1f2a56', opacity: 0.85}}> is feeling {emotion} at <span style={{fontWeight: '700', color: '#1877F2'}}>{establishmentName}</span></span>
             ) : (
-              <span style={{color: '#64748B'}}> reported about <span style={{fontWeight: '600', color: '#1E293B'}}>{establishmentName}</span></span>
+              <span style={{color: '#1f2a56', opacity: 0.85}}> reported about <span style={{fontWeight: '700', color: '#1877F2'}}>{establishmentName}</span></span>
+            )}
+            {(item.mentions && item.mentions.length > 0) ? (
+                <span style={{ marginLeft: '4px', fontSize: '11px', backgroundColor: '#EFF6FF', color: '#1D4ED8', padding: '2px 8px', borderRadius: '12px', fontWeight: '600', border: '1px solid #DBEAFE' }}>
+                  Mentioned: {item.mentions.map(m => `${m.employee_prefix} ${m.employee_name}`.trim()).join(", ")}
+                </span>
+            ) : item.employee_name && (
+                <span style={{ marginLeft: '4px', fontSize: '11px', backgroundColor: '#EFF6FF', color: '#1D4ED8', padding: '2px 8px', borderRadius: '12px', fontWeight: '600', border: '1px solid #DBEAFE' }}>
+                  Mentioned: {item.employee_name}
+                </span>
             )}
           </div>
-          <div style={{ ...styles.cardMeta, color: '#64748B' }}>{timeAgo(item.created_at)} {locationText && ` • ${locationText}`}</div>
+          <div style={{ ...styles.cardMeta, color: '#1f2a56', fontWeight: '500', opacity: 0.7 }}>{timeAgo(item.created_at)} {locationText && ` • ${locationText}`}</div>
         </div>
         {item.status && item.status !== 'Open' && item.status !== 'OPEN' && (
           <div style={{ ...styles.statusBadge, backgroundColor: getStatusColor(item.status), marginLeft: 'auto' }}>
@@ -1054,7 +1077,12 @@ const FeedCard = ({ item: initialItem, currentUser, onShowToast, onOpenComments,
             <span style={{ ...styles.metaText, color: '#64748B' }}>{item.product_name}</span>
           </div>
         )}
-        {item.employee_name && (
+        {(item.mentions && item.mentions.length > 0) ? (
+          <div style={styles.metaItem}>
+            <span style={styles.metaIcon}>👤</span>
+            <span style={{ ...styles.metaText, color: '#64748B' }}>Staff: {item.mentions.map(m => `${m.employee_prefix} ${m.employee_name}`.trim()).join(", ")}</span>
+          </div>
+        ) : item.employee_name && (
           <div style={styles.metaItem}>
             <span style={styles.metaIcon}>👤</span>
             <span style={{ ...styles.metaText, color: '#64748B' }}>Staff: {item.employee_name}</span>
@@ -1124,7 +1152,7 @@ const FeedCard = ({ item: initialItem, currentUser, onShowToast, onOpenComments,
   );
 };
 
-const DashboardView = ({ feed, loading, onAction, currentUser, onShowToast, onOpenComments, onRefresh, publicFeedEnabled, categories, setFullscreenImg }) => {
+const DashboardView = ({ feed, loading, hasMore, onLoadMore, onAction, currentUser, onShowToast, onOpenComments, onRefresh, publicFeedEnabled, categories, setFullscreenImg }) => {
   const [activeTab, setActiveTab] = useState('All');
   const [isTrendingExpanded, setIsTrendingExpanded] = useState(false);
   const [searchDash, setSearchDash] = useState("");
@@ -1173,8 +1201,12 @@ const DashboardView = ({ feed, loading, onAction, currentUser, onShowToast, onOp
   });
 
   const trendingItems = [...feed]
-    .filter(item => (item.replies_count > 0) || (item.likes_count > 0))
-    .sort((a, b) => ((b.replies_count || 0) * 2 + (b.likes_count || 0)) - ((a.replies_count || 0) * 2 + (a.likes_count || 0)))
+    .filter(item => (item.replies_count > 0) || (item.likes_count > 0) || (item.dislikes_count > 0))
+    .sort((a, b) => {
+      const scoreA = (a.replies_count || 0) * 2 + (a.likes_count || 0) + (a.dislikes_count || 0);
+      const scoreB = (b.replies_count || 0) * 2 + (b.likes_count || 0) + (b.dislikes_count || 0);
+      return scoreB - scoreA;
+    })
     .slice(0, 3);
 
 
@@ -1217,7 +1249,7 @@ const DashboardView = ({ feed, loading, onAction, currentUser, onShowToast, onOp
                           {item.title}
                         </p>
                         <p style={{ margin: 0, fontSize: '10px', color: '#64748B' }}>
-                          {item.replies_count || 0} Replies • {item.likes_count || 0} Likes
+                          {item.replies_count || 0} Replies • {item.likes_count || 0} Likes • {item.dislikes_count || 0} Dislikes
                         </p>
                       </div>
                     </div>
@@ -1246,7 +1278,6 @@ const DashboardView = ({ feed, loading, onAction, currentUser, onShowToast, onOp
         {/* RECENT ACTIVITY: Main Feed */}
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
           <div style={styles.feedHeader}>
-            <h3 style={styles.sectionTitle}>Recent Activity</h3>
           </div>
 
           <div
@@ -1319,6 +1350,17 @@ const DashboardView = ({ feed, loading, onAction, currentUser, onShowToast, onOp
                     <p style={styles.emptyText}>No activity found in this category.</p>
                   </div>
                 )}
+                {hasMore && feed.length >= 10 && (
+                  <div style={{ padding: '20px', textAlign: 'center' }}>
+                    <button 
+                      onClick={onLoadMore} 
+                      disabled={loading}
+                      style={{ ...styles.submitBtn, width: 'auto', padding: '10px 30px', backgroundColor: '#F1F5F9', color: '#1f2a56', border: '1px solid #E2E8F0' }}
+                    >
+                      {loading ? 'Loading...' : 'Load More Activity'}
+                    </button>
+                  </div>
+                )}
               </>
             )}
           </section>
@@ -1385,21 +1427,21 @@ const styles = {
   },
   feedList: { display: 'flex', flexDirection: 'column', gap: '6px', padding: '6px 0', maxWidth: '700px', margin: '0 auto', width: '100%' },
   feedScroll: { flex: 1, overflowY: 'auto', padding: '6px', display: 'flex', flexDirection: 'column', gap: '6px' },
-  feedCard: { backgroundColor: '#FFFFFF', borderRadius: '8px', padding: '8px 12px', border: '1px solid #F1F5F9', cursor: 'pointer', transition: 'all 0.2s ease', position: 'relative', marginBottom: '0px' },
+  feedCard: { backgroundColor: '#FFFFFF', borderRadius: '8px', padding: '8px 12px', border: '1px solid #1f2a56', cursor: 'pointer', transition: 'all 0.2s ease', position: 'relative', marginBottom: '0px' },
 
   cardHeader: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' },
-  cardAvatar: { width: '32px', height: '32px', borderRadius: '50%', backgroundColor: '#F1F5F9', color: '#1f2a56', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 'bold' },
+  cardAvatar: { width: '32px', height: '32px', borderRadius: '50%', backgroundColor: '#1f2a56', color: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 'bold' },
   cardInfo: { flex: 1 },
-  cardSender: { fontSize: '13px', fontWeight: '700', color: '#1C1E21' },
-  cardMeta: { fontSize: '11px', color: '#65676B' },
-  statusBadge: { padding: '2px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', color: 'white' },
+  cardSender: { fontSize: '13px', fontWeight: '700', color: '#1f2a56' },
+  cardMeta: { fontSize: '11px', color: '#1f2a56' },
+  statusBadge: { padding: '2px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', color: 'white', backgroundColor: '#1f2a56' },
 
   cardSubjectRow: { display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '2px' },
   cardSubject: { fontSize: '13px', fontWeight: '800', color: '#1f2a56' },
-  cardDept: { fontSize: '10px', color: '#64748B', backgroundColor: '#F1F5F9', padding: '2px 4px', borderRadius: '4px' },
+  cardDept: { fontSize: '10px', color: '#FFFFFF', backgroundColor: '#1f2a56', padding: '2px 4px', borderRadius: '4px' },
   cardRatingRow: { display: 'flex', gap: '2px', marginBottom: '4px', alignItems: 'center' },
 
-  cardText: { fontSize: '13px', color: '#1C1E21', lineHeight: '1.4', margin: '2px 0 4px 0' },
+  cardText: { fontSize: '13px', color: '#1f2a56', lineHeight: '1.4', margin: '2px 0 4px 0' },
 
   fbSenderRow: { fontSize: '13px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '4px', marginBottom: '2px' },
   fbActionRow: { display: 'flex', justifyContent: 'space-around', alignItems: 'center', borderTop: '1px solid #F0F2F5', padding: '0', marginTop: '0' },

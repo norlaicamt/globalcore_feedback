@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { getUserNotifications } from "../services/api";
+import { getUserNotifications, markNotificationsAsRead } from "../services/api";
 
 const Icons = {
   Back: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1f2a56" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>,
@@ -12,22 +12,38 @@ const Icons = {
   BellRing: () => <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
 };
 
-const NotificationsView = ({ currentUser, onBack, onOpenComment }) => {
+const NotificationsView = ({ currentUser, onBack, onOpenComment, onRead }) => {
   const [notifications, setNotifications] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const fetchNotifs = async () => {
+    const fetchNotifications = async () => {
+      setIsLoading(true);
       try {
-        const data = await getUserNotifications(currentUser?.id);
+        const data = await getUserNotifications(currentUser.id);
         setNotifications(data);
-      } catch (e) {
-        console.error("Failed to load notifications:", e);
+        
+        // Mark as read after a short delay
+        if (data.some(n => !n.is_read)) {
+          setTimeout(async () => {
+             try {
+               await markNotificationsAsRead(currentUser.id);
+               // Update local state to reflect read status immediately
+               setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+               // Notify parent to clear bubble count
+               if (onRead) onRead();
+             } catch (err) {
+               console.error("Failed to mark read:", err);
+             }
+          }, 1000); // 1s is faster than 2s
+        }
+      } catch (err) {
+        console.error("Error fetching notifications:", err);
       } finally {
         setIsLoading(false);
       }
     };
-    if (currentUser) fetchNotifs();
+    if (currentUser) fetchNotifications();
   }, [currentUser]);
 
   const formatDateTime = (dateStr) => {
@@ -84,7 +100,7 @@ const NotificationsView = ({ currentUser, onBack, onOpenComment }) => {
 
       <div style={styles.headerWrapper}>
         <header style={{ ...styles.header }}>
-          <button onClick={onBack} style={styles.iconBtn}><Icons.Back /></button>
+          <div style={{ width: 40 }}></div>
           <h1 style={styles.headerTitle}>Notifications</h1>
           <div style={{ width: 40 }}></div>
         </header>
@@ -125,6 +141,7 @@ const NotificationsView = ({ currentUser, onBack, onOpenComment }) => {
                 if (t === 'like') return 'loved';
                 if (t === 'dislike') return 'disagreed with';
                 if (t === 'broadcast') return 'sent an announcement';
+                if (t === 'mention') return 'mentioned you in';
                 return 'reacted to';
               };
 
@@ -132,19 +149,33 @@ const NotificationsView = ({ currentUser, onBack, onOpenComment }) => {
                 if (notif.type === 'reply' || isCommentReaction) {
                   return `your comment`;
                 }
+                if (notif.type === 'mention') return `their post`;
                 return `your post`;
               };
 
               const viz = getVisuals();
 
               return (
-                <div key={notif.id} className="notif-card-wow" onClick={() => onOpenComment && onOpenComment(notif)}>
+                <div 
+                  key={notif.id} 
+                  className="notif-card-wow" 
+                  onClick={() => onOpenComment && onOpenComment(notif)}
+                  style={{
+                    backgroundColor: notif.is_read ? '#FFFFFF' : '#EBF5FF',
+                    borderLeft: notif.is_read ? 'none' : '4px solid #3B82F6',
+                    position: 'relative'
+                  }}
+                >
+                  {/* UNREAD BLUE DOT indicator */}
+                  {!notif.is_read && (
+                    <div style={{ position: 'absolute', top: '10px', left: '10px', width: '8px', height: '8px', backgroundColor: '#3B82F6', borderRadius: '50%' }}></div>
+                  )}
                   <div className="notif-avatar-cont" style={{ background: viz.bg, color: viz.color }}>
                     {viz.icon}
                   </div>
                   
                   <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center' }}>
                       <p style={styles.notifText}>
                         {notif.type === 'broadcast' ? (
                           <>
@@ -156,11 +187,12 @@ const NotificationsView = ({ currentUser, onBack, onOpenComment }) => {
                           </>
                         ) : (
                           <>
-                            <span style={{ color: '#0F172A', fontWeight: 700 }}>{notif.actor_name || "Someone"}</span> {getNotifText()} <span style={{ color: '#3B82F6', fontWeight: 700 }}>{getTargetText()}</span>
+                            <span style={{ color: '#0F172A', fontWeight: notif.is_read ? 600 : 800 }}>{notif.actor_name || "Someone"}</span> 
+                            <span style={{ fontWeight: notif.is_read ? 400 : 600, color: notif.is_read ? '#64748B' : '#1E293B' }}> {getNotifText()} </span>
+                            <span style={{ color: '#3B82F6', fontWeight: notif.is_read ? 600 : 800 }}>{getTargetText()}</span>
                           </>
                         )}
                       </p>
-                      <button style={styles.viewBtn}>View</button>
                     </div>
                     
                     <div style={styles.cardFooter}>

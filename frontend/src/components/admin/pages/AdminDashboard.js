@@ -72,14 +72,20 @@ const AdminDashboard = ({ onNavigate, theme, darkMode }) => {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
 
-      {/* KPI Row — 5 cards, no Resolution Rate */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: "12px" }}>
+      {/* KPI Row — centered and dynamic */}
+      <div style={{ 
+        display: "grid", 
+        gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", 
+        gap: "16px",
+        justifyContent: "center"
+      }}>
         <KpiCard theme={theme} label="Total Feedback" value={summary?.total_feedback ?? 0} sub="All time" onClick={() => onNavigate("feedbacks")} />
         <KpiCard theme={theme} label="Total Users" value={summary?.total_users ?? 0} sub="Registered" onClick={() => onNavigate("users")} />
         <KpiCard theme={theme} label="Avg. Rating" value={summary?.avg_rating ?? 0} sub="Out of 5" />
         <KpiCard theme={theme} label="Anonymous Rate" value={`${summary?.anonymous_rate ?? 0}%`} sub="Of all submissions" />
         <KpiCard theme={theme} label="Total Comments" value={summary?.total_comments ?? 0} sub="All replies" />
       </div>
+
 
       {/* Volume + Engagement */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>

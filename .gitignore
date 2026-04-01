@@ -17,3 +17,8 @@ frontend/dist/
 Thumbs.db
 
 .expo/
+
+# Environment
+.env
+.env.local
+.env.*

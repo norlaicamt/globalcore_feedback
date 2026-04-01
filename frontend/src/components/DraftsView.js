@@ -34,7 +34,7 @@ const DraftsView = ({ currentUser, onBack, onResumeDraft }) => {
   return (
     <div style={styles.container}>
       <header style={styles.header}>
-        <button onClick={onBack} style={styles.iconBtn}><Icons.Back /></button>
+        <div style={{ width: 24 }}></div> 
         <h1 style={styles.headerTitle}>My Drafts</h1>
         <div style={{ width: 24 }}></div> 
       </header>

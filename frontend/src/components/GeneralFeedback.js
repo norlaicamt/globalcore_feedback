@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { createFeedback, getCategories, getDepartments, getAdminSettings } from "../services/api";
+import { createFeedback, getCategories, getDepartments, getAdminSettings, getUserProfiles } from "../services/api";
 import CustomModal from "./CustomModal";
 
 const Icons = {
@@ -70,24 +70,28 @@ const PACKAGE_TYPES = ['resort', 'hotel'];
 
 const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialDraft }) => {
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedBusiness, setSelectedBusiness] = useState(null);
+  const [selectedBusiness, setSelectedBusiness] = useState(() => {
+    if (initialDraft?.business_id) {
+      return businessTypes.find(b => b.id === initialDraft.business_id) || null;
+    }
+    return null;
+  });
   const [isFilipino, setIsFilipino] = useState(false);
 
-  const [specificName, setSpecificName] = useState("");
-  const [otherSpecificName, setOtherSpecificName] = useState("");
+  const [specificName, setSpecificName] = useState(initialDraft?.specificName || "");
+  const [otherSpecificName, setOtherSpecificName] = useState(initialDraft?.otherSpecificName || "");
 
-  const [region, setRegion] = useState("");
-  const [city, setCity] = useState("");
-  const [barangay, setBarangay] = useState("");
+  const [region, setRegion] = useState(initialDraft?.region || "");
+  const [city, setCity] = useState(initialDraft?.city || "");
+  const [barangay, setBarangay] = useState(initialDraft?.barangay || "");
   const [availableCities, setAvailableCities] = useState([]);
   const [availableBarangays, setAvailableBarangays] = useState([]);
 
-  const [productName, setProductName] = useState("");
-  const [employeeName, setEmployeeName] = useState("");
-  const [idea, setIdea] = useState("");
-  const [rating, setRating] = useState(0);
-  const [isAnonymous, setIsAnonymous] = useState(false);
-  const [allowComments, setAllowComments] = useState(true);
+  const [productName, setProductName] = useState(initialDraft?.productName || "");
+  const [idea, setIdea] = useState(initialDraft?.description || "");
+  const [rating, setRating] = useState(initialDraft?.rating || 0);
+  const [isAnonymous, setIsAnonymous] = useState(initialDraft?.isAnonymous ?? false);
+  const [allowComments, setAllowComments] = useState(initialDraft?.allowComments ?? true);
 
   const [attachedFiles, setAttachedFiles] = useState([]);
   const fileInputRef = useRef(null);
@@ -96,15 +100,25 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
   const [generalCategoryId, setGeneralCategoryId] = useState(null);
   const [dbCategories, setDbCategories] = useState([]);
   const [dbDepartments, setDbDepartments] = useState([]);
+  const [userProfiles, setUserProfiles] = useState([]);
+  const [showUserSuggestions, setShowUserSuggestions] = useState(false);
+  const [focusedMentionIndex, setFocusedMentionIndex] = useState(null);
+  const [mentions, setMentions] = useState(initialDraft?.mentions || [{ prefix: 'Mr.', name: '', userId: null }]);
   const [showDraftModal, setShowDraftModal] = useState(false);
   const [modalConfig, setModalConfig] = useState({ isOpen: false, title: "", message: "", type: "alert" });
+  
+  const isResuming = useRef(!!initialDraft);
 
   const [isSavingDraft, setIsSavingDraft] = useState(false);
+  const [saveTimer, setSaveTimer] = useState(10);
   const [isRecording, setIsRecording] = useState(false);
   const [audioURL, setAudioURL] = useState(null);
   const [audioBase64, setAudioBase64] = useState(null);
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
+  const recognitionRef = useRef(null);
+  const [transcriptionLanguage, setTranscriptionLanguage] = useState('en-US');
+  const suggestionsRef = useRef(null);
 
   // Dynamic values for category-specific fields
   const [dynamicValues, setDynamicValues] = useState({});
@@ -121,7 +135,7 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
       id: initialDraft?.id || Date.now().toString(),
       title: titleStr, description: idea, created_at: new Date().toISOString(),
       business_id: selectedBusiness?.id, specificName, otherSpecificName,
-      region, city, barangay, productName, employeeName, rating, isAnonymous, allowComments
+      region, city, barangay, productName, mentions, rating, isAnonymous, allowComments
     };
     const existing = JSON.parse(localStorage.getItem(`drafts_${currentUser?.id}`) || "[]");
     const updated = initialDraft
@@ -136,15 +150,23 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
     if (onSaveDraft) onSaveDraft(); else onBack();
   };
 
+  const deleteCurrentDraft = () => {
+    if (!initialDraft?.id) return;
+    const existing = JSON.parse(localStorage.getItem(`drafts_${currentUser?.id}`) || "[]");
+    const updated = existing.filter(d => d.id !== initialDraft.id);
+    localStorage.setItem(`drafts_${currentUser?.id}`, JSON.stringify(updated));
+  };
+
   const [allowVoiceSetting, setAllowVoiceSetting] = useState(true);
 
   useEffect(() => {
     const fetchEverything = async () => {
       try {
-        const [settings, categories, departments] = await Promise.allSettled([
+        const [settings, categories, departments, allProfiles] = await Promise.allSettled([
           getAdminSettings(),
           getCategories(),
-          getDepartments()
+          getDepartments(),
+          getUserProfiles()
         ]);
 
         if (settings.status === 'fulfilled') {
@@ -163,22 +185,43 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
           const merged = [...new Set([...departments.value.map(d => d.name), ...mockSuggestions.department.filter(x => x !== 'Other')])];
           mockSuggestions.department = [...merged, "Other"];
         }
+
+        if (allProfiles.status === 'fulfilled') {
+          setUserProfiles(allProfiles.value);
+        }
       } catch (err) {
         console.error("Failed to fetch initial data", err);
       }
     };
     fetchEverything();
+    
+    const handleClickOutside = (event) => {
+      if (suggestionsRef.current && !suggestionsRef.current.contains(event.target)) {
+        setShowUserSuggestions(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   useEffect(() => {
-    if (!idea.trim() && !specificName && !region) return;
+    if (!selectedBusiness || (!idea.trim() && !specificName && !region)) {
+      setSaveTimer(10);
+      return;
+    }
     const interval = setInterval(() => {
-      setIsSavingDraft(true);
-      performSilentSave();
-      setTimeout(() => setIsSavingDraft(false), 2000);
-    }, 10000);
+      setSaveTimer(prev => {
+        if (prev <= 1) {
+          setIsSavingDraft(true);
+          performSilentSave();
+          setTimeout(() => setIsSavingDraft(false), 2000);
+          return 10;
+        }
+        return prev - 1;
+      });
+    }, 1000);
     return () => clearInterval(interval);
-  }, [idea, specificName, region, city, barangay, selectedBusiness, rating, allowComments, isAnonymous]);
+  }, [idea, specificName, region, city, barangay, selectedBusiness, rating, allowComments, isAnonymous, mentions, productName]);
 
   const startRecording = async () => {
     try {
@@ -196,12 +239,44 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
         reader.onloadend = () => setAudioBase64(reader.result);
       };
       mediaRecorderRef.current.start();
+
+      // --- Start Transcription ---
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        recognitionRef.current = new SpeechRecognition();
+        recognitionRef.current.continuous = true;
+        recognitionRef.current.interimResults = true;
+        recognitionRef.current.lang = transcriptionLanguage;
+        
+        recognitionRef.current.onresult = (event) => {
+          let finalTranscript = '';
+          for (let i = event.resultIndex; i < event.results.length; ++i) {
+            if (event.results[i].isFinal) finalTranscript += event.results[i][0].transcript;
+          }
+          if (finalTranscript) {
+            setIdea(prev => prev.trim() ? prev + ' ' + finalTranscript : finalTranscript);
+          }
+        };
+        
+        recognitionRef.current.onerror = (event) => {
+          if (event.error === 'not-allowed') {
+            setModalConfig({ isOpen: true, title: "Permission Denied", message: "Microphone access blocked. Please enable it in your browser settings.", type: "alert" });
+          }
+        };
+        
+        recognitionRef.current.start();
+      }
+
       setIsRecording(true);
       setTimeout(() => {
         if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") stopRecording();
       }, 30000);
     } catch (err) {
-      setModalConfig({ isOpen: true, title: "Microphone Error", message: "Could not access microphone.", type: "alert" });
+      if (err.name === 'NotAllowedError') {
+        setModalConfig({ isOpen: true, title: "Permission Denied", message: "Could not access microphone. Please allow permissions to use voice notes.", type: "alert" });
+      } else {
+        setModalConfig({ isOpen: true, title: "Microphone Error", message: "Could not access microphone or transcription service.", type: "alert" });
+      }
     }
   };
 
@@ -210,42 +285,45 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
       mediaRecorderRef.current.stop();
       mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
     }
+    if (recognitionRef.current) {
+        recognitionRef.current.stop();
+        // Check for silence (if idea hasn't changed much during recording)
+        // This is a simple heuristic: if idea is still empty after recording
+        setTimeout(() => {
+            if (!idea.trim() && !isRecording) {
+                setModalConfig({ isOpen: true, title: "No Speech Detected", message: "We couldn't hear anything. Please try speaking clearly or check your mic.", type: "alert" });
+            }
+        }, 500);
+    }
     setIsRecording(false);
   };
 
-  const handleDiscard = () => { setShowDraftModal(false); onBack(); };
-
-
   useEffect(() => {
-    if (initialDraft) {
-      if (initialDraft.business_id) {
-        const biz = businessTypes.find(b => b.id === initialDraft.business_id);
-        if (biz) setSelectedBusiness(biz);
-      }
-      if (initialDraft.specificName) setSpecificName(initialDraft.specificName);
-      if (initialDraft.otherSpecificName) setOtherSpecificName(initialDraft.otherSpecificName);
-      if (initialDraft.region) setRegion(initialDraft.region);
-      if (initialDraft.city) setCity(initialDraft.city);
-      if (initialDraft.barangay) setBarangay(initialDraft.barangay);
-      if (initialDraft.productName) setProductName(initialDraft.productName);
-      if (initialDraft.employeeName) setEmployeeName(initialDraft.employeeName);
-      if (initialDraft.description) setIdea(initialDraft.description);
-      if (initialDraft.rating) setRating(initialDraft.rating);
-      if (initialDraft.isAnonymous !== undefined) setIsAnonymous(initialDraft.isAnonymous);
-      if (initialDraft.allowComments !== undefined) setAllowComments(initialDraft.allowComments);
+    if (isResuming.current) {
+      // Release the resume lock after a short delay to allow location cascades to finish
+      const timer = setTimeout(() => { isResuming.current = false; }, 1000);
+      return () => clearTimeout(timer);
     }
-  }, [initialDraft]);
+  }, []);
+
+  const handleDiscard = () => { setShowDraftModal(false); onBack(); };
 
   useEffect(() => {
     if (region && LOCATIONS[region]) setAvailableCities(Object.keys(LOCATIONS[region]));
     else setAvailableCities([]);
-    setCity(""); setBarangay(""); setAvailableBarangays([]);
+    
+    if (!isResuming.current) {
+        setCity(""); setBarangay(""); setAvailableBarangays([]);
+    }
   }, [region]);
 
   useEffect(() => {
     if (region && city && LOCATIONS[region]?.[city]) setAvailableBarangays(LOCATIONS[region][city]);
     else setAvailableBarangays([]);
-    setBarangay("");
+    
+    if (!isResuming.current) {
+        setBarangay("");
+    }
   }, [city, region]);
 
   const allBusinessTypes = dbCategories.map(cat => ({
@@ -259,6 +337,29 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
   const filteredBusinesses = allBusinessTypes.filter(b =>
     b.label.toLowerCase().includes(searchQuery.toLowerCase())
   );
+  
+  const searchTerm = focusedMentionIndex !== null ? mentions[focusedMentionIndex]?.name || '' : '';
+  const filteredUserSuggestions = searchTerm.trim().length >= 1 ? userProfiles.filter(u => {
+    const isSelf = u.id == currentUser?.id;
+    const matches = u.name?.toLowerCase().includes(searchTerm.toLowerCase());
+    return matches && !isSelf;
+  }).slice(0, 5) : [];
+
+  const handleUpdateMention = (index, field, value) => {
+    const newMentions = [...mentions];
+    newMentions[index][field] = value;
+    if (field === 'name') newMentions[index].userId = null; // Clear ID if typed
+    setMentions(newMentions);
+  };
+
+  const handleAddMention = () => setMentions([...mentions, { prefix: 'Mr.', name: '', userId: null }]);
+  const handleRemoveMention = (index) => {
+    if (mentions.length > 1) {
+      setMentions(mentions.filter((_, i) => i !== index));
+    } else {
+      setMentions([{ prefix: 'Mr.', name: '', userId: null }]);
+    }
+  };
 
   const handleFileChange = (e) => {
     const files = Array.from(e.target.files);
@@ -312,18 +413,32 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
         sender_id: currentUser.id,
         category_id: selectedBusiness?.id || generalCategoryId || 1,
         recipient_dept_id: matchedDeptId || null,
-        rating: rating > 0 ? rating : null,
         region, city, barangay,
-        employee_name: employeeName || null,
+        mentions: mentions.filter(m => m.name.trim() !== '').map(m => ({
+          employee_name: m.name,
+          employee_prefix: m.prefix,
+          user_id: m.userId
+        })),
         product_name: productName || null,
         attachments: base64Files.length > 0 ? JSON.stringify(base64Files) : null,
         custom_data: dynamicValues
       });
+      deleteCurrentDraft();
       onSuccess();
     } catch (error) {
-      const statusCode = error.response ? error.response.status : 'Network';
-      const exactDetail = error.response?.data?.detail || error.message;
-      setModalConfig({ isOpen: true, title: `Submission Error (${statusCode})`, message: `Failed: ${JSON.stringify(exactDetail)}`, type: "alert" });
+      if (error.message === "Network Error" || !navigator.onLine) {
+        performSilentSave(); // Save as draft immediately
+        setModalConfig({ 
+            isOpen: true, 
+            title: "Offline / Network Error", 
+            message: "You are currently offline or having connection issues. Your progress has been saved as a draft. Please retry when back online.", 
+            type: "alert" 
+        });
+      } else {
+        const statusCode = error.response ? error.response.status : 'Network';
+        const exactDetail = error.response?.data?.detail || error.message;
+        setModalConfig({ isOpen: true, title: `Submission Error (${statusCode})`, message: `Failed: ${JSON.stringify(exactDetail)}`, type: "alert" });
+      }
     } finally { setIsSubmitting(false); }
   };
 
@@ -333,11 +448,17 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
   return (
     <div style={styles.container}>
       <header style={styles.header}>
-        <button onClick={() => { if (selectedBusiness) setSelectedBusiness(null); else onBack(); }} style={styles.iconBtn}>
+        <button onClick={() => { if (selectedBusiness) setSelectedBusiness(null); else onBack(); }} style={styles.iconBtn} aria-label="Go back">
           <Icons.Back />
         </button>
-        <h1 style={styles.headerTitle}>New General Report</h1>
-        <div style={{ width: 24 }} />
+        <h1 style={styles.headerTitle}>{initialDraft ? "Resume Draft" : "New General Report"}</h1>
+        <div style={{ minWidth: 80, textAlign: 'right', fontSize: '11px', color: '#64748B' }}>
+          {selectedBusiness && (isSavingDraft ? (
+            <span style={{ color: '#10B981', fontWeight: 'bold' }}>Saved! ✅</span>
+          ) : (
+            saveTimer <= 3 && <span>Saving in {saveTimer}s...</span>
+          ))}
+        </div>
       </header>
 
       <main style={styles.mainScroll}>
@@ -442,31 +563,116 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
               </div>
             )}
 
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Employee Name (Optional)</label>
-              <input type="text" placeholder="Name of the person who assisted you" style={styles.inputBox}
-                value={employeeName} onChange={(e) => setEmployeeName(e.target.value)} />
-            </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <label style={styles.label}>Employee(s) Involved (Optional)</label>
+                  <button 
+                    type="button" 
+                    onClick={handleAddMention}
+                    style={{ background: 'none', border: 'none', color: '#3B82F6', fontSize: '12px', fontWeight: '700', cursor: 'pointer', outline: 'none' }}
+                  >
+                    + Add another employee
+                  </button>
+                </div>
+
+                {mentions.map((mention, index) => (
+                  <div key={index} style={{ position: 'relative' }}>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      <select 
+                        style={{ ...styles.nativeSelect, width: '90px' }}
+                        value={mention.prefix} 
+                        onChange={(e) => handleUpdateMention(index, 'prefix', e.target.value)}
+                      >
+                        <option value="Mr.">Mr.</option>
+                        <option value="Ms.">Ms.</option>
+                        <option value="Mrs.">Mrs.</option>
+                      </select>
+                      
+                      <div style={{ position: 'relative', flex: 1 }}>
+                        <input 
+                          type="text" 
+                          placeholder="Search name or type manually..." 
+                          style={{ ...styles.inputBox, width: '100%' }}
+                          value={mention.name} 
+                          onChange={(e) => {
+                            handleUpdateMention(index, 'name', e.target.value);
+                            setFocusedMentionIndex(index);
+                            setShowUserSuggestions(true);
+                          }}
+                          onFocus={() => {
+                            setFocusedMentionIndex(index);
+                            setShowUserSuggestions(true);
+                          }}
+                        />
+                        
+                        {showUserSuggestions && focusedMentionIndex === index && filteredUserSuggestions.length > 0 && (
+                          <div ref={suggestionsRef} style={{ ...styles.suggestionsDropdown, left: 0 }}>
+                            {filteredUserSuggestions.map(u => (
+                              <div 
+                                key={u.id} 
+                                style={styles.suggestionItem}
+                                onClick={() => {
+                                  const newMentions = [...mentions];
+                                  newMentions[index].name = u.name;
+                                  newMentions[index].userId = u.id;
+                                  setMentions(newMentions);
+                                  setShowUserSuggestions(false);
+                                  setFocusedMentionIndex(null);
+                                }}
+                              >
+                                {u.avatar_url 
+                                  ? <img src={u.avatar_url} alt="" style={styles.suggestionAvatar} />
+                                  : <div style={styles.suggestionAvatarPlaceholder}>{u.name.charAt(0)}</div>}
+                                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                  <span style={styles.suggestionName}>{u.name}</span>
+                                  <span style={styles.suggestionMeta}>{u.department || 'General'}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {mentions.length > 1 && (
+                        <button 
+                          type="button" 
+                          onClick={() => handleRemoveMention(index)}
+                          style={{ background: 'none', border: 'none', color: '#EF4444', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer', padding: '0 4px' }}
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
 
             {/* (Custom Form Fields section removed as requested) */}
 
             <div style={styles.formGroup}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '5px' }}>
-                <label style={{ ...styles.label, marginBottom: 0 }}>Your Message <span style={{ color: '#EF4444' }}>*</span></label>
-                {isSavingDraft && <span style={{ fontSize: '11px', color: '#64748B', fontWeight: '600' }}>Saving draft...</span>}
-              </div>
+              <label style={styles.label}>Your Message <span style={{ color: '#EF4444' }}>*</span></label>
               <textarea placeholder="Tell us about your experience..." style={styles.textArea}
                 value={idea} onChange={(e) => setIdea(e.target.value)} />
               <div style={{ marginTop: '8px' }}>
                 {allowVoiceSetting && !audioURL && !isRecording && (
-                  <button type="button" style={{ ...styles.attachBtn, width: 'auto' }} onClick={startRecording}>
-                    <Icons.Mic /> <span style={{ marginLeft: '6px' }}>Record Voice Note (max 30s)</span>
-                  </button>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <button type="button" style={{ ...styles.attachBtn, width: 'auto' }} onClick={startRecording}>
+                      <Icons.Mic /> <span style={{ marginLeft: '6px' }}>Record & Transcribe (max 30s)</span>
+                    </button>
+                    <select 
+                      style={{ ...styles.nativeSelect, width: 'auto', padding: '4px 8px', fontSize: '11px' }}
+                      value={transcriptionLanguage}
+                      onChange={(e) => setTranscriptionLanguage(e.target.value)}
+                    >
+                      <option value="en-US">English</option>
+                      <option value="fil-PH">Filipino</option>
+                    </select>
+                  </div>
                 )}
                 {isRecording && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#EF4444', animation: 'pulse 1.5s infinite' }} />
-                    <span style={{ fontSize: '13px', color: '#EF4444', fontWeight: '600' }}>Recording...</span>
+                    <span style={{ fontSize: '13px', color: '#EF4444', fontWeight: '600' }}>Transcribing...</span>
                     <button type="button" style={{ ...styles.attachBtn, width: 'auto', backgroundColor: '#FEE2E2', color: '#EF4444', borderColor: '#FCA5A5' }} onClick={stopRecording}>
                       <Icons.Stop /> <span style={{ marginLeft: '6px' }}>Stop</span>
                     </button>
@@ -564,7 +770,7 @@ const styles = {
   header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', backgroundColor: 'white', borderBottom: '1px solid #E2E8F0' },
   headerTitle: { fontSize: '15px', fontWeight: 'bold', color: '#1C1E21', margin: 0 },
   iconBtn: { background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' },
-  mainScroll: { flex: 1, overflowY: 'auto', padding: '16px' },
+  mainScroll: { flex: 1, overflowY: 'auto', padding: '16px', paddingBottom: 'calc(env(safe-area-inset-bottom) + 100px)' },
   explainBox: { backgroundColor: 'white', padding: '12px 16px', borderRadius: '8px', marginBottom: '16px', border: '1px solid #E4E6EB' },
   explainTopRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' },
   explainTitle: { fontSize: '14px', fontWeight: '600', color: '#1C1E21' },
@@ -577,14 +783,14 @@ const styles = {
   iconBox: { width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#E4E6EB', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#1C1E21', marginBottom: '8px' },
   iconBoxSmall: { width: '30px', height: '30px', borderRadius: '50%', backgroundColor: '#E4E6EB', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#1C1E21' },
   cardLabel: { fontSize: '12px', fontWeight: '600', color: '#1C1E21', textAlign: 'center' },
-  formContainer: { backgroundColor: 'white', padding: '16px', borderRadius: '8px', border: '1px solid #E4E6EB' },
+  formContainer: { backgroundColor: 'white', padding: '16px', borderRadius: '8px', border: '1px solid #E4E6EB', marginBottom: '20px' },
   selectedHeader: { display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px', paddingBottom: '12px', borderBottom: '1px solid #E4E6EB' },
   selectedTitle: { margin: 0, fontSize: '15px', fontWeight: 'bold', color: '#1C1E21' },
   row: { display: 'flex', gap: '8px' },
   formGroup: { marginBottom: '14px' },
   label: { display: 'block', fontSize: '12px', fontWeight: '600', color: '#65676B', marginBottom: '5px' },
   inputBox: { width: '100%', padding: '9px 12px', backgroundColor: '#F0F2F5', border: '1px solid #E4E6EB', borderRadius: '6px', fontSize: '13px', color: '#1C1E21', outline: 'none', boxSizing: 'border-box' },
-  textArea: { width: '100%', padding: '9px 12px', backgroundColor: '#F0F2F5', border: '1px solid #E4E6EB', borderRadius: '6px', fontSize: '13px', color: '#1C1E21', minHeight: '80px', resize: 'vertical', boxSizing: 'border-box', outline: 'none' },
+  textArea: { width: '100%', padding: '9px 12px', backgroundColor: '#F0F2F5', border: '1px solid #E4E6EB', borderRadius: '6px', fontSize: '13px', color: '#1C1E21', minHeight: '120px', resize: 'vertical', boxSizing: 'border-box', outline: 'none' },
   nativeSelect: { width: '100%', padding: '9px 12px', backgroundColor: '#F0F2F5', border: '1px solid #E4E6EB', borderRadius: '6px', fontSize: '13px', color: '#1C1E21', outline: 'none', boxSizing: 'border-box' },
   attachBtn: { display: 'flex', alignItems: 'center', padding: '8px 14px', backgroundColor: '#F0F2F5', border: '1px dashed #C7C9CC', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', color: '#65676B', fontWeight: '600' },
   fileList: { display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '8px' },
@@ -602,6 +808,22 @@ const styles = {
   cancelBtn: { width: '100%', padding: '12px', backgroundColor: '#F1F5F9', color: '#64748B', border: 'none', borderRadius: '6px', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer' },
   starRow: { display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 0' },
   starBtn: { background: 'none', border: 'none', cursor: 'pointer', padding: 0 },
+  suggestionsDropdown: {
+    position: 'absolute', top: '100%', left: '98px', right: 0,
+    backgroundColor: 'white', border: '1px solid #E2E8F0',
+    borderRadius: '12px', marginTop: '4px', zIndex: 1000,
+    boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05)',
+    maxHeight: '240px', overflowY: 'auto'
+  },
+  suggestionItem: {
+    display: 'flex', alignItems: 'center', gap: '12px',
+    padding: '10px 12px', cursor: 'pointer', transition: 'background-color 0.2s',
+    borderBottom: '1px solid #F1F5F9'
+  },
+  suggestionAvatar: { width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', border: '1px solid #E2E8F0' },
+  suggestionAvatarPlaceholder: { width: '32px', height: '32px', borderRadius: '50%', backgroundColor: '#1f2a56', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 'bold' },
+  suggestionName: { fontSize: '13px', fontWeight: '700', color: '#1E293B' },
+  suggestionMeta: { fontSize: '11px', color: '#64748B' },
   draftOverlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(15, 23, 42, 0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 },
   draftModal: { backgroundColor: 'white', padding: '24px', borderRadius: '16px', maxWidth: '300px', width: '100%', textAlign: 'center' },
   draftDiscardBtn: { flex: 1, padding: '10px', backgroundColor: '#F1F5F9', border: 'none', borderRadius: '8px', color: '#64748B', fontWeight: 'bold', cursor: 'pointer' },

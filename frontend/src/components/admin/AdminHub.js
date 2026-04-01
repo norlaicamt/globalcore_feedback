@@ -197,6 +197,7 @@ function SunIcon()      { return <svg width="20" height="20" viewBox="0 0 24 24"
 function MoonIcon()     { return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>; }
 function ClockIcon()    { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>; }
 
+
 const SIDEBAR_W = 280;
 const styles = {
   root: { display: "flex", height: "100vh", fontFamily: '"Inter", sans-serif', backgroundColor: "#F1F5F9" },
