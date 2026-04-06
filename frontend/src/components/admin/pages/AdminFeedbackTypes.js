@@ -1,15 +1,48 @@
 import React, { useEffect, useState, useRef } from "react";
 import { adminGetCategories, adminCreateCategory, adminUpdateCategory, adminDeleteCategory } from "../../../services/adminApi";
 import CustomModal from "../../CustomModal";
+import { IconRegistry } from "../../IconRegistry";
 
-const CATEGORY_PRESETS = [
-  { name: "Car / Transport", choices: [] },
-  { name: "Department / Agency", choices: [] },
-  { name: "Food / Restaurant", choices: [] },
-  { name: "Cosmetics Shop", choices: [] },
-  { name: "Furniture Shop", choices: [] },
-  { name: "Resort / Pool", choices: [] },
-  { name: "Hotel / Lodging", choices: [] },
+const CATEGORY_PRESETS = [];
+
+const AVAILABLE_ICONS = [
+  { key: 'default', label: 'General' },
+  { key: 'building', label: 'Office' },
+  { key: 'department', label: 'Public' },
+  { key: 'food', label: 'Dining' },
+  { key: 'car', label: 'Transport' },
+  { key: 'hotel', label: 'Lodging' },
+  { key: 'it', label: 'Tech' },
+  { key: 'finance', label: 'Bank' },
+  { key: 'health', label: 'Health' },
+  { key: 'edu', label: 'Education' },
+  { key: 'law', label: 'Legal' },
+  { key: 'retail', label: 'Retail' },
+  { key: 'sports', label: 'Sports' },
+  { key: 'travel', label: 'Travel' },
+  { key: 'gov', label: 'Gov' },
+  { key: 'util', label: 'Utility' },
+  { key: 'nature', label: 'Nature' },
+  { key: 'security', label: 'Security' },
+  { key: 'media', label: 'Media' },
+  { key: 'tech', label: 'Tech' },
+  { key: 'social', label: 'Social' },
+  { key: 'delivery', label: 'Delivery' },
+  { key: 'beauty', label: 'Beauty' },
+  { key: 'entertainment', label: 'Fun' },
+  { key: 'energy', label: 'Energy' },
+  { key: 'bank', label: 'Finance' },
+  { key: 'pet', label: 'Pets' },
+  { key: 'art', label: 'Arts' },
+  { key: 'clothing', label: 'Clothing' },
+  { key: 'coffee', label: 'Cafe' },
+  { key: 'train', label: 'Train' },
+  { key: 'bus', label: 'Bus' },
+  { key: 'gym', label: 'Gym' },
+  { key: 'laundry', label: 'Laundry' },
+  { key: 'gas', label: 'Gas' },
+  { key: 'post', label: 'Post' },
+  { key: 'repair', label: 'Repair' },
 ];
 
 // 3-dot action menu
@@ -27,10 +60,17 @@ const DotsMenu = ({ onEdit, onDelete, theme, darkMode }) => {
     <div ref={ref} style={{ position: "relative", display: "inline-block" }}>
       <button
         onClick={() => setOpen(o => !o)}
-        style={{ width: "30px", height: "30px", display: "flex", alignItems: "center", justifyContent: "center", background: open ? (darkMode ? "rgba(255,255,255,0.1)" : "#F1F5F9") : "transparent", border: "1px solid transparent", borderRadius: "6px", cursor: "pointer", color: theme.textMuted, fontFamily: "inherit" }}
+        style={{ 
+          width: "32px", height: "32px", display: "flex", alignItems: "center", justifyContent: "center", 
+          background: open ? (darkMode ? "rgba(59,130,246,0.1)" : "#EFF6FF") : (darkMode ? "rgba(255,255,255,0.03)" : "#F8FAFC"), 
+          border: `1px solid ${open ? '#3B82F6' : theme.border}`, borderRadius: "8px", cursor: "pointer", 
+          color: open ? '#3B82F6' : theme.text, transition: 'all 0.2s' 
+        }}
+        onMouseEnter={e => { if(!open) e.currentTarget.style.borderColor = '#3B82F6'; e.currentTarget.style.color = '#3B82F6'; }}
+        onMouseLeave={e => { if(!open) e.currentTarget.style.borderColor = theme.border; e.currentTarget.style.color = open ? '#3B82F6' : theme.text; }}
       >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-          <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/>
         </svg>
       </button>
       {open && (
@@ -71,11 +111,18 @@ const AdminFeedbackTypes = ({ theme, darkMode }) => {
   
   // Create state
   const [newName, setNewName] = useState("");
-  const [newChoices, setNewChoices] = useState([]);
-  const [tmpChoice, setTmpChoice] = useState("");
+  const [newIconKey, setNewIconKey] = useState("default");
+  const [newChoices, setNewChoices] = useState([]); 
+  const [tmpName, setTmpName] = useState("");
 
   // Pre-populated templates
   const [catPresets, setCatPresets] = useState(CATEGORY_PRESETS);
+  const [showPresetModal, setShowPresetModal] = useState(false);
+  const [newPresetName, setNewPresetName] = useState("");
+
+  const [showChoiceView, setShowChoiceView] = useState(false);
+  const [viewChoices, setViewChoices] = useState([]);
+  const [viewTitle, setViewTitle] = useState("");
   
   // Edit state
   const [editId, setEditId] = useState(null);
@@ -91,17 +138,36 @@ const AdminFeedbackTypes = ({ theme, darkMode }) => {
   const [mChoices, setMChoices] = useState([]);
   const [mTmp, setMTmp] = useState("");
 
-  const load = () => adminGetCategories().then(setCats).catch(console.error).finally(() => setLoading(false));
+  const load = async () => {
+    setLoading(true);
+    try {
+      const data = await adminGetCategories();
+      setCats(data || []);
+      setCatPresets(data || []);
+    } catch(err) { console.error(err); }
+    setLoading(false);
+  };
   useEffect(() => { load(); }, []);
 
-  // Auto-load choices if name matches existing
+  // Auto-load hierarchy if name matches existing
   useEffect(() => {
     if (!newName.trim()) return;
     const existing = cats.find(c => c.name.toLowerCase() === newName.trim().toLowerCase());
     if (existing && newChoices.length === 0) {
       try {
         const parsed = JSON.parse(existing.description || "[]");
-        if (Array.isArray(parsed)) setNewChoices(parsed);
+        if (typeof parsed === 'object' && !Array.isArray(parsed)) {
+          // Flatten existing 3-tier structure into one list
+          const flattened = [];
+          Object.values(parsed).forEach(v => {
+            const names = (typeof v === 'object' && !Array.isArray(v)) ? v.names : (v || []);
+            flattened.push(...names);
+          });
+          setNewChoices([...new Set(flattened)]); // unique names
+        } else if (Array.isArray(parsed)) {
+          setNewChoices(parsed);
+        }
+        if (existing.icon) setNewIconKey(existing.icon);
       } catch(e) { setNewChoices([]); }
     }
   }, [newName, cats]);
@@ -116,27 +182,33 @@ const AdminFeedbackTypes = ({ theme, darkMode }) => {
     try {
       const descVal = JSON.stringify(newChoices);
       
+      const payload = {
+        name: newName.trim(),
+        description: descVal,
+        icon: newIconKey,
+        fields: []
+      };
+
       if (existing) {
-        // Mode: Update
-        await adminUpdateCategory(existing.id, existing.name, descVal, []);
+        await adminUpdateCategory(existing.id, payload.name, payload.description, payload.fields, payload.icon);
         setDialog({
           isOpen: true, type: "alert", title: "Success",
-          message: `Category "${existing.name}" has been updated with your new choices.`,
+          message: `Category "${existing.name}" has been updated.`,
           confirmText: "Perfect", onConfirm: () => setDialog({ isOpen: false })
         });
       } else {
-        // Mode: Create
-        await adminCreateCategory(newName.trim(), descVal, []);
+        await adminCreateCategory(payload.name, payload.description, payload.fields, payload.icon);
         setDialog({
           isOpen: true, type: "alert", title: "Success",
-          message: `Category "${newName}" has been created and is now available for users.`,
+          message: `Category "${newName}" has been created.`,
           confirmText: "Great", onConfirm: () => setDialog({ isOpen: false })
         });
       }
       
       setNewName(""); 
-      setNewChoices([]); 
-      // isAdding remains true to keep builder open
+      setNewChoices([]);
+      setNewIconKey("default");
+      setTmpName("");
       load();
     } catch (err) {
       console.error("Action failed", err);
@@ -151,7 +223,8 @@ const AdminFeedbackTypes = ({ theme, darkMode }) => {
   const handleUpdate = async (id) => {
     if (!editName.trim()) return;
     const descVal = JSON.stringify(editChoices);
-    await adminUpdateCategory(id, editName.trim(), descVal, []);
+    const existing = cats.find(c => c.id === id);
+    await adminUpdateCategory(id, editName.trim(), descVal, [], existing?.icon || "default");
     setEditId(null); setEditName(""); setEditChoices([]); load();
   };
 
@@ -160,18 +233,30 @@ const AdminFeedbackTypes = ({ theme, darkMode }) => {
     const existing = cats.find(c => c.name.toLowerCase() === p.name.toLowerCase());
     if (existing) {
       try {
-        const parsed = JSON.parse(existing.description || "[]");
-        setNewChoices(Array.isArray(parsed) ? parsed : []);
+        const parsed = JSON.parse(existing.description || "{}");
+        if (typeof parsed === 'object' && !Array.isArray(parsed)) {
+          const flattened = [];
+          Object.values(parsed).forEach(v => {
+            const names = (typeof v === 'object' && !Array.isArray(v)) ? v.names : (v || []);
+            flattened.push(...names);
+          });
+          setNewChoices([...new Set(flattened)]);
+        } else if (Array.isArray(parsed)) {
+          setNewChoices(parsed);
+        }
+        if (existing.icon) setNewIconKey(existing.icon);
       } catch(e) { setNewChoices([]); }
     } else {
       setNewChoices(p.choices || []);
+      if (p.icon) setNewIconKey(p.icon);
     }
   };
 
-  const addCustomPreset = () => {
-    const name = prompt("Enter New Industry / Category Name:");
-    if (name && name.trim()) {
-      setCatPresets([...catPresets, { name: name.trim(), desc: "" }]);
+  const handleAddPreset = () => {
+    if (newPresetName.trim()) {
+      setCatPresets([...catPresets, { name: newPresetName.trim(), choices: [] }]);
+      setNewPresetName("");
+      setShowPresetModal(false);
     }
   };
 
@@ -198,30 +283,36 @@ const AdminFeedbackTypes = ({ theme, darkMode }) => {
     });
   };
 
-  const openChoiceModal = (c) => {
-    setModalCat(c);
-    try {
-      const parsed = JSON.parse(c.description || "[]");
-      setMChoices(Array.isArray(parsed) ? parsed : []);
-    } catch(e) { setMChoices([]); }
-    setIsChoiceModal(true);
+  const addChoice = (name) => {
+    if (!name.trim()) return;
+    if (!newChoices.includes(name.trim())) {
+      setNewChoices([...newChoices, name.trim()]);
+    }
   };
 
-  const saveModalChoices = async () => {
-    if (!modalCat) return;
+  const removeChoice = (name) => {
+    setNewChoices(newChoices.filter(n => n !== name));
+  };
+
+  const openCategoryForEdit = (c) => {
+    setNewName(c.name);
+    if (c.icon) setNewIconKey(c.icon);
     try {
-      const descVal = JSON.stringify(mChoices);
-      await adminUpdateCategory(modalCat.id, modalCat.name, descVal, []);
-      setIsChoiceModal(false);
-      load();
-      setDialog({
-        isOpen: true, type: "alert", title: "Changes Saved",
-        message: `Updated choices for "${modalCat.name}" successfully.`,
-        confirmText: "Close", onConfirm: () => setDialog({ isOpen: false })
-      });
-    } catch (err) {
-      console.error("Save failed", err);
+      const parsed = JSON.parse(c.description || "[]");
+      if (typeof parsed === 'object' && !Array.isArray(parsed)) {
+        const flattened = [];
+        Object.values(parsed).forEach(v => {
+          const names = (typeof v === 'object' && !Array.isArray(v)) ? v.names : (v || []);
+          flattened.push(...names);
+        });
+        setNewChoices([...new Set(flattened)]);
+      } else if (Array.isArray(parsed)) {
+        setNewChoices(parsed);
+      }
+    } catch(e) { 
+      setNewChoices([]);
     }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   return (
@@ -230,88 +321,129 @@ const AdminFeedbackTypes = ({ theme, darkMode }) => {
         <div style={{ background: theme.surface, borderRadius: "12px", padding: "28px", border: `1px solid ${theme.border}`, boxShadow: '0 4px 12px rgba(0,0,0,0.05)', marginBottom: '16px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
             <p style={{ margin: 0, fontSize: "16px", fontWeight: "800", color: theme.text }}>Category Builder</p>
-            <button onClick={() => { setNewName(""); setNewChoices([]); }} style={{ background: 'none', border: 'none', color: theme.textMuted, cursor: 'pointer', fontSize: '12px', fontWeight: '700' }}>CLEAR</button>
+            <button onClick={() => { setNewName(""); setNewChoices([]); setNewIconKey("default"); }} style={{ background: 'none', border: 'none', color: theme.textMuted, cursor: 'pointer', fontSize: '12px', fontWeight: '700' }}>CLEAR</button>
           </div>
 
           <div style={{ marginBottom: '24px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-               <label style={{ ...labelStyle, color: theme.textMuted }}>Industry / Category Templates</label>
-               <button type="button" onClick={addCustomPreset} style={{ background: 'none', border: 'none', color: '#3B82F6', cursor: 'pointer', fontSize: '11px', fontWeight: '800' }}>+ ADD TEMPLATE</button>
+               <label style={{ ...labelStyle, color: theme.textMuted }}>Re-use from Existing Categories</label>
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
               {catPresets
                 .map((p, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => applyPreset(p)}
-                  style={{
-                    padding: '6px 12px', borderRadius: '18px', border: `1.5px solid ${theme.border}`,
-                    background: theme.bg, color: theme.text, fontSize: '11px', fontWeight: '700',
-                    cursor: 'pointer', transition: 'all 0.15s'
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.borderColor = '#3B82F6'}
-                  onMouseLeave={e => e.currentTarget.style.borderColor = theme.border}
-                >
-                  {p.name}
-                </button>
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => {
+                      setNewName(p.name);
+                      setNewIconKey(p.icon || "default");
+                      try {
+                        const parsed = JSON.parse(p.description || "[]");
+                        setNewChoices(Array.isArray(parsed) ? parsed : []);
+                      } catch(e) { setNewChoices([]); }
+                    }}
+                    style={{
+                      padding: '8px 14px', borderRadius: '12px', border: `1.5px solid ${theme.border}`,
+                      background: theme.surface, color: theme.text, fontSize: '12px', fontWeight: '700',
+                      cursor: 'pointer', transition: 'all 0.15s', display: 'flex', alignItems: 'center', gap: '8px',
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = '#3B82F6'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = theme.border; e.currentTarget.style.transform = 'translateY(0)'; }}
+                  >
+                    {(() => {
+                      const Icon = IconRegistry[p.icon] || IconRegistry.default;
+                      return <Icon width="14" height="14" color="#3B82F6" />;
+                    })()}
+                    {p.name}
+                  </button>
               ))}
             </div>
           </div>
           
           <form onSubmit={handleCreate} style={{ display: "flex", flexDirection: 'column', gap: "24px" }}>
-            <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
-              <div style={{ flex: "1 1 200px", display: "flex", flexDirection: "column", gap: "8px" }}>
-                <label style={{ ...labelStyle, color: theme.textMuted }}>Category Name</label>
-                <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="e.g. Facilities Management" style={{ ...inputStyle, background: theme.bg, color: theme.text, borderColor: theme.border }} />
-              </div>
-              <div style={{ flex: "2 1 300px", display: "flex", flexDirection: "column", gap: "8px" }}>
-                <label style={{ ...labelStyle, color: theme.textMuted }}>Establishment/Service Choices</label>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <input 
-                      value={tmpChoice} 
-                      onChange={e => setTmpChoice(e.target.value)} 
-                      placeholder="Add an option (e.g. HR, IT, Jollibee...)" 
-                      style={{ ...inputStyle, background: theme.bg, color: theme.text, borderColor: theme.border }} 
-                      onKeyDown={e => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          if (tmpChoice.trim() && !newChoices.includes(tmpChoice.trim())) {
-                            setNewChoices([...newChoices, tmpChoice.trim()]);
-                            setTmpChoice("");
-                          }
-                        }
-                      }}
-                    />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', padding: '24px', background: theme.bg, borderRadius: '20px', border: `1px solid ${theme.border}`, boxShadow: '0 4px 20px rgba(0,0,0,0.02)' }}>
+                  
+                  {/* Category Name Row */}
+                  <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <label style={{ ...labelStyle, color: theme.textMuted }}>Category Name</label>
+                      <input 
+                        value={newName} 
+                        onChange={e => setNewName(e.target.value)} 
+                        placeholder="e.g. Food / Restaurant" 
+                        style={{ ...inputStyle, fontSize: '16px', padding: '12px 16px', background: theme.surface, color: theme.text, borderColor: theme.border }} 
+                      />
+                    </div>
+
+                    {/* Icon Selection Grid */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      <label style={{ ...labelStyle, color: theme.textMuted }}>Category Icon</label>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(40px, 1fr))', gap: '8px', padding: '12px', background: theme.surface, borderRadius: '12px', border: `1px solid ${theme.border}` }}>
+                        {AVAILABLE_ICONS.map(icon => {
+                          const IconComp = IconRegistry[icon.key] || IconRegistry.default;
+                          const isSelected = newIconKey === icon.key;
+                          return (
+                            <button
+                              key={icon.key}
+                              type="button"
+                              onClick={() => setNewIconKey(icon.key)}
+                              title={icon.label}
+                              style={{
+                                width: '40px', height: '40px', borderRadius: '8px', border: `2px solid ${isSelected ? '#3B82F6' : 'transparent'}`,
+                                background: isSelected ? 'rgba(59, 130, 246, 0.1)' : 'none', color: isSelected ? '#3B82F6' : theme.textMuted,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s'
+                              }}
+                              onMouseEnter={e => !isSelected && (e.currentTarget.style.background = darkMode ? 'rgba(255,255,255,0.05)' : '#F1F5F9')}
+                              onMouseLeave={e => !isSelected && (e.currentTarget.style.background = 'none')}
+                            >
+                              <IconComp width="20" height="20" />
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ height: '1px', background: theme.border, margin: '8px 0' }} />
+
+                  {/* Choice Input Row */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '12px', alignItems: 'flex-end' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <label style={{ ...labelStyle, color: theme.textMuted }}>Add Specific Item / Name</label>
+                      <input 
+                        placeholder="e.g. Jollibee" 
+                        style={{ ...inputStyle, background: theme.surface }}
+                        value={tmpName}
+                        onChange={e => setTmpName(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') { e.preventDefault(); addChoice(tmpName); setTmpName(""); }
+                        }}
+                      />
+                    </div>
                     <button 
                       type="button" 
-                      onClick={() => { 
-                        if (tmpChoice.trim() && !newChoices.includes(tmpChoice.trim())) {
-                          setNewChoices([...newChoices, tmpChoice.trim()]);
-                          setTmpChoice("");
-                        }
-                      }}
-                      style={{ ...editBtn, padding: '0 16px' }}
+                      style={{ ...primaryBtn, padding: '12px 24px', height: '42px', display: 'flex', alignItems: 'center', gap: '8px' }}
+                      onClick={() => { addChoice(tmpName); setTmpName(""); }}
                     >
-                      ADD
+                      <span style={{ fontSize: '18px' }}>+</span> ADD
                     </button>
                   </div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', minHeight: '32px', padding: '8px', background: theme.bg, borderRadius: '8px', border: `1px solid ${theme.border}` }}>
-                    {Array.isArray(newChoices) && newChoices.map((choice, cidx) => (
-                      <div key={cidx} style={{ 
-                        display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 10px', 
-                        background: '#3B82F6', color: 'white', borderRadius: '14px', fontSize: '11px', fontWeight: '700' 
-                      }}>
-                        {choice}
-                        <span onClick={() => setNewChoices(newChoices.filter((_, i) => i !== cidx))} style={{ cursor: 'pointer', opacity: 0.8 }}>×</span>
-                      </div>
-                    ))}
-                    {(!newChoices || newChoices.length === 0) && <span style={{ fontSize: '11px', color: theme.textMuted }}>Nothing added yet.</span>}
-                  </div>
+
+                  {/* Display List */}
+                  {newChoices.length > 0 && (
+                    <div style={{ maxHeight: '400px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '10px', padding: '4px' }}>
+                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                         {newChoices.map(name => (
+                           <div key={name} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: '#3B82F6', color: 'white', borderRadius: '18px', fontSize: '13px', fontWeight: '700', boxShadow: '0 2px 8px rgba(59, 130, 246, 0.2)' }}>
+                             {name}
+                             <span onClick={() => removeChoice(name)} style={{ cursor: 'pointer', opacity: 0.8, marginLeft: '4px', fontSize: '18px', lineHeight: 1 }}>×</span>
+                           </div>
+                         ))}
+                       </div>
+                    </div>
+                  )}
                 </div>
-              </div>
-            </div>
 
             <button 
               type="submit" 
@@ -335,11 +467,11 @@ const AdminFeedbackTypes = ({ theme, darkMode }) => {
         </div>
 
       {/* Table */}
-      <div style={{ background: theme.surface, borderRadius: "12px", border: `1px solid ${theme.border}`, overflow: "hidden" }}>
+      <div style={{ background: theme.surface, borderRadius: "12px", border: `1px solid ${theme.border}`, overflowX: "auto", boxShadow: '0 4px 12px rgba(0,0,0,0.02)' }}>
         {loading ? (
           <div style={{ padding: "32px", textAlign: "center", color: theme.textMuted, fontSize: "13px" }}>Loading...</div>
         ) : (
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px", minWidth: "700px" }}>
             <thead>
               <tr style={{ background: darkMode ? "rgba(255,255,255,0.02)" : "#F8FAFC", borderBottom: `1px solid ${theme.border}` }}>
                 {["#", "Category Type", "Establishment/Service", "Submissions", ""].map(h => (
@@ -355,34 +487,51 @@ const AdminFeedbackTypes = ({ theme, darkMode }) => {
                     onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
                     <td style={{ ...tdStyle, color: theme.textMuted }}>{i + 1}</td>
                     <td style={tdStyle}>
-                      {editId === c.id
-                        ? <input value={editName} onChange={e => setEditName(e.target.value)} autoFocus style={{ ...inputStyle, background: theme.bg, color: theme.text, borderColor: theme.border, width: "160px" }} />
-                        : <span style={{ fontWeight: "600", color: theme.text }}>{c.name}</span>}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div style={{ padding: '6px', background: darkMode ? 'rgba(59,130,246,0.1)' : '#EFF6FF', borderRadius: '8px', color: '#3B82F6', display: 'flex' }}>
+                          {(() => {
+                            const IconComp = IconRegistry[c.icon] || IconRegistry.default;
+                            return <IconComp width="18" height="18" />;
+                          })()}
+                        </div>
+                        <span style={{ fontWeight: "600", color: theme.text }}>{c.name}</span>
+                      </div>
                     </td>
                     <td style={tdStyle}>
-                      <span 
-                        onClick={() => openChoiceModal(c)}
-                        style={{ 
-                          fontSize: '11.5px', fontWeight: '700', color: '#3B82F6', background: 'rgba(59,130,246,0.08)', 
-                          padding: '4px 12px', borderRadius: '12px', cursor: 'pointer', transition: 'all 0.2s',
-                          border: '1px solid rgba(59,130,246,0.1)'
+                      <div 
+                        onClick={() => {
+                          try {
+                            const parsed = JSON.parse(c.description || "[]");
+                            setViewTitle(c.name);
+                            setViewChoices(Array.isArray(parsed) ? parsed : []);
+                            setShowChoiceView(true);
+                          } catch(e) { 
+                            setViewTitle(c.name);
+                            setViewChoices([]);
+                            setShowChoiceView(true);
+                          }
                         }}
-                        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.15)'; e.currentTarget.style.transform = 'scale(1.02)'; }}
+                        style={{ 
+                          fontSize: '13px', fontWeight: '800', color: '#3B82F6', background: 'rgba(59,130,246,0.08)', 
+                          width: '36px', height: '36px', borderRadius: '10px', cursor: 'pointer', transition: 'all 0.2s',
+                          border: '1px solid rgba(59,130,246,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.15)'; e.currentTarget.style.transform = 'scale(1.05)'; }}
                         onMouseLeave={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.08)'; e.currentTarget.style.transform = 'scale(1)'; }}
                       >
                         {(() => {
                           try {
                             const parsed = JSON.parse(c.description || "[]");
-                            return Array.isArray(parsed) ? `${parsed.length}` : '0';
-                          } catch(e) { return '0'; }
+                            return Array.isArray(parsed) ? parsed.length : 0;
+                          } catch(e) { return 0; }
                         })()}
-                      </span>
+                      </div>
                     </td>
                     <td style={tdStyle}>
                       <span style={{ fontSize: "12px", fontWeight: "600", color: theme.text }}>{c.count}</span>
-                    </td>                    <td style={{ ...tdStyle, textAlign: "right" }}>
+                    </td>                    <td style={{ ...tdStyle, textAlign: "right", width: '50px' }}>
                         <DotsMenu 
-                          onEdit={() => openChoiceModal(c)} 
+                          onEdit={() => openCategoryForEdit(c)} 
                           onDelete={() => handleDelete(c)} 
                           theme={theme}
                           darkMode={darkMode}
@@ -399,71 +548,67 @@ const AdminFeedbackTypes = ({ theme, darkMode }) => {
         )}
       </div>
 
-      {/* Choice Editor Modal */}
-      {isChoiceModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(8px)', padding: '20px' }}>
-          <div style={{ background: theme.surface, width: '100%', maxWidth: '480px', borderRadius: '24px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', overflow: 'hidden', animation: 'fadeIn 0.3s ease-out' }}>
-            <div style={{ padding: '24px', borderBottom: `1px solid ${theme.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: darkMode ? 'rgba(255,255,255,0.02)' : 'white' }}>
-              <div>
-                <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: theme.text }}>Edit Choices</h3>
-                <p style={{ margin: 0, fontSize: '12px', color: theme.textMuted }}>{modalCat?.name}</p>
+
+      {/* New Preset Modal */}
+      {showPresetModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.7)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(8px)', padding: '20px' }}>
+          <div style={{ background: theme.surface, width: '100%', maxWidth: '380px', borderRadius: '24px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', overflow: 'hidden', animation: 'fadeIn 0.3s ease-out' }}>
+            <div style={{ padding: '24px', textAlign: 'center' }}>
+              <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: 'rgba(59,130,246,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14"/></svg>
               </div>
-              <button onClick={() => setIsChoiceModal(false)} style={{ background: theme.bg, color: theme.text, border: 'none', width: '32px', height: '32px', borderRadius: '50%', cursor: 'pointer', fontWeight: 'bold' }}>×</button>
+              <h3 style={{ margin: '0 0 8px 0', fontSize: '18px', fontWeight: '800', color: theme.text }}>Add New Template</h3>
+              <p style={{ margin: '0 0 20px 0', fontSize: '13px', color: theme.textMuted }}>Enter a name for your new category preset.</p>
+              
+              <input 
+                autoFocus
+                value={newPresetName} 
+                onChange={e => setNewPresetName(e.target.value)} 
+                placeholder="e.g. Real Estate" 
+                style={{ ...inputStyle, background: theme.bg, color: theme.text, borderColor: theme.border, textAlign: 'center', padding: '12px' }}
+                onKeyDown={e => { if (e.key === 'Enter') handleAddPreset(); }}
+              />
             </div>
             
-            <div style={{ padding: '24px' }}>
-               <label style={{ fontSize: '11px', fontWeight: '800', color: theme.textMuted, display: 'block', marginBottom: '8px', textTransform: 'uppercase' }}>Add Establishment / Service</label>
-               <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
-                  <input 
-                    value={mTmp} 
-                    onChange={e => setMTmp(e.target.value)} 
-                    placeholder="Type name and press Enter..." 
-                    style={{ ...inputStyle, flex: 1, background: theme.bg, color: theme.text, borderColor: theme.border }} 
-                    onKeyDown={e => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        if (mTmp.trim() && !mChoices.includes(mTmp.trim())) {
-                          setMChoices([...mChoices, mTmp.trim()]);
-                          setMTmp("");
-                        }
-                      }
-                    }}
-                  />
-                  <button 
-                    onClick={() => {
-                      if (mTmp.trim() && !mChoices.includes(mTmp.trim())) {
-                        setMChoices([...mChoices, mTmp.trim()]);
-                        setMTmp("");
-                      }
-                    }}
-                    style={{ ...editBtn, padding: '0 16px', borderRadius: '10px' }}
-                  >ADD</button>
-               </div>
+            <div style={{ padding: '16px 24px', background: darkMode ? 'rgba(255,255,255,0.02)' : '#F8FAFC', borderTop: `1px solid ${theme.border}`, display: 'flex', gap: '12px' }}>
+              <button onClick={() => { setShowPresetModal(false); setNewPresetName(""); }} style={{ flex: 1, padding: '12px', borderRadius: '12px', border: `1px solid ${theme.border}`, background: theme.bg, color: theme.text, fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+              <button onClick={handleAddPreset} disabled={!newPresetName.trim()} style={{ flex: 1, padding: '12px', borderRadius: '12px', border: 'none', background: 'linear-gradient(135deg, #1f2a56 0%, #2563EB 100%)', color: 'white', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit', opacity: !newPresetName.trim() ? 0.6 : 1 }}>Create</button>
+            </div>
+          </div>
+        </div>
+      )}
 
-               <label style={{ fontSize: '11px', fontWeight: '800', color: theme.textMuted, display: 'block', marginBottom: '8px', textTransform: 'uppercase' }}>Current List ({mChoices.length})</label>
-               <div style={{ maxHeight: '300px', overflowY: 'auto', background: theme.bg, borderRadius: '14px', border: `1px solid ${theme.border}`, display: 'flex', flexDirection: 'column', gap: '2px', padding: '4px' }}>
-                  {mChoices.map((choice, idx) => (
-                    <div key={idx} style={{ 
-                      display: 'flex', justifyContent: 'space-between', alignItems: 'center', 
-                      padding: '10px 14px', borderRadius: '10px', transition: 'background 0.2s',
-                      background: darkMode ? 'rgba(255,255,255,0.03)' : 'white'
-                    }}>
-                      <span style={{ fontSize: '13px', fontWeight: '600', color: theme.text }}>{choice}</span>
-                      <button 
-                        onClick={() => setMChoices(mChoices.filter((_, i) => i !== idx))}
-                        style={{ background: 'none', border: 'none', color: '#EF4444', fontSize: '18px', cursor: 'pointer', padding: '0 4px' }}
-                      >×</button>
+      {/* Choice View Modal */}
+      {showChoiceView && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.7)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(8px)', padding: '20px' }}>
+          <div style={{ background: theme.surface, width: '100%', maxWidth: '450px', borderRadius: '24px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', overflow: 'hidden', animation: 'fadeIn 0.3s ease-out' }}>
+            <div style={{ padding: '24px', background: 'linear-gradient(135deg, #1f2a56 0%, #2563EB 100%)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: 'white' }}>{viewTitle}</h3>
+                <p style={{ margin: 0, fontSize: '12px', color: 'rgba(255,255,255,0.7)' }}>{viewChoices.length} Registered Establishments/Services</p>
+              </div>
+              <button onClick={() => setShowChoiceView(false)} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', width: '32px', height: '32px', borderRadius: '10px', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+              </button>
+            </div>
+            
+            <div style={{ padding: '24px', maxHeight: '400px', overflowY: 'auto' }}>
+              {viewChoices.length > 0 ? (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '8px' }}>
+                  {viewChoices.map((choice, idx) => (
+                    <div key={idx} style={{ padding: '10px 14px', background: darkMode ? 'rgba(255,255,255,0.05)' : '#F1F5F9', borderRadius: '12px', border: `1px solid ${theme.border}`, fontSize: '13px', color: theme.text, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#3B82F6' }} />
+                      {choice}
                     </div>
                   ))}
-                  {mChoices.length === 0 && (
-                    <div style={{ padding: '30px', textAlign: 'center', color: theme.textMuted, fontSize: '12px' }}>Nothing added yet.</div>
-                  )}
-               </div>
+                </div>
+              ) : (
+                <div style={{ textAlign: 'center', padding: '32px', color: theme.textMuted }}>No items registered for this category yet.</div>
+              )}
             </div>
-
-            <div style={{ padding: '16px 24px', background: darkMode ? 'rgba(255,255,255,0.02)' : '#F8FAFC', borderTop: `1px solid ${theme.border}`, display: 'flex', gap: '12px' }}>
-               <button onClick={() => setIsChoiceModal(false)} style={{ flex: 1, padding: '12px', borderRadius: '12px', border: `1px solid ${theme.border}`, background: theme.bg, color: theme.text, fontWeight: '700', cursor: 'pointer' }}>Cancel</button>
-               <button onClick={saveModalChoices} style={{ flex: 2, padding: '12px', borderRadius: '12px', border: 'none', background: 'linear-gradient(135deg, #30CFD0 0%, #330867 100%)', color: 'white', fontWeight: '700', cursor: 'pointer' }}>Save Changes</button>
+            
+            <div style={{ padding: '16px 24px', background: darkMode ? 'rgba(255,255,255,0.02)' : '#F8FAFC', borderTop: `1px solid ${theme.border}`, display: 'flex', justifyContent: 'flex-end' }}>
+              <button onClick={() => setShowChoiceView(false)} style={{ padding: '10px 24px', borderRadius: '12px', border: 'none', background: '#2563EB', color: 'white', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit' }}>Got it</button>
             </div>
           </div>
         </div>

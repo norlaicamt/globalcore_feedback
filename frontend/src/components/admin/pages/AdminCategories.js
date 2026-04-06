@@ -49,7 +49,7 @@ const AdminCategories = () => {
         </form>
       </div>
 
-      <div style={{ background: "white", borderRadius: "16px", border: "1px solid #E2E8F0", overflow: "hidden" }}>
+      <div style={{ background: "white", borderRadius: "16px", border: "1px solid #E2E8F0", overflowX: "auto", maxHeight: "600px", overflowY: "auto" }}>
         {loading ? <div style={{ padding: "30px", textAlign: "center", color: "#94A3B8", fontSize: "13px" }}>Loading…</div> : (
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
             <thead>

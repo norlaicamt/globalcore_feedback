@@ -23,16 +23,37 @@ ADMIN_NAME = os.getenv("ADMIN_NAME", "GlobalCore Admin")
 # ─────────────────────────────────────────────
 
 @router.post("/login")
-def admin_login(email: str, password: str):
+def admin_login(email: str, password: str, db: Session = Depends(get_db)):
+    # 1. Check Hardcoded Superadmin (from .env)
     if email == ADMIN_EMAIL and password == ADMIN_PASSWORD:
         return {
             "id": 0,
             "name": ADMIN_NAME,
             "email": ADMIN_EMAIL,
-            "role": "admin",
+            "role": "superadmin",
             "is_active": True,
+            "department": None,
             "avatar_url": None,
         }
+    
+    # 2. Check Database for Admin/Superadmin users
+    user = db.query(models.User).filter(models.User.email == email).first()
+    if user and user.password == password: # In production, use hash checking
+        if user.role in ["admin", "superadmin"]:
+            if not user.is_active:
+                raise HTTPException(status_code=403, detail="Account is deactivated")
+            return {
+                "id": user.id,
+                "name": user.name,
+                "email": user.email,
+                "role": user.role,
+                "is_active": user.is_active,
+                "department": user.department,
+                "avatar_url": user.avatar_url,
+            }
+        else:
+            raise HTTPException(status_code=403, detail="Access denied: Not an administrator")
+            
     raise HTTPException(status_code=401, detail="Invalid admin credentials")
 
 
@@ -40,49 +61,54 @@ def admin_login(email: str, password: str):
 # ANALYTICS
 # ─────────────────────────────────────────────
 
-@router.get("/analytics/summary")
-def analytics_summary(db: Session = Depends(get_db)):
-    total_feedback = db.query(models.Feedback).count()
-    total_users = db.query(models.User).count()
-    total_comments = db.query(models.Reply).count()
-    total_reactions = db.query(models.Reaction).count()
-
-    avg_rating = db.query(func.avg(models.Feedback.rating)).scalar()
-    avg_rating = round(float(avg_rating), 2) if avg_rating else 0.0
-
-    anon_count = db.query(models.Feedback).filter(models.Feedback.is_anonymous == True).count()
-    anon_rate = round((anon_count / total_feedback * 100), 1) if total_feedback else 0
-
+@router.get("/analytics/snapshot")
+def analytics_snapshot(dept_name: Optional[str] = None, db: Session = Depends(get_db)):
+    """Consolidated endpoint to fetch all dashboard data in a single request."""
     return {
-        "total_feedback": total_feedback,
-        "total_users": total_users,
-        "total_comments": total_comments,
-        "total_reactions": total_reactions,
-        "avg_rating": avg_rating,
-        "anonymous_rate": anon_rate,
+        "summary": crud.get_analytics_summary(db, dept_name=dept_name),
+        "volume": analytics_volume(30, dept_name, db),
+        "by_category": analytics_by_category(dept_name, db),
+        "by_department": analytics_by_department(db),
+        "by_status": analytics_by_status(dept_name, db),
+        "ratings": analytics_ratings(dept_name, db),
+        "top_users": analytics_top_users(8, db),
+        "engagement": analytics_engagement(30, db),
+        "sentiment": crud.get_sentiment_summary(db, dept_name=dept_name)
     }
+
+@router.get("/analytics/summary")
+def analytics_summary(dept_name: Optional[str] = None, db: Session = Depends(get_db)):
+    return crud.get_analytics_summary(db, dept_name=dept_name)
 
 
 @router.get("/analytics/volume")
-def analytics_volume(days: int = 30, db: Session = Depends(get_db)):
+def analytics_volume(days: int = 30, dept_name: Optional[str] = None, db: Session = Depends(get_db)):
     since = datetime.now(timezone.utc) - timedelta(days=days)
-    rows = db.query(
+    q = db.query(
         cast(models.Feedback.created_at, Date).label("day"),
         func.count(models.Feedback.id).label("count")
-    ).filter(models.Feedback.created_at >= since)\
-     .group_by(cast(models.Feedback.created_at, Date))\
-     .order_by(cast(models.Feedback.created_at, Date)).all()
+    ).filter(models.Feedback.created_at >= since)
+    
+    if dept_name:
+        q = q.join(models.Department).filter(models.Department.name == dept_name)
+        
+    rows = q.group_by(cast(models.Feedback.created_at, Date))\
+            .order_by(cast(models.Feedback.created_at, Date)).all()
     return [{"day": str(r.day), "count": r.count} for r in rows]
 
 
 @router.get("/analytics/by-category")
-def analytics_by_category(db: Session = Depends(get_db)):
-    rows = db.query(
+def analytics_by_category(dept_name: Optional[str] = None, db: Session = Depends(get_db)):
+    q = db.query(
         models.Category.name,
         func.count(models.Feedback.id).label("count")
-    ).outerjoin(models.Feedback, models.Feedback.category_id == models.Category.id)\
-     .group_by(models.Category.name)\
-     .order_by(func.count(models.Feedback.id).desc()).all()
+    ).outerjoin(models.Feedback, models.Feedback.category_id == models.Category.id)
+    
+    if dept_name:
+        q = q.join(models.Department, models.Feedback.recipient_dept_id == models.Department.id).filter(models.Department.name == dept_name)
+        
+    rows = q.group_by(models.Category.name)\
+            .order_by(func.count(models.Feedback.id).desc()).all()
     return [{"name": r.name, "count": r.count} for r in rows]
 
 
@@ -98,22 +124,27 @@ def analytics_by_department(db: Session = Depends(get_db)):
 
 
 @router.get("/analytics/by-status")
-def analytics_by_status(db: Session = Depends(get_db)):
-    rows = db.query(
+def analytics_by_status(dept_name: Optional[str] = None, db: Session = Depends(get_db)):
+    q = db.query(
         models.Feedback.status,
         func.count(models.Feedback.id).label("count")
-    ).group_by(models.Feedback.status).all()
+    )
+    if dept_name:
+        q = q.join(models.Department).filter(models.Department.name == dept_name)
+    rows = q.group_by(models.Feedback.status).all()
     return [{"status": str(r.status).replace("FeedbackStatus.", ""), "count": r.count} for r in rows]
 
 
 @router.get("/analytics/ratings")
-def analytics_ratings(db: Session = Depends(get_db)):
-    rows = db.query(
+def analytics_ratings(dept_name: Optional[str] = None, db: Session = Depends(get_db)):
+    q = db.query(
         models.Feedback.rating,
         func.count(models.Feedback.id).label("count")
-    ).filter(models.Feedback.rating != None)\
-     .group_by(models.Feedback.rating)\
-     .order_by(models.Feedback.rating).all()
+    ).filter(models.Feedback.rating != None)
+    if dept_name:
+        q = q.join(models.Department).filter(models.Department.name == dept_name)
+    rows = q.group_by(models.Feedback.rating)\
+            .order_by(models.Feedback.rating).all()
     return [{"rating": r.rating, "count": r.count} for r in rows]
 
 
@@ -145,21 +176,25 @@ def analytics_engagement(days: int = 30, db: Session = Depends(get_db)):
 
 
 @router.get("/analytics/by-location")
-def analytics_by_location(db: Session = Depends(get_db)):
-    rows = db.query(
+def analytics_by_location(dept_name: Optional[str] = None, db: Session = Depends(get_db)):
+    q = db.query(
         models.Feedback.region,
         models.Feedback.city,
         func.count(models.Feedback.id).label("count")
-    ).filter(models.Feedback.region != None)\
-     .group_by(models.Feedback.region, models.Feedback.city)\
-     .order_by(func.count(models.Feedback.id).desc()).all()
+    ).filter(models.Feedback.region != None)
+    
+    if dept_name:
+        q = q.join(models.Department).filter(models.Department.name == dept_name)
+        
+    rows = q.group_by(models.Feedback.region, models.Feedback.city)\
+            .order_by(func.count(models.Feedback.id).desc()).all()
     return [{"region": r.region, "city": r.city, "count": r.count} for r in rows]
 
 
 @router.get("/analytics/sentiment")
-def analytics_sentiment(db: Session = Depends(get_db)):
+def analytics_sentiment(dept_name: Optional[str] = None, db: Session = Depends(get_db)):
     """Analyze overall mood of user feedback."""
-    return crud.get_sentiment_summary(db)
+    return crud.get_sentiment_summary(db, dept_name=dept_name)
 
 # ─────────────────────────────────────────────
 # USER MANAGEMENT
@@ -167,23 +202,69 @@ def analytics_sentiment(db: Session = Depends(get_db)):
 
 @router.get("/users")
 def admin_get_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    users = db.query(
-        models.User.id,
-        models.User.name,
-        models.User.email,
-        models.User.department,
-        models.User.is_active,
-        models.User.avatar_url,
-    ).order_by(models.User.id)\
-     .offset(skip).limit(limit).all()
+    from sqlalchemy import select, func, literal_column
+    
+    # 1. Post count (Approved only)
+    post_count_sq = (
+        select(func.count(models.Feedback.id))
+        .where((models.Feedback.sender_id == models.User.id) & (models.Feedback.is_approved == True))
+        .scalar_subquery()
+        .label("posts_count")
+    )
+    
+    # 2. Received Reactions (where User is the author of the feedback)
+    recv_reac_sq = (
+        select(func.count(models.Reaction.id))
+        .join(models.Feedback, models.Reaction.feedback_id == models.Feedback.id)
+        .where((models.Feedback.sender_id == models.User.id) & (models.Feedback.is_approved == True))
+        .scalar_subquery()
+        .label("recv_reac")
+    )
+
+    # 3. Received Comments (Top-level replies to user's approved feedback)
+    recv_comm_sq = (
+        select(func.count(models.Reply.id))
+        .join(models.Feedback, models.Reply.feedback_id == models.Feedback.id)
+        .where((models.Feedback.sender_id == models.User.id) & (models.Reply.parent_id == None) & (models.Feedback.is_approved == True))
+        .scalar_subquery()
+        .label("recv_comm")
+    )
+
+    # 4. Given Actions (Reactions + ReplyReactions given by this user)
+    give_reac_sq = (select(func.count(models.Reaction.id)).where(models.Reaction.user_id == models.User.id).scalar_subquery())
+    give_rreac_sq = (select(func.count(models.ReplyReaction.id)).where(models.ReplyReaction.user_id == models.User.id).scalar_subquery())
+    
+    # 5. Given Comments
+    give_comm_sq = (select(func.count(models.Reply.id)).where(models.Reply.user_id == models.User.id).scalar_subquery())
+
+    # Query with all factors
+    users_with_stats = db.query(
+        models.User,
+        post_count_sq,
+        recv_reac_sq,
+        recv_comm_sq,
+        give_reac_sq,
+        give_rreac_sq,
+        give_comm_sq
+    ).order_by(models.User.id).offset(skip).limit(limit).all()
 
     result = []
-    for u in users:
-        stats = crud.get_user_impact_stats(db, u.id)
+    for u, p_cnt, r_recv, c_recv, r_give, rr_give, c_give in users_with_stats:
+        p_cnt = p_cnt or 0
+        r_recv = r_recv or 0
+        c_recv = c_recv or 0
+        actions_given = (r_give or 0) + (rr_give or 0)
+        c_give = c_give or 0
+        
+        # Calculate points using the same weights as CRUD
+        pts = (p_cnt * 3) + (r_recv * 1.5) + (c_recv * 1) + (actions_given * 0.5) + (c_give * 0.5)
+        
         result.append({
             "id": u.id, "name": u.name, "email": u.email, "department": u.department,
             "is_active": u.is_active, "avatar_url": u.avatar_url,
-            "total_posts": stats["posts_count"], "impact_points": stats["impact_points"]
+            "created_at": str(u.created_at),
+            "total_posts": p_cnt,
+            "impact_points": round(float(pts), 1)
         })
     return result
 
@@ -196,6 +277,17 @@ def admin_toggle_user_status(user_id: int, is_active: bool, db: Session = Depend
     user.is_active = is_active
     db.commit()
     return {"id": user_id, "is_active": is_active}
+
+@router.put("/users/{user_id}/role")
+def admin_update_user_role(user_id: int, role: str, db: Session = Depends(get_db)):
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    if role not in ["maker", "admin", "superadmin"]:
+        raise HTTPException(status_code=400, detail="Invalid role")
+    user.role = role
+    db.commit()
+    return {"id": user_id, "role": role}
 
 
 @router.delete("/users/{user_id}", status_code=204)
@@ -212,6 +304,7 @@ def admin_get_feedbacks(
     skip: int = 0, limit: int = 50,
     status: Optional[str] = None,
     category_id: Optional[int] = None,
+    dept_name: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
     q = db.query(
@@ -232,6 +325,8 @@ def admin_get_feedbacks(
         q = q.filter(models.Feedback.status == status)
     if category_id:
         q = q.filter(models.Feedback.category_id == category_id)
+    if dept_name:
+        q = q.filter(models.Department.name == dept_name)
 
     rows = q.order_by(models.Feedback.created_at.desc()).offset(skip).limit(limit).all()
     return [{
@@ -337,17 +432,18 @@ def admin_get_categories(db: Session = Depends(get_db)):
         models.Category.id,
         models.Category.name,
         models.Category.description,
+        models.Category.icon,
         models.Category.fields,
         func.count(models.Feedback.id).label("count")
     ).outerjoin(models.Feedback, models.Feedback.category_id == models.Category.id)\
-     .group_by(models.Category.id, models.Category.name, models.Category.description, models.Category.fields)\
+     .group_by(models.Category.id, models.Category.name, models.Category.description, models.Category.icon, models.Category.fields)\
      .order_by(models.Category.name).all()
-    return [{"id": r.id, "name": r.name, "description": r.description, "fields": r.fields, "count": r.count} for r in rows]
+    return [{"id": r.id, "name": r.name, "description": r.description, "icon": r.icon, "fields": r.fields, "count": r.count} for r in rows]
 
 
 @router.post("/categories")
 def admin_create_category(category: schemas.CategoryCreate, db: Session = Depends(get_db)):
-    cat = models.Category(name=category.name, description=category.description, fields=category.fields)
+    cat = models.Category(name=category.name, description=category.description, icon=category.icon, fields=category.fields)
     db.add(cat)
     db.commit()
     db.refresh(cat)
@@ -362,6 +458,8 @@ def admin_update_category(cat_id: int, category: schemas.CategoryCreate, db: Ses
     db_cat.name = category.name
     if category.description is not None:
         db_cat.description = category.description
+    if category.icon is not None:
+        db_cat.icon = category.icon
     if category.fields is not None:
         db_cat.fields = category.fields
     db.commit()

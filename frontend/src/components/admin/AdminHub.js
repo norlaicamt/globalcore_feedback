@@ -5,22 +5,22 @@ import AdminFeedbacks from "./pages/AdminFeedbacks";
 import AdminFeedbackTypes from "./pages/AdminFeedbackTypes";
 import AdminPendingSuggestions from "./pages/AdminPendingSuggestions";
 import AdminBroadcast from "./pages/AdminBroadcast";
-import AdminUserInfoFields from "./pages/AdminUserInfoFields";
 import AdminSettings from "./pages/AdminSettings";
+import AdminUIText from "./pages/AdminUIText";
 import CustomModal from "../CustomModal";
 import { adminGetPendingSuggestions } from "../../services/adminApi";
 
 const NAV_ITEMS = [
   { id: "dashboard",      label: "Dashboard",           icon: <ChartIcon /> },
-  { id: "users",          label: "User Oversight",      icon: <UsersIcon /> },
+  { id: "users",          label: "User Oversight",      icon: <UsersIcon />,  superOnly: true },
   { id: "feedbacks",      label: "Feedback Management",  icon: <FeedIcon /> },
   { id: "broadcast",      label: "Broadcast",            icon: <BellIcon /> },
-  { type: "label",        label: "CONFIGURATION" },
-  { id: "feedbacktypes",  label: "Category Setup",       icon: <TagIcon /> },
-  { id: "pendingsuggestions", label: "Pending Suggestions", icon: <ClockIcon />, isSub: true },
-  { id: "userinfofields", label: "User Info Fields",     icon: <UsersIcon /> },
-  { type: "label",        label: "SYSTEM" },
-  { id: "settings",       label: "Settings",             icon: <SettingsIcon /> },
+  { type: "label",        label: "CONFIGURATION",        superOnly: true },
+  { id: "feedbacktypes",  label: "Category Setup",       icon: <TagIcon />,   superOnly: true },
+  { id: "pendingsuggestions", label: "Pending Suggestions", icon: <ClockIcon />, isSub: true, superOnly: true },
+  { id: "feedbacksetup",      label: "Feedback SetUp",       icon: <TypeIcon />,  superOnly: true },
+  { type: "label",        label: "SYSTEM",               superOnly: true },
+  { id: "settings",       label: "Settings",             icon: <SettingsIcon />, superOnly: true },
 ];
 
 const AdminHub = ({ adminUser, onLogout }) => {
@@ -30,6 +30,7 @@ const AdminHub = ({ adminUser, onLogout }) => {
   const [pendingCount, setPendingCount] = useState(0);
 
   const fetchPendingCount = () => {
+    if (adminUser?.role !== "superadmin") return;
     adminGetPendingSuggestions().then(data => {
       setPendingCount(data.length);
     }).catch(console.error);
@@ -70,14 +71,14 @@ const AdminHub = ({ adminUser, onLogout }) => {
   };
 
   const renderView = () => {
-    const props = { onNavigate: setView, theme, darkMode };
+    const props = { onNavigate: setView, theme, darkMode, adminUser };
     switch (view) {
       case "dashboard":     return <AdminDashboard {...props} />;
       case "users":         return <AdminUsers {...props} />;
       case "feedbacks":     return <AdminFeedbacks {...props} />;
       case "feedbacktypes": return <AdminFeedbackTypes {...props} />;
       case "pendingsuggestions": return <AdminPendingSuggestions {...props} refreshCount={fetchPendingCount} />;
-      case "userinfofields":return <AdminUserInfoFields {...props} />;
+      case "feedbacksetup":     return <AdminUIText {...props} />;
       case "broadcast":     return <AdminBroadcast {...props} />;
       case "settings":      return <AdminSettings {...props} />;
       default:              return <AdminDashboard {...props} />;
@@ -113,39 +114,45 @@ const AdminHub = ({ adminUser, onLogout }) => {
 
         {/* Nav */}
         <nav style={styles.nav}>
-          {NAV_ITEMS.map((item, idx) => (
-            item.type === "label" ? (
-              <div key={`label-${idx}`} style={styles.navLabel}>{item.label}</div>
-            ) : (
-              <button
-                key={item.id}
-                className={`nav-item${view === item.id ? " active" : ""}`}
-                onClick={() => setView(item.id)}
-                style={{ 
-                  ...styles.navItem, 
-                  ...(view === item.id ? styles.navItemActive : {}),
-                  marginLeft: item.isSub ? "20px" : "0",
-                  width: item.isSub ? "calc(100% - 20px)" : "100%",
-                  fontSize: item.isSub ? "13px" : "14px"
-                }}
-              >
-                <span style={styles.navIcon}>{item.icon}</span>
-                <span style={{ flex: 1 }}>{item.label}</span>
-                {item.id === "pendingsuggestions" && pendingCount > 0 && (
-                  <div style={styles.badge}>{pendingCount}</div>
-                )}
-              </button>
-            )
-          ))}
+          {NAV_ITEMS
+            .filter(item => !item.superOnly || adminUser?.role === "superadmin")
+            .map((item, idx) => (
+              item.type === "label" ? (
+                <div key={`label-${idx}`} style={styles.navLabel}>{item.label}</div>
+              ) : (
+                <button
+                  key={item.id}
+                  className={`nav-item${view === item.id ? " active" : ""}`}
+                  onClick={() => setView(item.id)}
+                  style={{ 
+                    ...styles.navItem, 
+                    ...(view === item.id ? styles.navItemActive : {}),
+                    marginLeft: item.isSub ? "20px" : "0",
+                    width: item.isSub ? "calc(100% - 20px)" : "100%",
+                    fontSize: item.isSub ? "13px" : "14px"
+                  }}
+                >
+                  <span style={styles.navIcon}>{item.icon}</span>
+                  <span style={{ flex: 1 }}>{item.label}</span>
+                  {item.id === "pendingsuggestions" && pendingCount > 0 && (
+                    <div style={styles.badge}>{pendingCount}</div>
+                  )}
+                </button>
+              )
+            ))}
         </nav>
 
         {/* Bottom user info */}
         <div style={styles.sidebarBottom}>
           <div style={styles.adminBadge}>
-            <div style={styles.adminAvatar}>A</div>
+            <div style={{ ...styles.adminAvatar, background: adminUser?.role === 'superadmin' ? '#9333ea' : '#3b82f6' }}>
+              {adminUser?.name?.charAt(0) || "A"}
+            </div>
             <div>
               <p style={styles.adminName}>{adminUser?.name || "Admin"}</p>
-              <p style={styles.adminRole}>System Administrator</p>
+              <p style={styles.adminRole}>
+                {adminUser?.role === 'superadmin' ? "Super Administrator" : `${adminUser?.department || "Dept"} Admin`}
+              </p>
             </div>
           </div>
           <button className="logout-btn" onClick={() => setLogoutDialog(true)} style={styles.logoutBtn}>
@@ -196,6 +203,7 @@ function SettingsIcon() { return <svg width="15" height="15" viewBox="0 0 24 24"
 function SunIcon()      { return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>; }
 function MoonIcon()     { return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>; }
 function ClockIcon()    { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>; }
+function TypeIcon()     { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="4 7 4 4 20 4 20 7"></polyline><line x1="9" y1="20" x2="15" y2="20"></line><line x1="12" y1="4" x2="12" y2="20"></line></svg>; }
 
 
 const SIDEBAR_W = 280;

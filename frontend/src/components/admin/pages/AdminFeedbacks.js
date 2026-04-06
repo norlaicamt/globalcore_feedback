@@ -138,17 +138,19 @@ const HeaderFilter = ({ label, value, onChange, theme, darkMode }) => {
   );
 };
 
-const AdminFeedbacks = ({ theme, darkMode }) => {
+const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
   const [feedbacks, setFeedbacks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState({ category: "", establishment: "", author: "" });
   const [dialog, setDialog] = useState({ isOpen: false });
 
-  const load = () =>
-    adminGetFeedbacks({}).then(setFeedbacks).catch(console.error).finally(() => setLoading(false));
+  const load = () => {
+    const dept = adminUser?.role === "superadmin" ? "" : (adminUser?.department || "");
+    adminGetFeedbacks({ dept_name: dept }).then(setFeedbacks).catch(console.error).finally(() => setLoading(false));
+  };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [adminUser]);
 
   const filtered = feedbacks.filter(f => {
     const catMatch = f.title?.split(": ")[0]?.toLowerCase().includes(filters.category.toLowerCase());
@@ -172,11 +174,12 @@ const AdminFeedbacks = ({ theme, darkMode }) => {
   };
 
   const handleExport = (format) => {
-    const headers = ["ID", "Category", "Establishment", "Author", "Rating", "Comments", "Date"];
+    const headers = ["ID", "Category", "Establishment", "Department", "Author", "Rating", "Comments", "Date"];
     const data = filtered.map((f, idx) => [
       idx + 1,
       f.title?.split(": ")[0] || "General",
       f.title?.split(": ")[1] || f.title || "—",
+      f.dept_name || "—",
       f.user_name || "Anonymous",
       f.rating ? `${f.rating}/5` : "—",
       f.comments_count,
@@ -297,6 +300,7 @@ const AdminFeedbacks = ({ theme, darkMode }) => {
                 <th style={{ ...thStyle, color: theme.textMuted }}>#</th>
                 <HeaderFilter theme={theme} darkMode={darkMode} label="Category Type" value={filters.category} onChange={v => setFilters({...filters, category: v})} />
                 <HeaderFilter theme={theme} darkMode={darkMode} label="Establishment/Service" value={filters.establishment} onChange={v => setFilters({...filters, establishment: v})} />
+                {adminUser?.role === 'superadmin' && <th style={{ ...thStyle, color: theme.textMuted }}>Department</th>}
                 <HeaderFilter theme={theme} darkMode={darkMode} label="Author" value={filters.author} onChange={v => setFilters({...filters, author: v})} />
                 {["Rating", "Comments", "Date", ""].map(h => (
                   <th key={h} style={{ ...thStyle, color: theme.textMuted }}>{h}</th>
@@ -338,6 +342,11 @@ const AdminFeedbacks = ({ theme, darkMode }) => {
                       </div>
                     )}
                   </td>
+                  {adminUser?.role === 'superadmin' && (
+                    <td style={{ ...tdStyle, color: theme.textMuted, fontSize: '11px', fontWeight: '500' }}>
+                      {f.dept_name || "—"}
+                    </td>
+                  )}
                   <td style={{ ...tdStyle, color: f.is_anonymous ? theme.textMuted : theme.text, fontWeight: f.is_anonymous ? "400" : "600" }}>
                     {f.user_name || "—"}
                     {f.is_anonymous && <span style={{ fontSize: "10px", marginLeft: "4px", fontStyle: "italic" }}>(Anon)</span>}

@@ -8,7 +8,7 @@ const isAdminPath = window.location.pathname.startsWith("/admin");
 
 function App() {
   const [currentUser, setCurrentUser] = useState(() => {
-    const saved = localStorage.getItem("user");
+    const saved = localStorage.getItem("currentUser");
     try { return saved ? JSON.parse(saved) : null; } catch { return null; }
   });
   const [adminUser, setAdminUser] = useState(() => {
@@ -28,7 +28,7 @@ function App() {
   const isAdminPath = path.startsWith("/admin");
 
   const handleLogout = () => {
-    localStorage.removeItem("user");
+    localStorage.removeItem("currentUser");
     setCurrentUser(null);
   };
 
@@ -56,14 +56,14 @@ function App() {
   // ── USER PATH ──
   return (
     <div className="App">
-      {currentUser ? (
-        <FeedbackHub currentUser={currentUser} onLogout={handleLogout} />
-      ) : (
-        <LoginPage onLoginSuccess={(user) => {
-          localStorage.setItem("user", JSON.stringify(user));
-          setCurrentUser(user);
-        }} />
-      )}
+        {currentUser ? (
+          <FeedbackHub currentUser={currentUser} onLogout={handleLogout} />
+        ) : (
+          <LoginPage onLoginSuccess={(user) => {
+            localStorage.setItem("currentUser", JSON.stringify(user));
+            setCurrentUser(user);
+          }} />
+        )}
     </div>
   );
 }

@@ -2,7 +2,8 @@ import React, { useEffect, useState } from "react";
 import {
   getAnalyticsSummary, getAnalyticsVolume, getAnalyticsByCategory,
   getAnalyticsByDepartment, getAnalyticsByStatus, getAnalyticsRatings,
-  getTopUsers, getAnalyticsEngagement, getAnalyticsSentiment
+  getTopUsers, getAnalyticsEngagement, getAnalyticsSentiment,
+  getAnalyticsSnapshot
 } from "../../../services/adminApi";
 import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
@@ -35,7 +36,7 @@ const Section = ({ title, children, theme }) => (
   </div>
 );
 
-const AdminDashboard = ({ onNavigate, theme, darkMode }) => {
+const AdminDashboard = ({ onNavigate, theme, darkMode, adminUser }) => {
   const tooltipStyle = { 
     fontSize: "12px", borderRadius: "8px", border: `1px solid ${theme.border}`, 
     boxShadow: "0 2px 8px rgba(0,0,0,0.06)", backgroundColor: theme.surface, color: theme.text 
@@ -52,16 +53,20 @@ const AdminDashboard = ({ onNavigate, theme, darkMode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([
-      getAnalyticsSummary(), getAnalyticsVolume(30), getAnalyticsByCategory(),
-      getAnalyticsByDepartment(), getAnalyticsByStatus(), getAnalyticsRatings(),
-      getTopUsers(8), getAnalyticsEngagement(30), getAnalyticsSentiment()
-    ]).then(([s, vol, cat, dept, status, rat, users, eng, sent]) => {
-      setSummary(s); setVolume(vol); setByCategory(cat);
-      setByDept(dept); setByStatus(status); setRatings(rat);
-      setTopUsers(users); setEngagement(eng); setSentiment(sent);
+    const dept = adminUser?.role === "superadmin" ? "" : (adminUser?.department || "");
+    
+    getAnalyticsSnapshot(dept).then(data => {
+      setSummary(data.summary);
+      setVolume(data.volume);
+      setByCategory(data.by_category);
+      setByDept(data.by_department);
+      setByStatus(data.by_status);
+      setRatings(data.ratings);
+      setTopUsers(data.top_users);
+      setEngagement(data.engagement);
+      setSentiment(data.sentiment);
     }).catch(console.error).finally(() => setLoading(false));
-  }, []);
+  }, [adminUser]);
 
   if (loading) return (
     <div style={{ textAlign: "center", padding: "60px", color: "#94A3B8", fontSize: "13px" }}>
@@ -79,8 +84,8 @@ const AdminDashboard = ({ onNavigate, theme, darkMode }) => {
         gap: "16px",
         justifyContent: "center"
       }}>
-        <KpiCard theme={theme} label="Total Feedback" value={summary?.total_feedback ?? 0} sub="All time" onClick={() => onNavigate("feedbacks")} />
-        <KpiCard theme={theme} label="Total Users" value={summary?.total_users ?? 0} sub="Registered" onClick={() => onNavigate("users")} />
+        <KpiCard theme={theme} label="Total Feedback" value={summary?.total_feedback ?? 0} sub={adminUser?.role === 'superadmin' ? "All time" : `${adminUser?.department} reports`} onClick={() => onNavigate("feedbacks")} />
+        {adminUser?.role === 'superadmin' && <KpiCard theme={theme} label="Total Users" value={summary?.total_users ?? 0} sub="Registered" onClick={() => onNavigate("users")} />}
         <KpiCard theme={theme} label="Avg. Rating" value={summary?.avg_rating ?? 0} sub="Out of 5" />
         <KpiCard theme={theme} label="Anonymous Rate" value={`${summary?.anonymous_rate ?? 0}%`} sub="Of all submissions" />
         <KpiCard theme={theme} label="Total Comments" value={summary?.total_comments ?? 0} sub="All replies" />

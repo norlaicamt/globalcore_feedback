@@ -30,7 +30,7 @@ const LoginPage = ({ onLoginSuccess }) => {
         });
       } else {
         const res = await axios.post(`${process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000'}/login?email=${emailInput}`);
-        localStorage.setItem("user", JSON.stringify(res.data));
+        localStorage.setItem("currentUser", JSON.stringify(res.data));
         onLoginSuccess(res.data);
       }
     } catch (err) {

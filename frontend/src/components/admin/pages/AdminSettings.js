@@ -120,9 +120,9 @@ const AdminSettings = ({ theme, darkMode }) => {
 
       <SectionCard theme={theme} title="Admin Credentials" subtitle={<>Stored in the backend <code style={{ background: theme.bg, border: `1px solid ${theme.border}`, padding: "1px 6px", borderRadius: "4px", fontSize: "11px" }}>.env</code> file</>}>
         <div style={{ background: theme.bg, borderRadius: "8px", padding: "14px 16px", fontSize: "12px", color: theme.text, fontFamily: "monospace", lineHeight: "2", border: `1px solid ${theme.border}` }}>
-          ADMIN_EMAIL=admin@globalcore.com<br />
-          ADMIN_PASSWORD=YOUR_ADMIN_PASSWORD<br />
-          ADMIN_NAME=GlobalCore Admin
+          ADMIN_EMAIL={process.env.ADMIN_EMAIL || 'admin@globalcore.com'}<br />
+          ADMIN_PASSWORD=********<br />
+          ADMIN_NAME={process.env.ADMIN_NAME || 'GlobalCore Admin'}
         </div>
         <p style={{ fontSize: "11px", color: theme.textMuted, marginTop: "10px" }}>
           Edit these values in <code style={{ fontSize: "11px" }}>.env</code> and restart the backend server to apply changes.

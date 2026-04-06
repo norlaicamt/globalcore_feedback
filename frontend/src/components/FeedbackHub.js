@@ -306,7 +306,6 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
           <DraftsView 
             currentUser={localUser} 
             onBack={() => { setView("home"); setIsMenuOpen(true); }} 
-            onResumeDraft={(draft) => { setResumeDraft(draft); setReportStep('general'); setIsReportModalOpen(true); setView('home'); }} 
           />
         ) : view === "activity" ? (
           <ActivityView 
@@ -492,7 +491,7 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
                   setResumeDraft(null); 
                   fetchUserProfile(); // Refresh points after post
                 }} 
-                onSaveDraft={() => { setIsReportModalOpen(false); setResumeDraft(null); navigateTo('drafts'); }} 
+                onSaveDraft={() => { setIsReportModalOpen(false); setResumeDraft(null); }} 
               />
             )}
           </div>
@@ -959,7 +958,7 @@ const FeedCard = ({ item: initialItem, currentUser, onShowToast, onOpenComments,
 
   const emotion = getEmotion(item.rating);
   const establishmentName = getEstablishmentName();
-  const locationText = (item.region || item.city || item.barangay) ? `${[item.barangay, item.city, item.region].filter(Boolean).join(', ')}` : '';
+  const locationText = (item.region || item.province || item.city || item.barangay) ? `${[item.barangay, item.city, item.province, item.region].filter(Boolean).join(', ')}` : '';
   const senderName = item.is_anonymous ? 'Anonymous' : (item.user_name || 'Anonymous');
   const isOwner = currentUser && item.sender_id === currentUser.id;
 
@@ -1075,17 +1074,6 @@ const FeedCard = ({ item: initialItem, currentUser, onShowToast, onOpenComments,
           <div style={styles.metaItem}>
             <span style={styles.metaIcon}>🛍️</span>
             <span style={{ ...styles.metaText, color: '#64748B' }}>{item.product_name}</span>
-          </div>
-        )}
-        {(item.mentions && item.mentions.length > 0) ? (
-          <div style={styles.metaItem}>
-            <span style={styles.metaIcon}>👤</span>
-            <span style={{ ...styles.metaText, color: '#64748B' }}>Staff: {item.mentions.map(m => `${m.employee_prefix} ${m.employee_name}`.trim()).join(", ")}</span>
-          </div>
-        ) : item.employee_name && (
-          <div style={styles.metaItem}>
-            <span style={styles.metaIcon}>👤</span>
-            <span style={{ ...styles.metaText, color: '#64748B' }}>Staff: {item.employee_name}</span>
           </div>
         )}
       </div>

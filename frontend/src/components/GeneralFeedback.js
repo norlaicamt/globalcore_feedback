@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { createFeedback, getCategories, getDepartments, getAdminSettings, getUserProfiles } from "../services/api";
 import CustomModal from "./CustomModal";
+import { IconRegistry } from "./IconRegistry";
 
 const Icons = {
   Back: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1f2a56" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>,
@@ -25,67 +26,34 @@ const Icons = {
   Trash: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>,
 };
 
-const businessTypes = [
-  { id: 'department', label: 'Department / Agency', icon: <Icons.Building /> },
-  { id: 'food', label: 'Food / Restaurant', icon: <Icons.Food /> },
-  { id: 'cosmetics', label: 'Cosmetics Shop', icon: <Icons.Cosmetics /> },
-  { id: 'furniture', label: 'Furniture Shop', icon: <Icons.Furniture /> },
-  { id: 'car', label: 'Car / Transport', icon: <Icons.Car /> },
-  { id: 'resort', label: 'Resort / Pool', icon: <Icons.Resort /> },
-  { id: 'hotel', label: 'Hotel / Lodging', icon: <Icons.Hotel /> },
-];
+// Legacy hardcoded lists removed in favor of dynamic backend categories
 
-const mockSuggestions = {
-  department: ["HR Department", "IT Department", "Finance", "Marketing", "Operations", "Customer Service", "Other"],
-  food: ["Jollibee", "McDonald's", "KFC", "Chowking", "Mang Inasal", "Greenwich", "Burger King", "Wendy's", "Shakey's", "Max's Restaurant", "Other"],
-  cosmetics: ["Watsons", "Sephora", "MAC Cosmetics", "Maybelline", "L'Oreal", "The Face Shop", "Nature Republic", "Innisfree", "Kiehl's", "Other"],
-  furniture: ["IKEA", "Mandaue Foam", "Our Home", "SB Furniture", "Muji", "Crate & Barrel", "Ashley Furniture", "Ethan Allen", "Other"],
-  car: ["Bus", "MRT", "LRT", "Toyota", "Honda", "Mitsubishi", "Nissan", "Ford", "Grab", "Angkas", "Joyride", "LTO", "LTFRB", "Hyundai", "Isuzu", "Other"],
-  resort: ["Splash Island", "Nuvali", "Zoomanity Group", "Star City", "Club Punta Fuego", "Caleruega", "The Lake Hotel", "Mt. Purro Nature Reserve", "Other"],
-  hotel: ["Marriott Manila", "Shangri-La BGC", "Seda Hotels", "Hilton Manila", "Grand Hyatt Manila", "City Garden Hotel", "Microtel", "Go Hotels", "Red Planet Hotels", "Other"],
-};
-
-const LOCATIONS = {
-  "NCR": {
-    "Manila": ["Ermita", "Malate", "Intramuros", "Binondo", "Quiapo", "Sampaloc", "Tondo"],
-    "Quezon City": ["Cubao", "Diliman", "Novaliches", "Project 4", "Project 8", "Fairview", "Commonwealth"],
-    "Makati": ["Poblacion", "Bel-Air", "San Lorenzo", "Urdaneta", "Magallanes", "Guadalupe Nuevo"],
-    "Taguig": ["Fort Bonifacio", "Pinagsama", "Signal Village", "Western Bicutan", "Ususan"],
-    "Paranaque": ["BF Homes", "Baclaran", "Don Bosco", "Moonwalk", "San Dionisio", "San Isidro"],
-    "Pasig": ["San Antonio", "Ugong", "Kapitolyo", "Rosario", "Manggahan", "Bambang"]
-  },
-  "Region IV-A (CALABARZON)": {
-    "Antipolo": ["San Roque", "San Jose", "Mayamot", "Cupang", "Dela Paz"],
-    "Dasmarinas": ["Salawag", "Paliparan", "Salitran", "Burol", "San Agustin"],
-    "Santa Rosa": ["Balibago", "Macabling", "Dita", "Don Jose", "Tagapo"]
-  },
-  "Region VII (Central Visayas)": {
-    "Cebu City": ["Lahug", "Mabolo", "Capitol Site", "Guadalupe", "Talamban"],
-    "Mandaue": ["Banilad", "Cabancalan", "Centro", "Tipolo", "Subangdaku"]
-  }
-};
+// Dynamic locations will be loaded from /assets/locations/ JSON files
 
 const PRODUCT_TYPES = ['furniture', 'cosmetics'];
 const PACKAGE_TYPES = ['resort', 'hotel'];
 
 const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialDraft }) => {
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedBusiness, setSelectedBusiness] = useState(() => {
-    if (initialDraft?.business_id) {
-      return businessTypes.find(b => b.id === initialDraft.business_id) || null;
-    }
-    return null;
-  });
+  const [selectedBusiness, setSelectedBusiness] = useState(null);
   const [isFilipino, setIsFilipino] = useState(false);
 
+  const [selectedType, setSelectedType] = useState("");
   const [specificName, setSpecificName] = useState(initialDraft?.specificName || "");
   const [otherSpecificName, setOtherSpecificName] = useState(initialDraft?.otherSpecificName || "");
 
   const [region, setRegion] = useState(initialDraft?.region || "");
+  const [province, setProvince] = useState(initialDraft?.province || "");
   const [city, setCity] = useState(initialDraft?.city || "");
   const [barangay, setBarangay] = useState(initialDraft?.barangay || "");
-  const [availableCities, setAvailableCities] = useState([]);
-  const [availableBarangays, setAvailableBarangays] = useState([]);
+  
+  const [regionList, setRegionList] = useState([]);
+  const [allProvinces, setAllProvinces] = useState({});
+  const [provinceList, setProvinceList] = useState([]);
+  const [allCities, setAllCities] = useState({});
+  const [cityList, setCityList] = useState([]);
+  const [barangayList, setBarangayList] = useState([]);
+  const [isLoadingLocations, setIsLoadingLocations] = useState(false);
 
   const [productName, setProductName] = useState(initialDraft?.productName || "");
   const [idea, setIdea] = useState(initialDraft?.description || "");
@@ -121,6 +89,7 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
   const suggestionsRef = useRef(null);
 
   // Dynamic values for category-specific fields
+  const [localDraftId, setLocalDraftId] = useState(initialDraft?.id);
   const [dynamicValues, setDynamicValues] = useState({});
 
   const handleCancelClick = () => {
@@ -130,17 +99,28 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
 
   const performSilentSave = () => {
     const finalName = specificName === "Other" ? otherSpecificName : specificName;
-    const titleStr = finalName ? `${selectedBusiness?.label || 'General'}: ${finalName}` : "Untitled Draft";
+    const titleStr = finalName ? `${selectedBusiness?.name || 'General'}: ${finalName}` : "Untitled Draft";
+    
+    // Generate an ID if we don't have one yet (either from initialDraft or previous silent save)
+    const draftIdToUse = localDraftId || String(Date.now());
+    if (!localDraftId) setLocalDraftId(draftIdToUse);
+
     const newDraft = {
-      id: initialDraft?.id || Date.now().toString(),
+      id: draftIdToUse,
       title: titleStr, description: idea, created_at: new Date().toISOString(),
       business_id: selectedBusiness?.id, specificName, otherSpecificName,
-      region, city, barangay, productName, mentions, rating, isAnonymous, allowComments
+      region, province, city, barangay, productName, mentions, rating, isAnonymous, allowComments
     };
+    
     const existing = JSON.parse(localStorage.getItem(`drafts_${currentUser?.id}`) || "[]");
-    const updated = initialDraft
-      ? existing.map(d => d.id === initialDraft.id ? newDraft : d)
+    
+    // Check if this draft already exists in the list (by localDraftId)
+    const exists = existing.some(d => d.id === draftIdToUse);
+    
+    const updated = exists
+      ? existing.map(d => d.id === draftIdToUse ? newDraft : d)
       : [newDraft, ...existing];
+      
     localStorage.setItem(`drafts_${currentUser?.id}`, JSON.stringify(updated));
   };
 
@@ -158,6 +138,75 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
   };
 
   const [allowVoiceSetting, setAllowVoiceSetting] = useState(true);
+  const [uiText, setUiText] = useState({
+    en_title: "Select the establishment category",
+    en_desc: "General feedback is for sharing thoughts, complaints, or suggestions about any service, office, restaurant, or business. Select the category below.",
+    fil_title: "Pumili ng kategorya ng establisimyento",
+    fil_desc: "Ang pangkalahatang puna ay para sa pagbabahagi ng mga ideya o reklamo tungkol sa mga serbisyo, opisina, restaurant, at iba pang negosyo. Piliin ang kategorya sa ibaba."
+  });
+
+  useEffect(() => {
+    const loadBaseLocations = async () => {
+      try {
+        const [regRes, provRes, cityRes] = await Promise.all([
+          fetch("/assets/locations/regions.json"),
+          fetch("/assets/locations/provinces.json"),
+          fetch("/assets/locations/cities.json")
+        ]);
+        setRegionList(await regRes.json());
+        setAllProvinces(await provRes.json());
+        setAllCities(await cityRes.json());
+      } catch (err) {
+        console.error("Failed to load locations", err);
+      }
+    };
+    loadBaseLocations();
+  }, []);
+
+  useEffect(() => {
+    if (region && allProvinces[region]) {
+      setProvinceList(allProvinces[region]);
+    } else {
+      setProvinceList([]);
+    }
+    if (!isResuming.current) {
+      setProvince(""); setCity(""); setBarangay(""); setCityList([]); setBarangayList([]);
+    }
+  }, [region, allProvinces]);
+
+  useEffect(() => {
+    if (province && allCities[province]) {
+      setCityList(allCities[province]);
+    } else {
+      setCityList([]);
+    }
+    if (!isResuming.current) {
+      setCity(""); setBarangay(""); setBarangayList([]);
+    }
+  }, [province, allCities]);
+
+  useEffect(() => {
+    const loadBarangays = async () => {
+      if (city) {
+        setIsLoadingLocations(true);
+        try {
+          const safeCity = city.replace(/[^a-z0-9]/gi, x => " -_".includes(x) ? x : "").trim();
+          const res = await fetch(`/assets/locations/barangays/${safeCity}.json`);
+          if (res.ok) setBarangayList(await res.json());
+          else setBarangayList([]);
+        } catch (err) {
+          console.error("Failed to load barangays", err);
+          setBarangayList([]);
+        } finally {
+          setIsLoadingLocations(false);
+        }
+      } else {
+        setBarangayList([]);
+      }
+    };
+    loadBarangays();
+    if (!isResuming.current) setBarangay("");
+  }, [city]);
 
   useEffect(() => {
     const fetchEverything = async () => {
@@ -169,21 +218,32 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
           getUserProfiles()
         ]);
 
-        if (settings.status === 'fulfilled') {
-          const found = settings.value.find(s => s.key === 'allow_voice');
-          if (found) setAllowVoiceSetting(found.value === 'true');
+        if (settings.status === 'fulfilled' && settings.value) {
+          const dict = {};
+          settings.value.forEach(s => { dict[s.key] = s.value; });
+          setAllowVoiceSetting(dict['allow_voice'] !== 'false');
+          setUiText({
+            en_title: dict['general_report_title'] || "Select the establishment category",
+            en_desc: dict['general_report_instruction'] || "General feedback is for sharing thoughts, complaints, or suggestions about any service, office, restaurant, or business. Select the category below.",
+            fil_title: dict['general_report_title_fil'] || "Pumili ng kategorya ng establisimyento",
+            fil_desc: dict['general_report_instruction_fil'] || "Ang pangkalahatang puna ay para sa pagbabahagi ng mga ideya o reklamo tungkol sa mga serbisyo, opisina, restaurant, at iba pang negosyo. Piliin ang kategorya sa ibaba.",
+          });
         }
 
         if (categories.status === 'fulfilled') {
           setDbCategories(categories.value);
           const genCat = categories.value.find(c => c.name.toLowerCase() === 'general') || categories.value[0];
           if (genCat) setGeneralCategoryId(genCat.id);
+          
+          // Restore selected business from draft if exists
+          if (initialDraft?.business_id) {
+            const found = categories.value.find(c => c.id === initialDraft.business_id);
+            if (found) setSelectedBusiness(found);
+          }
         }
 
         if (departments.status === 'fulfilled') {
           setDbDepartments(departments.value);
-          const merged = [...new Set([...departments.value.map(d => d.name), ...mockSuggestions.department.filter(x => x !== 'Other')])];
-          mockSuggestions.department = [...merged, "Other"];
         }
 
         if (allProfiles.status === 'fulfilled') {
@@ -221,7 +281,7 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, [idea, specificName, region, city, barangay, selectedBusiness, rating, allowComments, isAnonymous, mentions, productName]);
+  }, [idea, specificName, region, province, city, barangay, selectedBusiness, rating, allowComments, isAnonymous, mentions, productName]);
 
   const startRecording = async () => {
     try {
@@ -308,30 +368,15 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
 
   const handleDiscard = () => { setShowDraftModal(false); onBack(); };
 
-  useEffect(() => {
-    if (region && LOCATIONS[region]) setAvailableCities(Object.keys(LOCATIONS[region]));
-    else setAvailableCities([]);
-    
-    if (!isResuming.current) {
-        setCity(""); setBarangay(""); setAvailableBarangays([]);
-    }
-  }, [region]);
-
-  useEffect(() => {
-    if (region && city && LOCATIONS[region]?.[city]) setAvailableBarangays(LOCATIONS[region][city]);
-    else setAvailableBarangays([]);
-    
-    if (!isResuming.current) {
-        setBarangay("");
-    }
-  }, [city, region]);
+  // Location cascading is managed by specific useEffects in the location section
 
   const allBusinessTypes = dbCategories.map(cat => ({
     id: cat.id,
-    label: cat.name,
+    name: cat.name,
+    label: cat.name, // Keep label for filtering compatibility
     fields: cat.fields || [],
     description: cat.description,
-    icon: businessTypes.find(bt => cat.name.toLowerCase().includes(bt.label.toLowerCase().split(' / ')[0]))?.icon || <Icons.Building />
+    icon: cat.icon || 'default'
   }));
 
   const filteredBusinesses = allBusinessTypes.filter(b =>
@@ -380,6 +425,7 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
       setModalConfig({ isOpen: true, title: "Selection Required", message: `Please select or specify the ${selectedBusiness?.label || "establishment"}.`, type: "alert" }); return;
     }
     if (!region) { setModalConfig({ isOpen: true, title: "Missing Region", message: "Please select a Region.", type: "alert" }); return; }
+    if (!province) { setModalConfig({ isOpen: true, title: "Missing Province", message: "Please select a Province.", type: "alert" }); return; }
     if (!city) { setModalConfig({ isOpen: true, title: "Missing City", message: "Please select a City.", type: "alert" }); return; }
     if (!barangay) { setModalConfig({ isOpen: true, title: "Missing Barangay", message: "Please select a Barangay.", type: "alert" }); return; }
     if (!idea.trim()) { setModalConfig({ isOpen: true, title: "Empty Message", message: "Please enter your feedback message.", type: "alert" }); return; }
@@ -413,13 +459,14 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
         sender_id: currentUser.id,
         category_id: selectedBusiness?.id || generalCategoryId || 1,
         recipient_dept_id: matchedDeptId || null,
-        region, city, barangay,
+        region, province, city, barangay,
         mentions: mentions.filter(m => m.name.trim() !== '').map(m => ({
           employee_name: m.name,
           employee_prefix: m.prefix,
           user_id: m.userId
         })),
         product_name: productName || null,
+        rating: rating || 0,
         attachments: base64Files.length > 0 ? JSON.stringify(base64Files) : null,
         custom_data: dynamicValues
       });
@@ -466,15 +513,13 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
           <>
             <div style={styles.explainBox}>
               <div style={styles.explainTopRow}>
-                <span style={styles.explainTitle}>Select the establishment category</span>
+                <span style={styles.explainTitle}>{isFilipino ? uiText.fil_title : uiText.en_title}</span>
                 <button style={styles.translateBtn} onClick={() => setIsFilipino(!isFilipino)} title="Translate">
                   <Icons.Translate /> <span style={{ fontSize: '11px', marginLeft: '4px' }}>{isFilipino ? 'EN' : 'FIL'}</span>
                 </button>
               </div>
               <p style={styles.explainDesc}>
-                {isFilipino
-                  ? "Ang pangkalahatang puna ay para sa pagbabahagi ng mga ideya o reklamo tungkol sa mga serbisyo, opisina, restaurant, at iba pang negosyo. Piliin ang kategorya sa ibaba."
-                  : "General feedback is for sharing thoughts, complaints, or suggestions about any service, office, restaurant, or business. Select the category below."}
+                {isFilipino ? uiText.fil_desc : uiText.en_desc}
               </p>
             </div>
 
@@ -485,39 +530,53 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
             </div>
 
             <div style={styles.grid}>
-              {filteredBusinesses.map(biz => (
-                <div key={biz.id} style={styles.card} onClick={() => { setSelectedBusiness(biz); setSpecificName(""); setOtherSpecificName(""); }}>
-                  <div style={styles.iconBox}>{biz.icon}</div>
-                  <span style={styles.cardLabel}>{biz.label}</span>
-                </div>
-              ))}
+              {filteredBusinesses.map(biz => {
+                const IconComp = IconRegistry[biz.icon] || IconRegistry.default;
+                return (
+                  <div key={biz.id} style={{ ...styles.card, flexDirection: 'column', gap: '12px', padding: '20px', minHeight: '120px' }} onClick={() => { setSelectedBusiness(biz); setSpecificName(""); setOtherSpecificName(""); setSelectedType(""); }}>
+                    <div style={{ padding: '12px', background: 'rgba(59, 130, 246, 0.08)', borderRadius: '12px', color: '#1D6C8A' }}>
+                      <IconComp width="28" height="28" />
+                    </div>
+                    <span style={{ ...styles.cardLabel, fontSize: '14px', fontWeight: '800', textAlign: 'center' }}>{biz.name}</span>
+                  </div>
+                );
+              })}
             </div>
           </>
         ) : (
           <div style={styles.formContainer}>
-            <div style={styles.selectedHeader}>
-              <div style={styles.iconBoxSmall}>{selectedBusiness.icon}</div>
-              <h2 style={styles.selectedTitle}>{selectedBusiness.label} Feedback</h2>
+            <div style={{ ...styles.selectedHeader, display: 'flex', alignItems: 'center', gap: '12px', padding: '16px 20px', background: 'white', borderRadius: '16px', border: '1px solid #f1f5f9', marginBottom: '24px' }}>
+              <div style={{ padding: '10px', background: 'rgba(59, 130, 246, 0.08)', borderRadius: '12px', color: '#1D6C8A' }}>
+                {(() => {
+                  const IconComp = IconRegistry[selectedBusiness.icon] || IconRegistry.default;
+                  return <IconComp width="24" height="24" />;
+                })()}
+              </div>
+              <h2 style={{ ...styles.selectedTitle, margin: 0, fontSize: '18px' }}>{selectedBusiness.name} Feedback</h2>
             </div>
 
             <div style={styles.formGroup}>
               <label style={styles.label}>
-                Select {selectedBusiness.label.toLowerCase().includes('department') ? 'Department' : 'Establishment'} <span style={{ color: '#EF4444' }}>*</span>
+                Select Specific {selectedBusiness.name} <span style={{ color: '#EF4444' }}>*</span>
               </label>
               <select style={styles.nativeSelect} value={specificName} onChange={(e) => setSpecificName(e.target.value)}>
-                <option value="">-- Choose One --</option>
+                <option value="">-- Choose Name --</option>
                 {(() => {
                   try {
                     const parsed = JSON.parse(selectedBusiness.description || "[]");
-                    if (Array.isArray(parsed) && parsed.length > 0) {
+                    if (typeof parsed === 'object' && !Array.isArray(parsed)) {
+                      // Flatten existing 3-tier structure into one list for the user
+                      const flattened = [];
+                      Object.values(parsed).forEach(v => {
+                        const names = (typeof v === 'object' && !Array.isArray(v)) ? v.names : (v || []);
+                        flattened.push(...names);
+                      });
+                      return [...new Set(flattened), "Other"].map(name => <option key={name} value={name}>{name}</option>);
+                    } else if (Array.isArray(parsed)) {
                       return [...parsed, "Other"].map(name => <option key={name} value={name}>{name}</option>);
                     }
                   } catch(e) {}
-                  // Fallback to mock suggestions or just Other
-                  const fallback = mockSuggestions[selectedBusiness.id] || [];
-                  return [...fallback, "Other"].map(name => (
-                    <option key={name} value={name}>{name}</option>
-                  ));
+                  return <option value="Other">Other</option>;
                 })()}
               </select>
             </div>
@@ -534,23 +593,31 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
               <label style={styles.label}>Region <span style={{ color: '#EF4444' }}>*</span></label>
               <select style={styles.nativeSelect} value={region} onChange={(e) => setRegion(e.target.value)}>
                 <option value="">Select Region...</option>
-                {Object.keys(LOCATIONS).map(r => <option key={r} value={r}>{r}</option>)}
+                {regionList.map(r => <option key={r} value={r}>{r}</option>)}
+              </select>
+            </div>
+
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Province <span style={{ color: '#EF4444' }}>*</span></label>
+              <select style={styles.nativeSelect} value={province} onChange={(e) => setProvince(e.target.value)} disabled={!region}>
+                <option value="">{region ? "Select Province..." : "Select Region First"}</option>
+                {provinceList.map(p => <option key={p} value={p}>{p}</option>)}
               </select>
             </div>
 
             <div style={styles.row}>
               <div style={{ ...styles.formGroup, flex: 1 }}>
                 <label style={styles.label}>City / Municipality <span style={{ color: '#EF4444' }}>*</span></label>
-                <select style={styles.nativeSelect} value={city} onChange={(e) => setCity(e.target.value)}>
-                  <option value="">Select City...</option>
-                  {availableCities.map(c => <option key={c} value={c}>{c}</option>)}
+                <select style={styles.nativeSelect} value={city} onChange={(e) => setCity(e.target.value)} disabled={!province}>
+                  <option value="">{province ? "Select City..." : "Select Province First"}</option>
+                  {cityList.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
               <div style={{ ...styles.formGroup, flex: 1 }}>
                 <label style={styles.label}>Barangay <span style={{ color: '#EF4444' }}>*</span></label>
-                <select style={styles.nativeSelect} value={barangay} onChange={(e) => setBarangay(e.target.value)}>
-                  <option value="">Select Barangay...</option>
-                  {availableBarangays.map(b => <option key={b} value={b}>{b}</option>)}
+                <select style={styles.nativeSelect} value={barangay} onChange={(e) => setBarangay(e.target.value)} disabled={!city || isLoadingLocations}>
+                  <option value="">{isLoadingLocations ? "Loading..." : city ? "Select Barangay..." : "Select City First"}</option>
+                  {barangayList.map(b => <option key={b} value={b}>{b}</option>)}
                 </select>
               </div>
             </div>
@@ -791,7 +858,7 @@ const styles = {
   label: { display: 'block', fontSize: '12px', fontWeight: '600', color: '#65676B', marginBottom: '5px' },
   inputBox: { width: '100%', padding: '9px 12px', backgroundColor: '#F0F2F5', border: '1px solid #E4E6EB', borderRadius: '6px', fontSize: '13px', color: '#1C1E21', outline: 'none', boxSizing: 'border-box' },
   textArea: { width: '100%', padding: '9px 12px', backgroundColor: '#F0F2F5', border: '1px solid #E4E6EB', borderRadius: '6px', fontSize: '13px', color: '#1C1E21', minHeight: '120px', resize: 'vertical', boxSizing: 'border-box', outline: 'none' },
-  nativeSelect: { width: '100%', padding: '9px 12px', backgroundColor: '#F0F2F5', border: '1px solid #E4E6EB', borderRadius: '6px', fontSize: '13px', color: '#1C1E21', outline: 'none', boxSizing: 'border-box' },
+  nativeSelect: { width: '100%', padding: '12px 14px', backgroundColor: '#FFFFFF', border: '1px solid #D1D5DB', borderRadius: '12px', fontSize: '14px', color: '#111827', outline: 'none', boxSizing: 'border-box', appearance: 'none', backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236B7280'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center', backgroundSize: '16px', cursor: 'pointer', transition: 'all 0.2s ease' },
   attachBtn: { display: 'flex', alignItems: 'center', padding: '8px 14px', backgroundColor: '#F0F2F5', border: '1px dashed #C7C9CC', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', color: '#65676B', fontWeight: '600' },
   fileList: { display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '8px' },
   fileItem: { display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#F0F2F5', borderRadius: '6px', padding: '4px 8px', border: '1px solid #E4E6EB' },

@@ -1,4 +1,4 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload, aliased, joinedload as _joinedload
 from sqlalchemy import func, select, case
 from app import models
 from app import schemas
@@ -70,10 +70,18 @@ def create_category(db: Session, category: schemas.CategoryCreate):
     return db_cat
 
 # Feedback operations
-def get_feedbacks(db: Session, skip: int = 0, limit: int = 100, user_id: int = None, dept_id: int = None):
-    from sqlalchemy.orm import aliased
-    RecipientUser = aliased(models.User)
-    
+def get_feedbacks(
+    db: Session, 
+    skip: int = 0, 
+    limit: int = 100, 
+    sender_id: int = None, 
+    recipient_user_id: int = None,
+    recipient_dept_id: int = None,
+    current_user_id: int = None,
+    only_approved: bool = True
+):
+    """Unified and optimized feedback retrieval with counts and relations."""
+    # Scalar subqueries for counts (single query execution for all)
     replies_count_sq = (
         select(func.count(models.Reply.id))
         .where(models.Reply.feedback_id == models.Feedback.id)
@@ -92,55 +100,74 @@ def get_feedbacks(db: Session, skip: int = 0, limit: int = 100, user_id: int = N
         .scalar_subquery()
         .label("dislikes_count")
     )
+
+    # Base query starts with Feedback and subqueries
     query = db.query(
-        models.Feedback.id,
-        models.Feedback.title,
-        models.Feedback.description,
-        models.Feedback.category_id,
-        models.Feedback.recipient_dept_id,
-        models.Feedback.recipient_user_id,
-        models.Feedback.status,
-        models.Feedback.allow_comments,
-        models.Feedback.is_anonymous,
-        models.Feedback.created_at,
-        models.Feedback.rating,
-        models.Feedback.address,
-        models.Feedback.region,
-        models.Feedback.city,
-        models.Feedback.barangay,
-        models.Feedback.employee_name,
-        models.Feedback.product_name,
-        models.Feedback.attachments,
-        models.Feedback.is_approved,
-        case(
-            (models.Feedback.is_anonymous == True, "Anonymous"),
-            else_=models.User.name
-        ).label("user_name"), 
-        case(
-            (models.Feedback.is_anonymous == True, 0),
-            else_=models.Feedback.sender_id
-        ).label("sender_id"),
-        models.Department.name.label("recipient_dept_name"),
-        RecipientUser.name.label("recipient_user_name"),
+        models.Feedback,
         replies_count_sq,
         likes_count_sq,
         dislikes_count_sq
-    ).outerjoin(models.User, models.Feedback.sender_id == models.User.id)\
-     .outerjoin(models.Department, models.Feedback.recipient_dept_id == models.Department.id)\
-     .outerjoin(RecipientUser, models.Feedback.recipient_user_id == RecipientUser.id)
+    ).options(
+        joinedload(models.Feedback.mentions),
+        joinedload(models.Feedback.sender),
+        joinedload(models.Feedback.recipient_user),
+        joinedload(models.Feedback.recipient_dept)
+    )
 
-    if user_id:
-        query = query.filter(
-            (models.Feedback.sender_id == user_id) | 
-            (models.Feedback.recipient_user_id == user_id)
+    # If current_user_id provided, also get current user's reaction
+    if current_user_id:
+        user_reaction_sq = (
+            select(models.Reaction.is_like)
+            .where((models.Reaction.feedback_id == models.Feedback.id) & (models.Reaction.user_id == current_user_id))
+            .scalar_subquery()
+            .label("user_reaction")
         )
-    if dept_id:
-        query = query.filter(models.Feedback.recipient_dept_id == dept_id)
-        
-    # Moderation check: Regular lists skip unapproved
-    query = query.filter(models.Feedback.is_approved == True)
+        query = query.add_columns(user_reaction_sq)
 
-    return query.order_by(models.Feedback.created_at.desc()).offset(skip).limit(limit).all()
+    # Apply filters
+    if only_approved:
+        query = query.filter(models.Feedback.is_approved == True)
+    
+    if sender_id:
+        query = query.filter(models.Feedback.sender_id == sender_id)
+    
+    if recipient_user_id:
+        query = query.filter(models.Feedback.recipient_user_id == recipient_user_id)
+        
+    if recipient_dept_id:
+        query = query.filter(models.Feedback.recipient_dept_id == recipient_dept_id)
+
+    rows = query.order_by(models.Feedback.created_at.desc()).offset(skip).limit(limit).all()
+    
+    results = []
+    for row in rows:
+        # row[0] is the Feedback object, the rest are labeled subquery results
+        fb = row[0]
+        fb.replies_count = row.replies_count
+        fb.likes_count = row.likes_count
+        fb.dislikes_count = row.dislikes_count
+        if current_user_id:
+            fb.user_reaction = row.user_reaction
+        
+        # Populate UI helpers (avoiding lazy loading)
+        if fb.is_anonymous:
+            fb.user_name = "Anonymous"
+            fb.sender_avatar_url = None
+            fb.sender_id_display = 0
+            fb.sender_show_status = True
+        else:
+            fb.user_name = fb.sender.name if fb.sender else "Someone"
+            fb.sender_avatar_url = fb.sender.avatar_url if fb.sender else None
+            fb.sender_id_display = fb.sender_id
+            fb.sender_show_status = fb.sender.show_activity_status if fb.sender else True
+        
+        fb.recipient_dept_name = fb.recipient_dept.name if fb.recipient_dept else None
+        fb.recipient_user_name = fb.recipient_user.name if fb.recipient_user else None
+        
+        results.append(fb)
+
+    return results
+
 
 def create_feedback(db: Session, feedback: schemas.FeedbackCreate):
     data = feedback.model_dump()
@@ -208,59 +235,6 @@ def delete_feedback(db: Session, feedback_id: int):
         db.delete(db_feedback)
         db.commit()
     return db_feedback
-
-def get_public_feed(db: Session, skip: int = 0, limit: int = 10):
-    from sqlalchemy.orm import aliased
-    RecipientUser = aliased(models.User)
-
-    from sqlalchemy.orm import joinedload
-    
-    # We still need the subqueries for counts
-    from sqlalchemy.orm import joinedload
-    
-    # Pre-calculated counts for performance
-    replies_count_sq = (
-        select(func.count(models.Reply.id))
-        .where(models.Reply.feedback_id == models.Feedback.id)
-        .scalar_subquery()
-    )
-    likes_count_sq = (
-        select(func.count(models.Reaction.id))
-        .where((models.Reaction.feedback_id == models.Feedback.id) & (models.Reaction.is_like == True))
-        .scalar_subquery()
-    )
-    dislikes_count_sq = (
-        select(func.count(models.Reaction.id))
-        .where((models.Reaction.feedback_id == models.Feedback.id) & (models.Reaction.is_like == False))
-        .scalar_subquery()
-    )
-
-    feedbacks = db.query(models.Feedback).options(joinedload(models.Feedback.mentions)).filter(models.Feedback.is_approved == True).order_by(models.Feedback.created_at.desc()).offset(skip).limit(limit).all()
-    
-    # Populate extra fields for frontend
-    for f in feedbacks:
-        # Resolve mentions string fallback for legacy support if needed
-        # f.employee_name_list = ", ".join([f"{m.employee_prefix} {m.employee_name}".strip() for m in f.mentions])
-        
-        if f.is_anonymous:
-            f.user_name = "Anonymous"
-            f.sender_avatar_url = None
-            f.sender_id = 0
-            f.sender_show_status = True
-        else:
-            f.user_name = f.sender.name if f.sender else "Someone"
-            f.sender_avatar_url = f.sender.avatar_url if f.sender else None
-            f.sender_id = f.sender_id
-            f.sender_show_status = f.sender.show_activity_status if f.sender else True
-        
-        f.recipient_dept_name = f.recipient_dept.name if f.recipient_dept else None
-        f.recipient_user_name = f.recipient_user.name if f.recipient_user else None
-        
-        f.replies_count = db.query(func.count(models.Reply.id)).filter(models.Reply.feedback_id == f.id).scalar()
-        f.likes_count = db.query(func.count(models.Reaction.id)).filter(models.Reaction.feedback_id == f.id, models.Reaction.is_like == True).scalar()
-        f.dislikes_count = db.query(func.count(models.Reaction.id)).filter(models.Reaction.feedback_id == f.id, models.Reaction.is_like == False).scalar()
-
-    return feedbacks
 
 # Reply operations
 def get_replies_for_feedback(db: Session, feedback_id: int, current_user_id: int = None):
@@ -510,8 +484,49 @@ def get_user_impact_stats(db: Session, user_id: int):
         'likes_received': likes_received
     }
 
-def get_sentiment_summary(db: Session):
-    feedbacks = db.query(models.Feedback.description).all()
+def get_analytics_summary(db: Session, dept_name: Optional[str] = None):
+    # Base queries
+    fb_q = db.query(models.Feedback)
+    u_q = db.query(models.User)
+    c_q = db.query(models.Reply)
+    r_q = db.query(models.Reaction)
+
+    if dept_name:
+        # Filter everything by department
+        dept_filter = db.query(models.Department.id).filter(models.Department.name == dept_name).scalar_subquery()
+        fb_q = fb_q.filter(models.Feedback.recipient_dept_id == dept_filter)
+        # Note: Users and Reactions might not be directly department-linked in the same way, 
+        # but we filter total_feedback and related metrics.
+        c_q = c_q.join(models.Feedback).filter(models.Feedback.recipient_dept_id == dept_filter)
+        r_q = r_q.join(models.Feedback).filter(models.Feedback.recipient_dept_id == dept_filter)
+
+    total_feedback = fb_q.count()
+    total_users = u_q.count() # Total users remains system-wide
+    total_comments = c_q.count()
+    total_reactions = r_q.count()
+
+    avg_rating = fb_q.with_entities(func.avg(models.Feedback.rating)).scalar()
+    avg_rating = round(float(avg_rating), 2) if avg_rating else 0.0
+
+    anon_count = fb_q.filter(models.Feedback.is_anonymous == True).count()
+    anon_rate = round((anon_count / total_feedback * 100), 1) if total_feedback else 0
+
+    return {
+        "total_feedback": total_feedback,
+        "total_users": total_users,
+        "total_comments": total_comments,
+        "total_reactions": total_reactions,
+        "avg_rating": avg_rating,
+        "anonymous_rate": anon_rate,
+    }
+
+def get_sentiment_summary(db: Session, dept_name: Optional[str] = None):
+    """Analyze overall mood of user feedback."""
+    q = db.query(models.Feedback.description)
+    if dept_name:
+        q = q.join(models.Department).filter(models.Department.name == dept_name)
+    
+    feedbacks = q.all()
     pos_words = {"great", "excellent", "good", "happy", "thanks", "improved", "perfect", "amazing", "love", "awesome", "fast", "efficient"}
     neg_words = {"broken", "failed", "slow", "terrible", "bad", "frustrated", "error", "problem", "urgent", "wrong", "annoying", "poor"}
     

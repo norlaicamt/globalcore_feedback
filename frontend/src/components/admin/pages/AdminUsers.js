@@ -1,12 +1,12 @@
 import React, { useEffect, useRef, useState } from "react";
-import { adminGetUsers, adminToggleUserStatus, adminDeleteUser } from "../../../services/adminApi";
+import { adminGetUsers, adminToggleUserStatus, adminDeleteUser, adminUpdateUserRole } from "../../../services/adminApi";
 import CustomModal from "../../CustomModal";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 
 // 3-dot dropdown menu component
-const DotsMenu = ({ user, onToggle, onDelete, theme, darkMode }) => {
+const DotsMenu = ({ user, onToggle, onDelete, onRoleChange, theme, darkMode }) => {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -36,7 +36,31 @@ const DotsMenu = ({ user, onToggle, onDelete, theme, darkMode }) => {
           >
             {user.is_active ? "Deactivate" : "Activate"}
           </button>
+          
           <div style={{ height: "1px", background: theme.border, margin: "4px 0" }} />
+          
+          {user.role === "maker" ? (
+            <button
+              onClick={() => { onRoleChange(user, "admin"); setOpen(false); }}
+              style={{ ...menuItemStyle, color: "#3B82F6" }}
+              onMouseEnter={e => e.currentTarget.style.background = darkMode ? "rgba(255,255,255,0.05)" : "#F1F5F9"}
+              onMouseLeave={e => e.currentTarget.style.background = "none"}
+            >
+              Promote to Admin
+            </button>
+          ) : user.role === "admin" && (
+            <button
+              onClick={() => { onRoleChange(user, "maker"); setOpen(false); }}
+              style={{ ...menuItemStyle, color: "#64748B" }}
+              onMouseEnter={e => e.currentTarget.style.background = darkMode ? "rgba(255,255,255,0.05)" : "#F1F5F9"}
+              onMouseLeave={e => e.currentTarget.style.background = "none"}
+            >
+              Demote to Maker
+            </button>
+          )}
+
+          <div style={{ height: "1px", background: theme.border, margin: "4px 0" }} />
+          
           <button
             onClick={() => { onDelete(user); setOpen(false); }}
             style={{ ...menuItemStyle, color: "#EF4444" }}
@@ -135,6 +159,20 @@ const AdminUsers = ({ theme, darkMode }) => {
     });
   };
 
+  const handleRoleChange = (user, newRole) => {
+    setDialog({
+      isOpen: true, type: "alert",
+      title: "Update User Role",
+      message: `Change ${user.name}'s role to ${newRole.toUpperCase()}?`,
+      confirmText: "Update Role",
+      onConfirm: async () => {
+        await adminUpdateUserRole(user.id, newRole);
+        setDialog({ isOpen: false }); load();
+      },
+      onCancel: () => setDialog({ isOpen: false }),
+    });
+  };
+
   const handleDelete = (user) => {
     setDialog({
       isOpen: true, type: "alert", title: "Delete Account",
@@ -149,13 +187,14 @@ const AdminUsers = ({ theme, darkMode }) => {
   };
 
   const handleExport = (format) => {
-    const headers = ["ID", "Name", "Email", "Department", "Created Date", "Status", "Posts", "Impact Points"];
+    const headers = ["ID", "Name", "Email", "Role", "Department", "Created Date", "Status", "Posts", "Impact Points"];
     const data = filtered.map((u, idx) => {
       const createdDate = u.created_at ? new Date(u.created_at).toLocaleDateString() : "—";
       return [
         idx + 1,
         u.name || "—",
         u.email || "—",
+        u.role || "maker",
         u.department || "—",
         createdDate,
         u.is_active ? "Active" : "Inactive",
@@ -268,7 +307,7 @@ const AdminUsers = ({ theme, darkMode }) => {
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
             <thead>
               <tr style={{ background: darkMode ? "rgba(255,255,255,0.02)" : "#F8FAFC", borderBottom: `1px solid ${theme.border}` }}>
-                {["#", "Name", "Email", "Department", "Created Date", "Posts", "Impact Points", "Status", ""].map(h => (
+                {["#", "Name", "Email", "Role", "Department", "Created Date", "Posts", "Points", "Status", ""].map(h => (
                   <th key={h} style={{ ...thStyle, color: theme.textMuted }}>{h}</th>
                 ))}
               </tr>
@@ -295,6 +334,16 @@ const AdminUsers = ({ theme, darkMode }) => {
                     </div>
                   </td>
                   <td style={{ ...tdStyle, color: theme.textMuted }}>{u.email}</td>
+                  <td style={tdStyle}>
+                    <span style={{
+                      padding: "3px 8px", borderRadius: "6px", fontSize: "10px", fontWeight: "700", textTransform: "uppercase",
+                      background: u.role === 'superadmin' ? '#FAF5FF' : u.role === 'admin' ? '#EFF6FF' : 'transparent',
+                      color: u.role === 'superadmin' ? '#9333EA' : u.role === 'admin' ? '#3B82F6' : theme.textMuted,
+                      border: u.role === 'maker' ? 'none' : `1px solid ${u.role === 'superadmin' ? '#F3E8FF' : '#DBEAFE'}`
+                    }}>
+                      {u.role || "maker"}
+                    </span>
+                  </td>
                   <td style={{ ...tdStyle, color: theme.textMuted }}>{u.department || "—"}</td>
                   <td style={{ ...tdStyle, color: theme.textMuted }}>{u.created_at ? new Date(u.created_at).toLocaleDateString() : "—"}</td>
                   <td style={{ ...tdStyle, fontWeight: "600", color: theme.text }}>{u.total_posts}</td>
@@ -309,7 +358,7 @@ const AdminUsers = ({ theme, darkMode }) => {
                     </span>
                   </td>
                   <td style={{ ...tdStyle, textAlign: "right" }}>
-                    <DotsMenu user={u} onToggle={handleToggle} onDelete={handleDelete} theme={theme} darkMode={darkMode} />
+                    <DotsMenu user={u} onToggle={handleToggle} onDelete={handleDelete} onRoleChange={handleRoleChange} theme={theme} darkMode={darkMode} />
                   </td>
                 </tr>
               ))}

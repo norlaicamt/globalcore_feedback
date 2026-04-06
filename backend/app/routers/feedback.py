@@ -20,39 +20,18 @@ def read_feedbacks(
     sender_id: Optional[int] = None,
     skip: int = 0,
     limit: int = 10,
+    user_id: Optional[int] = None,
     db: Session = Depends(get_db)
 ):
     """The primary public newsfeed. Optionally filter by recipient or sender."""
-    if recipient_user_id:
-        # NOTE: Using simplified query for specific filters for now
-        return db.query(
-            models.Feedback.id, models.Feedback.title, models.Feedback.description,
-            models.Feedback.sender_id, models.Feedback.category_id,
-            models.Feedback.recipient_dept_id, models.Feedback.recipient_user_id,
-            models.Feedback.status, models.Feedback.allow_comments,
-            models.Feedback.is_anonymous, models.Feedback.created_at, models.Feedback.updated_at,
-            models.User.name.label("user_name"),
-            models.Department.name.label("recipient_dept_name")
-        ).outerjoin(models.User, models.Feedback.sender_id == models.User.id)\
-         .outerjoin(models.Department, models.Feedback.recipient_dept_id == models.Department.id)\
-         .filter(models.Feedback.recipient_user_id == recipient_user_id)\
-         .order_by(models.Feedback.created_at.desc()).offset(skip).limit(limit).all()
-         
-    if sender_id:
-        return db.query(
-            models.Feedback.id, models.Feedback.title, models.Feedback.description,
-            models.Feedback.sender_id, models.Feedback.category_id,
-            models.Feedback.recipient_dept_id, models.Feedback.recipient_user_id,
-            models.Feedback.status, models.Feedback.allow_comments,
-            models.Feedback.is_anonymous, models.Feedback.created_at, models.Feedback.updated_at,
-            models.User.name.label("user_name"),
-            models.Department.name.label("recipient_dept_name")
-        ).outerjoin(models.User, models.Feedback.sender_id == models.User.id)\
-         .outerjoin(models.Department, models.Feedback.recipient_dept_id == models.Department.id)\
-         .filter(models.Feedback.sender_id == sender_id)\
-         .order_by(models.Feedback.created_at.desc()).offset(skip).limit(limit).all()
-
-    return crud.get_public_feed(db, skip=skip, limit=limit)
+    return crud.get_feedbacks(
+        db, 
+        skip=skip, 
+        limit=limit, 
+        sender_id=sender_id, 
+        recipient_user_id=recipient_user_id,
+        current_user_id=user_id
+    )
 
 @router.get("/{feedback_id}", response_model=schemas.FeedbackDetail)
 def read_feedback(feedback_id: int, db: Session = Depends(get_db)):

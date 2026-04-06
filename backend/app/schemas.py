@@ -75,6 +75,7 @@ class Department(DepartmentBase):
 class CategoryBase(BaseModel):
     name: str
     description: Optional[str] = None
+    icon: Optional[str] = None
     fields: Optional[List[dict]] = None # List of {label, type, placeholder, required}
 
 class CategoryCreate(CategoryBase):
