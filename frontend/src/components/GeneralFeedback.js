@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { createFeedback, getCategories, getDepartments, getAdminSettings, getUserProfiles } from "../services/api";
+import { createFeedback, getCategories, getDepartments, getAdminSettings, getUserProfiles, getFormFields } from "../services/api";
 import CustomModal from "./CustomModal";
 import { IconRegistry } from "./IconRegistry";
 
@@ -91,6 +91,7 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
   // Dynamic values for category-specific fields
   const [localDraftId, setLocalDraftId] = useState(initialDraft?.id);
   const [dynamicValues, setDynamicValues] = useState({});
+  const [formFields, setFormFields] = useState([]);
 
   const handleCancelClick = () => {
     if (idea.trim() || specificName || region) setShowDraftModal(true);
@@ -139,10 +140,17 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
 
   const [allowVoiceSetting, setAllowVoiceSetting] = useState(true);
   const [uiText, setUiText] = useState({
-    en_title: "Select the establishment category",
-    en_desc: "General feedback is for sharing thoughts, complaints, or suggestions about any service, office, restaurant, or business. Select the category below.",
-    fil_title: "Pumili ng kategorya ng establisimyento",
-    fil_desc: "Ang pangkalahatang puna ay para sa pagbabahagi ng mga ideya o reklamo tungkol sa mga serbisyo, opisina, restaurant, at iba pang negosyo. Piliin ang kategorya sa ibaba."
+    en_title: "Submit Your Feedback",
+    en_desc: "Share your thoughts, concerns, or suggestions about any service, office, or establishment. Please select the appropriate category to proceed.",
+    fil_title: "Submit Your Feedback",
+    fil_desc: "Ang feedback ay para sa pagbabahagi ng inyong opinyon, reklamo, o mungkahi tungkol sa anumang serbisyo o opisina. Mangyaring piliin ang naaangkop na kategorya sa ibaba."
+  });
+  const [formLayout, setFormLayout] = useState({
+    show_staff: true,
+    show_rating: true,
+    show_attachments: true,
+    show_voice: true,
+    show_product: false,
   });
 
   useEffect(() => {
@@ -211,11 +219,12 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
   useEffect(() => {
     const fetchEverything = async () => {
       try {
-        const [settings, categories, departments, allProfiles] = await Promise.allSettled([
+        const [settings, categories, departments, allProfiles, fields] = await Promise.allSettled([
           getAdminSettings(),
           getCategories(),
           getDepartments(),
-          getUserProfiles()
+          getUserProfiles(),
+          getFormFields()
         ]);
 
         if (settings.status === 'fulfilled' && settings.value) {
@@ -223,10 +232,17 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
           settings.value.forEach(s => { dict[s.key] = s.value; });
           setAllowVoiceSetting(dict['allow_voice'] !== 'false');
           setUiText({
-            en_title: dict['general_report_title'] || "Select the establishment category",
-            en_desc: dict['general_report_instruction'] || "General feedback is for sharing thoughts, complaints, or suggestions about any service, office, restaurant, or business. Select the category below.",
-            fil_title: dict['general_report_title_fil'] || "Pumili ng kategorya ng establisimyento",
-            fil_desc: dict['general_report_instruction_fil'] || "Ang pangkalahatang puna ay para sa pagbabahagi ng mga ideya o reklamo tungkol sa mga serbisyo, opisina, restaurant, at iba pang negosyo. Piliin ang kategorya sa ibaba.",
+            en_title: dict['general_report_title'] || "Submit Your Feedback",
+            en_desc: dict['general_report_instruction'] || "Share your thoughts, concerns, or suggestions about any service, office, or establishment. Please select the appropriate category to proceed.",
+            fil_title: dict['general_report_title'] || "Submit Your Feedback",
+            fil_desc: dict['general_report_instruction_fil'] || "Ang feedback ay para sa pagbabahagi ng inyong opinyon, reklamo, o mungkahi tungkol sa anumang serbisyo o opisina. Mangyaring piliin ang naaangkop na kategorya sa ibaba.",
+          });
+          setFormLayout({
+            show_staff: dict['form_show_staff'] !== 'false',
+            show_rating: dict['form_show_rating'] !== 'false',
+            show_attachments: dict['form_show_attachments'] !== 'false',
+            show_voice: dict['form_show_voice'] !== 'false',
+            show_product: dict['form_show_product'] === 'true',
           });
         }
 
@@ -248,6 +264,10 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
 
         if (allProfiles.status === 'fulfilled') {
           setUserProfiles(allProfiles.value);
+        }
+
+        if (fields?.status === 'fulfilled' && fields.value) {
+          setFormFields(fields.value);
         }
       } catch (err) {
         console.error("Failed to fetch initial data", err);
@@ -420,10 +440,6 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
   });
 
   const handleSubmit = async () => {
-    let finalName = specificName === "Other" ? otherSpecificName : specificName;
-    if (!finalName || !finalName.trim()) {
-      setModalConfig({ isOpen: true, title: "Selection Required", message: `Please select or specify the ${selectedBusiness?.label || "establishment"}.`, type: "alert" }); return;
-    }
     if (!region) { setModalConfig({ isOpen: true, title: "Missing Region", message: "Please select a Region.", type: "alert" }); return; }
     if (!province) { setModalConfig({ isOpen: true, title: "Missing Province", message: "Please select a Province.", type: "alert" }); return; }
     if (!city) { setModalConfig({ isOpen: true, title: "Missing City", message: "Please select a City.", type: "alert" }); return; }
@@ -445,17 +461,17 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
       const bizLabel = selectedBusiness?.label || "General";
       let matchedDeptId = null;
       if (selectedBusiness?.id === 'department' || bizLabel.toLowerCase().includes('department')) {
-        const matched = dbDepartments.find(d => d.name.toLowerCase() === finalName.toLowerCase());
+        const matched = dbDepartments.find(d => d.name.toLowerCase() === bizLabel.toLowerCase());
         if (matched) matchedDeptId = matched.id;
       }
       const base64Files = await Promise.all(attachedFiles.map(af => fileToBase64(af.file)));
       if (audioBase64) base64Files.push(audioBase64);
       await createFeedback({
-        title: `${bizLabel}: ${finalName}`,
+        title: bizLabel,
         description: idea,
         is_anonymous: isAnonymous,
         allow_comments: allowComments,
-        is_approved: specificName !== "Other", // Flag for moderation if "Other"
+        is_approved: true, // No longer flagging "Other" string since it's removed
         sender_id: currentUser.id,
         category_id: selectedBusiness?.id || generalCategoryId || 1,
         recipient_dept_id: matchedDeptId || null,
@@ -556,40 +572,6 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
             </div>
 
             <div style={styles.formGroup}>
-              <label style={styles.label}>
-                Select Specific {selectedBusiness.name} <span style={{ color: '#EF4444' }}>*</span>
-              </label>
-              <select style={styles.nativeSelect} value={specificName} onChange={(e) => setSpecificName(e.target.value)}>
-                <option value="">-- Choose Name --</option>
-                {(() => {
-                  try {
-                    const parsed = JSON.parse(selectedBusiness.description || "[]");
-                    if (typeof parsed === 'object' && !Array.isArray(parsed)) {
-                      // Flatten existing 3-tier structure into one list for the user
-                      const flattened = [];
-                      Object.values(parsed).forEach(v => {
-                        const names = (typeof v === 'object' && !Array.isArray(v)) ? v.names : (v || []);
-                        flattened.push(...names);
-                      });
-                      return [...new Set(flattened), "Other"].map(name => <option key={name} value={name}>{name}</option>);
-                    } else if (Array.isArray(parsed)) {
-                      return [...parsed, "Other"].map(name => <option key={name} value={name}>{name}</option>);
-                    }
-                  } catch(e) {}
-                  return <option value="Other">Other</option>;
-                })()}
-              </select>
-            </div>
-
-            {specificName === "Other" && (
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Please Specify <span style={{ color: '#EF4444' }}>*</span></label>
-                <input type="text" placeholder="Type the exact name..." style={styles.inputBox}
-                  value={otherSpecificName} onChange={(e) => setOtherSpecificName(e.target.value)} />
-              </div>
-            )}
-
-            <div style={styles.formGroup}>
               <label style={styles.label}>Region <span style={{ color: '#EF4444' }}>*</span></label>
               <select style={styles.nativeSelect} value={region} onChange={(e) => setRegion(e.target.value)}>
                 <option value="">Select Region...</option>
@@ -630,9 +612,10 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
               </div>
             )}
 
+            {formLayout.show_staff && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <label style={styles.label}>Employee(s) Involved (Optional)</label>
+                  <label style={styles.label}>👤 Staff Involved (Optional)</label>
                   <button 
                     type="button" 
                     onClick={handleAddMention}
@@ -713,15 +696,69 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
                   </div>
                 ))}
               </div>
+            )}
 
             {/* (Custom Form Fields section removed as requested) */}
 
+            {/* — Dynamic Custom Fields (📦 Additional Info) — */}
+            {formFields.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '4px' }}>
+                <p style={{ margin: 0, fontSize: '11px', fontWeight: '800', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>📦 Additional Info</p>
+                {formFields.map((field) => {
+                  const val = dynamicValues[field.label] || '';
+                  const setVal = (v) => setDynamicValues(prev => ({ ...prev, [field.label]: v }));
+                  const labelEl = (
+                    <label style={{ ...styles.label }}>
+                      {field.label} {field.is_required && <span style={{ color: '#EF4444' }}>*</span>}
+                    </label>
+                  );
+                  if (field.field_type === 'dropdown') {
+                    return (
+                      <div key={field.label} style={styles.formGroup}>
+                        {labelEl}
+                        <select style={styles.nativeSelect} value={val} onChange={e => setVal(e.target.value)}>
+                          <option value="">{field.placeholder || `-- Select ${field.label} --`}</option>
+                          {(field.options || []).map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                        </select>
+                      </div>
+                    );
+                  }
+                  if (field.field_type === 'rating') {
+                    return (
+                      <div key={field.label} style={styles.formGroup}>
+                        {labelEl}
+                        <div style={styles.starRow}>
+                          {[1,2,3,4,5].map(s => (
+                            <button key={s} type="button" style={styles.starBtn} onClick={() => setVal(s)}>
+                              <Icons.Star filled={s <= (val || 0)} />
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  }
+                  return (
+                    <div key={field.label} style={styles.formGroup}>
+                      {labelEl}
+                      <input
+                        type={field.field_type === 'date' ? 'date' : field.field_type === 'number' ? 'number' : 'text'}
+                        placeholder={field.placeholder || `Enter ${field.label}...`}
+                        style={styles.inputBox}
+                        value={val}
+                        onChange={e => setVal(e.target.value)}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
             <div style={styles.formGroup}>
-              <label style={styles.label}>Your Message <span style={{ color: '#EF4444' }}>*</span></label>
-              <textarea placeholder="Tell us about your experience..." style={styles.textArea}
+              <label style={styles.label}>📝 Your Message <span style={{ color: '#EF4444' }}>*</span></label>
+              <textarea placeholder="Describe your experience or concern..." style={styles.textArea}
                 value={idea} onChange={(e) => setIdea(e.target.value)} />
               <div style={{ marginTop: '8px' }}>
-                {allowVoiceSetting && !audioURL && !isRecording && (
+                {formLayout.show_voice && allowVoiceSetting && !audioURL && !isRecording && (
                   <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                     <button type="button" style={{ ...styles.attachBtn, width: 'auto' }} onClick={startRecording}>
                       <Icons.Mic /> <span style={{ marginLeft: '6px' }}>Record & Transcribe (max 30s)</span>
@@ -756,8 +793,9 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
               </div>
             </div>
 
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Attach Photos (Optional, max 5)</label>
+            {formLayout.show_attachments && (
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Attach Photos (Optional, max 5)</label>
               <input ref={fileInputRef} type="file" accept="image/*,application/pdf" multiple style={{ display: 'none' }} onChange={handleFileChange} />
               <button type="button" style={styles.attachBtn} onClick={() => fileInputRef.current.click()}>
                 <Icons.Paperclip /> <span style={{ marginLeft: '6px' }}>Attach File / Photo</span>
@@ -775,8 +813,11 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
               )}
             </div>
 
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Rate your experience</label>
+            )}
+
+            {formLayout.show_rating && (
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Rate your experience</label>
               <div style={styles.starRow}>
                 {[1, 2, 3, 4, 5].map((star) => (
                   <button key={star} style={styles.starBtn} onClick={() => setRating(star)}>
@@ -784,7 +825,8 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
                   </button>
                 ))}
               </div>
-            </div>
+              </div>
+            )}
 
             <div style={styles.toggleRowContainer}>
               <div style={styles.itemText}>
@@ -840,7 +882,7 @@ const styles = {
   mainScroll: { flex: 1, overflowY: 'auto', padding: '16px', paddingBottom: 'calc(env(safe-area-inset-bottom) + 100px)' },
   explainBox: { backgroundColor: 'white', padding: '12px 16px', borderRadius: '8px', marginBottom: '16px', border: '1px solid #E4E6EB' },
   explainTopRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' },
-  explainTitle: { fontSize: '14px', fontWeight: '600', color: '#1C1E21' },
+  explainTitle: { fontSize: '20px', fontWeight: '800', color: '#1C1E21' },
   explainDesc: { fontSize: '12px', color: '#65676B', lineHeight: '1.4', margin: 0 },
   translateBtn: { background: 'none', border: '1px solid #E4E6EB', borderRadius: '4px', padding: '4px 8px', display: 'flex', alignItems: 'center', cursor: 'pointer', color: '#1C1E21' },
   searchContainer: { display: 'flex', alignItems: 'center', backgroundColor: 'white', padding: '10px 14px', borderRadius: '8px', border: '1px solid #E4E6EB', marginBottom: '16px', gap: '8px' },

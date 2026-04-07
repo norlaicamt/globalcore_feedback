@@ -158,3 +158,14 @@ export const updateAdminSetting = async (key, value) => {
   const response = await axios.patch(`${API_BASE}/admin/settings/${key}?value=${value}`);
   return response.data;
 };
+
+/* -------------------- FORM FIELDS -------------------- */
+export const getFormFields = async () => {
+  const response = await axios.get(`${API_BASE}/admin/form-fields`);
+  return response.data;
+};
+
+export const saveFormFields = async (fields) => {
+  const response = await axios.post(`${API_BASE}/admin/form-fields/save`, fields);
+  return response.data;
+};

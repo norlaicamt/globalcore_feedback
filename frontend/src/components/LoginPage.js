@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import axios from "axios";
+import { getDepartments } from "../services/api";
 import CustomModal from "./CustomModal";
 
 const LoginPage = ({ onLoginSuccess }) => {
@@ -7,6 +8,7 @@ const LoginPage = ({ onLoginSuccess }) => {
   const [emailInput, setEmailInput] = useState("");
   const [nameInput, setNameInput] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [dialogState, setDialogState] = useState({ isOpen: false });
 
@@ -15,9 +17,23 @@ const LoginPage = ({ onLoginSuccess }) => {
     setIsLoading(true);
     try {
       if (isSignUp) {
+        if (password !== confirmPassword) {
+          setDialogState({
+            isOpen: true,
+            type: "alert",
+            title: "Password Mismatch",
+            message: "Your passwords do not match. Please try again.",
+            confirmText: "Okay",
+            onConfirm: () => setDialogState({ isOpen: false }),
+          });
+          setIsLoading(false);
+          return;
+        }
+
         await axios.post(`${process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000'}/users/`, {
           name: nameInput,
           email: emailInput,
+          password: password,
           is_active: true,
         });
         setDialogState({
@@ -84,18 +100,20 @@ const LoginPage = ({ onLoginSuccess }) => {
 
           <form onSubmit={handleSubmit} style={styles.form}>
             {isSignUp && (
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Full Name</label>
-                <input
-                  className="login-input"
-                  type="text"
-                  placeholder="Juan Dela Cruz"
-                  style={styles.input}
-                  value={nameInput}
-                  onChange={(e) => setNameInput(e.target.value)}
-                  required
-                />
-              </div>
+              <>
+                <div style={styles.inputGroup}>
+                  <label style={styles.label}>Full Name</label>
+                  <input
+                    className="login-input"
+                    type="text"
+                    placeholder="Juan Dela Cruz"
+                    style={styles.input}
+                    value={nameInput}
+                    onChange={(e) => setNameInput(e.target.value)}
+                    required
+                  />
+                </div>
+              </>
             )}
 
             <div style={styles.inputGroup}>
@@ -128,6 +146,21 @@ const LoginPage = ({ onLoginSuccess }) => {
                 required
               />
             </div>
+
+            {isSignUp && (
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Confirm Password</label>
+                <input
+                  className="login-input"
+                  type="password"
+                  placeholder="Re-enter your password"
+                  style={styles.input}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                />
+              </div>
+            )}
 
             <button
               type="submit"
