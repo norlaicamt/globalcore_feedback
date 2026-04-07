@@ -139,6 +139,7 @@ const HeaderFilter = ({ label, value, onChange, theme, darkMode }) => {
 };
 
 const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
+  const hasGlobalAdminAccess = ["admin", "superadmin"].includes(adminUser?.role);
   const [feedbacks, setFeedbacks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -146,7 +147,7 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
   const [dialog, setDialog] = useState({ isOpen: false });
 
   const load = () => {
-    const dept = adminUser?.role === "superadmin" ? "" : (adminUser?.department || "");
+    const dept = hasGlobalAdminAccess ? "" : (adminUser?.department || "");
     adminGetFeedbacks({ dept_name: dept }).then(setFeedbacks).catch(console.error).finally(() => setLoading(false));
   };
 
@@ -300,7 +301,7 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
                 <th style={{ ...thStyle, color: theme.textMuted }}>#</th>
                 <HeaderFilter theme={theme} darkMode={darkMode} label="Category Type" value={filters.category} onChange={v => setFilters({...filters, category: v})} />
                 <HeaderFilter theme={theme} darkMode={darkMode} label="Establishment/Service" value={filters.establishment} onChange={v => setFilters({...filters, establishment: v})} />
-                {adminUser?.role === 'superadmin' && <th style={{ ...thStyle, color: theme.textMuted }}>Department</th>}
+                {hasGlobalAdminAccess && <th style={{ ...thStyle, color: theme.textMuted }}>Department</th>}
                 <HeaderFilter theme={theme} darkMode={darkMode} label="Author" value={filters.author} onChange={v => setFilters({...filters, author: v})} />
                 {["Rating", "Comments", "Date", ""].map(h => (
                   <th key={h} style={{ ...thStyle, color: theme.textMuted }}>{h}</th>
@@ -342,7 +343,7 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
                       </div>
                     )}
                   </td>
-                  {adminUser?.role === 'superadmin' && (
+                  {hasGlobalAdminAccess && (
                     <td style={{ ...tdStyle, color: theme.textMuted, fontSize: '11px', fontWeight: '500' }}>
                       {f.dept_name || "—"}
                     </td>

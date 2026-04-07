@@ -20,11 +20,23 @@ class User(Base):
     username = Column(String, unique=True, index=True, nullable=True)
     phone = Column(String, nullable=True)
     department = Column(String, nullable=True)
+    program = Column(String, nullable=True)
     password = Column(String, nullable=True)
     two_factor_enabled = Column(Boolean, default=False)
-    role = Column(String, default="maker")
+    role = Column(String, default="user")
+    role_identity = Column(String, nullable=True)  # Student/Visitor/Employee/Parent/Staff/Others
+    school = Column(String, nullable=True)
+    company_name = Column(String, nullable=True)
+    position_title = Column(String, nullable=True)
+    region = Column(String, nullable=True)
+    province = Column(String, nullable=True)
+    city = Column(String, nullable=True)
+    barangay = Column(String, nullable=True)
+    exact_address = Column(String, nullable=True)
+    onboarding_completed = Column(Boolean, default=False)
     show_activity_status = Column(Boolean, default=True)
     avatar_url = Column(Text, nullable=True)  # base64 data URI or URL
+    id_photo_url = Column(Text, nullable=True)
     
     # New Preference Fields
     push_notifications = Column(Boolean, default=True)
@@ -156,6 +168,7 @@ class Notification(Base):
     message = Column(String, nullable=True)  # New field for broadcast message
     subject = Column(String, nullable=True)  # New field for broadcast title
     broadcast_id = Column(Integer, ForeignKey("broadcast_logs.id"), nullable=True)
+    broadcast_type = Column(String, default="announcement") # announcement, alert, reminder
     is_read = Column(Boolean, default=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
@@ -174,5 +187,48 @@ class BroadcastLog(Base):
     id = Column(Integer, primary_key=True, index=True)
     subject = Column(String)
     message = Column(String)
+    broadcast_type = Column(String, default="announcement")
     sent_to_count = Column(Integer)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+    id = Column(Integer, primary_key=True, index=True)
+    action_type = Column(String, index=True)
+    performed_by_id = Column(Integer, ForeignKey("global_user.id"))
+    target_id = Column(String, nullable=True)
+    details = Column(JSONB, nullable=True)
+    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    performed_by = relationship("User")
+
+
+class FormSection(Base):
+    __tablename__ = "form_sections"
+    id         = Column(Integer, primary_key=True, index=True)
+    name       = Column(String, nullable=False)
+    order      = Column(Integer, default=0)
+    is_active  = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    fields = relationship(
+        "FormField", back_populates="section",
+        order_by="FormField.order",
+        cascade="all, delete-orphan"
+    )
+
+
+class FormField(Base):
+    __tablename__ = "form_fields"
+    id          = Column(Integer, primary_key=True, index=True)
+    section_id  = Column(Integer, ForeignKey("form_sections.id"), nullable=True)
+    field_key   = Column(String, unique=True, index=True, nullable=False)  # e.g. branch_name
+    label       = Column(String, nullable=False)
+    field_type  = Column(String, nullable=False)  # text|dropdown|number|date|rating|file
+    is_required = Column(Boolean, default=False)
+    placeholder = Column(String, nullable=True)
+    options     = Column(JSONB, nullable=True)     # for dropdown: list of strings
+    order       = Column(Integer, default=0)
+    is_active   = Column(Boolean, default=True)
+    created_at  = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    section = relationship("FormSection", back_populates="fields")

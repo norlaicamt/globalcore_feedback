@@ -34,9 +34,9 @@ db.commit()
 
 # Users (with new fields)
 users = [
-    models.User(name="Alice Reyes", email="alice@company.com", username="alice_r", phone="+63 917 111 0001", department="IT", password="pass123", role="maker"),
-    models.User(name="Bob Santos", email="bob@company.com", username="bob_s", phone="+63 917 111 0002", department="HR", password="pass123", role="maker"),
-    models.User(name="Carla Mendoza", email="carla@company.com", username="carla_m", phone="+63 917 111 0003", department="Finance", password="pass123", role="recipient"),
+    models.User(name="Alice Reyes", email="alice@company.com", username="alice_r", phone="+63 917 111 0001", department="IT", password="pass123", role="user"),
+    models.User(name="Bob Santos", email="bob@company.com", username="bob_s", phone="+63 917 111 0002", department="HR", password="pass123", role="user"),
+    models.User(name="Carla Mendoza", email="carla@company.com", username="carla_m", phone="+63 917 111 0003", department="Finance", password="pass123", role="user"),
 ]
 for u in users:
     db.add(u)
@@ -71,7 +71,7 @@ db.add(fb1)
 db.add(fb2)
 db.commit()
 
-print("\n✅ Database reset and seeded successfully!")
+print("\nDatabase reset and seeded successfully!")
 print(f"Users:  {[u.name for u in db.query(models.User).all()]}")
 print(f"Feedbacks: {db.query(models.Feedback).count()}")
 db.close()

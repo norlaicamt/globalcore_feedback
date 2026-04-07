@@ -96,8 +96,11 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
   }, []);
 
   const handleUserUpdate = (updatedUser) => {
-    setLocalUser(updatedUser);
-    localStorage.setItem("currentUser", JSON.stringify(updatedUser));
+    setLocalUser((prev) => {
+      const merged = { ...(prev || {}), ...(updatedUser || {}) };
+      localStorage.setItem("currentUser", JSON.stringify(merged));
+      return merged;
+    });
   };
 
   const fetchFeed = async (newOffset = 0) => {
@@ -138,7 +141,7 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
 
   useEffect(() => {
     if (!localUser?.id) return;
-    
+
     fetchNotifications();
     fetchFeed(0);
 
@@ -167,7 +170,7 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
     setPrevView(view);
     setView("notifications");
     setIsMenuOpen(false);
-    
+
     if (unreadNotifCount > 0) {
       try {
         await markNotificationsAsRead(localUser.id);
@@ -303,29 +306,29 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
         ) : view === "history" ? (
           <HistoryView currentUser={localUser} onBack={() => { setView("home"); setIsMenuOpen(true); }} />
         ) : view === "drafts" ? (
-          <DraftsView 
-            currentUser={localUser} 
-            onBack={() => { setView("home"); setIsMenuOpen(true); }} 
+          <DraftsView
+            currentUser={localUser}
+            onBack={() => { setView("home"); setIsMenuOpen(true); }}
           />
         ) : view === "activity" ? (
-          <ActivityView 
-            currentUser={localUser} 
-            onBack={() => { setView("home"); setIsMenuOpen(true); }} 
+          <ActivityView
+            currentUser={localUser}
+            onBack={() => { setView("home"); setIsMenuOpen(true); }}
             onViewPost={async (feedbackId) => {
               let post = feed.find(f => f.id === feedbackId);
               if (!post) {
                 try {
                   const res = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/feedbacks/${feedbackId}`);
-                  if(res.ok) post = await res.json();
-                } catch(e) { console.error(e); }
+                  if (res.ok) post = await res.json();
+                } catch (e) { console.error(e); }
               }
               if (post) setCommentingFeedback(post);
-            }} 
+            }}
           />
         ) : view === "notifications" ? (
-          <NotificationsView 
-            currentUser={localUser} 
-            onBack={() => setView("home")} 
+          <NotificationsView
+            currentUser={localUser}
+            onBack={() => setView("home")}
             onRead={() => setUnreadNotifCount(0)}
             onOpenComment={async (n) => {
               if (n.type === 'broadcast') {
@@ -336,18 +339,18 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
               if (!post) {
                 try {
                   const res = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/feedbacks/${n.feedback_id}`);
-                  if(res.ok) post = await res.json();
-                } catch(e) { console.error(e); }
+                  if (res.ok) post = await res.json();
+                } catch (e) { console.error(e); }
               }
               if (post) setCommentingFeedback(post);
             }}
           />
         ) : (view === "profile" || view === "settings") ? (
-          <ProfileSettings 
-            currentUser={localUser} 
-            onBack={() => { setView("home"); setIsMenuOpen(true); }} 
-            onLogout={onLogout} 
-            onUserUpdate={handleUserUpdate} 
+          <ProfileSettings
+            currentUser={localUser}
+            onBack={() => { setView("home"); setIsMenuOpen(true); }}
+            onLogout={onLogout}
+            onUserUpdate={handleUserUpdate}
             initialSubView={view === "profile" ? "personal_info" : "main"}
           />
         ) : null}
@@ -369,15 +372,15 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
                 )}
               </div>
               <h3 style={styles.userName}>{localUser?.name || "User"}</h3>
-              
+
               {/* COMPACT IMPACT CARD IN SIDEBAR */}
-              <div style={{ 
+              <div style={{
                 marginTop: '16px', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '12px', padding: '12px',
                 border: '1px solid rgba(255,255,255,0.1)', textAlign: 'center'
               }}>
                 <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginBottom: '8px' }}>
-                  <div style={{ 
-                    backgroundColor: '#FCD34D', color: '#1E1B4B', padding: '2px 8px', borderRadius: '10px', 
+                  <div style={{
+                    backgroundColor: '#FCD34D', color: '#1E1B4B', padding: '2px 8px', borderRadius: '10px',
                     fontSize: '9px', fontWeight: '900', letterSpacing: '0.05em'
                   }}>
                     {calculateLevel(localUser?.impact_points || 0).name.toUpperCase()}
@@ -405,9 +408,9 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
               {menuItems.map((item, idx) => {
                 if (item.type === 'label') {
                   return (
-                    <div key={`label-${idx}`} style={{ 
-                      fontSize: '11px', fontWeight: '800', color: 'rgba(255,255,255,0.4)', 
-                      letterSpacing: '1px', marginTop: '24px', marginBottom: '12px', paddingLeft: '16px' 
+                    <div key={`label-${idx}`} style={{
+                      fontSize: '11px', fontWeight: '800', color: 'rgba(255,255,255,0.4)',
+                      letterSpacing: '1px', marginTop: '24px', marginBottom: '12px', paddingLeft: '16px'
                     }}>
                       {item.label}
                     </div>
@@ -417,11 +420,11 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
                 return (
                   <div key={item.id} style={{ marginTop: item.id === 'logout' ? 'auto' : '0' }}>
                     <button
-                      style={{ 
-                        ...styles.menuLink, 
+                      style={{
+                        ...styles.menuLink,
                         backgroundColor: (isActive && !item.subItems) ? '#3B82F6' : 'transparent',
-                        color: (isActive && !item.subItems) ? 'white' : (item.color || 'rgba(255, 255, 255, 0.8)'), 
-                        display: 'flex', alignItems: 'center', gap: '12px', width: '100%' 
+                        color: (isActive && !item.subItems) ? 'white' : (item.color || 'rgba(255, 255, 255, 0.8)'),
+                        display: 'flex', alignItems: 'center', gap: '12px', width: '100%'
                       }}
                       onClick={() => {
                         if (item.subItems) {
@@ -452,12 +455,12 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
                           return (
                             <button
                               key={sub.id}
-                              style={{ 
-                                ...styles.menuLink, 
-                                fontSize: '14px', 
+                              style={{
+                                ...styles.menuLink,
+                                fontSize: '14px',
                                 backgroundColor: isSubActive ? 'rgba(255, 255, 255, 0.1)' : 'transparent',
-                                color: isSubActive ? 'white' : 'rgba(255, 255, 255, 0.6)', 
-                                display: 'flex', alignItems: 'center', gap: '10px' 
+                                color: isSubActive ? 'white' : 'rgba(255, 255, 255, 0.6)',
+                                display: 'flex', alignItems: 'center', gap: '10px'
                               }}
                               onClick={() => navigateTo(sub.id)}
                             >
@@ -482,16 +485,16 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
         <div style={styles.reportOverlay} onClick={() => setIsReportModalOpen(false)}>
           <div style={styles.reportModalContent} onClick={e => e.stopPropagation()}>
             {reportStep === "general" && (
-              <GeneralFeedback 
-                currentUser={localUser} 
+              <GeneralFeedback
+                currentUser={localUser}
                 initialDraft={resumeDraft}
-                onBack={() => { setIsReportModalOpen(false); setResumeDraft(null); }} 
-                onSuccess={() => { 
-                  showSuccessModal("Your suggestions have been submitted."); 
-                  setResumeDraft(null); 
+                onBack={() => { setIsReportModalOpen(false); setResumeDraft(null); }}
+                onSuccess={() => {
+                  showSuccessModal("Your suggestions have been submitted.");
+                  setResumeDraft(null);
                   fetchUserProfile(); // Refresh points after post
-                }} 
-                onSaveDraft={() => { setIsReportModalOpen(false); setResumeDraft(null); }} 
+                }}
+                onSaveDraft={() => { setIsReportModalOpen(false); setResumeDraft(null); }}
               />
             )}
           </div>
@@ -529,9 +532,9 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
       )}
 
       {selectedBroadcast && (
-        <BroadcastViewModal 
-          notif={selectedBroadcast} 
-          onClose={() => setSelectedBroadcast(null)} 
+        <BroadcastViewModal
+          notif={selectedBroadcast}
+          onClose={() => setSelectedBroadcast(null)}
         />
       )}
 
@@ -571,9 +574,9 @@ const CommentModal = ({ item, currentUser, onClose, onShowToast, onRefreshProfil
         ]);
         setComments(commentData);
         // Correctively sync likes -> likes_count and dislikes -> dislikes_count
-        setItemMeta({ 
-          ...item, 
-          ...metaData, 
+        setItemMeta({
+          ...item,
+          ...metaData,
           likes_count: metaData.likes,
           dislikes_count: metaData.dislikes
         });
@@ -670,12 +673,12 @@ const CommentModal = ({ item, currentUser, onClose, onShowToast, onRefreshProfil
       await toggleReaction(item.id, currentUser?.id || 1, isLike);
       const data = await getReactionsSummary(item.id, currentUser?.id);
       // Correctively sync likes -> likes_count and dislikes -> dislikes_count to ensure local UI updates immediately
-      setItemMeta(prev => ({ 
-        ...prev, 
-        ...data, 
-        likes_count: data.likes, 
-        dislikes_count: data.dislikes, 
-        user_reaction: data.user_reaction 
+      setItemMeta(prev => ({
+        ...prev,
+        ...data,
+        likes_count: data.likes,
+        dislikes_count: data.dislikes,
+        user_reaction: data.user_reaction
       }));
       if (typeof onRefreshProfile === 'function') onRefreshProfile();
       if (typeof onRefreshFeed === 'function') onRefreshFeed();
@@ -709,7 +712,7 @@ const CommentModal = ({ item, currentUser, onClose, onShowToast, onRefreshProfil
             overflow: 'hidden'
           }}>
             {node.user?.avatar_url ? (
-              <img src={node.user.avatar_url} alt="avatar" style={{width: '100%', height: '100%', objectFit: 'cover'}} />
+              <img src={node.user.avatar_url} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             ) : (node.user?.name || node.user_name || 'U').charAt(0)}
           </div>
           <div style={{ flex: 1 }}>
@@ -734,7 +737,7 @@ const CommentModal = ({ item, currentUser, onClose, onShowToast, onRefreshProfil
                     )}
                   </div>
                   <p style={{ ...styles.commentText, fontSize: '13px', color: '#1E293B' }}>
-                    {node.message.split(' ').map((word, i) => 
+                    {node.message.split(' ').map((word, i) =>
                       word.startsWith('@') ? <strong key={i} style={{ color: '#3B82F6' }}>{word} </strong> : word + ' '
                     )}
                   </p>
@@ -743,8 +746,8 @@ const CommentModal = ({ item, currentUser, onClose, onShowToast, onRefreshProfil
             </div>
             {!editingCommentId && (
               <div style={{ ...styles.commentActionsRow, marginTop: '4px', paddingLeft: '8px' }}>
-                <button style={{ ...styles.commentReactBtn, color: node.user_reaction === true ? '#3B82F6' : '#64748B' }} onClick={() => handleReplyReaction(node.id, true)}><Icons.ThumbUp size={12}/> <span>{node.likes_count || ''}</span></button>
-                <button style={{ ...styles.commentReactBtn, color: node.user_reaction === false ? '#EF4444' : '#64748B' }} onClick={() => handleReplyReaction(node.id, false)}><Icons.ThumbDown size={12}/> <span>{node.dislikes_count || ''}</span></button>
+                <button style={{ ...styles.commentReactBtn, color: node.user_reaction === true ? '#3B82F6' : '#64748B' }} onClick={() => handleReplyReaction(node.id, true)}><Icons.ThumbUp size={12} /> <span>{node.likes_count || ''}</span></button>
+                <button style={{ ...styles.commentReactBtn, color: node.user_reaction === false ? '#EF4444' : '#64748B' }} onClick={() => handleReplyReaction(node.id, false)}><Icons.ThumbDown size={12} /> <span>{node.dislikes_count || ''}</span></button>
                 <button style={{ ...styles.commentReplyLink, color: '#1f2a56' }} onClick={() => handleStartReply(node)}>Reply</button>
                 <span style={styles.commentDate}>{formatDate(node.created_at)}</span>
               </div>
@@ -772,7 +775,7 @@ const CommentModal = ({ item, currentUser, onClose, onShowToast, onRefreshProfil
             <div style={styles.snippetUserRow}>
               <div style={{ ...styles.snippetAvatar, backgroundColor: '#F1F5F9', color: '#1E293B', overflow: 'hidden' }}>
                 {itemMeta.sender_avatar_url ? (
-                  <img src={itemMeta.sender_avatar_url} alt="avatar" style={{width: '100%', height: '100%', objectFit: 'cover'}} />
+                  <img src={itemMeta.sender_avatar_url} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 ) : (itemMeta.user_name || 'U').charAt(0)}
               </div>
               <div style={{ flex: 1 }}>
@@ -806,7 +809,7 @@ const CommentModal = ({ item, currentUser, onClose, onShowToast, onRefreshProfil
             {loading ? <p style={styles.emptyText}>Loading...</p> :
               comments.length === 0 ? <p style={styles.emptyText}>No comments yet. Be the first!</p> :
                 comments.filter(c => !c.parent_id).map(parentComment => {
-                  const thread = getAllRepliesForThread(comments, parentComment.id).sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
+                  const thread = getAllRepliesForThread(comments, parentComment.id).sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
                   return (
                     <div key={parentComment.id} style={{ marginBottom: '16px' }}>
                       {renderThreadNode(parentComment, 0)}
@@ -874,9 +877,9 @@ const timeAgo = (dateString) => {
   if (diffInSeconds < 60) return `Just now`;
   if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
   if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
-  return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) + 
-         ' at ' + 
-         date.toLocaleTimeString('en-US', { hour: '2-digit', minute:'2-digit' });
+  return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) +
+    ' at ' +
+    date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 };
 
 const getStatusColor = (status) => {
@@ -895,7 +898,7 @@ const FeedCard = ({ item: initialItem, currentUser, onShowToast, onOpenComments,
   const [likes, setLikes] = useState(0);
   const [dislikes, setDislikes] = useState(0);
   const [userReaction, setUserReaction] = useState(null);
-  
+
   // Edit & Delete state
   const [showOptions, setShowOptions] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -973,9 +976,9 @@ const FeedCard = ({ item: initialItem, currentUser, onShowToast, onOpenComments,
       onConfirm: async () => {
         try {
           await deleteFeedback(item.id);
-          if(onRefresh) onRefresh();
+          if (onRefresh) onRefresh();
           onShowToast("Post deleted successfully");
-        } catch(e) { console.error(e); }
+        } catch (e) { console.error(e); }
         setDialogState({ isOpen: false });
       },
       onCancel: () => setDialogState({ isOpen: false })
@@ -988,7 +991,7 @@ const FeedCard = ({ item: initialItem, currentUser, onShowToast, onOpenComments,
       setItem(updated);
       setIsEditing(false);
       onShowToast("Post updated");
-    } catch(e) { console.error(e); }
+    } catch (e) { console.error(e); }
   };
 
   return (
@@ -1017,18 +1020,18 @@ const FeedCard = ({ item: initialItem, currentUser, onShowToast, onOpenComments,
           <div style={styles.fbSenderRow}>
             <span style={{ ...styles.cardSender, color: '#1E293B', fontWeight: 'bold' }}>{senderName}</span>
             {emotion ? (
-              <span style={{color: '#1f2a56', opacity: 0.85}}> is feeling {emotion} at <span style={{fontWeight: '700', color: '#1877F2'}}>{establishmentName}</span></span>
+              <span style={{ color: '#1f2a56', opacity: 0.85 }}> is feeling {emotion} at <span style={{ fontWeight: '700', color: '#1877F2' }}>{establishmentName}</span></span>
             ) : (
-              <span style={{color: '#1f2a56', opacity: 0.85}}> reported about <span style={{fontWeight: '700', color: '#1877F2'}}>{establishmentName}</span></span>
+              <span style={{ color: '#1f2a56', opacity: 0.85 }}> reported about <span style={{ fontWeight: '700', color: '#1877F2' }}>{establishmentName}</span></span>
             )}
             {(item.mentions && item.mentions.length > 0) ? (
-                <span style={{ marginLeft: '4px', fontSize: '11px', backgroundColor: '#EFF6FF', color: '#1D4ED8', padding: '2px 8px', borderRadius: '12px', fontWeight: '600', border: '1px solid #DBEAFE' }}>
-                  Mentioned: {item.mentions.map(m => `${m.employee_prefix} ${m.employee_name}`.trim()).join(", ")}
-                </span>
+              <span style={{ marginLeft: '4px', fontSize: '11px', backgroundColor: '#EFF6FF', color: '#1D4ED8', padding: '2px 8px', borderRadius: '12px', fontWeight: '600', border: '1px solid #DBEAFE' }}>
+                Mentioned: {item.mentions.map(m => `${m.employee_prefix} ${m.employee_name}`.trim()).join(", ")}
+              </span>
             ) : item.employee_name && (
-                <span style={{ marginLeft: '4px', fontSize: '11px', backgroundColor: '#EFF6FF', color: '#1D4ED8', padding: '2px 8px', borderRadius: '12px', fontWeight: '600', border: '1px solid #DBEAFE' }}>
-                  Mentioned: {item.employee_name}
-                </span>
+              <span style={{ marginLeft: '4px', fontSize: '11px', backgroundColor: '#EFF6FF', color: '#1D4ED8', padding: '2px 8px', borderRadius: '12px', fontWeight: '600', border: '1px solid #DBEAFE' }}>
+                Mentioned: {item.employee_name}
+              </span>
             )}
           </div>
           <div style={{ ...styles.cardMeta, color: '#1f2a56', fontWeight: '500', opacity: 0.7 }}>{timeAgo(item.created_at)} {locationText && ` • ${locationText}`}</div>
@@ -1039,24 +1042,24 @@ const FeedCard = ({ item: initialItem, currentUser, onShowToast, onOpenComments,
           </div>
         )}
         <div style={{ position: 'relative', marginLeft: item.status !== 'Open' ? '6px' : 'auto' }}>
-           <button 
-             onClick={(e) => { e.stopPropagation(); setShowOptions(!showOptions); }}
-             style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: '#64748B' }}
-           >
-             ⋮
-           </button>
-           {showOptions && (
-              <div style={{ position: 'absolute', right: 0, top: '100%', backgroundColor: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', zIndex: 10 }}>
-                 {isOwner ? (
-                   <>
-                     <button onClick={() => { setIsEditing(true); setShowOptions(false); setEditTitle(item.title); setEditDesc(item.description); }} style={{ display: 'block', width: '100%', padding: '8px 16px', background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer', borderBottom: '1px solid #E2E8F0', color: '#1E293B' }}>Edit</button>
-                     <button onClick={() => { setShowOptions(false); handleDelete(); }} style={{ display: 'block', width: '100%', padding: '8px 16px', background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer', color: '#EF4444' }}>Delete</button>
-                   </>
-                 ) : (
-                   <button onClick={() => { setShowOptions(false); onShowToast("Post reported. Thank you."); }} style={{ display: 'block', width: '100%', padding: '8px 16px', background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer', color: '#EF4444', minWidth: '100px' }}>Report</button>
-                 )}
-              </div>
-           )}
+          <button
+            onClick={(e) => { e.stopPropagation(); setShowOptions(!showOptions); }}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: '#64748B' }}
+          >
+            ⋮
+          </button>
+          {showOptions && (
+            <div style={{ position: 'absolute', right: 0, top: '100%', backgroundColor: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', zIndex: 10 }}>
+              {isOwner ? (
+                <>
+                  <button onClick={() => { setIsEditing(true); setShowOptions(false); setEditTitle(item.title); setEditDesc(item.description); }} style={{ display: 'block', width: '100%', padding: '8px 16px', background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer', borderBottom: '1px solid #E2E8F0', color: '#1E293B' }}>Edit</button>
+                  <button onClick={() => { setShowOptions(false); handleDelete(); }} style={{ display: 'block', width: '100%', padding: '8px 16px', background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer', color: '#EF4444' }}>Delete</button>
+                </>
+              ) : (
+                <button onClick={() => { setShowOptions(false); onShowToast("Post reported. Thank you."); }} style={{ display: 'block', width: '100%', padding: '8px 16px', background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer', color: '#EF4444', minWidth: '100px' }}>Report</button>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -1065,7 +1068,7 @@ const FeedCard = ({ item: initialItem, currentUser, onShowToast, onOpenComments,
         {[1, 2, 3, 4, 5].map(s => (
           <Icons.Star key={s} filled={s <= (item.rating || 0)} size={12} />
         ))}
-        <span style={{fontSize: '11px', color: '#64748B', marginLeft: '4px'}}>{item.rating || 0}/5</span>
+        <span style={{ fontSize: '11px', color: '#64748B', marginLeft: '4px' }}>{item.rating || 0}/5</span>
       </div>
 
       {/* DETAIL METADATA — product/staff only (address shown in header) */}
@@ -1080,12 +1083,12 @@ const FeedCard = ({ item: initialItem, currentUser, onShowToast, onOpenComments,
 
       {isEditing ? (
         <div style={{ marginBottom: '12px' }}>
-           <input value={editTitle} onChange={e => setEditTitle(e.target.value)} style={{ width: '100%', padding: '8px', marginBottom: '8px', border: '1px solid #E2E8F0', backgroundColor: 'white', color: '#1E293B', borderRadius: '4px' }} placeholder="Title" />
-           <textarea value={editDesc} onChange={e => setEditDesc(e.target.value)} style={{ width: '100%', padding: '8px', minHeight: '60px', border: '1px solid #E2E8F0', backgroundColor: 'white', color: '#1E293B', borderRadius: '4px' }} placeholder="Description" />
-           <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
-              <button onClick={() => setIsEditing(false)} style={{ padding: '6px 12px', background: '#F1F5F9', color: '#64748B', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Cancel</button>
-              <button onClick={handleUpdate} style={{ padding: '6px 12px', background: '#10B981', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Save</button>
-           </div>
+          <input value={editTitle} onChange={e => setEditTitle(e.target.value)} style={{ width: '100%', padding: '8px', marginBottom: '8px', border: '1px solid #E2E8F0', backgroundColor: 'white', color: '#1E293B', borderRadius: '4px' }} placeholder="Title" />
+          <textarea value={editDesc} onChange={e => setEditDesc(e.target.value)} style={{ width: '100%', padding: '8px', minHeight: '60px', border: '1px solid #E2E8F0', backgroundColor: 'white', color: '#1E293B', borderRadius: '4px' }} placeholder="Description" />
+          <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+            <button onClick={() => setIsEditing(false)} style={{ padding: '6px 12px', background: '#F1F5F9', color: '#64748B', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Cancel</button>
+            <button onClick={handleUpdate} style={{ padding: '6px 12px', background: '#10B981', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Save</button>
+          </div>
         </div>
       ) : (
         <p style={{ ...styles.cardText, color: '#1E293B' }}>
@@ -1100,11 +1103,11 @@ const FeedCard = ({ item: initialItem, currentUser, onShowToast, onOpenComments,
             try {
               const files = JSON.parse(item.attachments);
               return files.map((src, idx) => (
-                <img 
-                  key={idx} 
-                  src={src} 
-                  alt={`Attachment ${idx}`} 
-                  style={styles.feedImg} 
+                <img
+                  key={idx}
+                  src={src}
+                  alt={`Attachment ${idx}`}
+                  style={styles.feedImg}
                   onClick={(e) => { e.stopPropagation(); setFullscreenImg(src); }}
                 />
               ));
@@ -1171,12 +1174,12 @@ const DashboardView = ({ feed, loading, hasMore, onLoadMore, onAction, currentUs
     const catName = (item.category_name || "").toLowerCase();
     const deptName = (item.dept_name || "").toLowerCase();
     const activeLower = activeTab.toLowerCase();
-    
+
     let matchesTab = false;
     if (activeTab === 'All') matchesTab = true;
     else if (catName === activeLower) matchesTab = true;
     else if (activeLower === 'dept' && (catName.includes('dept') || catName.includes('department') || deptName)) matchesTab = true;
-    
+
     if (!matchesTab) return false;
 
     // Search Filter
@@ -1202,7 +1205,7 @@ const DashboardView = ({ feed, loading, hasMore, onLoadMore, onAction, currentUs
 
   return (
     <div style={{ ...styles.fadeIn, display: 'flex', flexDirection: 'column', height: '100%', maxWidth: '1000px', margin: '0 auto', width: '100%', overflow: 'hidden' }}>
-      
+
       {/* FIXED TOP SECTION */}
       <div style={{ flexShrink: 0, paddingBottom: '8px' }}>
         <section style={{ ...styles.actionGridSingle, marginBottom: '12px', marginTop: '12px' }}>
@@ -1221,7 +1224,7 @@ const DashboardView = ({ feed, loading, hasMore, onLoadMore, onAction, currentUs
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#64748B" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>
               TRENDING THIS WEEK
             </h3>
-            
+
             {trendingItems.length > 0 ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 {(isTrendingExpanded ? trendingItems : trendingItems.slice(0, 1)).map((item, index) => {
@@ -1244,7 +1247,7 @@ const DashboardView = ({ feed, loading, hasMore, onLoadMore, onAction, currentUs
                   );
                 })}
                 {trendingItems.length > 1 && (
-                  <button 
+                  <button
                     onClick={() => setIsTrendingExpanded(!isTrendingExpanded)}
                     style={{ background: 'none', border: 'none', color: '#4F46E5', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', padding: '4px 0', textAlign: 'center', width: '100%' }}
                   >
@@ -1262,7 +1265,7 @@ const DashboardView = ({ feed, loading, hasMore, onLoadMore, onAction, currentUs
       </div>
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, width: '100%', maxWidth: '700px', margin: '0 auto' }}>
-        
+
         {/* RECENT ACTIVITY: Main Feed */}
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
           <div style={styles.feedHeader}>
@@ -1280,7 +1283,7 @@ const DashboardView = ({ feed, loading, hasMore, onLoadMore, onAction, currentUs
             style={styles.feedTabsRow}
           >
             {tabs.map(tab => (
-              <button 
+              <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 style={{
@@ -1290,8 +1293,8 @@ const DashboardView = ({ feed, loading, hasMore, onLoadMore, onAction, currentUs
                   fontWeight: activeTab === tab.id ? 'bold' : '600'
                 }}
               >
-                <div style={{width: 14, height: 14}}>{tab.icon}</div>
-                <span style={{fontSize: '11px'}}>{tab.label}</span>
+                <div style={{ width: 14, height: 14 }}>{tab.icon}</div>
+                <span style={{ fontSize: '11px' }}>{tab.label}</span>
               </button>
             ))}
           </div>
@@ -1302,8 +1305,8 @@ const DashboardView = ({ feed, loading, hasMore, onLoadMore, onAction, currentUs
               <div style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', display: 'flex' }}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
               </div>
-              <input 
-                type="text" 
+              <input
+                type="text"
                 placeholder="Search establishments or services..."
                 value={searchDash}
                 onChange={(e) => setSearchDash(e.target.value)}
@@ -1340,8 +1343,8 @@ const DashboardView = ({ feed, loading, hasMore, onLoadMore, onAction, currentUs
                 )}
                 {hasMore && feed.length >= 10 && (
                   <div style={{ padding: '20px', textAlign: 'center' }}>
-                    <button 
-                      onClick={onLoadMore} 
+                    <button
+                      onClick={onLoadMore}
                       disabled={loading}
                       style={{ ...styles.submitBtn, width: 'auto', padding: '10px 30px', backgroundColor: '#F1F5F9', color: '#1f2a56', border: '1px solid #E2E8F0' }}
                     >
@@ -1373,7 +1376,7 @@ const CategorySelection = ({ onBack, onSelect }) => (
           <div style={{ ...styles.catIcon, color: '#1f2a56', backgroundColor: '#F1F5F9' }}>{cat.icon}</div>
           <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'left', flex: 1 }}>
             <span style={{ ...styles.catLabel, fontSize: 'clamp(15px, 4vw, 17px)' }}>
-              {cat.labelMain} <span style={{fontSize: '11px', color: '#64748B', fontWeight: 'normal'}}> / {cat.labelSub}</span>
+              {cat.labelMain} <span style={{ fontSize: '11px', color: '#64748B', fontWeight: 'normal' }}> / {cat.labelSub}</span>
             </span>
             <span style={{ fontSize: '12px', color: '#94A3B8' }}>{cat.desc}</span>
           </div>
@@ -1550,30 +1553,30 @@ const BroadcastViewModal = ({ notif, onClose }) => {
       <div style={{ ...styles.commentModalContent, maxWidth: '500px', height: 'auto', maxHeight: '90vh' }} onClick={e => e.stopPropagation()}>
         <header style={{ ...styles.commentModalHeader, backgroundColor: '#FFFFFF', borderBottom: '1px solid #E2E8F0' }}>
           <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-             <div style={{ padding: '10px', background: 'linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%)', borderRadius: '12px', color: '#92400E' }}>
-               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
-             </div>
-             <div style={{ display: 'flex', flexDirection: 'column' }}>
-               <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#0F172A' }}>{notif.subject || 'System Announcement'}</h3>
-               <span style={{ fontSize: '11px', color: '#64748B' }}>Posted by GlobalCore Admin</span>
-             </div>
+            <div style={{ padding: '10px', background: 'linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%)', borderRadius: '12px', color: '#92400E' }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#0F172A' }}>{notif.subject || 'System Announcement'}</h3>
+              <span style={{ fontSize: '11px', color: '#64748B' }}>Posted by GlobalCore Admin</span>
+            </div>
           </div>
           <button onClick={onClose} style={{ ...styles.closeBtn, backgroundColor: '#F1F5F9', color: '#64748B' }}>✕</button>
         </header>
         <div style={{ padding: '24px', backgroundColor: '#FFFFFF' }}>
-           <p style={{ margin: 0, fontSize: '14px', lineHeight: '1.6', color: '#334155', whiteSpace: 'pre-wrap' }}>
-             {notif.message}
-           </p>
-           <div style={{ marginTop: '24px', paddingTop: '16px', borderTop: '1px dotted #E2E8F0', display: 'flex', justifyContent: 'flex-end' }}>
-              <button 
-                onClick={onClose} 
-                style={{ ...styles.modalSendBtn, backgroundColor: '#1f2a56', width: 'auto', padding: '10px 24px' }}
-              >Confirm</button>
-           </div>
+          <p style={{ margin: 0, fontSize: '14px', lineHeight: '1.6', color: '#334155', whiteSpace: 'pre-wrap' }}>
+            {notif.message}
+          </p>
+          <div style={{ marginTop: '24px', paddingTop: '16px', borderTop: '1px dotted #E2E8F0', display: 'flex', justifyContent: 'flex-end' }}>
+            <button
+              onClick={onClose}
+              style={{ ...styles.modalSendBtn, backgroundColor: '#1f2a56', width: 'auto', padding: '10px 24px' }}
+            >Confirm</button>
+          </div>
         </div>
       </div>
     </div>
   );
 };
 
-export default FeedbackHub;
+export default FeedbackHub;

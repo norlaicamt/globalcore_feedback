@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import CustomModal from "./CustomModal";
-import { deleteUser, updateUser, getUserById } from "../services/api";
+import { deleteUser, updateUser, getUserById, getDepartments } from "../services/api";
 
 // --- PROFESSIONAL SVGs (Strict Navy/Grey Palette) ---
 const Icons = {
@@ -177,12 +177,79 @@ const PersonalInfoView = ({ currentUser, onBack, showToast, onUserUpdate, fileIn
   const [name, setName] = useState(currentUser?.name || "");
   const [email, setEmail] = useState(currentUser?.email || "");
   const [phone, setPhone] = useState(currentUser?.phone || "");
-  const [department, setDepartment] = useState(currentUser?.department || "");
+  const [program, setProgram] = useState(currentUser?.program || "");
   const [username, setUsername] = useState(currentUser?.username || "");
+  const [roleIdentity, setRoleIdentity] = useState(currentUser?.role_identity || "");
+  const [school, setSchool] = useState(currentUser?.school || "");
+  const [companyName, setCompanyName] = useState(currentUser?.company_name || "");
+  const [positionTitle, setPositionTitle] = useState(currentUser?.position_title || "");
+  const [region, setRegion] = useState(currentUser?.region || "");
+  const [province, setProvince] = useState(currentUser?.province || "");
+  const [city, setCity] = useState(currentUser?.city || "");
+  const [barangay, setBarangay] = useState(currentUser?.barangay || "");
+  const [exactAddress, setExactAddress] = useState(currentUser?.exact_address || "");
+  const [programOptions, setProgramOptions] = useState([]);
+
+  useEffect(() => {
+    setName(currentUser?.name || "");
+    setEmail(currentUser?.email || "");
+    setPhone(currentUser?.phone || "");
+    setProgram(currentUser?.program || "");
+    setUsername(currentUser?.username || "");
+    setRoleIdentity(currentUser?.role_identity || "");
+    setSchool(currentUser?.school || "");
+    setCompanyName(currentUser?.company_name || "");
+    setPositionTitle(currentUser?.position_title || "");
+    setRegion(currentUser?.region || "");
+    setProvince(currentUser?.province || "");
+    setCity(currentUser?.city || "");
+    setBarangay(currentUser?.barangay || "");
+    setExactAddress(currentUser?.exact_address || "");
+  }, [currentUser]);
+
+  useEffect(() => {
+    const loadPrograms = async () => {
+      try {
+        const deps = await getDepartments();
+        setProgramOptions((deps || []).map((d) => d.name).filter(Boolean));
+      } catch (e) {
+        console.error("Failed to load programs/departments", e);
+      }
+    };
+    loadPrograms();
+  }, []);
+
+  useEffect(() => {
+    if (roleIdentity === "Student") {
+      setCompanyName("");
+      setPositionTitle("");
+    } else if (roleIdentity === "Employee") {
+      setSchool("");
+    } else {
+      setSchool("");
+      setCompanyName("");
+      setPositionTitle("");
+    }
+  }, [roleIdentity]);
 
   const handleSave = async () => {
     try {
-      const updated = await updateUser(currentUser.id, { name, email, phone, department, username });
+      const updated = await updateUser(currentUser.id, {
+        name,
+        email,
+        phone,
+        program,
+        username,
+        role_identity: roleIdentity,
+        school,
+        company_name: companyName,
+        position_title: positionTitle,
+        region,
+        province,
+        city,
+        barangay,
+        exact_address: exactAddress,
+      });
       // Merge server response with existing - ensures all fields (id, role, etc.) preserved
       const merged = { ...currentUser, ...updated };
       if (onUserUpdate) onUserUpdate(merged);
@@ -216,7 +283,24 @@ const PersonalInfoView = ({ currentUser, onBack, showToast, onUserUpdate, fileIn
         <div style={styles.formGroup}><label style={styles.inputLabel}>Username</label><input type="text" style={styles.inputField} value={username} onChange={e => setUsername(e.target.value)} /></div>
         <div style={styles.formGroup}><label style={styles.inputLabel}>Email Address</label><input type="email" style={styles.inputField} value={email} onChange={e => setEmail(e.target.value)} /></div>
         <div style={styles.formGroup}><label style={styles.inputLabel}>Phone Number</label><input type="tel" style={styles.inputField} value={phone} onChange={e => setPhone(e.target.value)} /></div>
-        <div style={styles.formGroup}><label style={styles.inputLabel}>Department / Office</label><input type="text" style={styles.inputField} value={department} onChange={e => setDepartment(e.target.value)} /></div>
+        {roleIdentity === "Employee" && <div style={styles.formGroup}><label style={styles.inputLabel}>Company Name</label><input type="text" style={styles.inputField} value={companyName} onChange={e => setCompanyName(e.target.value)} /></div>}
+        <div style={styles.formGroup}>
+          <label style={styles.inputLabel}>Program / Office</label>
+          <select style={styles.inputField} value={program} onChange={e => setProgram(e.target.value)}>
+            <option value="">Select Program / Office</option>
+            {programOptions.map((name) => (
+              <option key={name} value={name}>{name}</option>
+            ))}
+          </select>
+        </div>
+        <div style={styles.formGroup}><label style={styles.inputLabel}>Role Identity</label><input type="text" style={styles.inputField} value={roleIdentity} onChange={e => setRoleIdentity(e.target.value)} /></div>
+        {roleIdentity === "Student" && <div style={styles.formGroup}><label style={styles.inputLabel}>School Name</label><input type="text" style={styles.inputField} value={school} onChange={e => setSchool(e.target.value)} /></div>}
+        {roleIdentity === "Employee" && <div style={styles.formGroup}><label style={styles.inputLabel}>Position</label><input type="text" style={styles.inputField} value={positionTitle} onChange={e => setPositionTitle(e.target.value)} /></div>}
+        <div style={styles.formGroup}><label style={styles.inputLabel}>Region</label><input type="text" style={styles.inputField} value={region} onChange={e => setRegion(e.target.value)} /></div>
+        <div style={styles.formGroup}><label style={styles.inputLabel}>Province</label><input type="text" style={styles.inputField} value={province} onChange={e => setProvince(e.target.value)} /></div>
+        <div style={styles.formGroup}><label style={styles.inputLabel}>City / Municipality</label><input type="text" style={styles.inputField} value={city} onChange={e => setCity(e.target.value)} /></div>
+        <div style={styles.formGroup}><label style={styles.inputLabel}>Barangay</label><input type="text" style={styles.inputField} value={barangay} onChange={e => setBarangay(e.target.value)} /></div>
+        <div style={styles.formGroup}><label style={styles.inputLabel}>Exact Address</label><input type="text" style={styles.inputField} value={exactAddress} onChange={e => setExactAddress(e.target.value)} /></div>
         <button style={styles.saveBtn} onClick={handleSave}>Save Changes</button>
       </main>
     </div>

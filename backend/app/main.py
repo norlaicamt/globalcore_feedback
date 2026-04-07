@@ -10,6 +10,7 @@ from app.database import engine, get_db
 from app import models, crud, schemas
 from app.routers import users, departments, categories, feedback, analytics, admin
 from dotenv import load_dotenv
+import os
 
 load_dotenv()
 
@@ -43,10 +44,16 @@ def home():
     return {"status": "online", "message": "Global Core Backend is Running Successfully"}
 
 # Middleware
+frontend_origins_env = os.getenv("FRONTEND_ORIGINS", "")
+default_origins = ["http://localhost:3000", "http://127.0.0.1:3000"]
+allow_origins = [o.strip() for o in frontend_origins_env.split(",") if o.strip()] or default_origins
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    # This app doesn't rely on cookie-based auth in the browser.
+    # Disabling credentials allows wildcard/varied origins (useful for dev ports like 3000/3002).
+    allow_origins=allow_origins if frontend_origins_env else ["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )

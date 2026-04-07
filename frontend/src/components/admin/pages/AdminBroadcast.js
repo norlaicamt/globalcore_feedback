@@ -30,9 +30,11 @@ const BROADCAST_TEMPLATES = [
   }
 ];
 
-const AdminBroadcast = ({ theme, darkMode }) => {
+const AdminBroadcast = ({ theme, darkMode, adminUser }) => {
+  const hasGlobalAdminAccess = ["admin", "superadmin"].includes(adminUser?.role);
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
+  const [broadcastType, setBroadcastType] = useState("announcement"); // announcement, alert, reminder
   const [sending, setSending] = useState(false);
   const [history, setHistory] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
@@ -58,7 +60,7 @@ const AdminBroadcast = ({ theme, darkMode }) => {
     if (!message.trim() || !subject.trim()) return;
     setSending(true);
     try {
-      const res = await adminBroadcast(subject.trim(), message.trim());
+      const res = await adminBroadcast(subject.trim(), message.trim(), broadcastType);
       setDialog({
         isOpen: true, type: "alert", title: "Broadcast Sent",
         message: `Your announcement was delivered to ${res.sent_to} user(s).`,
@@ -102,6 +104,42 @@ const AdminBroadcast = ({ theme, darkMode }) => {
 
         <form onSubmit={handleSend} style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
           
+          <div>
+            <label style={{ display: "block", fontSize: "11px", fontWeight: "700", color: theme.textMuted, marginBottom: "10px", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+              Broadcast Type
+            </label>
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+              {[
+                { id: 'announcement', label: 'Announcement', color: '#3B82F6', icon: <BellIcon /> },
+                { id: 'alert', label: 'Critical Alert', color: '#EF4444', icon: <AlertIcon /> },
+                { id: 'reminder', label: 'Internal Reminder', color: '#10B981', icon: <ClockIcon /> }
+              ].map(t => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => setBroadcastType(t.id)}
+                  style={{
+                    flex: 1, padding: '8px', borderRadius: '10px', border: `1.5px solid ${broadcastType === t.id ? t.color : theme.border}`,
+                    background: broadcastType === t.id ? `${t.color}10` : theme.bg, color: broadcastType === t.id ? t.color : theme.textMuted, 
+                    fontSize: '11px', fontWeight: '700', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px'
+                  }}
+                >
+                  {t.icon}
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {!hasGlobalAdminAccess && (
+            <div style={{ background: theme.bg, padding: '12px', borderRadius: '10px', border: `1px solid ${theme.border}`, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#3B82F6' }} />
+              <span style={{ fontSize: '12px', fontWeight: '600', color: theme.text }}>
+                Source: <strong>[OFFICIAL] {adminUser?.department?.toUpperCase()}</strong>
+              </span>
+            </div>
+          )}
+
           <div>
             <label style={{ display: "block", fontSize: "11px", fontWeight: "700", color: theme.textMuted, marginBottom: "10px", textTransform: "uppercase", letterSpacing: "0.05em" }}>
               Quick Templates
@@ -235,5 +273,9 @@ const AdminBroadcast = ({ theme, darkMode }) => {
     </div>
   );
 };
+
+function BellIcon() { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>; }
+function AlertIcon() { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>; }
+function ClockIcon() { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>; }
 
 export default AdminBroadcast;

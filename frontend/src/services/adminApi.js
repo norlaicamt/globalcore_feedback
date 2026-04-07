@@ -5,13 +5,25 @@ const API_BASE = process.env.REACT_APP_API_URL || `http://${window.location.host
 const BASE = `${API_BASE}/admin`;
 
 const adminApi = axios.create({ baseURL: BASE });
-
+ 
+// Request interceptor to add admin context headers
+adminApi.interceptors.request.use((config) => {
+  const adminUser = JSON.parse(localStorage.getItem("adminUser") || "null");
+  if (adminUser) {
+    config.headers["X-Admin-Id"] = adminUser.id;
+    config.headers["X-Admin-Role"] = adminUser.role;
+    if (adminUser.department) {
+      config.headers["X-Admin-Dept"] = adminUser.department;
+    }
+  }
+  return config;
+});
 
 // Auth
 export const adminLogin = (email, password) =>
   adminApi.post(`/login?email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`).then(r => r.data);
 
-// Analytics (Modified to include dept_name)
+// Analytics
 export const getAnalyticsSnapshot = (dept_name = "") => adminApi.get(`/analytics/snapshot${dept_name ? `?dept_name=${encodeURIComponent(dept_name)}` : ""}`).then(r => r.data);
 export const getAnalyticsSummary = (dept_name = "") => adminApi.get(`/analytics/summary${dept_name ? `?dept_name=${encodeURIComponent(dept_name)}` : ""}`).then(r => r.data);
 export const getAnalyticsVolume = (days = 30, dept_name = "") => adminApi.get(`/analytics/volume?days=${days}${dept_name ? `&dept_name=${encodeURIComponent(dept_name)}` : ""}`).then(r => r.data);
@@ -25,10 +37,16 @@ export const getAnalyticsByLocation = (dept_name = "") => adminApi.get(`/analyti
 export const getAnalyticsSentiment = (dept_name = "") => adminApi.get(`/analytics/sentiment${dept_name ? `?dept_name=${encodeURIComponent(dept_name)}` : ""}`).then(r => r.data);
 
 // Users
-// Users
 export const adminGetUsers = () => adminApi.get("/users").then(r => r.data);
 export const adminToggleUserStatus = (id, isActive) => adminApi.put(`/users/${id}/status?is_active=${isActive}`).then(r => r.data);
 export const adminUpdateUserRole = (id, role) => adminApi.put(`/users/${id}/role?role=${encodeURIComponent(role)}`).then(r => r.data);
+export const adminUpdateUserDetails = (id, role, department, program) => {
+  const q = new URLSearchParams();
+  if (role) q.set("role", role);
+  if (department !== undefined) q.set("department", department);
+  if (program !== undefined) q.set("program", program);
+  return adminApi.put(`/users/${id}/details?${q.toString()}`).then(r => r.data);
+};
 export const adminDeleteUser = (id) => adminApi.delete(`/users/${id}`);
 
 // Feedbacks
@@ -59,9 +77,17 @@ export const adminUpdateCategory = (id, name, description = "", fields = [], ico
 export const adminDeleteCategory = (id) => adminApi.delete(`/categories/${id}`);
 
 // Broadcast
-export const adminBroadcast = (subject, message) => 
-  adminApi.post(`/broadcast?subject=${encodeURIComponent(subject)}&message=${encodeURIComponent(message)}`).then(r => r.data);
+export const adminBroadcast = (subject, message, broadcast_type = "announcement") => 
+  adminApi.post(`/broadcast?subject=${encodeURIComponent(subject)}&message=${encodeURIComponent(message)}&broadcast_type=${broadcast_type}`).then(r => r.data);
 export const adminGetBroadcastLogs = () => adminApi.get("/broadcasts").then(r => r.data);
+
+// Audit
+export const adminGetAuditLogs = () => adminApi.get("/audit-logs").then(r => r.data);
+
+// Profile
+export const adminGetProfile = () => adminApi.get("/profile").then(r => r.data);
+export const adminUpdateProfile = (payload) => adminApi.put("/profile", payload).then(r => r.data);
+export const adminGetProfileActivity = (limit = 20) => adminApi.get(`/profile/activity?limit=${limit}`).then(r => r.data);
 
 // Moderation
 export const adminGetPendingSuggestions = () => adminApi.get("/pending-suggestions").then(r => r.data);

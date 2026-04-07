@@ -11,8 +11,19 @@ class UserBase(BaseModel):
     username: Optional[str] = None
     phone: Optional[str] = None
     department: Optional[str] = None
+    program: Optional[str] = None
+    role_identity: Optional[str] = None
+    school: Optional[str] = None
+    company_name: Optional[str] = None
+    position_title: Optional[str] = None
+    region: Optional[str] = None
+    province: Optional[str] = None
+    city: Optional[str] = None
+    barangay: Optional[str] = None
+    exact_address: Optional[str] = None
+    onboarding_completed: Optional[bool] = False
     two_factor_enabled: Optional[bool] = False
-    role: Optional[str] = "maker"
+    role: Optional[str] = "user"
     show_activity_status: Optional[bool] = True
     push_notifications: Optional[bool] = True
     email_notifications: Optional[bool] = False
@@ -21,9 +32,10 @@ class UserBase(BaseModel):
     weekly_digest: Optional[bool] = False
     biometrics_enabled: Optional[bool] = True
     avatar_url: Optional[str] = None
+    id_photo_url: Optional[str] = None
 
 class UserCreate(UserBase):
-    password: Optional[str] = "password" # Dummy init
+    password: str
 
 class UserUpdate(BaseModel):
     name: Optional[str] = None
@@ -31,6 +43,17 @@ class UserUpdate(BaseModel):
     email: Optional[str] = None
     phone: Optional[str] = None
     department: Optional[str] = None
+    program: Optional[str] = None
+    role_identity: Optional[str] = None
+    school: Optional[str] = None
+    company_name: Optional[str] = None
+    position_title: Optional[str] = None
+    region: Optional[str] = None
+    province: Optional[str] = None
+    city: Optional[str] = None
+    barangay: Optional[str] = None
+    exact_address: Optional[str] = None
+    onboarding_completed: Optional[bool] = None
     password: Optional[str] = None
     two_factor_enabled: Optional[bool] = None
     role: Optional[str] = None
@@ -42,6 +65,7 @@ class UserUpdate(BaseModel):
     weekly_digest: Optional[bool] = False
     biometrics_enabled: Optional[bool] = True
     avatar_url: Optional[str] = None
+    id_photo_url: Optional[str] = None
 
 class User(UserBase):
     id: int
@@ -211,6 +235,7 @@ class NotificationBase(BaseModel):
     type: str # 'comment', 'like', 'dislike', 'broadcast'
     feedback_id: int
     reply_id: Optional[int] = None
+    broadcast_type: Optional[str] = "announcement"
     is_read: bool = False
 
 class NotificationCreate(NotificationBase):
@@ -224,6 +249,7 @@ class Notification(NotificationBase):
     reply_message: Optional[str] = None
     message: Optional[str] = None
     subject: Optional[str] = None
+    broadcast_type: Optional[str] = "announcement"
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -255,10 +281,62 @@ class SystemSetting(SystemSettingBase):
 class BroadcastLogBase(BaseModel):
     subject: str
     message: str
+    broadcast_type: Optional[str] = "announcement"
     sent_to_count: int
 
 class BroadcastLog(BroadcastLogBase):
     id: int
     created_at: datetime
     read_count: Optional[int] = 0
+    model_config = ConfigDict(from_attributes=True)
+class AuditLogBase(BaseModel):
+    action_type: str
+    performed_by_id: int
+    target_id: Optional[str] = None
+    details: Optional[dict] = None
+
+class AuditLog(AuditLogBase):
+    id: int
+    timestamp: datetime
+    performed_by: Optional[UserBase] = None
+    model_config = ConfigDict(from_attributes=True)
+
+class FormFieldBase(BaseModel):
+    label: str
+    field_key: str
+    field_type: str  # text|dropdown|number|date|rating|file
+    is_required: bool = False
+    placeholder: Optional[str] = None
+    options: Optional[List[str]] = None
+    order: int = 0
+    is_active: bool = True
+    section_id: Optional[int] = None
+
+class FormFieldCreate(FormFieldBase):
+    pass
+
+class FormFieldUpdate(FormFieldBase):
+    id: Optional[int] = None
+
+class FormField(FormFieldBase):
+    id: int
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+class FormSectionBase(BaseModel):
+    name: str
+    order: int = 0
+    is_active: bool = True
+
+class FormSectionCreate(FormSectionBase):
+    pass
+
+class FormSectionUpdate(FormSectionBase):
+    id: Optional[int] = None
+    fields: Optional[List[FormFieldUpdate]] = None
+
+class FormSection(FormSectionBase):
+    id: int
+    created_at: datetime
+    fields: List[FormField] = []
     model_config = ConfigDict(from_attributes=True)

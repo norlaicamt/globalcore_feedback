@@ -1,12 +1,17 @@
 import React, { useEffect, useRef, useState } from "react";
-import { adminGetUsers, adminToggleUserStatus, adminDeleteUser, adminUpdateUserRole } from "../../../services/adminApi";
+import { 
+  adminGetUsers, adminToggleUserStatus, adminDeleteUser, adminUpdateUserRole, 
+  adminUpdateUserDetails
+} from "../../../services/adminApi";
 import CustomModal from "../../CustomModal";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 
 // 3-dot dropdown menu component
-const DotsMenu = ({ user, onToggle, onDelete, onRoleChange, theme, darkMode }) => {
+const DotsMenu = ({ user, onToggle, onDelete, onRoleChange, theme, darkMode, adminUser }) => {
+  const hasGlobalAdminAccess = ["admin", "superadmin"].includes(adminUser?.role);
+  const isGlobalCoreAdmin = (adminUser?.email || "").toLowerCase() === "admin@globalcore.com";
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -39,7 +44,7 @@ const DotsMenu = ({ user, onToggle, onDelete, onRoleChange, theme, darkMode }) =
           
           <div style={{ height: "1px", background: theme.border, margin: "4px 0" }} />
           
-          {user.role === "maker" ? (
+          {user.role === "user" && hasGlobalAdminAccess && isGlobalCoreAdmin ? (
             <button
               onClick={() => { onRoleChange(user, "admin"); setOpen(false); }}
               style={{ ...menuItemStyle, color: "#3B82F6" }}
@@ -48,27 +53,30 @@ const DotsMenu = ({ user, onToggle, onDelete, onRoleChange, theme, darkMode }) =
             >
               Promote to Admin
             </button>
-          ) : user.role === "admin" && (
+          ) : user.role === "admin" && hasGlobalAdminAccess && isGlobalCoreAdmin && (
             <button
-              onClick={() => { onRoleChange(user, "maker"); setOpen(false); }}
+              onClick={() => { onRoleChange(user, "user"); setOpen(false); }}
               style={{ ...menuItemStyle, color: "#64748B" }}
               onMouseEnter={e => e.currentTarget.style.background = darkMode ? "rgba(255,255,255,0.05)" : "#F1F5F9"}
               onMouseLeave={e => e.currentTarget.style.background = "none"}
             >
-              Demote to Maker
+              Demote to User
             </button>
           )}
 
-          <div style={{ height: "1px", background: theme.border, margin: "4px 0" }} />
-          
-          <button
-            onClick={() => { onDelete(user); setOpen(false); }}
-            style={{ ...menuItemStyle, color: "#EF4444" }}
-            onMouseEnter={e => e.currentTarget.style.background = darkMode ? "rgba(255,255,255,0.05)" : "#F1F5F9"}
-            onMouseLeave={e => e.currentTarget.style.background = "none"}
-          >
-            Delete Account
-          </button>
+          {hasGlobalAdminAccess && isGlobalCoreAdmin && (
+            <>
+              <div style={{ height: "1px", background: theme.border, margin: "4px 0" }} />
+              <button
+                onClick={() => { onDelete(user); setOpen(false); }}
+                style={{ ...menuItemStyle, color: "#EF4444" }}
+                onMouseEnter={e => e.currentTarget.style.background = darkMode ? "rgba(255,255,255,0.05)" : "#F1F5F9"}
+                onMouseLeave={e => e.currentTarget.style.background = "none"}
+              >
+                Delete Account
+              </button>
+            </>
+          )}
         </div>
       )}
     </div>
@@ -129,20 +137,53 @@ const menuItemStyle = {
   color: "#374151", cursor: "pointer", fontFamily: "inherit", transition: "background 0.1s",
 };
 
-const AdminUsers = ({ theme, darkMode }) => {
+const AdminUsers = ({ theme, darkMode, adminUser }) => {
+  const hasGlobalAdminAccess = ["admin", "superadmin"].includes(adminUser?.role);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [roleTab, setRoleTab] = useState("user");
+  const [draftByUser, setDraftByUser] = useState({});
+  const [savingByUser, setSavingByUser] = useState({});
   const [dialog, setDialog] = useState({ isOpen: false });
+  
+  const load = () => {
+    setLoading(true);
+    adminGetUsers().then(setUsers).catch(console.error).finally(() => setLoading(false));
+  };
 
-  const load = () => adminGetUsers().then(setUsers).catch(console.error).finally(() => setLoading(false));
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+  }, []);
 
-  const filtered = users.filter(u =>
+  const filtered = users
+    .filter(u => {
+      const role = (u.role || "user").toLowerCase();
+      if (roleTab === "admin") return role === "admin" || role === "superadmin";
+      if (roleTab === "program") return true;
+      return role === "user" || role === "maker";
+    })
+    .filter(u =>
     u.name?.toLowerCase().includes(search.toLowerCase()) ||
     u.email?.toLowerCase().includes(search.toLowerCase()) ||
-    u.department?.toLowerCase().includes(search.toLowerCase())
+    u.program?.toLowerCase().includes(search.toLowerCase())
   );
+
+  const getDraft = (user) => draftByUser[user.id] || { program: user.program || "" };
+  const setDraftField = (userId, key, value) => {
+    setDraftByUser((prev) => ({ ...prev, [userId]: { ...(prev[userId] || {}), [key]: value } }));
+  };
+
+  const saveProgram = async (user) => {
+    const draft = getDraft(user);
+    setSavingByUser((p) => ({ ...p, [user.id]: true }));
+    try {
+      await adminUpdateUserDetails(user.id, undefined, undefined, draft.program || "");
+      load();
+    } finally {
+      setSavingByUser((p) => ({ ...p, [user.id]: false }));
+    }
+  };
 
   const handleToggle = (user) => {
     setDialog({
@@ -187,15 +228,15 @@ const AdminUsers = ({ theme, darkMode }) => {
   };
 
   const handleExport = (format) => {
-    const headers = ["ID", "Name", "Email", "Role", "Department", "Created Date", "Status", "Posts", "Impact Points"];
+    const headers = ["ID", "Name", "Email", "Role", "Program/Office", "Created Date", "Status", "Posts", "Impact Points"];
     const data = filtered.map((u, idx) => {
       const createdDate = u.created_at ? new Date(u.created_at).toLocaleDateString() : "—";
       return [
         idx + 1,
         u.name || "—",
         u.email || "—",
-        u.role || "maker",
-        u.department || "—",
+        u.role || "user",
+        u.program || "—",
         createdDate,
         u.is_active ? "Active" : "Inactive",
         u.total_posts || 0,
@@ -293,21 +334,50 @@ const AdminUsers = ({ theme, darkMode }) => {
       <div style={{ display: "flex", gap: "10px", alignItems: "center", background: theme.surface, padding: "14px 16px", borderRadius: "12px", border: `1px solid ${theme.border}` }}>
         <input
           value={search} onChange={e => setSearch(e.target.value)}
-          placeholder="Search by name, email, or department..."
+          placeholder={`Search ${roleTab} accounts...`}
           style={{ ...inputStyle, background: theme.bg, color: theme.text, border: `1.5px solid ${theme.border}` }}
         />
+        <div style={{ display: "flex", background: theme.bg, borderRadius: "8px", border: `1px solid ${theme.border}`, padding: "3px", gap: "4px" }}>
+          {["user", "admin", "program"].map(tab => (
+            <button
+              key={tab}
+              onClick={() => setRoleTab(tab)}
+              style={{
+                padding: "6px 12px",
+                border: "none",
+                borderRadius: "6px",
+                cursor: "pointer",
+                fontSize: "12px",
+                fontWeight: "700",
+                fontFamily: "inherit",
+                background: roleTab === tab ? "#1f2a56" : "transparent",
+                color: roleTab === tab ? "#fff" : theme.textMuted
+              }}
+            >
+              {tab === "user" ? "User" : tab === "admin" ? "Admin" : "Program"}
+            </button>
+          ))}
+        </div>
         <ExportDropdown onExport={handleExport} theme={theme} darkMode={darkMode} />
       </div>
 
       {/* Table */}
-      <div style={{ background: theme.surface, borderRadius: "12px", border: `1px solid ${theme.border}`, overflow: "auto" }}>
+      <div
+        style={{
+          background: theme.surface,
+          borderRadius: "12px",
+          border: `1px solid ${theme.border}`,
+          overflow: "auto",
+          minHeight: "560px",
+        }}
+      >
         {loading ? (
           <div style={{ textAlign: "center", padding: "40px", color: theme.textMuted, fontSize: "13px" }}>Loading users...</div>
         ) : (
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
             <thead>
               <tr style={{ background: darkMode ? "rgba(255,255,255,0.02)" : "#F8FAFC", borderBottom: `1px solid ${theme.border}` }}>
-                {["#", "Name", "Email", "Role", "Department", "Created Date", "Posts", "Points", "Status", ""].map(h => (
+                {["#", "Name", "Email", "Role", "Program/Office", "Created Date", "Posts", "Points", "Status", ""].map(h => (
                   <th key={h} style={{ ...thStyle, color: theme.textMuted }}>{h}</th>
                 ))}
               </tr>
@@ -339,12 +409,30 @@ const AdminUsers = ({ theme, darkMode }) => {
                       padding: "3px 8px", borderRadius: "6px", fontSize: "10px", fontWeight: "700", textTransform: "uppercase",
                       background: u.role === 'superadmin' ? '#FAF5FF' : u.role === 'admin' ? '#EFF6FF' : 'transparent',
                       color: u.role === 'superadmin' ? '#9333EA' : u.role === 'admin' ? '#3B82F6' : theme.textMuted,
-                      border: u.role === 'maker' ? 'none' : `1px solid ${u.role === 'superadmin' ? '#F3E8FF' : '#DBEAFE'}`
+                      border: u.role === 'user' ? 'none' : `1px solid ${u.role === 'superadmin' ? '#F3E8FF' : '#DBEAFE'}`
                     }}>
-                      {u.role || "maker"}
+                      {u.role || "user"}
                     </span>
                   </td>
-                  <td style={{ ...tdStyle, color: theme.textMuted }}>{u.department || "—"}</td>
+                  <td style={{ ...tdStyle, color: theme.textMuted }}>
+                    {roleTab === "program" ? (
+                      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                        <input
+                          value={getDraft(u).program}
+                          onChange={(e) => setDraftField(u.id, "program", e.target.value)}
+                          placeholder="Set program"
+                          style={{ ...inputStyle, minWidth: 160, padding: "6px 8px" }}
+                        />
+                        <button
+                          onClick={() => saveProgram(u)}
+                          disabled={!!savingByUser[u.id]}
+                          style={{ ...outlineBtn, padding: "6px 10px", fontSize: 11 }}
+                        >
+                          {savingByUser[u.id] ? "Saving..." : "Save"}
+                        </button>
+                      </div>
+                    ) : (u.program || "—")}
+                  </td>
                   <td style={{ ...tdStyle, color: theme.textMuted }}>{u.created_at ? new Date(u.created_at).toLocaleDateString() : "—"}</td>
                   <td style={{ ...tdStyle, fontWeight: "600", color: theme.text }}>{u.total_posts}</td>
                   <td style={{ ...tdStyle, fontWeight: "800", color: "#10B981" }}>+{u.impact_points ?? 0}</td>
@@ -358,13 +446,17 @@ const AdminUsers = ({ theme, darkMode }) => {
                     </span>
                   </td>
                   <td style={{ ...tdStyle, textAlign: "right" }}>
-                    <DotsMenu user={u} onToggle={handleToggle} onDelete={handleDelete} onRoleChange={handleRoleChange} theme={theme} darkMode={darkMode} />
+                    <DotsMenu 
+                      user={u} onToggle={handleToggle} onDelete={handleDelete} 
+                      onRoleChange={handleRoleChange}
+                      theme={theme} darkMode={darkMode} adminUser={adminUser} 
+                    />
                   </td>
                 </tr>
               ))}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={8} style={{ padding: "32px", textAlign: "center", color: theme.textMuted, fontSize: "13px" }}>No users found.</td>
+                  <td colSpan={10} style={{ padding: "32px", textAlign: "center", color: theme.textMuted, fontSize: "13px" }}>No users found.</td>
                 </tr>
               )}
             </tbody>

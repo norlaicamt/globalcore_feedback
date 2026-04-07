@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import LoginPage from "./components/LoginPage";
 import FeedbackHub from "./components/FeedbackHub";
+import UserOnboarding from "./components/UserOnboarding";
 import AdminLogin from "./components/admin/AdminLogin";
 import AdminHub from "./components/admin/AdminHub";
 
@@ -56,14 +57,23 @@ function App() {
   // ── USER PATH ──
   return (
     <div className="App">
-        {currentUser ? (
+      {currentUser ? (
+        currentUser.onboarding_completed ? (
           <FeedbackHub currentUser={currentUser} onLogout={handleLogout} />
         ) : (
-          <LoginPage onLoginSuccess={(user) => {
+          <UserOnboarding
+            currentUser={currentUser}
+            onComplete={(updatedUser) => setCurrentUser(updatedUser)}
+          />
+        )
+      ) : (
+        <LoginPage
+          onLoginSuccess={(user) => {
             localStorage.setItem("currentUser", JSON.stringify(user));
             setCurrentUser(user);
-          }} />
-        )}
+          }}
+        />
+      )}
     </div>
   );
 }

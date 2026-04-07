@@ -3,6 +3,7 @@ from sqlalchemy import func, select, case
 from app import models
 from app import schemas
 import asyncio
+from typing import Optional
 
 # User operations
 def get_user(db: Session, user_id: int):
@@ -492,13 +493,21 @@ def get_analytics_summary(db: Session, dept_name: Optional[str] = None):
     r_q = db.query(models.Reaction)
 
     if dept_name:
+        dept_exists = db.query(models.Department.id).filter(models.Department.name == dept_name).first() is not None
         # Filter everything by department
-        dept_filter = db.query(models.Department.id).filter(models.Department.name == dept_name).scalar_subquery()
-        fb_q = fb_q.filter(models.Feedback.recipient_dept_id == dept_filter)
-        # Note: Users and Reactions might not be directly department-linked in the same way, 
-        # but we filter total_feedback and related metrics.
-        c_q = c_q.join(models.Feedback).filter(models.Feedback.recipient_dept_id == dept_filter)
-        r_q = r_q.join(models.Feedback).filter(models.Feedback.recipient_dept_id == dept_filter)
+        if dept_exists:
+            dept_filter = db.query(models.Department.id).filter(models.Department.name == dept_name).scalar_subquery()
+            fb_q = fb_q.filter(models.Feedback.recipient_dept_id == dept_filter)
+            u_q = u_q.filter(models.User.department == dept_name)
+            # Note: Users and Reactions might not be directly department-linked in the same way, 
+            # but we filter total_feedback and related metrics.
+            c_q = c_q.join(models.Feedback).filter(models.Feedback.recipient_dept_id == dept_filter)
+            r_q = r_q.join(models.Feedback).filter(models.Feedback.recipient_dept_id == dept_filter)
+        else:
+            # Fallback scope: interpret selected "department" as category name.
+            fb_q = fb_q.join(models.Category, models.Feedback.category_id == models.Category.id).filter(models.Category.name == dept_name)
+            c_q = c_q.join(models.Feedback).join(models.Category, models.Feedback.category_id == models.Category.id).filter(models.Category.name == dept_name)
+            r_q = r_q.join(models.Feedback).join(models.Category, models.Feedback.category_id == models.Category.id).filter(models.Category.name == dept_name)
 
     total_feedback = fb_q.count()
     total_users = u_q.count() # Total users remains system-wide
@@ -524,7 +533,11 @@ def get_sentiment_summary(db: Session, dept_name: Optional[str] = None):
     """Analyze overall mood of user feedback."""
     q = db.query(models.Feedback.description)
     if dept_name:
-        q = q.join(models.Department).filter(models.Department.name == dept_name)
+        dept_exists = db.query(models.Department.id).filter(models.Department.name == dept_name).first() is not None
+        if dept_exists:
+            q = q.join(models.Department).filter(models.Department.name == dept_name)
+        else:
+            q = q.join(models.Category).filter(models.Category.name == dept_name)
     
     feedbacks = q.all()
     pos_words = {"great", "excellent", "good", "happy", "thanks", "improved", "perfect", "amazing", "love", "awesome", "fast", "efficient"}
@@ -694,3 +707,24 @@ def get_user_profiles(db: Session):
         models.User.show_activity_status,
         models.User.created_at
     ).all()
+# Audit Logs
+def create_audit_log(db: Session, action_type: str, performed_by_id: int, target_id: str = None, details: dict = None):
+    db_log = models.AuditLog(
+        action_type=action_type,
+        performed_by_id=performed_by_id,
+        target_id=target_id,
+        details=details
+    )
+    db.add(db_log)
+    db.commit()
+    db.refresh(db_log)
+    return db_log
+
+def get_audit_logs(db: Session, skip: int = 0, limit: int = 200, dept_name: Optional[str] = None):
+    query = db.query(models.AuditLog).options(joinedload(models.AuditLog.performed_by))
+    
+    if dept_name:
+        query = query.join(models.User, models.AuditLog.performed_by_id == models.User.id)\
+                     .filter(models.User.department == dept_name)
+    
+    return query.order_by(models.AuditLog.timestamp.desc()).offset(skip).limit(limit).all()

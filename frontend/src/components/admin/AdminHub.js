@@ -7,30 +7,33 @@ import AdminPendingSuggestions from "./pages/AdminPendingSuggestions";
 import AdminBroadcast from "./pages/AdminBroadcast";
 import AdminSettings from "./pages/AdminSettings";
 import AdminUIText from "./pages/AdminUIText";
+import AdminAuditLogs from "./pages/AdminAuditLogs";
 import CustomModal from "../CustomModal";
 import { adminGetPendingSuggestions } from "../../services/adminApi";
 
 const NAV_ITEMS = [
   { id: "dashboard",      label: "Dashboard",           icon: <ChartIcon /> },
-  { id: "users",          label: "User Oversight",      icon: <UsersIcon />,  superOnly: true },
+  { id: "users",          label: "User Oversight",      icon: <UsersIcon /> },
   { id: "feedbacks",      label: "Feedback Management",  icon: <FeedIcon /> },
   { id: "broadcast",      label: "Broadcast",            icon: <BellIcon /> },
-  { type: "label",        label: "CONFIGURATION",        superOnly: true },
-  { id: "feedbacktypes",  label: "Category Setup",       icon: <TagIcon />,   superOnly: true },
+  { id: "auditlogs",      label: "Admin Activity",       icon: <ClockIcon />,  superOnly: true },
+  { type: "label",        label: "CONFIGURATION" },
+  { id: "feedbacktypes",  label: "Departments",       icon: <TagIcon /> },
   { id: "pendingsuggestions", label: "Pending Suggestions", icon: <ClockIcon />, isSub: true, superOnly: true },
-  { id: "feedbacksetup",      label: "Feedback SetUp",       icon: <TypeIcon />,  superOnly: true },
-  { type: "label",        label: "SYSTEM",               superOnly: true },
-  { id: "settings",       label: "Settings",             icon: <SettingsIcon />, superOnly: true },
+  { id: "feedbacksetup",  label: "Feedback Setup",       icon: <TypeIcon /> },
+  { type: "label",        label: "SYSTEM" },
+  { id: "settings",       label: "Settings",             icon: <SettingsIcon /> },
 ];
 
 const AdminHub = ({ adminUser, onLogout }) => {
+  const hasGlobalAdminAccess = ["admin", "superadmin"].includes(adminUser?.role);
   const [view, setView] = useState(localStorage.getItem("adminView") || "dashboard");
   const [darkMode, setDarkMode] = useState(localStorage.getItem("adminDarkMode") === "true");
   const [logoutDialog, setLogoutDialog] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
 
   const fetchPendingCount = () => {
-    if (adminUser?.role !== "superadmin") return;
+    if (!hasGlobalAdminAccess) return;
     adminGetPendingSuggestions().then(data => {
       setPendingCount(data.length);
     }).catch(console.error);
@@ -40,7 +43,7 @@ const AdminHub = ({ adminUser, onLogout }) => {
     fetchPendingCount();
     const interval = setInterval(fetchPendingCount, 60000); // refresh every minute
     return () => clearInterval(interval);
-  }, []);
+  }, [hasGlobalAdminAccess]);
 
   useEffect(() => {
     localStorage.setItem("adminDarkMode", darkMode);
@@ -71,7 +74,7 @@ const AdminHub = ({ adminUser, onLogout }) => {
   };
 
   const renderView = () => {
-    const props = { onNavigate: setView, theme, darkMode, adminUser };
+    const props = { onNavigate: setView, theme, darkMode, adminUser, onToggleTheme: toggleTheme };
     switch (view) {
       case "dashboard":     return <AdminDashboard {...props} />;
       case "users":         return <AdminUsers {...props} />;
@@ -81,6 +84,7 @@ const AdminHub = ({ adminUser, onLogout }) => {
       case "feedbacksetup":     return <AdminUIText {...props} />;
       case "broadcast":     return <AdminBroadcast {...props} />;
       case "settings":      return <AdminSettings {...props} />;
+      case "auditlogs":     return <AdminAuditLogs {...props} />;
       default:              return <AdminDashboard {...props} />;
     }
   };
@@ -106,7 +110,7 @@ const AdminHub = ({ adminUser, onLogout }) => {
           </div>
           <div>
             <p style={styles.logoText}>GlobalCore</p>
-            <p style={styles.logoSub}>Admin Panel</p>
+            <p style={styles.logoSub}>Feedback</p>
           </div>
         </div>
 
@@ -115,7 +119,7 @@ const AdminHub = ({ adminUser, onLogout }) => {
         {/* Nav */}
         <nav style={styles.nav}>
           {NAV_ITEMS
-            .filter(item => !item.superOnly || adminUser?.role === "superadmin")
+            .filter(item => !item.superOnly || hasGlobalAdminAccess)
             .map((item, idx) => (
               item.type === "label" ? (
                 <div key={`label-${idx}`} style={styles.navLabel}>{item.label}</div>
@@ -145,13 +149,15 @@ const AdminHub = ({ adminUser, onLogout }) => {
         {/* Bottom user info */}
         <div style={styles.sidebarBottom}>
           <div style={styles.adminBadge}>
-            <div style={{ ...styles.adminAvatar, background: adminUser?.role === 'superadmin' ? '#9333ea' : '#3b82f6' }}>
+            <div style={{ ...styles.adminAvatar, background: hasGlobalAdminAccess ? '#9333ea' : '#3b82f6' }}>
               {adminUser?.name?.charAt(0) || "A"}
             </div>
             <div>
-              <p style={styles.adminName}>{adminUser?.name || "Admin"}</p>
+              <p style={styles.adminName}>
+                {hasGlobalAdminAccess ? "Feedback System" : (adminUser?.name || "Admin")}
+              </p>
               <p style={styles.adminRole}>
-                {adminUser?.role === 'superadmin' ? "Super Administrator" : `${adminUser?.department || "Dept"} Admin`}
+                {hasGlobalAdminAccess ? "Admin Panel" : `${adminUser?.department || "Dept"} Admin`}
               </p>
             </div>
           </div>
@@ -204,6 +210,7 @@ function SunIcon()      { return <svg width="20" height="20" viewBox="0 0 24 24"
 function MoonIcon()     { return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>; }
 function ClockIcon()    { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>; }
 function TypeIcon()     { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="4 7 4 4 20 4 20 7"></polyline><line x1="9" y1="20" x2="15" y2="20"></line><line x1="12" y1="4" x2="12" y2="20"></line></svg>; }
+function OrgIcon()      { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>; }
 
 
 const SIDEBAR_W = 280;

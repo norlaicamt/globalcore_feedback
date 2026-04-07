@@ -46,7 +46,8 @@ const AVAILABLE_ICONS = [
 ];
 
 // 3-dot action menu
-const DotsMenu = ({ onEdit, onDelete, theme, darkMode }) => {
+const DotsMenu = ({ onEdit, onDelete, theme, darkMode, adminUser }) => {
+  const hasGlobalAdminAccess = ["admin", "superadmin"].includes(adminUser?.role);
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -83,15 +84,19 @@ const DotsMenu = ({ onEdit, onDelete, theme, darkMode }) => {
           >
             Edit Type
           </button>
-          <div style={{ height: "1px", background: theme.border, margin: "4px 0" }} />
-          <button
-            onClick={() => { onDelete(); setOpen(false); }}
-            style={{ ...menuItemStyle, color: "#EF4444" }}
-            onMouseEnter={e => e.currentTarget.style.background = darkMode ? "rgba(255,255,255,0.05)" : "#F1F5F9"}
-            onMouseLeave={e => e.currentTarget.style.background = "none"}
-          >
-            Delete Type
-          </button>
+          {hasGlobalAdminAccess && (
+            <>
+              <div style={{ height: "1px", background: theme.border, margin: "4px 0" }} />
+              <button
+                onClick={() => { onDelete(); setOpen(false); }}
+                style={{ ...menuItemStyle, color: "#EF4444" }}
+                onMouseEnter={e => e.currentTarget.style.background = darkMode ? "rgba(255,255,255,0.05)" : "#F1F5F9"}
+                onMouseLeave={e => e.currentTarget.style.background = "none"}
+              >
+                Delete Type
+              </button>
+            </>
+          )}
         </div>
       )}
     </div>
@@ -104,10 +109,11 @@ const menuItemStyle = {
   color: "#374151", cursor: "pointer", fontFamily: "inherit", transition: "background 0.1s",
 };
 
-const AdminFeedbackTypes = ({ theme, darkMode }) => {
+const AdminFeedbackTypes = ({ theme, darkMode, adminUser }) => {
   const [cats, setCats] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(true);
+  const [showIcons, setShowIcons] = useState(false);
   
   // Create state
   const [newName, setNewName] = useState("");
@@ -123,6 +129,7 @@ const AdminFeedbackTypes = ({ theme, darkMode }) => {
   const [showChoiceView, setShowChoiceView] = useState(false);
   const [viewChoices, setViewChoices] = useState([]);
   const [viewTitle, setViewTitle] = useState("");
+  const [editingCategoryId, setEditingCategoryId] = useState(null);
   
   // Edit state
   const [editId, setEditId] = useState(null);
@@ -175,29 +182,29 @@ const AdminFeedbackTypes = ({ theme, darkMode }) => {
   const handleCreate = async (e) => {
     if (e) e.preventDefault();
     if (!newName.trim()) return;
-    
-    // Check if we are updating an existing one by name
-    const existing = cats.find(c => c.name.toLowerCase() === newName.trim().toLowerCase());
-    
-    try {
-      const descVal = JSON.stringify(newChoices);
-      
-      const payload = {
-        name: newName.trim(),
-        description: descVal,
-        icon: newIconKey,
-        fields: []
-      };
 
-      if (existing) {
-        await adminUpdateCategory(existing.id, payload.name, payload.description, payload.fields, payload.icon);
+    try {
+      if (editingCategoryId) {
+        const target = cats.find(c => c.id === editingCategoryId);
+        if (!target) {
+          throw new Error("Category to update not found.");
+        }
+        // Rename-only behavior for Edit Type flow.
+        await adminUpdateCategory(
+          target.id,
+          newName.trim(),
+          target.description || "",
+          target.fields || [],
+          target.icon || "default"
+        );
         setDialog({
           isOpen: true, type: "alert", title: "Success",
-          message: `Category "${existing.name}" has been updated.`,
+          message: `Category name was updated successfully.`,
           confirmText: "Perfect", onConfirm: () => setDialog({ isOpen: false })
         });
       } else {
-        await adminCreateCategory(payload.name, payload.description, payload.fields, payload.icon);
+        const descVal = JSON.stringify(newChoices);
+        await adminCreateCategory(newName.trim(), descVal, [], newIconKey);
         setDialog({
           isOpen: true, type: "alert", title: "Success",
           message: `Category "${newName}" has been created.`,
@@ -209,6 +216,7 @@ const AdminFeedbackTypes = ({ theme, darkMode }) => {
       setNewChoices([]);
       setNewIconKey("default");
       setTmpName("");
+      setEditingCategoryId(null);
       load();
     } catch (err) {
       console.error("Action failed", err);
@@ -295,6 +303,7 @@ const AdminFeedbackTypes = ({ theme, darkMode }) => {
   };
 
   const openCategoryForEdit = (c) => {
+    setEditingCategoryId(c.id);
     setNewName(c.name);
     if (c.icon) setNewIconKey(c.icon);
     try {
@@ -321,7 +330,17 @@ const AdminFeedbackTypes = ({ theme, darkMode }) => {
         <div style={{ background: theme.surface, borderRadius: "12px", padding: "28px", border: `1px solid ${theme.border}`, boxShadow: '0 4px 12px rgba(0,0,0,0.05)', marginBottom: '16px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
             <p style={{ margin: 0, fontSize: "16px", fontWeight: "800", color: theme.text }}>Category Builder</p>
-            <button onClick={() => { setNewName(""); setNewChoices([]); setNewIconKey("default"); }} style={{ background: 'none', border: 'none', color: theme.textMuted, cursor: 'pointer', fontSize: '12px', fontWeight: '700' }}>CLEAR</button>
+            <button
+              onClick={() => {
+                setNewName("");
+                setNewChoices([]);
+                setNewIconKey("default");
+                setEditingCategoryId(null);
+              }}
+              style={{ background: 'none', border: 'none', color: theme.textMuted, cursor: 'pointer', fontSize: '12px', fontWeight: '700' }}
+            >
+              CLEAR
+            </button>
           </div>
 
           <div style={{ marginBottom: '24px' }}>
@@ -378,8 +397,19 @@ const AdminFeedbackTypes = ({ theme, darkMode }) => {
 
                     {/* Icon Selection Grid */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                      <label style={{ ...labelStyle, color: theme.textMuted }}>Category Icon</label>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(40px, 1fr))', gap: '8px', padding: '12px', background: theme.surface, borderRadius: '12px', border: `1px solid ${theme.border}` }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <label style={{ ...labelStyle, color: theme.textMuted }}>Category Icon</label>
+                        <button 
+                          type="button" 
+                          onClick={() => setShowIcons(!showIcons)} 
+                          style={{ background: 'none', border: 'none', color: '#3B82F6', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}
+                        >
+                          {showIcons ? 'Hide Icons' : 'Change Icon'}
+                        </button>
+                      </div>
+                      
+                      {showIcons && (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(40px, 1fr))', gap: '8px', padding: '12px', background: theme.surface, borderRadius: '12px', border: `1px solid ${theme.border}` }}>
                         {AVAILABLE_ICONS.map(icon => {
                           const IconComp = IconRegistry[icon.key] || IconRegistry.default;
                           const isSelected = newIconKey === icon.key;
@@ -402,47 +432,9 @@ const AdminFeedbackTypes = ({ theme, darkMode }) => {
                           );
                         })}
                       </div>
+                      )}
                     </div>
                   </div>
-
-                  <div style={{ height: '1px', background: theme.border, margin: '8px 0' }} />
-
-                  {/* Choice Input Row */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '12px', alignItems: 'flex-end' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      <label style={{ ...labelStyle, color: theme.textMuted }}>Add Specific Item / Name</label>
-                      <input 
-                        placeholder="e.g. Jollibee" 
-                        style={{ ...inputStyle, background: theme.surface }}
-                        value={tmpName}
-                        onChange={e => setTmpName(e.target.value)}
-                        onKeyDown={e => {
-                          if (e.key === 'Enter') { e.preventDefault(); addChoice(tmpName); setTmpName(""); }
-                        }}
-                      />
-                    </div>
-                    <button 
-                      type="button" 
-                      style={{ ...primaryBtn, padding: '12px 24px', height: '42px', display: 'flex', alignItems: 'center', gap: '8px' }}
-                      onClick={() => { addChoice(tmpName); setTmpName(""); }}
-                    >
-                      <span style={{ fontSize: '18px' }}>+</span> ADD
-                    </button>
-                  </div>
-
-                  {/* Display List */}
-                  {newChoices.length > 0 && (
-                    <div style={{ maxHeight: '400px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '10px', padding: '4px' }}>
-                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                         {newChoices.map(name => (
-                           <div key={name} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: '#3B82F6', color: 'white', borderRadius: '18px', fontSize: '13px', fontWeight: '700', boxShadow: '0 2px 8px rgba(59, 130, 246, 0.2)' }}>
-                             {name}
-                             <span onClick={() => removeChoice(name)} style={{ cursor: 'pointer', opacity: 0.8, marginLeft: '4px', fontSize: '18px', lineHeight: 1 }}>×</span>
-                           </div>
-                         ))}
-                       </div>
-                    </div>
-                  )}
                 </div>
 
             <button 
@@ -454,12 +446,12 @@ const AdminFeedbackTypes = ({ theme, darkMode }) => {
                 borderRadius: '10px', 
                 opacity: !newName.trim() ? 0.6 : 1, 
                 width: '100%',
-                background: cats.some(c => c.name.toLowerCase() === newName.trim().toLowerCase()) 
+                background: editingCategoryId
                   ? 'linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)' 
                   : primaryBtn.background
               }}
             >
-              {cats.some(c => c.name.toLowerCase() === newName.trim().toLowerCase()) 
+              {editingCategoryId
                 ? 'Update Existing Category' 
                 : 'Create Category'}
             </button>
@@ -529,12 +521,14 @@ const AdminFeedbackTypes = ({ theme, darkMode }) => {
                     </td>
                     <td style={tdStyle}>
                       <span style={{ fontSize: "12px", fontWeight: "600", color: theme.text }}>{c.count}</span>
-                    </td>                    <td style={{ ...tdStyle, textAlign: "right", width: '50px' }}>
+                    </td>
+                    <td style={{ ...tdStyle, textAlign: "right", width: '50px' }}>
                         <DotsMenu 
                           onEdit={() => openCategoryForEdit(c)} 
                           onDelete={() => handleDelete(c)} 
                           theme={theme}
                           darkMode={darkMode}
+                          adminUser={adminUser}
                         />
                     </td>
                   </tr>
