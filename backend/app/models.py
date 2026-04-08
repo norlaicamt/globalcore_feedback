@@ -33,6 +33,8 @@ class User(Base):
     city = Column(String, nullable=True)
     barangay = Column(String, nullable=True)
     exact_address = Column(String, nullable=True)
+    birthdate = Column(String, nullable=True)
+    birthplace = Column(String, nullable=True)
     onboarding_completed = Column(Boolean, default=False)
     show_activity_status = Column(Boolean, default=True)
     avatar_url = Column(Text, nullable=True)  # base64 data URI or URL
@@ -47,13 +49,25 @@ class User(Base):
     biometrics_enabled = Column(Boolean, default=True)
     avatar_url = Column(Text, nullable=True)
     impact_points = Column(Integer, default=0)
+    
+    # Tracking fields
+    unit_name = Column(String, nullable=True) # Neutral internal name for Program/College/Dept
+    profile_completed = Column(Boolean, default=False)
+    completed_at = Column(DateTime, nullable=True)
+    last_login = Column(DateTime, nullable=True)
+    
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 class Department(Base):
     __tablename__ = "departments"
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, unique=True, index=True)
+    name = Column(String, index=True)
+    category_id = Column(Integer, ForeignKey("categories.id"), nullable=True)
+    
+    category = relationship("Category", backref="departments")
+    
+    __table_args__ = (UniqueConstraint('name', 'category_id', name='_dept_name_cat_uc'),)
 
 class Category(Base):
     __tablename__ = "categories"
@@ -181,6 +195,13 @@ class SystemSetting(Base):
     __tablename__ = "system_settings"
     key = Column(String, primary_key=True, index=True)
     value = Column(String) # Store as 'true'/'false' or simple strings
+
+class SystemLabel(Base):
+    __tablename__ = "system_labels"
+    id = Column(Integer, primary_key=True, index=True)
+    key = Column(String, unique=True, index=True)
+    value = Column(String)
+    organization_id = Column(Integer, nullable=True) # Future-proofing
 
 class BroadcastLog(Base):
     __tablename__ = "broadcast_logs"

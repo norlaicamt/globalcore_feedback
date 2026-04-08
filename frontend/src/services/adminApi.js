@@ -40,11 +40,12 @@ export const getAnalyticsSentiment = (dept_name = "") => adminApi.get(`/analytic
 export const adminGetUsers = () => adminApi.get("/users").then(r => r.data);
 export const adminToggleUserStatus = (id, isActive) => adminApi.put(`/users/${id}/status?is_active=${isActive}`).then(r => r.data);
 export const adminUpdateUserRole = (id, role) => adminApi.put(`/users/${id}/role?role=${encodeURIComponent(role)}`).then(r => r.data);
-export const adminUpdateUserDetails = (id, role, department, program) => {
+export const adminUpdateUserDetails = (id, role, department, program, position_title) => {
   const q = new URLSearchParams();
   if (role) q.set("role", role);
   if (department !== undefined) q.set("department", department);
   if (program !== undefined) q.set("program", program);
+  if (position_title !== undefined) q.set("position_title", position_title);
   return adminApi.put(`/users/${id}/details?${q.toString()}`).then(r => r.data);
 };
 export const adminDeleteUser = (id) => adminApi.delete(`/users/${id}`);
@@ -64,9 +65,14 @@ export const adminDeleteFeedback = (id) => adminApi.delete(`/feedbacks/${id}`);
 
 // Departments
 export const adminGetDepartments = () => adminApi.get("/departments").then(r => r.data);
-export const adminCreateDepartment = (name) => adminApi.post(`/departments?name=${encodeURIComponent(name)}`).then(r => r.data);
-export const adminUpdateDepartment = (id, name) => adminApi.put(`/departments/${id}?name=${encodeURIComponent(name)}`).then(r => r.data);
+export const adminCreateDepartment = (name, category_id = null) => 
+  adminApi.post(`/departments?name=${encodeURIComponent(name)}${category_id ? `&category_id=${category_id}` : ""}`).then(r => r.data);
+export const adminUpdateDepartment = (id, name, category_id = null) => 
+  adminApi.put(`/departments/${id}?name=${encodeURIComponent(name)}${category_id ? `&category_id=${category_id}` : ""}`).then(r => r.data);
 export const adminDeleteDepartment = (id) => adminApi.delete(`/departments/${id}`);
+
+// Dashboard scope options (Program/Office/Entities)
+export const adminGetScopeOptions = () => adminApi.get("/scope-options").then(r => r.data);
 
 // Categories
 export const adminGetCategories = () => adminApi.get("/categories").then(r => r.data);
@@ -93,3 +99,8 @@ export const adminGetProfileActivity = (limit = 20) => adminApi.get(`/profile/ac
 export const adminGetPendingSuggestions = () => adminApi.get("/pending-suggestions").then(r => r.data);
 export const adminApproveSuggestion = (id, approvedName) => 
   adminApi.post(`/approve-suggestion?feedback_id=${id}&approved_name=${encodeURIComponent(approvedName)}`).then(r => r.data);
+
+// Labels
+export const getSystemLabels = () => adminApi.get("/labels").then(r => r.data);
+export const updateSystemLabel = (key, value) => adminApi.post(`/labels?key=${encodeURIComponent(key)}&value=${encodeURIComponent(value)}`).then(r => r.data);
+export const updateSystemLabelsBulk = (payload) => adminApi.post("/labels/bulk", payload).then(r => r.data);

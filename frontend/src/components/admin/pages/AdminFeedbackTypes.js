@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import { adminGetCategories, adminCreateCategory, adminUpdateCategory, adminDeleteCategory } from "../../../services/adminApi";
+import { useTerminology } from "../../../context/TerminologyContext";
 import CustomModal from "../../CustomModal";
 import { IconRegistry } from "../../IconRegistry";
 
@@ -110,6 +111,7 @@ const menuItemStyle = {
 };
 
 const AdminFeedbackTypes = ({ theme, darkMode, adminUser }) => {
+  const { getLabel } = useTerminology();
   const [cats, setCats] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(true);
@@ -199,7 +201,7 @@ const AdminFeedbackTypes = ({ theme, darkMode, adminUser }) => {
         );
         setDialog({
           isOpen: true, type: "alert", title: "Success",
-          message: `Category name was updated successfully.`,
+          message: `${getLabel("category_label", "Category")} name was updated successfully.`,
           confirmText: "Perfect", onConfirm: () => setDialog({ isOpen: false })
         });
       } else {
@@ -207,7 +209,7 @@ const AdminFeedbackTypes = ({ theme, darkMode, adminUser }) => {
         await adminCreateCategory(newName.trim(), descVal, [], newIconKey);
         setDialog({
           isOpen: true, type: "alert", title: "Success",
-          message: `Category "${newName}" has been created.`,
+          message: `${getLabel("category_label", "Category")} "${newName}" has been created.`,
           confirmText: "Great", onConfirm: () => setDialog({ isOpen: false })
         });
       }
@@ -270,8 +272,8 @@ const AdminFeedbackTypes = ({ theme, darkMode, adminUser }) => {
 
   const handleDelete = (cat) => {
     setDialog({
-      isOpen: true, type: "alert", title: "Delete Category Type",
-      message: `Delete "${cat.name}"? ${cat.count} submission(s) use this category type.`,
+      isOpen: true, type: "alert", title: `Delete ${getLabel("category_label", "Category")} Type`,
+      message: `Delete "${cat.name}"? ${cat.count} submission(s) use this ${getLabel("category_label", "category")} type.`,
       confirmText: "Delete", isDestructive: true,
       onConfirm: async () => { 
         try {
@@ -279,7 +281,7 @@ const AdminFeedbackTypes = ({ theme, darkMode, adminUser }) => {
           setDialog({ isOpen: false }); 
           load(); 
         } catch (err) {
-          const errMsg = err.response?.data?.detail || "This category cannot be deleted because it is currently in use by existing feedbacks.";
+          const errMsg = err.response?.data?.detail || `This ${getLabel("category_label", "category")} cannot be deleted because it is currently in use by existing feedbacks.`;
           setDialog({
             isOpen: true, type: "alert", title: "Delete Failed",
             message: errMsg, confirmText: "Understood", isDestructive: false,
@@ -329,7 +331,7 @@ const AdminFeedbackTypes = ({ theme, darkMode, adminUser }) => {
       
         <div style={{ background: theme.surface, borderRadius: "12px", padding: "28px", border: `1px solid ${theme.border}`, boxShadow: '0 4px 12px rgba(0,0,0,0.05)', marginBottom: '16px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-            <p style={{ margin: 0, fontSize: "16px", fontWeight: "800", color: theme.text }}>Category Builder</p>
+            <p style={{ margin: 0, fontSize: "16px", fontWeight: "800", color: theme.text }}>{getLabel("category_label", "Category")} Builder</p>
             <button
               onClick={() => {
                 setNewName("");
@@ -345,7 +347,7 @@ const AdminFeedbackTypes = ({ theme, darkMode, adminUser }) => {
 
           <div style={{ marginBottom: '24px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-               <label style={{ ...labelStyle, color: theme.textMuted }}>Re-use from Existing Categories</label>
+               <label style={{ ...labelStyle, color: theme.textMuted }}>Re-use from Existing {getLabel("category_label_plural", "Categories")}</label>
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
               {catPresets
@@ -386,7 +388,7 @@ const AdminFeedbackTypes = ({ theme, darkMode, adminUser }) => {
                   {/* Category Name Row */}
                   <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      <label style={{ ...labelStyle, color: theme.textMuted }}>Category Name</label>
+                      <label style={{ ...labelStyle, color: theme.textMuted }}>{getLabel("category_label", "Category")} Name</label>
                       <input 
                         value={newName} 
                         onChange={e => setNewName(e.target.value)} 
@@ -398,7 +400,7 @@ const AdminFeedbackTypes = ({ theme, darkMode, adminUser }) => {
                     {/* Icon Selection Grid */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <label style={{ ...labelStyle, color: theme.textMuted }}>Category Icon</label>
+                        <label style={{ ...labelStyle, color: theme.textMuted }}>{getLabel("category_label", "Category")} Icon</label>
                         <button 
                           type="button" 
                           onClick={() => setShowIcons(!showIcons)} 
@@ -452,8 +454,8 @@ const AdminFeedbackTypes = ({ theme, darkMode, adminUser }) => {
               }}
             >
               {editingCategoryId
-                ? 'Update Existing Category' 
-                : 'Create Category'}
+                ? `Update Existing ${getLabel("category_label", "Category")}` 
+                : `Create ${getLabel("category_label", "Category")}`}
             </button>
           </form>
         </div>
@@ -466,9 +468,11 @@ const AdminFeedbackTypes = ({ theme, darkMode, adminUser }) => {
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px", minWidth: "700px" }}>
             <thead>
               <tr style={{ background: darkMode ? "rgba(255,255,255,0.02)" : "#F8FAFC", borderBottom: `1px solid ${theme.border}` }}>
-                {["#", "Category Type", "Establishment/Service", "Submissions", ""].map(h => (
-                  <th key={h} style={{ ...thStyle, color: theme.textMuted }}>{h}</th>
-                ))}
+                <th key="#" style={{ ...thStyle, color: theme.textMuted }}>#</th>
+                <th key="cat" style={{ ...thStyle, color: theme.textMuted }}>{getLabel("category_label", "Category")} Type</th>
+                <th key="est" style={{ ...thStyle, color: theme.textMuted }}>{getLabel("entity_label", "Establishment/Service")}</th>
+                <th key="sub" style={{ ...thStyle, color: theme.textMuted }}>Submissions</th>
+                <th key="actions" style={{ ...thStyle, color: theme.textMuted }}></th>
               </tr>
             </thead>
             <tbody>
@@ -535,7 +539,7 @@ const AdminFeedbackTypes = ({ theme, darkMode, adminUser }) => {
                 </React.Fragment>
               ))}
               {cats.length === 0 && (
-                <tr><td colSpan={5} style={{ padding: "32px", textAlign: "center", color: theme.textMuted, fontSize: "13px" }}>No feedback types found.</td></tr>
+                <tr><td colSpan={5} style={{ padding: "32px", textAlign: "center", color: theme.textMuted, fontSize: "13px" }}>No {getLabel("category_label", "feedback type")} found.</td></tr>
               )}
             </tbody>
           </table>
@@ -579,7 +583,7 @@ const AdminFeedbackTypes = ({ theme, darkMode, adminUser }) => {
             <div style={{ padding: '24px', background: 'linear-gradient(135deg, #1f2a56 0%, #2563EB 100%)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
                 <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: 'white' }}>{viewTitle}</h3>
-                <p style={{ margin: 0, fontSize: '12px', color: 'rgba(255,255,255,0.7)' }}>{viewChoices.length} Registered Establishments/Services</p>
+                <p style={{ margin: 0, fontSize: '12px', color: 'rgba(255,255,255,0.7)' }}>{viewChoices.length} Registered {getLabel("entity_label_plural", "Establishments/Services")}</p>
               </div>
               <button onClick={() => setShowChoiceView(false)} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', width: '32px', height: '32px', borderRadius: '10px', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
@@ -597,7 +601,7 @@ const AdminFeedbackTypes = ({ theme, darkMode, adminUser }) => {
                   ))}
                 </div>
               ) : (
-                <div style={{ textAlign: 'center', padding: '32px', color: theme.textMuted }}>No items registered for this category yet.</div>
+                <div style={{ textAlign: 'center', padding: '32px', color: theme.textMuted }}>No items registered for this {getLabel("category_label", "category")} yet.</div>
               )}
             </div>
             

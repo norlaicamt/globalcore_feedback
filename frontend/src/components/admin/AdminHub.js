@@ -18,16 +18,24 @@ const NAV_ITEMS = [
   { id: "broadcast",      label: "Broadcast",            icon: <BellIcon /> },
   { id: "auditlogs",      label: "Admin Activity",       icon: <ClockIcon />,  superOnly: true },
   { type: "label",        label: "CONFIGURATION" },
-  { id: "feedbacktypes",  label: "Departments",       icon: <TagIcon /> },
+  { id: "feedbacktypes",  label: "Departments",       icon: <TagIcon />,    superOnly: true },
   { id: "pendingsuggestions", label: "Pending Suggestions", icon: <ClockIcon />, isSub: true, superOnly: true },
-  { id: "feedbacksetup",  label: "Feedback Setup",       icon: <TypeIcon /> },
+  { id: "feedbacksetup",  label: "Feedback Setup",       icon: <TypeIcon />,   superOnly: true },
   { type: "label",        label: "SYSTEM" },
-  { id: "settings",       label: "Settings",             icon: <SettingsIcon /> },
+  { id: "settings",       label: "Settings",             icon: <SettingsIcon />, superOnly: true },
 ];
 
 const AdminHub = ({ adminUser, onLogout }) => {
-  const hasGlobalAdminAccess = ["admin", "superadmin"].includes(adminUser?.role);
-  const [view, setView] = useState(localStorage.getItem("adminView") || "dashboard");
+  const [localAdminUser, setLocalAdminUser] = useState(adminUser);
+  const hasGlobalAdminAccess = ["admin", "superadmin"].includes(localAdminUser?.role) && !localAdminUser?.department;
+  const getViewFromUrl = () => {
+    const p = window.location.pathname;
+    // Check for /admin/view/ (trailing slash) or /admin/view
+    const match = p.match(/^\/admin\/([^/]+)/);
+    return match ? match[1] : (localStorage.getItem("adminView") || "dashboard");
+  };
+
+  const [view, setView] = useState(getViewFromUrl);
   const [darkMode, setDarkMode] = useState(localStorage.getItem("adminDarkMode") === "true");
   const [logoutDialog, setLogoutDialog] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
@@ -42,8 +50,24 @@ const AdminHub = ({ adminUser, onLogout }) => {
   useEffect(() => {
     fetchPendingCount();
     const interval = setInterval(fetchPendingCount, 60000); // refresh every minute
-    return () => clearInterval(interval);
-  }, [hasGlobalAdminAccess]);
+
+    // Support browser back/forward buttons
+    const handlePopState = () => {
+      const v = getViewFromUrl();
+      if (v !== view) setView(v);
+    };
+    window.addEventListener("popstate", handlePopState);
+
+    // Ensure the URL matches the current view on load if it's just /admin
+    if (window.location.pathname === "/admin" || window.location.pathname === "/admin/") {
+       window.history.replaceState(null, "", `/admin/${view}`);
+    }
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, [hasGlobalAdminAccess, view]);
 
   useEffect(() => {
     localStorage.setItem("adminDarkMode", darkMode);
@@ -63,9 +87,14 @@ const AdminHub = ({ adminUser, onLogout }) => {
     navHover: "rgba(255,255,255,0.07)"
   };
 
-  useEffect(() => {
-    localStorage.setItem("adminView", view);
-  }, [view]);
+  const handleSetView = (newView) => {
+    setView(newView);
+    localStorage.setItem("adminView", newView);
+    // Push new state to browser history
+    if (window.location.pathname !== `/admin/${newView}`) {
+      window.history.pushState(null, "", `/admin/${newView}`);
+    }
+  };
 
   const handleLogout = () => {
     localStorage.removeItem("adminUser");
@@ -73,8 +102,20 @@ const AdminHub = ({ adminUser, onLogout }) => {
     onLogout();
   };
 
+  const handleAdminUpdate = (updated) => {
+    setLocalAdminUser(updated);
+    localStorage.setItem("adminUser", JSON.stringify(updated));
+  };
+
   const renderView = () => {
-    const props = { onNavigate: setView, theme, darkMode, adminUser, onToggleTheme: toggleTheme };
+    const props = { 
+      onNavigate: handleSetView, 
+      theme, 
+      darkMode, 
+      adminUser: localAdminUser, 
+      onAdminUpdate: handleAdminUpdate,
+      onToggleTheme: toggleTheme 
+    };
     switch (view) {
       case "dashboard":     return <AdminDashboard {...props} />;
       case "users":         return <AdminUsers {...props} />;
@@ -127,7 +168,7 @@ const AdminHub = ({ adminUser, onLogout }) => {
                 <button
                   key={item.id}
                   className={`nav-item${view === item.id ? " active" : ""}`}
-                  onClick={() => setView(item.id)}
+                  onClick={() => handleSetView(item.id)}
                   style={{ 
                     ...styles.navItem, 
                     ...(view === item.id ? styles.navItemActive : {}),
@@ -150,14 +191,25 @@ const AdminHub = ({ adminUser, onLogout }) => {
         <div style={styles.sidebarBottom}>
           <div style={styles.adminBadge}>
             <div style={{ ...styles.adminAvatar, background: hasGlobalAdminAccess ? '#9333ea' : '#3b82f6' }}>
-              {adminUser?.name?.charAt(0) || "A"}
+              {localAdminUser?.name?.charAt(0) || "A"}
             </div>
             <div>
               <p style={styles.adminName}>
-                {hasGlobalAdminAccess ? "Feedback System" : (adminUser?.name || "Admin")}
+                {localAdminUser?.name || "Admin"}
               </p>
               <p style={styles.adminRole}>
-                {hasGlobalAdminAccess ? "Admin Panel" : `${adminUser?.department || "Dept"} Admin`}
+                <span style={{ 
+                  color: hasGlobalAdminAccess ? '#a855f7' : '#94A3B8', 
+                  fontWeight: '700',
+                  fontSize: '9px',
+                  backgroundColor: 'rgba(255,255,255,0.05)',
+                  padding: '2px 6px',
+                  borderRadius: '4px',
+                  display: 'inline-block',
+                  marginTop: '2px'
+                }}>
+                  {localAdminUser?.position_title || (hasGlobalAdminAccess ? "Head Admin" : (localAdminUser?.department || "Dept Admin"))}
+                </span>
               </p>
             </div>
           </div>
@@ -172,6 +224,22 @@ const AdminHub = ({ adminUser, onLogout }) => {
 
       {/* MAIN CONTENT */}
       <main style={styles.main}>
+        {!localAdminUser?.profile_completed && localAdminUser?.email !== "admin@globalcore.com" && (
+          <div style={{ padding: '10px 28px', background: '#FEF3C7', borderBottom: '1px solid #FDE68A', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ fontSize: '18px' }}>👋</span>
+              <p style={{ margin: 0, fontSize: '13px', fontWeight: '600', color: '#92400E' }}>
+                Welcome! Complete your profile identity to unlock full reporting features.
+              </p>
+            </div>
+            <button 
+              onClick={() => handleSetView("settings")}
+              style={{ padding: '6px 14px', background: '#92400E', color: 'white', border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: '700', cursor: 'pointer' }}
+            >
+              Complete Now
+            </button>
+          </div>
+        )}
         <header style={{ ...styles.topBar, backgroundColor: theme.headerBg, borderBottom: `1px solid ${theme.border}` }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
             <div>

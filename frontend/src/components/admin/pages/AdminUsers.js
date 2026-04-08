@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from "react";
 import { 
   adminGetUsers, adminToggleUserStatus, adminDeleteUser, adminUpdateUserRole, 
-  adminUpdateUserDetails
+  adminUpdateUserDetails, adminGetDepartments
 } from "../../../services/adminApi";
+import { useTerminology } from "../../../context/TerminologyContext";
 import CustomModal from "../../CustomModal";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -138,7 +139,8 @@ const menuItemStyle = {
 };
 
 const AdminUsers = ({ theme, darkMode, adminUser }) => {
-  const hasGlobalAdminAccess = ["admin", "superadmin"].includes(adminUser?.role);
+  const { getLabel } = useTerminology();
+  const hasGlobalAdminAccess = ["admin", "superadmin"].includes(adminUser?.role) && !adminUser?.department;
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -146,10 +148,18 @@ const AdminUsers = ({ theme, darkMode, adminUser }) => {
   const [draftByUser, setDraftByUser] = useState({});
   const [savingByUser, setSavingByUser] = useState({});
   const [dialog, setDialog] = useState({ isOpen: false });
+  const [deptModal, setDeptModal] = useState({ isOpen: false, user: null });
+  const [depts, setDepts] = useState([]);
   
   const load = () => {
     setLoading(true);
-    adminGetUsers().then(setUsers).catch(console.error).finally(() => setLoading(false));
+    Promise.all([adminGetUsers(), adminGetDepartments()])
+      .then(([userData, deptData]) => {
+        setUsers(userData);
+        setDepts(deptData);
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
   };
 
   useEffect(() => {
@@ -160,13 +170,13 @@ const AdminUsers = ({ theme, darkMode, adminUser }) => {
     .filter(u => {
       const role = (u.role || "user").toLowerCase();
       if (roleTab === "admin") return role === "admin" || role === "superadmin";
-      if (roleTab === "program") return true;
       return role === "user" || role === "maker";
     })
     .filter(u =>
     u.name?.toLowerCase().includes(search.toLowerCase()) ||
     u.email?.toLowerCase().includes(search.toLowerCase()) ||
-    u.program?.toLowerCase().includes(search.toLowerCase())
+    u.program?.toLowerCase().includes(search.toLowerCase()) ||
+    u.position_title?.toLowerCase().includes(search.toLowerCase())
   );
 
   const getDraft = (user) => draftByUser[user.id] || { program: user.program || "" };
@@ -201,6 +211,11 @@ const AdminUsers = ({ theme, darkMode, adminUser }) => {
   };
 
   const handleRoleChange = (user, newRole) => {
+    if (newRole === "admin") {
+      setDeptModal({ isOpen: true, user });
+      return;
+    }
+
     setDialog({
       isOpen: true, type: "alert",
       title: "Update User Role",
@@ -212,6 +227,19 @@ const AdminUsers = ({ theme, darkMode, adminUser }) => {
       },
       onCancel: () => setDialog({ isOpen: false }),
     });
+  };
+
+  const handlePromoteWithDept = async (user, deptName) => {
+    if (!deptName) return;
+    setDeptModal({ isOpen: false, user: null });
+    setLoading(true);
+    try {
+      await adminUpdateUserDetails(user.id, "admin", deptName);
+      load();
+    } catch (err) {
+      console.error(err);
+      setLoading(false);
+    }
   };
 
   const handleDelete = (user) => {
@@ -228,14 +256,15 @@ const AdminUsers = ({ theme, darkMode, adminUser }) => {
   };
 
   const handleExport = (format) => {
-    const headers = ["ID", "Name", "Email", "Role", "Program/Office", "Created Date", "Status", "Posts", "Impact Points"];
+    const headers = ["ID", "Name", "Email", "Role", "Position", getLabel("dept_label", "Program"), "Created Date", "Status", "Posts", "Impact Points"];
     const data = filtered.map((u, idx) => {
-      const createdDate = u.created_at ? new Date(u.created_at).toLocaleDateString() : "—";
+      const createdDate = u.created_at ? new Date(u.created_at).toLocaleString() : "—";
       return [
         idx + 1,
         u.name || "—",
         u.email || "—",
-        u.role || "user",
+        u.role_identity && u.role_identity !== "Others" ? u.role_identity : (u.role || "user"),
+        u.position_title || "—",
         u.program || "—",
         createdDate,
         u.is_active ? "Active" : "Inactive",
@@ -338,7 +367,7 @@ const AdminUsers = ({ theme, darkMode, adminUser }) => {
           style={{ ...inputStyle, background: theme.bg, color: theme.text, border: `1.5px solid ${theme.border}` }}
         />
         <div style={{ display: "flex", background: theme.bg, borderRadius: "8px", border: `1px solid ${theme.border}`, padding: "3px", gap: "4px" }}>
-          {["user", "admin", "program"].map(tab => (
+          {["user", "admin"].map(tab => (
             <button
               key={tab}
               onClick={() => setRoleTab(tab)}
@@ -354,7 +383,7 @@ const AdminUsers = ({ theme, darkMode, adminUser }) => {
                 color: roleTab === tab ? "#fff" : theme.textMuted
               }}
             >
-              {tab === "user" ? "User" : tab === "admin" ? "Admin" : "Program"}
+              {tab === "user" ? "User" : "Admin"}
             </button>
           ))}
         </div>
@@ -377,7 +406,7 @@ const AdminUsers = ({ theme, darkMode, adminUser }) => {
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
             <thead>
               <tr style={{ background: darkMode ? "rgba(255,255,255,0.02)" : "#F8FAFC", borderBottom: `1px solid ${theme.border}` }}>
-                {["#", "Name", "Email", "Role", "Program/Office", "Created Date", "Posts", "Points", "Status", ""].map(h => (
+                {["#", "Name", "Email", "Role", "Position", getLabel("dept_label", "Program"), "Created Date", "Posts", "Points", "Status", ""].map(h => (
                   <th key={h} style={{ ...thStyle, color: theme.textMuted }}>{h}</th>
                 ))}
               </tr>
@@ -411,29 +440,21 @@ const AdminUsers = ({ theme, darkMode, adminUser }) => {
                       color: u.role === 'superadmin' ? '#9333EA' : u.role === 'admin' ? '#3B82F6' : theme.textMuted,
                       border: u.role === 'user' ? 'none' : `1px solid ${u.role === 'superadmin' ? '#F3E8FF' : '#DBEAFE'}`
                     }}>
-                      {u.role || "user"}
+                      {u.role_identity && u.role_identity !== "Others" ? u.role_identity : (u.role || "user")}
                     </span>
                   </td>
+                  <td style={{ ...tdStyle, color: theme.textMuted }}>{u.position_title || "—"}</td>
                   <td style={{ ...tdStyle, color: theme.textMuted }}>
-                    {roleTab === "program" ? (
-                      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                        <input
-                          value={getDraft(u).program}
-                          onChange={(e) => setDraftField(u.id, "program", e.target.value)}
-                          placeholder="Set program"
-                          style={{ ...inputStyle, minWidth: 160, padding: "6px 8px" }}
-                        />
-                        <button
-                          onClick={() => saveProgram(u)}
-                          disabled={!!savingByUser[u.id]}
-                          style={{ ...outlineBtn, padding: "6px 10px", fontSize: 11 }}
-                        >
-                          {savingByUser[u.id] ? "Saving..." : "Save"}
-                        </button>
-                      </div>
-                    ) : (u.program || "—")}
+                    {u.program || "—"}
                   </td>
-                  <td style={{ ...tdStyle, color: theme.textMuted }}>{u.created_at ? new Date(u.created_at).toLocaleDateString() : "—"}</td>
+                  <td style={{ ...tdStyle, color: theme.textMuted, whiteSpace: 'nowrap' }}>
+                    {u.created_at ? (
+                      <div>
+                        <div>{new Date(u.created_at).toLocaleDateString()}</div>
+                        <div style={{ fontSize: '10px', opacity: 0.6 }}>{new Date(u.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                      </div>
+                    ) : "—"}
+                  </td>
                   <td style={{ ...tdStyle, fontWeight: "600", color: theme.text }}>{u.total_posts}</td>
                   <td style={{ ...tdStyle, fontWeight: "800", color: "#10B981" }}>+{u.impact_points ?? 0}</td>
                   <td style={tdStyle}>
@@ -467,6 +488,39 @@ const AdminUsers = ({ theme, darkMode, adminUser }) => {
       <CustomModal isOpen={dialog.isOpen} title={dialog.title} message={dialog.message} type={dialog.type}
         confirmText={dialog.confirmText} isDestructive={dialog.isDestructive}
         onConfirm={dialog.onConfirm} onCancel={dialog.onCancel} />
+
+      {deptModal.isOpen && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15, 23, 42, 0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000 }}>
+          <div style={{ background: theme.surface, padding: '32px', borderRadius: '16px', width: '100%', maxWidth: '400px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
+            <h3 style={{ margin: '0 0 12px 0', fontSize: '18px', fontWeight: '800', color: theme.text }}>Assign to Program</h3>
+            <p style={{ margin: '0 0 24px 0', fontSize: '14px', color: theme.textMuted }}>Select the Program or Office that <strong>{deptModal.user?.name}</strong> will manage as an administrator.</p>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '300px', overflowY: 'auto', paddingRight: '4px' }}>
+              {depts.map(d => (
+                <button 
+                  key={d.id} 
+                  onClick={() => handlePromoteWithDept(deptModal.user, d.name)}
+                  style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px', background: darkMode ? 'rgba(255,255,255,0.03)' : '#F8FAFC', border: `1.5px solid ${theme.border}`, borderRadius: '12px', color: theme.text, fontSize: '14px', fontWeight: '600', cursor: 'pointer', textAlign: 'left', transition: 'all 0.2s' }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = '#3B82F6'; e.currentTarget.style.background = darkMode ? 'rgba(59, 130, 246, 0.05)' : '#EFF6FF'; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = theme.border; e.currentTarget.style.background = darkMode ? 'rgba(255,255,255,0.03)' : '#F8FAFC'; }}
+                >
+                  <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'rgba(59, 130, 246, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#3B82F6' }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M3 21h18M3 7v1a3 3 0 0 0 6 0V7m0 1a3 3 0 0 0 6 0V7m0 1a3 3 0 0 0 6 0V7M4 7l2-4h12l2 4"/></svg>
+                  </div>
+                  {d.name}
+                </button>
+              ))}
+            </div>
+
+            <button 
+              onClick={() => setDeptModal({ isOpen: false, user: null })}
+              style={{ width: '100%', marginTop: '20px', padding: '12px', background: 'none', border: 'none', color: theme.textMuted, fontSize: '13px', fontWeight: 'bold', cursor: 'pointer' }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from "react";
+import { useTerminology } from "../../../context/TerminologyContext";
 import {
   getAnalyticsSummary, getAnalyticsVolume, getAnalyticsByCategory,
   getAnalyticsByDepartment, getAnalyticsByStatus, getAnalyticsRatings,
   getTopUsers, getAnalyticsEngagement, getAnalyticsSentiment,
-  getAnalyticsSnapshot, adminGetCategories
+  getAnalyticsSnapshot, adminGetScopeOptions
 } from "../../../services/adminApi";
 import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
@@ -37,6 +38,9 @@ const Section = ({ title, children, theme }) => (
 );
 
 const AdminDashboard = ({ onNavigate, theme, darkMode, adminUser }) => {
+  const { getLabel } = useTerminology();
+  // Treat any admin/superadmin as "global" for scope tracking.
+  // (We are moving away from strict department-based scoping.)
   const hasGlobalAdminAccess = ["admin", "superadmin"].includes(adminUser?.role);
   const tooltipStyle = { 
     fontSize: "12px", borderRadius: "8px", border: `1px solid ${theme.border}`, 
@@ -51,6 +55,7 @@ const AdminDashboard = ({ onNavigate, theme, darkMode, adminUser }) => {
   const [topUsers, setTopUsers] = useState([]);
   const [engagement, setEngagement] = useState([]);
   const [sentiment, setSentiment] = useState({ positive: 0, neutral: 0, frustrated: 0 });
+  const [userDistribution, setUserDistribution] = useState({ by_program: [], by_role: [] });
   const [loading, setLoading] = useState(true);
   
   const [scopeCategories, setScopeCategories] = useState([]);
@@ -58,7 +63,7 @@ const AdminDashboard = ({ onNavigate, theme, darkMode, adminUser }) => {
 
   useEffect(() => {
     if (hasGlobalAdminAccess) {
-      adminGetCategories().then(setScopeCategories).catch(console.error);
+      adminGetScopeOptions().then(setScopeCategories).catch(console.error);
     }
   }, [adminUser, hasGlobalAdminAccess]);
 
@@ -81,6 +86,7 @@ const AdminDashboard = ({ onNavigate, theme, darkMode, adminUser }) => {
         setTopUsers(data.top_users);
         setEngagement(data.engagement);
         setSentiment(data.sentiment);
+        setUserDistribution(data.user_distribution || { by_program: [], by_role: [] });
       } catch (err) {
         console.error(err);
       } finally {
@@ -105,14 +111,14 @@ const AdminDashboard = ({ onNavigate, theme, darkMode, adminUser }) => {
     <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
 
       {/* Header controls for Super Admins */}
-      {hasGlobalAdminAccess && (
+      {hasGlobalAdminAccess ? (
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: theme.surface, padding: "12px 20px", borderRadius: "12px", border: `1px solid ${theme.border}`, boxShadow: "0 1px 4px rgba(0,0,0,0.03)" }}>
           <div>
-            <h3 style={{ margin: 0, fontSize: "14px", fontWeight: "800", color: theme.text }}>Dashboard Scope Tracker</h3>
+            <h3 style={{ margin: 0, fontSize: "14px", fontWeight: "800", color: theme.text }}>{getLabel("entity_label", "Department")} Scope Tracker</h3>
             {selectedDept ? (
               <p style={{ margin: "4px 0 0", fontSize: "12px", color: "#3B82F6", fontWeight: "700", display: "flex", alignItems: "center", gap: "6px" }}>
                 <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#3B82F6" }} />
-                Viewing: {selectedDept} (Department View)
+                Viewing: {selectedDept} ({getLabel("entity_label", "Department")} View)
               </p>
             ) : (
               <p style={{ margin: "4px 0 0", fontSize: "12px", color: theme.textMuted, fontWeight: "600", display: "flex", alignItems: "center", gap: "6px" }}>
@@ -126,11 +132,21 @@ const AdminDashboard = ({ onNavigate, theme, darkMode, adminUser }) => {
             onChange={(e) => setSelectedDept(e.target.value)}
             style={{ padding: "8px 16px", borderRadius: "8px", border: `1.5px solid ${theme.border}`, background: theme.bg, color: theme.text, fontSize: "13px", fontWeight: "600", outline: "none", cursor: "pointer", fontFamily: "inherit" }}
           >
-            <option value="">All Departments (Global)</option>
+            <option value="">All {getLabel("entity_label_plural", "Departments")} (Global)</option>
             {scopeCategories.map((d) => (
-              <option key={d.id} value={d.name}>{d.name}</option>
+              <option key={d.name} value={d.name}>{d.name}</option>
             ))}
           </select>
+        </div>
+      ) : (
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: theme.surface, padding: "12px 20px", borderRadius: "12px", border: `1px solid ${theme.border}` }}>
+           <div>
+            <h3 style={{ margin: 0, fontSize: "14px", fontWeight: "800", color: theme.text }}>{adminUser?.department} Dashboard</h3>
+            <p style={{ margin: "4px 0 0", fontSize: "12px", color: "#3B82F6", fontWeight: "700", display: "flex", alignItems: "center", gap: "6px" }}>
+              <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#3B82F6" }} />
+              Scoped to your assigned program
+            </p>
+          </div>
         </div>
       )}
 
@@ -141,21 +157,59 @@ const AdminDashboard = ({ onNavigate, theme, darkMode, adminUser }) => {
         gap: "16px",
         justifyContent: "center"
       }}>
-        <KpiCard theme={theme} label={hasGlobalAdminAccess ? "Total Feedback" : `${adminUser?.department} Feedback`} value={summary?.total_feedback ?? 0} sub={hasGlobalAdminAccess ? "System-wide" : "Total reports"} onClick={() => onNavigate("feedbacks")} />
+        <KpiCard theme={theme} label={hasGlobalAdminAccess ? `Total ${getLabel("feedback_label_plural", "Feedback")}` : `${adminUser?.department} ${getLabel("feedback_label", "Feedback")}`} value={summary?.total_feedback ?? 0} sub={hasGlobalAdminAccess ? "System-wide" : "Total reports"} onClick={() => onNavigate("feedbacks")} />
         {hasGlobalAdminAccess ? (
           <KpiCard theme={theme} label="Total Users" value={summary?.total_users ?? 0} sub="Registered" onClick={() => onNavigate("users")} />
         ) : (
           <KpiCard theme={theme} label="Dept. Users" value={summary?.total_users ?? 0} sub={`In ${adminUser?.department}`} onClick={() => onNavigate("users")} />
         )}
         <KpiCard theme={theme} label="Avg. Rating" value={summary?.avg_rating ?? 0} sub="Out of 5" />
-        <KpiCard theme={theme} label="Anonymous Rate" value={`${summary?.anonymous_rate ?? 0}%`} sub="Of all submissions" />
+        <KpiCard theme={theme} label="Anonymous Rate" value={`${summary?.anonymous_rate ?? 0}%`} sub={`Of all ${getLabel("feedback_label_plural", "submissions")}`} />
         <KpiCard theme={theme} label="Total Comments" value={summary?.total_comments ?? 0} sub="All replies" />
       </div>
 
+      {/* 📊 User Insight Section */}
+      <div style={{ display: "grid", gridTemplateColumns: hasGlobalAdminAccess ? "1fr 1fr" : "1fr", gap: "16px" }}>
+        {hasGlobalAdminAccess && (
+          <Section theme={theme} title="Program/Office distribution">
+            <ResponsiveContainer width="100%" height={250}>
+              <PieChart>
+                <Pie
+                  data={userDistribution.by_program}
+                  cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value"
+                >
+                  {userDistribution.by_program.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip contentStyle={tooltipStyle} />
+              </PieChart>
+            </ResponsiveContainer>
+            <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "10px", marginTop: "10px" }}>
+              {userDistribution.by_program.map((entry, index) => (
+                <div key={index} style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                  <div style={{ width: "8px", height: "8px", borderRadius: "2px", background: CHART_COLORS[index % CHART_COLORS.length] }} />
+                  <span style={{ fontSize: "10px", color: theme.textMuted }}>{entry.name}</span>
+                </div>
+              ))}
+            </div>
+          </Section>
+        )}
 
-      {/* Volume + Engagement */}
+        <Section theme={theme} title={hasGlobalAdminAccess ? "User Role Identities (System-wide)" : `User Roles in ${adminUser?.department}`}>
+          <ResponsiveContainer width="100%" height={250}>
+            <BarChart data={userDistribution.by_role} layout="vertical" margin={{ left: 20, right: 20 }}>
+              <XAxis type="number" hide />
+              <YAxis dataKey="name" type="category" tick={{ fontSize: 10, fill: theme.textMuted }} width={100} axisLine={false} tickLine={false} />
+              <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'transparent' }} />
+              <Bar dataKey="value" fill="#3B82F6" radius={[0, 4, 4, 0]} barSize={20} />
+            </BarChart>
+          </ResponsiveContainer>
+        </Section>
+      </div>
+
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
-        <Section theme={theme} title="Feedback Volume — Last 30 Days">
+        <Section theme={theme} title={`${getLabel("feedback_label", "Feedback")} Volume — Last 30 Days`}>
           <ResponsiveContainer width="100%" height={200}>
             <AreaChart data={volume}>
               <defs>
@@ -167,7 +221,7 @@ const AdminDashboard = ({ onNavigate, theme, darkMode, adminUser }) => {
               <XAxis dataKey="day" tick={{ fontSize: 10, fill: theme.textMuted }} tickLine={false} axisLine={false} />
               <YAxis tick={{ fontSize: 10, fill: theme.textMuted }} tickLine={false} axisLine={false} />
               <Tooltip contentStyle={tooltipStyle} />
-              <Area type="monotone" dataKey="count" stroke="#1f2a56" fill="url(#volGrad)" strokeWidth={2} dot={false} name="Feedback" />
+              <Area type="monotone" dataKey="count" stroke="#1f2a56" fill="url(#volGrad)" strokeWidth={2} dot={false} name={getLabel("feedback_label", "Feedback")} />
             </AreaChart>
           </ResponsiveContainer>
         </Section>
@@ -212,15 +266,15 @@ const AdminDashboard = ({ onNavigate, theme, darkMode, adminUser }) => {
             <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px", padding: "8px 12px", background: darkMode ? "rgba(16, 185, 129, 0.1)" : "#F0FDF4", borderRadius: "8px", border: `1px solid ${darkMode ? "rgba(16, 185, 129, 0.2)" : "#DCFCE7"}` }}>
                 <span style={{ fontWeight: "600", color: darkMode ? "#10B981" : "#166534" }}>😊 Positive</span>
-                <span style={{ fontWeight: "800", color: darkMode ? "#10B981" : "#166534" }}>{sentiment.positive} Posts</span>
+                <span style={{ fontWeight: "800", color: darkMode ? "#10B981" : "#166534" }}>{sentiment.positive} {getLabel("feedback_label_plural", "Posts")}</span>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px", padding: "8px 12px", background: darkMode ? "rgba(148, 163, 184, 0.1)" : "#F8FAFC", borderRadius: "8px", border: `1px solid ${darkMode ? "rgba(148, 163, 184, 0.2)" : "#F1F5F9"}` }}>
                 <span style={{ fontWeight: "600", color: theme.text }}>😐 Neutral</span>
-                <span style={{ fontWeight: "800", color: theme.text }}>{sentiment.neutral} Posts</span>
+                <span style={{ fontWeight: "800", color: theme.text }}>{sentiment.neutral} {getLabel("feedback_label_plural", "Posts")}</span>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px", padding: "8px 12px", background: darkMode ? "rgba(239, 68, 68, 0.1)" : "#FEF2F2", borderRadius: "8px", border: `1px solid ${darkMode ? "rgba(239, 68, 68, 0.2)" : "#FEE2E2"}` }}>
                 <span style={{ fontWeight: "600", color: darkMode ? "#F87171" : "#991B1B" }}>😫 Frustrated</span>
-                <span style={{ fontWeight: "800", color: darkMode ? "#F87171" : "#991B1B" }}>{sentiment.frustrated} Posts</span>
+                <span style={{ fontWeight: "800", color: darkMode ? "#F87171" : "#991B1B" }}>{sentiment.frustrated} {getLabel("feedback_label_plural", "Posts")}</span>
               </div>
             </div>
           </div>
@@ -228,13 +282,13 @@ const AdminDashboard = ({ onNavigate, theme, darkMode, adminUser }) => {
       </Section>
 
       {/* Category Analytics */}
-      <Section theme={theme} title="Submissions by Category Type">
+      <Section theme={theme} title={`Submissions by ${getLabel("category_label", "Category")} Type`}>
         <ResponsiveContainer width="100%" height={300}>
           <BarChart data={byCategory} layout="vertical">
             <XAxis type="number" tick={{ fontSize: 10, fill: theme.textMuted }} tickLine={false} axisLine={false} />
             <YAxis dataKey="name" type="category" tick={{ fontSize: 10, fill: theme.textMuted }} tickLine={false} axisLine={false} width={120} />
             <Tooltip contentStyle={tooltipStyle} />
-            <Bar dataKey="count" fill="#1f2a56" radius={[0, 6, 6, 0]} name="Posts">
+            <Bar dataKey="count" fill="#1f2a56" radius={[0, 6, 6, 0]} name={getLabel("feedback_label_plural", "Posts")}>
               {byCategory.map((entry, index) => (
                 <Cell key={`cell-${index}`} fill={darkMode ? CHART_COLORS[index % CHART_COLORS.length] : CHART_COLORS[index % CHART_COLORS.length]} />
               ))}
@@ -278,7 +332,7 @@ const AdminDashboard = ({ onNavigate, theme, darkMode, adminUser }) => {
                 <p style={{ margin: 0, fontSize: "13px", fontWeight: "700", color: theme.text }}>{u.name}</p>
                 <p style={{ margin: 0, fontSize: "11px", color: theme.textMuted }}>{u.email}</p>
               </div>
-              <span style={{ fontSize: "13px", fontWeight: "700", color: theme.text }}>{u.total_posts} posts</span>
+              <span style={{ fontSize: "13px", fontWeight: "700", color: theme.text }}>{u.total_posts} {getLabel("feedback_label_plural", "posts")}</span>
             </div>
           ))}
         </div>

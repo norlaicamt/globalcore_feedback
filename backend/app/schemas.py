@@ -21,6 +21,12 @@ class UserBase(BaseModel):
     city: Optional[str] = None
     barangay: Optional[str] = None
     exact_address: Optional[str] = None
+    birthdate: Optional[str] = None
+    birthplace: Optional[str] = None
+    unit_name: Optional[str] = None
+    profile_completed: Optional[bool] = False
+    completed_at: Optional[datetime] = None
+    last_login: Optional[datetime] = None
     onboarding_completed: Optional[bool] = False
     two_factor_enabled: Optional[bool] = False
     role: Optional[str] = "user"
@@ -53,6 +59,12 @@ class UserUpdate(BaseModel):
     city: Optional[str] = None
     barangay: Optional[str] = None
     exact_address: Optional[str] = None
+    birthdate: Optional[str] = None
+    birthplace: Optional[str] = None
+    unit_name: Optional[str] = None
+    profile_completed: Optional[bool] = None
+    completed_at: Optional[datetime] = None
+    last_login: Optional[datetime] = None
     onboarding_completed: Optional[bool] = None
     password: Optional[str] = None
     two_factor_enabled: Optional[bool] = None
@@ -89,10 +101,11 @@ class DepartmentBase(BaseModel):
     name: str
 
 class DepartmentCreate(DepartmentBase):
-    pass
+    category_id: Optional[int] = None
 
 class Department(DepartmentBase):
     id: int
+    category_id: Optional[int] = None
     model_config = ConfigDict(from_attributes=True)
 
 # --- CATEGORY SCHEMAS ---
@@ -224,6 +237,7 @@ class Feedback(FeedbackBase):
     sender_show_status: Optional[bool] = True
     recipient_dept_name: Optional[str] = None
     recipient_user_name: Optional[str] = None
+    category_name: Optional[str] = None
     likes_count: Optional[int] = 0
     dislikes_count: Optional[int] = 0
     replies_count: Optional[int] = 0
@@ -276,6 +290,18 @@ class SystemSettingBase(BaseModel):
     value: str
 
 class SystemSetting(SystemSettingBase):
+    model_config = ConfigDict(from_attributes=True)
+
+class SystemLabelBase(BaseModel):
+    key: str
+    value: str
+    organization_id: Optional[int] = None
+
+class SystemLabelCreate(SystemLabelBase):
+    pass
+
+class SystemLabel(SystemLabelBase):
+    id: int
     model_config = ConfigDict(from_attributes=True)
 
 class BroadcastLogBase(BaseModel):

@@ -49,15 +49,29 @@ const SectionCard = ({ title, subtitle, children, theme }) => (
 
 const TextRow = ({ title, value, onChange, theme, placeholder, rows = 3 }) => {
   const [isFocused, setIsFocused] = useState(false);
+  const [localVal, setLocalVal] = useState(value || "");
+
+  useEffect(() => {
+    setLocalVal(value || "");
+  }, [value]);
+
+  const handleBlur = () => {
+    setIsFocused(false);
+    if (localVal !== (value || "")) {
+      onChange(localVal);
+    }
+  };
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "10px", padding: "16px 0", borderBottom: `1px solid ${theme.border}` }}>
       <label style={{ fontSize: "13px", fontWeight: "700", color: isFocused ? "#3B82F6" : theme.textMuted, transition: "color 0.2s" }}>{title}</label>
       <div style={{ position: "relative" }}>
-        <textarea value={value || ""} onChange={(e) => onChange(e.target.value)}
-          onFocus={() => setIsFocused(true)} onBlur={() => setIsFocused(false)}
+        <textarea value={localVal} onChange={(e) => setLocalVal(e.target.value)}
+          onFocus={() => setIsFocused(true)} onBlur={handleBlur}
           placeholder={placeholder} rows={rows}
           style={{ width: "100%", padding: "16px", borderRadius: "12px", border: `2px solid ${isFocused ? '#3B82F6' : theme.border}`, background: isFocused ? `${theme.bg}80` : theme.surface, color: theme.text, fontSize: "14px", fontFamily: "inherit", resize: "none", boxSizing: "border-box", lineHeight: "1.6", outline: "none", transition: "all 0.2s", boxShadow: isFocused ? "0 4px 20px rgba(59, 130, 246, 0.1)" : "none" }}
         />
+
         {isFocused && (
           <div style={{ position: "absolute", bottom: "12px", right: "16px", fontSize: "11px", fontWeight: "700", color: "#3B82F6", background: "rgba(59,130,246,0.1)", padding: "4px 8px", borderRadius: "10px" }}>Saving automatically...</div>
         )}

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react"; // Fixed search state
 import { adminGetFeedbacks, adminDeleteFeedback } from "../../../services/adminApi";
+import { useTerminology } from "../../../context/TerminologyContext";
 import CustomModal from "../../CustomModal";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -139,7 +140,8 @@ const HeaderFilter = ({ label, value, onChange, theme, darkMode }) => {
 };
 
 const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
-  const hasGlobalAdminAccess = ["admin", "superadmin"].includes(adminUser?.role);
+  const { getLabel } = useTerminology();
+  const hasGlobalAdminAccess = ["admin", "superadmin"].includes(adminUser?.role) && !adminUser?.department;
   const [feedbacks, setFeedbacks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -166,7 +168,7 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
 
   const handleDelete = (fb) => {
     setDialog({
-      isOpen: true, type: "alert", title: "Delete Feedback",
+      isOpen: true, type: "alert", title: `Delete ${getLabel("feedback_label", "Feedback")}`,
       message: `Permanently delete "${fb.title}"? This cannot be undone.`,
       confirmText: "Delete", isDestructive: true,
       onConfirm: async () => { await adminDeleteFeedback(fb.id); setDialog({ isOpen: false }); load(); },
@@ -175,7 +177,7 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
   };
 
   const handleExport = (format) => {
-    const headers = ["ID", "Category", "Establishment", "Department", "Author", "Rating", "Comments", "Date"];
+    const headers = ["ID", getLabel("category_label", "Category"), getLabel("entity_label", "Establishment"), getLabel("dept_label", "Department"), "Author", "Rating", "Comments", "Date"];
     const data = filtered.map((f, idx) => [
       idx + 1,
       f.title?.split(": ")[0] || "General",
@@ -216,7 +218,7 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
       doc.rect(0, 0, 210, 25, 'F');
       doc.setTextColor(255, 255, 255);
       doc.setFontSize(20);
-      doc.text("FEEDBACK AUDIT REPORT", 14, 17);
+      doc.text(`${getLabel("feedback_label", "Feedback").toUpperCase()} AUDIT REPORT`, 14, 17);
       
       doc.setFontSize(8);
       doc.setTextColor(200, 200, 200);
@@ -255,7 +257,7 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
         </style>
         </head>
         <body>
-          <h1>FEEDBACK AUDIT REPORT</h1>
+          <h1>{getLabel("feedback_label", "Feedback").toUpperCase()} AUDIT REPORT</h1>
           <p class="meta">Exported from GlobalCore Admin on ${new Date().toLocaleString()}</p>
           <table>
             <thead>
@@ -299,9 +301,9 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
             <thead>
               <tr style={{ background: darkMode ? "rgba(255,255,255,0.02)" : "#F8FAFC", borderBottom: `1px solid ${theme.border}` }}>
                 <th style={{ ...thStyle, color: theme.textMuted }}>#</th>
-                <HeaderFilter theme={theme} darkMode={darkMode} label="Category Type" value={filters.category} onChange={v => setFilters({...filters, category: v})} />
-                <HeaderFilter theme={theme} darkMode={darkMode} label="Establishment/Service" value={filters.establishment} onChange={v => setFilters({...filters, establishment: v})} />
-                {hasGlobalAdminAccess && <th style={{ ...thStyle, color: theme.textMuted }}>Department</th>}
+                <HeaderFilter theme={theme} darkMode={darkMode} label={getLabel("category_label", "Category")} value={filters.category} onChange={v => setFilters({...filters, category: v})} />
+                <HeaderFilter theme={theme} darkMode={darkMode} label={getLabel("entity_label", "Establishment/Service")} value={filters.establishment} onChange={v => setFilters({...filters, establishment: v})} />
+                {hasGlobalAdminAccess && <HeaderFilter theme={theme} darkMode={darkMode} label={getLabel("dept_label", "Department")} value={filters.dept_name || ""} onChange={v => setFilters({...filters, dept_name: v})} />}
                 <HeaderFilter theme={theme} darkMode={darkMode} label="Author" value={filters.author} onChange={v => setFilters({...filters, author: v})} />
                 {["Rating", "Comments", "Date", ""].map(h => (
                   <th key={h} style={{ ...thStyle, color: theme.textMuted }}>{h}</th>
@@ -362,7 +364,7 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
               ))}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={8} style={{ padding: "32px", textAlign: "center", color: theme.textMuted, fontSize: "13px" }}>No feedback found.</td>
+                  <td colSpan={8} style={{ padding: "32px", textAlign: "center", color: theme.textMuted, fontSize: "13px" }}>No {getLabel("feedback_label", "feedback")} found.</td>
                 </tr>
               )}
             </tbody>

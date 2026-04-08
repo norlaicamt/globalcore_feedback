@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { getAdminSettings, updateAdminSetting } from "../../../services/api";
-import { adminGetProfile, adminUpdateProfile } from "../../../services/adminApi";
+import { adminGetProfile, adminUpdateProfile, getSystemLabels, updateSystemLabelsBulk, adminGetProfileActivity } from "../../../services/adminApi";
+import { useTerminology } from "../../../context/TerminologyContext";
 
 const ToggleRow = ({ title, description, checked, onChange, loading, theme, darkMode }) => (
   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 0", borderBottom: `1px solid ${theme.border}`, opacity: loading ? 0.6 : 1 }}>
@@ -30,7 +31,8 @@ const SectionCard = ({ title, subtitle, children, theme }) => (
   </div>
 );
 
-const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme }) => {
+const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, onAdminUpdate }) => {
+  const { labels, refreshLabels, getLabel } = useTerminology();
   const isGlobalCoreAdmin = (adminUser?.email || "").toLowerCase() === "admin@globalcore.com";
   const [activeTab, setActiveTab] = useState("profile");
   const [settings, setSettings] = useState({ allow_voice: true, public_feed: true, email_notifications: false, status_notifications: true });
@@ -41,6 +43,7 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme }
   const [successMsg, setSuccessMsg] = useState("");
   const [language, setLanguage] = useState(localStorage.getItem("adminLanguage") || "English");
   const [defaultView, setDefaultView] = useState(localStorage.getItem("adminDefaultView") || "dashboard");
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
 
   const [form, setForm] = useState({
     name: "",
@@ -52,7 +55,24 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme }
     status_updates: true,
     reply_notifications: true,
     weekly_digest: false,
+    biometrics_enabled: true,
+    position_title: "",
+    unit_name: "",
+    phone: "",
   });
+  
+  const [recentActions, setRecentActions] = useState([]);
+  const [activityLoading, setActivityLoading] = useState(false);
+
+  const [termForm, setTermForm] = useState({
+    category_label: "",
+    category_label_plural: "",
+    entity_label: "",
+    entity_label_plural: "",
+    feedback_label: "",
+    feedback_label_plural: "",
+  });
+  const [termSaving, setTermSaving] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -77,7 +97,20 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme }
           status_updates: !!profileData.status_updates,
           reply_notifications: !!profileData.reply_notifications,
           weekly_digest: !!profileData.weekly_digest,
+          position_title: profileData.position_title || "",
+          unit_name: profileData.unit_name || "",
+          phone: profileData.phone || "",
         }));
+        setTermForm({
+          category_label: labels.category_label || "Category",
+          category_label_plural: labels.category_label_plural || "Categories",
+          entity_label: labels.entity_label || "Establishment/Service",
+          entity_label_plural: labels.entity_label_plural || "Establishments/Services",
+          dept_label: labels.dept_label || "Department",
+          dept_label_plural: labels.dept_label_plural || "Departments",
+          feedback_label: labels.feedback_label || "Feedback",
+          feedback_label_plural: labels.feedback_label_plural || "Feedbacks",
+        });
       } catch (e) {
         console.error("Failed to load settings/profile", e);
       } finally {
@@ -85,7 +118,17 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme }
       }
     };
     load();
-  }, []);
+  }, [labels]);
+
+  useEffect(() => {
+    if (activeTab === "activity" && profile) {
+      setActivityLoading(true);
+      adminGetProfileActivity(5)
+        .then(res => setRecentActions(res))
+        .catch(err => console.error("Failed to load activity", err))
+        .finally(() => setActivityLoading(false));
+    }
+  }, [activeTab, profile]);
 
   const handleToggle = async (key) => {
     if (!isGlobalCoreAdmin) return;
@@ -106,6 +149,7 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme }
       await adminUpdateProfile(updates);
       const refreshed = await adminGetProfile();
       setProfile(refreshed);
+      if (onAdminUpdate) onAdminUpdate(refreshed);
       setSuccessMsg("Profile settings updated.");
       setTimeout(() => setSuccessMsg(""), 2500);
     } catch (e) {
@@ -120,10 +164,14 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme }
     const payload = {
       name: form.name,
       avatar_url: form.avatar_url || null,
+      position_title: form.position_title || null,
+      unit_name: form.unit_name || null,
+      phone: form.phone || null,
       ...(form.password ? { password: form.password } : {}),
       two_factor_enabled: form.two_factor_enabled
     };
     await saveProfile(payload);
+    setIsEditingProfile(false);
     setForm(prev => ({ ...prev, password: "" }));
   };
 
@@ -145,14 +193,33 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme }
     setTimeout(() => setSuccessMsg(""), 2500);
   };
 
+  const saveTerminology = async () => {
+    setTermSaving(true);
+    setSuccessMsg("");
+    try {
+      await updateSystemLabelsBulk(termForm);
+      await refreshLabels();
+      setSuccessMsg("Terminology updated successfully.");
+      setTimeout(() => setSuccessMsg(""), 2500);
+    } catch (e) {
+      console.error(e);
+      alert("Failed to update terminology.");
+    } finally {
+      setTermSaving(false);
+    }
+  };
+
   const tabs = [
-    { id: "profile", label: "Basic Profile" },
-    { id: "security", label: "Account Security" },
-    { id: "notifs", label: "Notification Preferences" },
-    { id: "display", label: "Display / Preferences" },
-    { id: "links", label: "Quick Links" },
+    { id: "profile", label: "Profile" },
+    { id: "security", label: "Security" },
+    { id: "notifs", label: "Notifications" },
+    { id: "display", label: "Display" },
+    { id: "activity", label: "Activity" },
   ];
-  if (isGlobalCoreAdmin) tabs.push({ id: "system", label: "Global Config" });
+  if (isGlobalCoreAdmin) {
+    tabs.push({ id: "terminology", label: "Terminology" });
+    tabs.push({ id: "system", label: "Global Config" });
+  }
 
   const inputStyle = { padding: "10px 14px", border: `1.5px solid ${theme.border}`, borderRadius: "8px", fontSize: "13px", outline: "none", fontFamily: "inherit", background: theme.bg, color: theme.text, width: "100%", boxSizing: "border-box" };
   const labelStyle = { display: "block", fontSize: "11px", fontWeight: "700", color: theme.textMuted, marginBottom: "6px", textTransform: "uppercase", letterSpacing: "0.04em" };
@@ -174,33 +241,110 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme }
       </div>
 
       {activeTab === "profile" && (
-        <SectionCard theme={theme} title="Basic Profile" subtitle="Identity and role details for accountability.">
+        <SectionCard theme={theme} title="Admin Identity" subtitle="Manage your core identity and organizational context.">
           {loading || !profile ? <div style={{ color: theme.textMuted, fontSize: 13 }}>Loading profile...</div> : (
-            <form onSubmit={handleProfileSave} style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px" }}>
-              <div>
-                <label style={labelStyle}>Full Name</label>
-                <input value={form.name} onChange={e => setForm(prev => ({ ...prev, name: e.target.value }))} style={inputStyle} />
-              </div>
-              <div>
-                <label style={labelStyle}>Email</label>
-                <input value={profile.email || ""} disabled style={{ ...inputStyle, opacity: 0.7 }} />
-              </div>
-              <div>
-                <label style={labelStyle}>Position / Role Title</label>
-                <input value={profile.role_title || "Administrator"} disabled style={{ ...inputStyle, opacity: 0.7 }} />
-              </div>
-              <div>
-                <label style={labelStyle}>Department / Organization</label>
-                <input value={profile.department || "No Department / External"} disabled style={{ ...inputStyle, opacity: 0.7 }} />
-              </div>
-              <div style={{ gridColumn: "1 / span 2" }}>
-                <label style={labelStyle}>Profile Photo URL (Optional)</label>
-                <input value={form.avatar_url} onChange={e => setForm(prev => ({ ...prev, avatar_url: e.target.value }))} style={inputStyle} placeholder="https://..." />
-              </div>
-              <div style={{ gridColumn: "1 / span 2" }}>
-                <button type="submit" disabled={profileSaving} style={{ padding: "10px 16px", background: "#3B82F6", color: "white", border: "none", borderRadius: 8, fontWeight: 700, cursor: "pointer" }}>{profileSaving ? "Saving..." : "Save Basic Profile"}</button>
-              </div>
-            </form>
+            <>
+              {!isEditingProfile ? (
+                <div style={{ display: "flex", gap: "28px", alignItems: "flex-start" }}>
+                  <div style={{ position: "relative" }}>
+                    {profile.avatar_url 
+                      ? <img src={profile.avatar_url} alt={profile.name} style={{ width: "110px", height: "110px", borderRadius: "20px", objectFit: "cover", border: `2px solid ${theme.border}` }} />
+                      : <div style={{ width: "110px", height: "110px", borderRadius: "20px", background: "#1f2a56", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "36px", fontWeight: "800" }}>{profile.name?.charAt(0)}</div>}
+                    {profile.profile_completed && (
+                       <div style={{ position: 'absolute', bottom: -5, right: -5, background: '#10B981', border: '3px solid white', borderRadius: '50%', padding: '4px', display: 'flex' }}>
+                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="4"><polyline points="20 6 9 17 4 12"/></svg>
+                       </div>
+                    )}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                      <div>
+                        <h3 style={{ margin: "0 0 4px 0", fontSize: "18px", fontWeight: "800", color: theme.text }}>
+                          {profile.position_title || (isGlobalCoreAdmin ? "Head Admin" : (profile.role || "Admin"))}
+                          {isGlobalCoreAdmin && !profile.position_title && <span style={{ marginLeft: 8, fontSize: '10px', background: '#9333ea', color: 'white', padding: '2px 8px', borderRadius: '4px', verticalAlign: 'middle' }}>Head Admin</span>}
+                        </h3>
+                        <p style={{ margin: 0, fontSize: "13px", color: theme.textMuted }}>{profile.email}</p>
+                      </div>
+                      <button 
+                        onClick={() => setIsEditingProfile(true)}
+                        style={{ padding: "8px 16px", background: theme.bg, color: theme.text, border: `1.5px solid ${theme.border}`, borderRadius: "8px", fontSize: "12px", fontWeight: "700", cursor: "pointer" }}
+                      >
+                        Edit Profile Details
+                      </button>
+                    </div>
+                    
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px", marginTop: "24px" }}>
+                      <div>
+                        <label style={labelStyle}>Position / Title</label>
+                        <p style={{ margin: 0, fontSize: "14px", fontWeight: "600", color: theme.text }}>{profile.position_title || "—"}</p>
+                      </div>
+                      <div>
+                        <label style={labelStyle}>{getLabel("category_label", "Unit Type")}</label>
+                        <p style={{ margin: 0, fontSize: "14px", fontWeight: "600", color: theme.text }}>{profile.unit_name || "—"}</p>
+                      </div>
+                      <div>
+                        <label style={labelStyle}>Organization</label>
+                        <p style={{ margin: 0, fontSize: "14px", fontWeight: "600", color: theme.text }}>GlobalCore Feedback Net</p>
+                      </div>
+                      <div>
+                        <label style={labelStyle}>Contact Number</label>
+                        <p style={{ margin: 0, fontSize: "14px", fontWeight: "600", color: theme.text }}>{profile.phone || "—"}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <form onSubmit={handleProfileSave}>
+                   {/* 🧩 1. Basic Information */}
+                   <p style={{ fontSize: '11px', fontWeight: '800', color: '#3B82F6', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>🧩 1. Basic Information</p>
+                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: '24px' }}>
+                    <div style={{ gridColumn: '1 / span 2' }}>
+                      <label style={labelStyle}>Full Name</label>
+                      <input value={form.name} onChange={e => setForm(prev => ({ ...prev, name: e.target.value }))} style={inputStyle} />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Email Address (Read-only)</label>
+                      <input value={profile.email || ""} disabled style={{ ...inputStyle, opacity: 0.7, cursor: 'not-allowed' }} />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Position / Title</label>
+                      <input value={form.position_title} onChange={e => setForm(prev => ({ ...prev, position_title: e.target.value }))} style={inputStyle} placeholder="e.g. Program Officer" />
+                    </div>
+                  </div>
+
+                  {/* 🧩 2. Organization Context */}
+                  <p style={{ fontSize: '11px', fontWeight: '800', color: '#3B82F6', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>🧩 2. Organization Context</p>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: '24px' }}>
+                    <div>
+                      <label style={labelStyle}>Organization Name (Read-only)</label>
+                      <input value="GlobalCore Feedback Net" disabled style={{ ...inputStyle, opacity: 0.7, cursor: 'not-allowed' }} />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>{getLabel("category_label", "Unit/Program")}</label>
+                      <input value={form.unit_name} onChange={e => setForm(prev => ({ ...prev, unit_name: e.target.value }))} style={inputStyle} placeholder={`e.g. ${getLabel("category_label", "Internal")}`} />
+                    </div>
+                  </div>
+
+                  {/* 🧩 3. Contact Information */}
+                  <p style={{ fontSize: '11px', fontWeight: '800', color: '#3B82F6', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>🧩 3. Contact Information</p>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: '24px' }}>
+                    <div style={{ gridColumn: '1 / span 2' }}>
+                      <label style={labelStyle}>Contact Number</label>
+                      <input value={form.phone} onChange={e => setForm(prev => ({ ...prev, phone: e.target.value }))} style={inputStyle} placeholder="+63 9xx xxx xxxx" />
+                    </div>
+                  </div>
+
+                  <div style={{ display: "flex", gap: "12px", borderTop: `1px solid ${theme.border}`, paddingTop: '20px' }}>
+                    <button type="submit" disabled={profileSaving} style={{ padding: "10px 24px", background: "#3B82F6", color: "white", border: "none", borderRadius: 10, fontWeight: 700, cursor: "pointer" }}>
+                      {profileSaving ? "Saving..." : "Verify & Save Profile"}
+                    </button>
+                    <button type="button" onClick={() => setIsEditingProfile(false)} style={{ padding: "10px 24px", background: theme.bg, color: theme.text, border: `1.5px solid ${theme.border}`, borderRadius: 10, fontWeight: 700, cursor: "pointer" }}>
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              )}
+            </>
           )}
         </SectionCard>
       )}
@@ -232,28 +376,78 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme }
       )}
 
       {activeTab === "display" && (
-        <SectionCard theme={theme} title="Display / Preferences" subtitle="Personalize your workspace and default view.">
+        <SectionCard theme={theme} title="System Configuration" subtitle="System-wide and terminal preferences.">
+             {isGlobalCoreAdmin && (
+               <div style={{ marginBottom: 24, padding: 16, background: 'rgba(59,130,246,0.05)', borderRadius: 12, border: '1px solid rgba(59,130,246,0.1)' }}>
+                 <p style={{ margin: '0 0 12px 0', fontSize: 13, fontWeight: 700, color: '#3B82F6' }}>TERMINOLOGY & LABELS</p>
+                 <button onClick={() => setActiveTab("terminology")} style={{ padding: '8px 16px', background: '#3B82F6', color: 'white', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Manage Industry Labels</button>
+               </div>
+             )}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
             <div>
-              <label style={labelStyle}>Language</label>
+              <label style={labelStyle}>Interface Language</label>
               <select value={language} onChange={e => setLanguage(e.target.value)} style={inputStyle}>
                 <option value="English">English</option>
                 <option value="Filipino">Filipino</option>
               </select>
             </div>
             <div>
-              <label style={labelStyle}>Default Dashboard View</label>
+              <label style={labelStyle}>Default Homepage</label>
               <select value={defaultView} onChange={e => setDefaultView(e.target.value)} style={inputStyle}>
                 <option value="dashboard">Dashboard</option>
-                <option value="feedbacks">Feedback Management</option>
-                <option value="users">User Oversight</option>
+                <option value="feedbacks">Feedback Feed</option>
+                <option value="users">People</option>
               </select>
             </div>
           </div>
           <div style={{ marginTop: 12 }}>
-            <ToggleRow title="Theme (Light / Dark)" description="Switch visual mode instantly." checked={darkMode} onChange={onToggleTheme} theme={theme} darkMode={darkMode} />
+            <ToggleRow title="Dark Mode" description="Switch your workspace theme." checked={darkMode} onChange={onToggleTheme} theme={theme} darkMode={darkMode} />
           </div>
-          <button onClick={saveDisplayPrefs} style={{ marginTop: 12, padding: "10px 16px", background: "#1f2a56", color: "#fff", border: 0, borderRadius: 8, fontWeight: 700, cursor: "pointer" }}>Save Display Preferences</button>
+          <button onClick={saveDisplayPrefs} style={{ marginTop: 12, padding: "10px 16px", background: "#1f2a56", color: "#fff", border: 0, borderRadius: 8, fontWeight: 700, cursor: "pointer" }}>Save Preferences</button>
+        </SectionCard>
+      )}
+
+      {activeTab === "activity" && (
+        <SectionCard theme={theme} title="Profile Activity" subtitle="Summary of your recent personal activity and login history.">
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px", marginBottom: "32px" }}>
+            <div style={{ padding: "16px", background: theme.bg, borderRadius: "12px", border: `1px solid ${theme.border}` }}>
+              <label style={labelStyle}>Last Login Timestamp</label>
+              <p style={{ margin: 0, fontSize: "14px", fontWeight: "600", color: theme.text }}>
+                {profile.last_login ? new Date(profile.last_login).toLocaleString() : "Never (First session)"}
+              </p>
+            </div>
+            <div style={{ padding: "16px", background: theme.bg, borderRadius: "12px", border: `1px solid ${theme.border}` }}>
+              <label style={labelStyle}>Profile Set-up Status</label>
+              <p style={{ margin: 0, fontSize: "14px", fontWeight: "600", color: profile.profile_completed ? "#10B981" : "#F59E0B" }}>
+                {profile.profile_completed ? "Identity Fully Verified" : "Information Incomplete"}
+              </p>
+            </div>
+          </div>
+
+          <p style={{ fontSize: '11px', fontWeight: '800', color: theme.textMuted, marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>🧩 6. Recent Actions Summary</p>
+          {activityLoading ? (
+            <div style={{ padding: "20px", textAlign: "center", color: theme.textMuted }}>Loading activity...</div>
+          ) : recentActions.length === 0 ? (
+            <div style={{ padding: "20px", textAlign: "center", color: theme.textMuted, background: theme.bg, borderRadius: 12 }}>No recent actions recorded.</div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+              {recentActions.map((act, i) => (
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: "12px", padding: "12px 16px", background: theme.bg, borderRadius: "10px", border: `1px solid ${theme.border}` }}>
+                  <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#3B82F6" }} />
+                  <div style={{ flex: 1 }}>
+                    <p style={{ margin: 0, fontSize: "13px", fontWeight: "600", color: theme.text }}>{act.action_type.replace(/_/g, ' ')}</p>
+                    <p style={{ margin: 0, fontSize: "11px", color: theme.textMuted }}>{new Date(act.timestamp).toLocaleString()}</p>
+                  </div>
+                  {act.details?.updated_fields && (
+                    <div style={{ fontSize: '11px', padding: '4px 8px', background: 'rgba(59,130,246,0.1)', color: '#3B82F6', borderRadius: '4px', fontWeight: 600 }}>
+                      {act.details.updated_fields.join(', ')}
+                    </div>
+                  )}
+                </div>
+              ))}
+              <p style={{ textAlign: 'center', marginTop: '12px', fontSize: '12px', color: theme.textMuted }}>Full audit logs are available in the <span onClick={() => onNavigate("auditlogs")} style={{ color: '#3B82F6', cursor: 'pointer', fontWeight: 600 }}>Admin Activity</span> page.</p>
+            </div>
+          )}
         </SectionCard>
       )}
 
@@ -278,6 +472,79 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme }
             </>
           )}
         </SectionCard>
+      )}
+
+      {activeTab === "terminology" && isGlobalCoreAdmin && (
+        <>
+          <SectionCard theme={theme} title="System Terminology" subtitle="Customize the language used throughout the platform to fit your industry.">
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
+              <div>
+                <p style={{ fontSize: '12px', fontWeight: '800', color: '#c35b00', marginBottom: '12px', textTransform: 'uppercase' }}>Categories</p>
+                <div style={{ marginBottom: 12 }}>
+                  <label style={labelStyle}>Singular (e.g. Program)</label>
+                  <input value={termForm.category_label} onChange={e => setTermForm(p => ({ ...p, category_label: e.target.value }))} style={inputStyle} />
+                </div>
+                <div>
+                  <label style={labelStyle}>Plural (e.g. Programs)</label>
+                  <input value={termForm.category_label_plural} onChange={e => setTermForm(p => ({ ...p, category_label_plural: e.target.value }))} style={inputStyle} />
+                </div>
+              </div>
+
+              <div>
+                <p style={{ fontSize: '12px', fontWeight: '800', color: '#c35b00', marginBottom: '12px', textTransform: 'uppercase' }}>Entities / Establishments</p>
+                <div style={{ marginBottom: 12 }}>
+                  <label style={labelStyle}>Singular (e.g. Office)</label>
+                  <input value={termForm.entity_label} onChange={e => setTermForm(p => ({ ...p, entity_label: e.target.value }))} style={inputStyle} />
+                </div>
+                <div>
+                  <label style={labelStyle}>Plural (e.g. Offices)</label>
+                  <input value={termForm.entity_label_plural} onChange={e => setTermForm(p => ({ ...p, entity_label_plural: e.target.value }))} style={inputStyle} />
+                </div>
+              </div>
+
+              <div style={{ gridColumn: "1 / span 2", borderTop: `1px solid ${theme.border}`, paddingTop: '16px' }}>
+                <p style={{ fontSize: '12px', fontWeight: '800', color: '#c35b00', marginBottom: '12px', textTransform: 'uppercase' }}>General Activity</p>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
+                  <div>
+                    <label style={labelStyle}>Feedback Label (Singular)</label>
+                    <input value={termForm.feedback_label} onChange={e => setTermForm(p => ({ ...p, feedback_label: e.target.value }))} style={inputStyle} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Feedback Label (Plural)</label>
+                    <input value={termForm.feedback_label_plural} onChange={e => setTermForm(p => ({ ...p, feedback_label_plural: e.target.value }))} style={inputStyle} />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <button onClick={saveTerminology} disabled={termSaving} style={{ marginTop: 24, padding: "12px 24px", background: "#3B82F6", color: "white", border: "none", borderRadius: 8, fontWeight: 700, cursor: "pointer" }}>
+              {termSaving ? "Saving..." : "Save Terminology Changes"}
+            </button>
+          </SectionCard>
+
+          <SectionCard theme={theme} title="Live Preview" subtitle="See how your terminology looks in common UI areas.">
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+              <div style={{ padding: 16, border: `1px solid ${theme.border}`, borderRadius: 8, background: theme.bg }}>
+                <p style={{ fontSize: 11, fontWeight: 700, color: theme.textMuted, marginBottom: 8 }}>DASHBOARD CARD</p>
+                <div style={{ fontSize: 24, fontWeight: 800, color: theme.text }}>42</div>
+                <div style={{ fontSize: 13, color: theme.textMuted }}>Total {termForm.feedback_label_plural}</div>
+              </div>
+              <div style={{ padding: 16, border: `1px solid ${theme.border}`, borderRadius: 8, background: theme.bg }}>
+                <p style={{ fontSize: 11, fontWeight: 700, color: theme.textMuted, marginBottom: 8 }}>SEARCH PLACEHOLDER</p>
+                <div style={{ padding: '8px 12px', border: `1px solid ${theme.border}`, borderRadius: 6, fontSize: 12, color: theme.textMuted }}>
+                  Search by {termForm.entity_label} or {termForm.category_label}...
+                </div>
+              </div>
+              <div style={{ padding: 16, border: `1px solid ${theme.border}`, borderRadius: 8, background: theme.bg, gridColumn: "1 / span 2" }}>
+                <p style={{ fontSize: 11, fontWeight: 700, color: theme.textMuted, marginBottom: 8 }}>MENU ITEM / HEADER</p>
+                <div style={{ display: 'flex', gap: 20 }}>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: '#3B82F6', borderBottom: '2px solid #3B82F6', paddingBottom: 4 }}>Manage {termForm.category_label_plural}</span>
+                  <span style={{ fontSize: 14, fontWeight: 600, color: theme.textMuted }}>{termForm.entity_label_plural}</span>
+                </div>
+              </div>
+            </div>
+          </SectionCard>
+        </>
       )}
     </div>
   );

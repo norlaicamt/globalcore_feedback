@@ -53,7 +53,8 @@ def get_departments(db: Session, skip: int = 0, limit: int = 100):
     return db.query(models.Department).offset(skip).limit(limit).all()
 
 def create_department(db: Session, department: schemas.DepartmentCreate):
-    db_dept = models.Department(**department.model_dump())
+    data = department.model_dump()
+    db_dept = models.Department(**data)
     db.add(db_dept)
     db.commit()
     db.refresh(db_dept)
@@ -112,7 +113,8 @@ def get_feedbacks(
         joinedload(models.Feedback.mentions),
         joinedload(models.Feedback.sender),
         joinedload(models.Feedback.recipient_user),
-        joinedload(models.Feedback.recipient_dept)
+        joinedload(models.Feedback.recipient_dept),
+        joinedload(models.Feedback.category)
     )
 
     # If current_user_id provided, also get current user's reaction
@@ -164,6 +166,7 @@ def get_feedbacks(
         
         fb.recipient_dept_name = fb.recipient_dept.name if fb.recipient_dept else None
         fb.recipient_user_name = fb.recipient_user.name if fb.recipient_user else None
+        fb.category_name = fb.category.name if fb.category else None
         
         results.append(fb)
 
@@ -498,7 +501,7 @@ def get_analytics_summary(db: Session, dept_name: Optional[str] = None):
         if dept_exists:
             dept_filter = db.query(models.Department.id).filter(models.Department.name == dept_name).scalar_subquery()
             fb_q = fb_q.filter(models.Feedback.recipient_dept_id == dept_filter)
-            u_q = u_q.filter(models.User.department == dept_name)
+            u_q = u_q.filter(models.User.unit_name == dept_name)
             # Note: Users and Reactions might not be directly department-linked in the same way, 
             # but we filter total_feedback and related metrics.
             c_q = c_q.join(models.Feedback).filter(models.Feedback.recipient_dept_id == dept_filter)
@@ -508,9 +511,16 @@ def get_analytics_summary(db: Session, dept_name: Optional[str] = None):
             fb_q = fb_q.join(models.Category, models.Feedback.category_id == models.Category.id).filter(models.Category.name == dept_name)
             c_q = c_q.join(models.Feedback).join(models.Category, models.Feedback.category_id == models.Category.id).filter(models.Category.name == dept_name)
             r_q = r_q.join(models.Feedback).join(models.Category, models.Feedback.category_id == models.Category.id).filter(models.Category.name == dept_name)
+            # Scope users to the same "program/office" label.
+            # User records may store org info across `unit_name`, `program`, or `department`.
+            u_q = u_q.filter(
+                (models.User.unit_name == dept_name) |
+                (models.User.program == dept_name) |
+                (models.User.department == dept_name)
+            )
 
     total_feedback = fb_q.count()
-    total_users = u_q.count() # Total users remains system-wide
+    total_users = u_q.count()
     total_comments = c_q.count()
     total_reactions = r_q.count()
 
@@ -570,6 +580,26 @@ def update_system_setting(db: Session, key: str, value: str):
     db.commit()
     db.refresh(db_setting)
     return db_setting
+
+def get_system_labels(db: Session, organization_id: int = None):
+    query = db.query(models.SystemLabel)
+    if organization_id:
+        query = query.filter(models.SystemLabel.organization_id == organization_id)
+    return query.all()
+
+def update_system_label(db: Session, key: str, value: str, organization_id: int = None):
+    db_label = db.query(models.SystemLabel).filter(
+        models.SystemLabel.key == key,
+        models.SystemLabel.organization_id == organization_id
+    ).first()
+    if db_label:
+        db_label.value = value
+    else:
+        db_label = models.SystemLabel(key=key, value=value, organization_id=organization_id)
+        db.add(db_label)
+    db.commit()
+    db.refresh(db_label)
+    return db_label
 
 # Broadcast History
 def create_broadcast_log(db: Session, subject: str, message: str, count: int):
@@ -698,15 +728,43 @@ def get_user_activity(db: Session, user_id: int):
     results.sort(key=lambda x: x["created_at"], reverse=True)
     return results[:50]
 
-def get_user_profiles(db: Session):
-    return db.query(
-        models.User.id,
-        models.User.name,
-        models.User.department,
-        models.User.avatar_url,
-        models.User.show_activity_status,
-        models.User.created_at
-    ).all()
+def get_user_distribution(db: Session, dept_name: Optional[str] = None):
+    """Provides breakdown of users by Program and Role Identity with Admin mapping."""
+    # 1. By Program (Priority: unit_name -> program fallback)
+    program_label = func.coalesce(models.User.unit_name, models.User.program).label("name")
+    program_q = db.query(
+        program_label,
+        func.count(models.User.id).label("value")
+    ).filter(program_label != None, program_label != "")
+    
+    if dept_name:
+        program_q = program_q.filter(models.User.unit_name == dept_name)
+    
+    program_dist = program_q.group_by(program_label).all()
+    
+    # 2. By Role Identity (Admins mapped to Employee)
+    role_label = case(
+        (models.User.role.in_(["admin", "superadmin"]), "Employee"),
+        else_=models.User.role_identity
+    ).label("name")
+    
+    role_q = db.query(
+        role_label,
+        func.count(models.User.id).label("value")
+    ).filter(role_label != None, role_label != "")
+    
+    if dept_name:
+        role_q = role_q.filter(models.User.unit_name == dept_name)
+    
+    role_dist = role_q.group_by(role_label).all()
+
+    # Format for recharts
+    format_data = lambda rows: [{"name": r.name, "value": r.value} for r in rows if r.name]
+    
+    return {
+        "by_program": format_data(program_dist),
+        "by_role": format_data(role_dist)
+    }
 # Audit Logs
 def create_audit_log(db: Session, action_type: str, performed_by_id: int, target_id: str = None, details: dict = None):
     db_log = models.AuditLog(

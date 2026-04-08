@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import ProfileSettings from './ProfileSettings';
 import HistoryView from './HistoryView';
 import DraftsView from './DraftsView';
@@ -7,6 +7,8 @@ import CustomModal from './CustomModal';
 import GeneralFeedback from './GeneralFeedback';
 import ActivityView from './ActivityView';
 import { getFeedbacks, getUserById, getUserNotifications, getFeedbackReplies, createFeedbackReply, updateFeedbackReply, deleteFeedbackReply, toggleReaction, toggleReplyReaction, getReactionsSummary, markNotificationsAsRead, updateFeedback, deleteFeedback, getAdminSettings, getCategories } from "../services/api";
+import { useTerminology } from "../context/TerminologyContext";
+import { IconRegistry } from "./IconRegistry";
 import { QRCodeCanvas } from "qrcode.react";
 
 const Icons = {
@@ -40,7 +42,8 @@ const Icons = {
   Gear: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>,
   Alert: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>,
   TrendingUp: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>,
-  TrendingDownGood: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"></polyline><polyline points="17 18 23 18 23 12"></polyline></svg>
+  TrendingDownGood: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"></polyline><polyline points="17 18 23 18 23 12"></polyline></svg>,
+  Lock: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>,
 };
 
 const calculateLevel = (points) => {
@@ -52,6 +55,7 @@ const calculateLevel = (points) => {
 };
 
 const FeedbackHub = ({ currentUser, onLogout }) => {
+  const { getLabel } = useTerminology();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [view, setView] = useState(localStorage.getItem("userView") || "home");
@@ -62,6 +66,7 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
   const [loading, setLoading] = useState(true);
   const [prevView, setPrevView] = useState("home");
   const [isFeedbackExpanded, setIsFeedbackExpanded] = useState(false);
+  const [isSettingsExpanded, setIsSettingsExpanded] = useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [reportStep, setReportStep] = useState('general');
   const [dialogState, setDialogState] = useState({ isOpen: false });
@@ -83,13 +88,14 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [settings, cats] = await Promise.all([
-          getAdminSettings(),
-          getCategories()
-        ]);
+        const cats = await getCategories();
+        setCategories(cats);
+      } catch (e) { console.error("Error fetching categories", e); }
+
+      try {
+        const settings = await getAdminSettings();
         const found = settings.find(s => s.key === 'public_feed');
         if (found) setPublicFeedEnabled(found.value === 'true');
-        setCategories(cats);
       } catch (e) { console.error("Error fetching initial data", e); }
     };
     fetchData();
@@ -250,7 +256,7 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
     { id: 'home', label: 'Dashboard', icon: <Icons.Building /> },
     {
       id: 'feedback_group',
-      label: 'My Feedback',
+      label: `My ${getLabel("feedback_label", "Feedback")}`,
       icon: <Icons.Inbox />,
       subItems: [
         { id: 'history', label: 'Sent', icon: <Icons.History /> },
@@ -258,14 +264,25 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
         { id: 'activity', label: 'Activity', icon: <Icons.Bell /> }
       ]
     },
-    { type: 'label', label: 'ACCOUNT' },
-    { id: 'settings', label: 'Settings', icon: <Icons.Gear /> },
-    { id: 'profile', label: 'Profile', icon: <Icons.User /> },
+    { id: 'settings_group', label: 'Settings', icon: <Icons.Gear />, subItems: [
+        { id: 'profile', label: 'Personal Details', icon: <Icons.User /> },
+        { id: 'notifs_settings', label: 'Preferences', icon: <Icons.Bell /> },
+        { id: 'privacy', label: 'Security', icon: <Icons.Lock /> }
+    ]},
     { id: 'logout', label: 'Logout', icon: <Icons.Logout />, color: '#EF4444', action: triggerLogout },
   ];
 
   return (
     <div style={{ ...styles.hubContainer, backgroundColor: '#F8FAFC', color: '#1E293B' }}>
+      <style>{`
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .fab-btn:hover {
+          transform: scale(1.1) !important;
+          background-color: #2563EB !important;
+          box-shadow: 0 12px 24px rgba(37, 99, 235, 0.4) !important;
+        }
+        .fab-btn:active { transform: scale(0.95) !important; }
+      `}</style>
       <header style={{ ...styles.header, backgroundColor: '#FFFFFF', borderBottom: '1px solid #E2E8F0' }}>
         <button onClick={() => setIsMenuOpen(true)} style={styles.iconBtn}>
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1f2a56" strokeWidth="2.5" strokeLinecap="round">
@@ -274,7 +291,12 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
             <line x1="3" y1="18" x2="15" y2="18"></line>
           </svg>
         </button>
-        <span style={{ ...styles.headerTitle, color: '#1f2a56' }}>Command Center</span>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
+          <span style={{ ...styles.headerTitle, color: '#1f2a56' }}>Command Center</span>
+          <span style={{ fontSize: '10px', color: '#64748B', fontWeight: '500', textAlign: 'center' }}>
+            Submit and track feedback across programs, offices, or services
+          </span>
+        </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
           <button onClick={handleOpenNotifications} style={{ ...styles.iconBtn, color: '#1f2a56' }} title="Notifications">
             <Icons.Bell />
@@ -345,13 +367,13 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
               if (post) setCommentingFeedback(post);
             }}
           />
-        ) : (view === "profile" || view === "settings") ? (
+        ) : (view === "profile" || view === "notifs_settings" || view === "privacy") ? (
           <ProfileSettings
             currentUser={localUser}
             onBack={() => { setView("home"); setIsMenuOpen(true); }}
             onLogout={onLogout}
             onUserUpdate={handleUserUpdate}
-            initialSubView={view === "profile" ? "personal_info" : "main"}
+            initialSubView={view === "profile" ? "personal_info" : view === "privacy" ? "privacy" : "notifs"}
           />
         ) : null}
       </main>
@@ -428,7 +450,8 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
                       }}
                       onClick={() => {
                         if (item.subItems) {
-                          setIsFeedbackExpanded(!isFeedbackExpanded);
+                          if (item.id === 'feedback_group') setIsFeedbackExpanded(!isFeedbackExpanded);
+                          if (item.id === 'settings_group') setIsSettingsExpanded(!isSettingsExpanded);
                         } else if (item.action) {
                           item.action();
                         } else {
@@ -439,7 +462,7 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
                       {item.icon} <span>{item.label}</span>
                       {item.subItems && (
                         <span style={{ marginLeft: 'auto', display: 'flex' }}>
-                          {isFeedbackExpanded ? (
+                          {(item.id === 'feedback_group' ? isFeedbackExpanded : isSettingsExpanded) ? (
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>
                           ) : (
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
@@ -448,7 +471,7 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
                       )}
                     </button>
 
-                    {item.subItems && isFeedbackExpanded && (
+                    {item.subItems && (item.id === 'feedback_group' ? isFeedbackExpanded : isSettingsExpanded) && (
                       <div style={{ paddingLeft: '32px', display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '8px' }}>
                         {item.subItems.map(sub => {
                           const isSubActive = view === sub.id;
@@ -557,6 +580,13 @@ const CommentModal = ({ item, currentUser, onClose, onShowToast, onRefreshProfil
   const [replyingTo, setReplyingTo] = useState(null); // { id, name }
   const [itemMeta, setItemMeta] = useState(item);
   const [expandedThreads, setExpandedThreads] = useState({}); // { commentId: boolean }
+  const commentInputRef = useRef(null);
+
+  useEffect(() => {
+    if (!loading && commentInputRef.current) {
+      commentInputRef.current.focus();
+    }
+  }, [loading]);
 
   const toggleThread = (id) => {
     setExpandedThreads(prev => ({ ...prev, [id]: !prev[id] }));
@@ -770,38 +800,97 @@ const CommentModal = ({ item, currentUser, onClose, onShowToast, onRefreshProfil
         </header>
 
         <div style={{ ...styles.commentModalBody, backgroundColor: '#F8FAFC' }}>
-          {/* Original Post with Reactions */}
-          <div style={{ ...styles.originalPostSnippetExtended, backgroundColor: '#FFFFFF', borderColor: '#E2E8F0' }}>
-            <div style={styles.snippetUserRow}>
-              <div style={{ ...styles.snippetAvatar, backgroundColor: '#F1F5F9', color: '#1E293B', overflow: 'hidden' }}>
-                {itemMeta.sender_avatar_url ? (
+          {/* Detailed Original Post Section */}
+          <div style={{ ...styles.originalPostSnippetExtended, backgroundColor: '#FFFFFF', borderColor: '#E2E8F0', padding: '20px' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '16px' }}>
+              <div style={{ ...styles.snippetAvatar, backgroundColor: '#F1F5F9', color: '#1E293B', width: '48px', height: '48px', fontSize: '20px' }}>
+                {itemMeta.is_anonymous || !itemMeta.sender_avatar_url ? (
+                  (itemMeta.user_name || 'U').charAt(0)
+                ) : (
                   <img src={itemMeta.sender_avatar_url} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                ) : (itemMeta.user_name || 'U').charAt(0)}
+                )}
               </div>
               <div style={{ flex: 1 }}>
-                <div style={{ ...styles.snippetUser, color: '#1E293B' }}>{itemMeta.user_name || 'Anonymous'}</div>
-                <div style={styles.snippetMeta}>{formatDate(itemMeta.created_at)}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontWeight: '800', fontSize: '16px', color: '#1E293B' }}>{itemMeta.is_anonymous ? 'Anonymous' : (itemMeta.user_name || 'Anonymous')}</span>
+                  <div style={{ backgroundColor: '#F1F5F9', padding: '2px 8px', borderRadius: '10px', fontSize: '10px', color: '#64748B', fontWeight: 'bold' }}>{itemMeta.category_name}</div>
+                </div>
+                <div style={{ fontSize: '12px', color: '#94A3B8', marginTop: '2px' }}>{formatDate(itemMeta.created_at)}</div>
               </div>
-              <div style={{ ...styles.ratingBadge, backgroundColor: '#FFF7ED', color: '#C2410C' }}>
-                <Icons.Star filled={true} size={14} />
-                <span>{itemMeta.rating || 0}/5</span>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                <div style={{ ...styles.ratingBadge, backgroundColor: '#FFF7ED', color: '#C2410C', padding: '4px 10px' }}>
+                  <Icons.Star filled={true} size={14} />
+                  <span>{itemMeta.rating || 0}/5</span>
+                </div>
+                {itemMeta.status && (
+                  <div style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '10px', backgroundColor: '#EFF6FF', color: '#1D4ED8', fontWeight: 'bold', border: '1px solid #DBEAFE' }}>
+                    {itemMeta.status.toUpperCase()}
+                  </div>
+                )}
               </div>
             </div>
-            <p style={{ ...styles.snippetTextFull, color: '#1E293B' }}>{itemMeta.description || itemMeta.comment}</p>
-            {/* Post-level Like / Dislike */}
-            <div style={{ display: 'flex', gap: '10px', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #E2E8F0' }}>
-              <div style={{ display: 'flex', gap: '4px' }}>
-                <button style={{ ...styles.reactionBtn, backgroundColor: '#F1F5F9', color: '#1E293B' }} onClick={(e) => { e.stopPropagation(); handlePostReaction(true); }}>
-                  <Icons.ThumbUp size={16} /> <span style={{ color: itemMeta.user_reaction === true ? '#3B82F6' : '#64748B' }}>{itemMeta.likes_count ?? itemMeta.likes ?? 0}</span>
+
+            {/* LOCATION CHIP */}
+            {(itemMeta.barangay || itemMeta.city || itemMeta.province) && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#F8FAFC', padding: '8px 12px', borderRadius: '10px', marginBottom: '16px', border: '1px solid #F1F5F9' }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#64748B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                <span style={{ fontSize: '12px', color: '#64748B', fontWeight: '500' }}>
+                  {[itemMeta.barangay, itemMeta.city, itemMeta.province, itemMeta.region].filter(Boolean).join(', ')}
+                </span>
+              </div>
+            )}
+
+            <h2 style={{ fontSize: '18px', fontWeight: '800', color: '#1f2a56', margin: '0 0 12px 0', lineHeight: 1.3 }}>{itemMeta.title}</h2>
+            <p style={{ ...styles.snippetTextFull, color: '#334155', lineHeight: 1.6, fontSize: '14px', marginBottom: '20px' }}>{itemMeta.description || itemMeta.comment}</p>
+
+            {/* ATTACHMENTS */}
+            {itemMeta.attachments && (
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '20px' }}>
+                {(() => {
+                  try {
+                    const files = JSON.parse(itemMeta.attachments);
+                    return files.map((src, idx) => (
+                      <img
+                        key={idx}
+                        src={src}
+                        alt={`Post media ${idx}`}
+                        style={{ width: '100px', height: '100px', borderRadius: '12px', objectFit: 'cover', cursor: 'pointer', border: '1px solid #E2E8F0' }}
+                        onClick={() => setFullscreenImg(src)}
+                      />
+                    ));
+                  } catch (e) { return null; }
+                })()}
+              </div>
+            )}
+
+            {/* MENTIONS */}
+            {(itemMeta.mentions && itemMeta.mentions.length > 0) && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '20px' }}>
+                {itemMeta.mentions.map((m, idx) => (
+                  <div key={idx} style={{ backgroundColor: '#F0F9FF', border: '1px solid #B9E6FE', padding: '4px 10px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Icons.User size={12} color="#026AA2" />
+                    <span style={{ fontSize: '11px', color: '#026AA2', fontWeight: 'bold' }}>{m.employee_prefix} {m.employee_name}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Post-level Actions */}
+            <div style={{ display: 'flex', gap: '10px', paddingTop: '16px', borderTop: '1px solid #F1F5F9' }}>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button 
+                  style={{ ...styles.reactionBtn, backgroundColor: itemMeta.user_reaction === true ? '#DBEAFE' : '#F8FAFC', color: itemMeta.user_reaction === true ? '#1D4ED8' : '#64748B', borderRadius: '10px', padding: '8px 16px' }} 
+                  onClick={(e) => { e.stopPropagation(); handlePostReaction(true); }}
+                >
+                  <Icons.ThumbUp size={16} /> <span style={{ fontWeight: 'bold' }}>{itemMeta.likes_count ?? itemMeta.likes ?? 0}</span>
                 </button>
-                <button style={{ ...styles.reactionBtn, backgroundColor: '#F1F5F9', color: '#1E293B' }} onClick={(e) => { e.stopPropagation(); handlePostReaction(false); }}>
-                  <Icons.ThumbDown size={16} /> <span style={{ color: itemMeta.user_reaction === false ? '#EF4444' : '#64748B' }}>{itemMeta.dislikes_count ?? itemMeta.dislikes ?? 0}</span>
+                <button 
+                  style={{ ...styles.reactionBtn, backgroundColor: itemMeta.user_reaction === false ? '#FEF2F2' : '#F8FAFC', color: itemMeta.user_reaction === false ? '#EF4444' : '#64748B', borderRadius: '10px', padding: '8px 16px' }} 
+                  onClick={(e) => { e.stopPropagation(); handlePostReaction(false); }}
+                >
+                  <Icons.ThumbDown size={16} /> <span style={{ fontWeight: 'bold' }}>{itemMeta.dislikes_count ?? itemMeta.dislikes ?? 0}</span>
                 </button>
               </div>
-              <button
-                style={{ ...styles.commentReplyLink, padding: '4px 10px', borderRadius: '8px', border: '1px solid #E2E8F0', color: '#1f2a56' }}
-                onClick={() => { setReplyingTo(null); document.getElementById('modal-comment-input')?.focus(); }}
-              >Comment</button>
             </div>
           </div>
 
@@ -835,11 +924,13 @@ const CommentModal = ({ item, currentUser, onClose, onShowToast, onRefreshProfil
           <div style={styles.modalInputWrapper}>
             <input
               id="modal-comment-input"
-              style={{ ...styles.modalCommentInput, backgroundColor: '#F1F5F9', color: '#1E293B' }}
-              placeholder={replyingTo ? `Reply to ${replyingTo.name}...` : "Write a comment..."}
+              ref={commentInputRef}
+              type="text"
+              placeholder={replyingTo ? `Replying to ${replyingTo.name}...` : "Write a comment..."}
+              style={styles.modalCommentInput}
               value={newComment}
-              onChange={e => setNewComment(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handlePostComment()}
+              onChange={(e) => setNewComment(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handlePostComment()}
             />
             <button style={{ ...styles.modalSendBtn, backgroundColor: '#1f2a56' }} onClick={handlePostComment}>
               Post
@@ -956,7 +1047,7 @@ const FeedCard = ({ item: initialItem, currentUser, onShowToast, onOpenComments,
     if (item.title && item.title.includes(":")) {
       return item.title.split(":")[1].trim();
     }
-    return item.recipient_dept_name || 'General';
+    return item.category_name || item.recipient_dept_name || item.establishment_name || 'General';
   };
 
   const emotion = getEmotion(item.rating);
@@ -995,7 +1086,19 @@ const FeedCard = ({ item: initialItem, currentUser, onShowToast, onOpenComments,
   };
 
   return (
-    <div style={{ ...styles.feedCard, backgroundColor: '#FFFFFF', borderColor: '#E2E8F0', borderLeft: `5px solid ${markerColor}` }}>
+    <div 
+      onClick={() => { if (!isEditing) onOpenComments(item); }}
+      style={{ 
+        ...styles.feedCard, 
+        backgroundColor: '#FFFFFF', 
+        borderColor: '#E2E8F0', 
+        borderLeft: `5px solid ${markerColor}`,
+        cursor: 'pointer',
+        transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)'
+      }}
+      onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#1f2a56'; e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(31, 42, 86, 0.08)'; }}
+      onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#E2E8F0'; e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none'; }}
+    >
       <CustomModal
         isOpen={dialogState.isOpen}
         title={dialogState.title}
@@ -1121,19 +1224,22 @@ const FeedCard = ({ item: initialItem, currentUser, onShowToast, onOpenComments,
       <div style={{ ...styles.fbActionRow, borderTop: '1px solid #E2E8F0' }}>
         <button
           style={{ ...styles.fbActionBtn, color: userReaction === true ? '#3B82F6' : '#64748B' }}
-          onClick={() => handleReact(true)}
+          onClick={(e) => { e.stopPropagation(); handleReact(true); }}
         >
           <Icons.ThumbUp />{likes > 0 ? <span style={styles.actionCount}>{likes}</span> : null}
         </button>
 
         <button
           style={{ ...styles.fbActionBtn, color: userReaction === false ? '#EF4444' : '#65676B' }}
-          onClick={() => handleReact(false)}
+          onClick={(e) => { e.stopPropagation(); handleReact(false); }}
         >
           <Icons.ThumbDown />{dislikes > 0 ? <span style={styles.actionCount}>{dislikes}</span> : null}
         </button>
 
-        <button style={styles.fbActionBtn} onClick={() => onOpenComments(item)}>
+        <button 
+          style={styles.fbActionBtn} 
+          onClick={(e) => { e.stopPropagation(); onOpenComments(item); }}
+        >
           <Icons.Message />
           <span>Comment</span>
           {item.replies_count > 0 ? <span style={styles.actionCount}>{item.replies_count}</span> : null}
@@ -1144,28 +1250,44 @@ const FeedCard = ({ item: initialItem, currentUser, onShowToast, onOpenComments,
 };
 
 const DashboardView = ({ feed, loading, hasMore, onLoadMore, onAction, currentUser, onShowToast, onOpenComments, onRefresh, publicFeedEnabled, categories, setFullscreenImg }) => {
+  const { getLabel } = useTerminology();
   const [activeTab, setActiveTab] = useState('All');
   const [isTrendingExpanded, setIsTrendingExpanded] = useState(false);
   const [searchDash, setSearchDash] = useState("");
 
-  const getTabIcon = (catName) => {
-    const name = (catName || "").toLowerCase();
-    if (name.includes('dept') || name.includes('department')) return <Icons.Building />;
-    if (name.includes('food')) return <Icons.Food />;
-    if (name.includes('cosmetic') || name.includes('beauty')) return <Icons.Cosmetics />;
-    if (name.includes('furniture')) return <Icons.Furniture />;
-    if (name.includes('car') || name.includes('transport')) return <Icons.Car />;
-    if (name.includes('resort')) return <Icons.Resort />;
-    if (name.includes('hotel')) return <Icons.Hotel />;
-    return <Icons.Message />;
+  const getTabIcon = (cat) => {
+    if (!cat) return Icons.Message;
+    
+    // 1. Try to use the icon key directly from the category object
+    if (cat.icon && IconRegistry[cat.icon]) {
+      return IconRegistry[cat.icon];
+    }
+
+    // 2. Fallback to name-based heuristic if icon is missing or invalid
+    const name = (cat.name || "").toLowerCase();
+    
+    if (name.includes('dept') || name.includes('department') || name.includes('office')) return IconRegistry.building;
+    if (name.includes('food') || name.includes('eat') || name.includes('rest')) return IconRegistry.food;
+    if (name.includes('beauty') || name.includes('cosmetic')) return IconRegistry.beauty;
+    if (name.includes('car') || name.includes('transport') || name.includes('bus')) return IconRegistry.car;
+    if (name.includes('bank') || name.includes('finance') || name.includes('money')) return IconRegistry.bank;
+    if (name.includes('edu') || name.includes('school')) return IconRegistry.edu;
+    
+    return IconRegistry.default;
+  };
+
+  // Calculate counts for each category
+  const getCategoryCount = (catName) => {
+    if (catName === 'All') return feed.length;
+    return feed.filter(item => (item.category_name || "").toLowerCase() === catName.toLowerCase()).length;
   };
 
   const tabs = [
-    { id: 'All', label: 'All', icon: <Icons.History /> },
+    { id: 'All', label: `All (${getCategoryCount('All')})`, icon: Icons.History },
     ...(categories || []).map(cat => ({
       id: cat.name,
-      label: cat.name.charAt(0).toUpperCase() + cat.name.slice(1),
-      icon: getTabIcon(cat.name)
+      label: `${cat.name.charAt(0).toUpperCase() + cat.name.slice(1)} (${getCategoryCount(cat.name)})`,
+      icon: getTabIcon(cat)
     }))
   ];
 
@@ -1208,60 +1330,9 @@ const DashboardView = ({ feed, loading, hasMore, onLoadMore, onAction, currentUs
 
       {/* FIXED TOP SECTION */}
       <div style={{ flexShrink: 0, paddingBottom: '8px' }}>
-        <section style={{ ...styles.actionGridSingle, marginBottom: '12px', marginTop: '12px' }}>
-          <button style={{ ...styles.primaryAction, backgroundColor: '#2563EB', color: 'white' }} onClick={() => onAction("category_selection")}>
-            <div style={{ ...styles.actionIconBg, color: '#2563EB', backgroundColor: 'white' }}>
-              <Icons.Plus />
-            </div>
-            <span style={{ ...styles.actionText, color: 'white' }}>New Report</span>
-          </button>
-        </section>
+        {/* NO LONGER AT TOP - MOVED TO FAB */}
 
-        {/* TRENDING WIDGET */}
-        <section style={{ marginBottom: '8px', maxWidth: '700px', margin: '0 auto', width: '100%' }}>
-          <div style={{ backgroundColor: 'white', borderRadius: '16px', padding: '12px 16px', border: '1px solid #E2E8F0', display: 'flex', flexDirection: 'column', gap: '8px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
-            <h3 style={{ fontSize: '11px', color: '#64748B', fontWeight: 'bold', margin: 0, display: 'flex', alignItems: 'center', gap: '6px', letterSpacing: '0.05em' }}>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#64748B" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>
-              TRENDING THIS WEEK
-            </h3>
-
-            {trendingItems.length > 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                {(isTrendingExpanded ? trendingItems : trendingItems.slice(0, 1)).map((item, index) => {
-                  const iconColor = index === 0 ? '#4F46E5' : '#E2E8F0';
-                  const textColor = index === 0 ? 'white' : '#475569';
-                  return (
-                    <div key={item.id} style={{ display: 'flex', alignItems: 'center', backgroundColor: '#F8FAFC', padding: '8px 12px', borderRadius: '12px', border: '1px solid #F1F5F9' }}>
-                      <div style={{ width: '20px', height: '20px', backgroundColor: iconColor, color: textColor, borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '10px', marginRight: '10px', flexShrink: 0 }}>
-                        {index + 1}
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <p style={{ margin: '0 0 1px 0', fontSize: '12px', fontWeight: 'bold', color: '#0F172A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {item.title}
-                        </p>
-                        <p style={{ margin: 0, fontSize: '10px', color: '#64748B' }}>
-                          {item.replies_count || 0} Replies • {item.likes_count || 0} Likes • {item.dislikes_count || 0} Dislikes
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
-                {trendingItems.length > 1 && (
-                  <button
-                    onClick={() => setIsTrendingExpanded(!isTrendingExpanded)}
-                    style={{ background: 'none', border: 'none', color: '#4F46E5', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', padding: '4px 0', textAlign: 'center', width: '100%' }}
-                  >
-                    {isTrendingExpanded ? 'View Less' : `View Top ${trendingItems.length} Trending`}
-                  </button>
-                )}
-              </div>
-            ) : (
-              <div style={{ backgroundColor: '#F8FAFC', padding: '12px', borderRadius: '12px', textAlign: 'center', border: '1px dashed #E2E8F0' }}>
-                <p style={{ fontSize: '10px', color: '#64748B', margin: 0 }}>No trending posts yet.</p>
-              </div>
-            )}
-          </div>
-        </section>
+        {/* TRENDING WIDGET MOVED TO TOP OF FEED */}
       </div>
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, width: '100%', maxWidth: '700px', margin: '0 auto' }}>
@@ -1290,11 +1361,13 @@ const DashboardView = ({ feed, loading, hasMore, onLoadMore, onAction, currentUs
                   ...styles.feedTabBtn,
                   backgroundColor: activeTab === tab.id ? '#DBEAFE' : '#F1F5F9',
                   color: activeTab === tab.id ? '#1D4ED8' : '#64748B',
-                  fontWeight: activeTab === tab.id ? 'bold' : '600'
+                  fontWeight: activeTab === tab.id ? '700' : '600'
                 }}
               >
-                <div style={{ width: 14, height: 14 }}>{tab.icon}</div>
-                <span style={{ fontSize: '11px' }}>{tab.label}</span>
+                <div style={styles.tabIconWrapper}>
+                  <tab.icon width="15" height="15" strokeWidth="2.5" />
+                </div>
+                <span>{tab.label}</span>
               </button>
             ))}
           </div>
@@ -1307,7 +1380,7 @@ const DashboardView = ({ feed, loading, hasMore, onLoadMore, onAction, currentUs
               </div>
               <input
                 type="text"
-                placeholder="Search establishments or services..."
+                placeholder={`Search office, program, or service...`}
                 value={searchDash}
                 onChange={(e) => setSearchDash(e.target.value)}
                 style={{
@@ -1320,6 +1393,117 @@ const DashboardView = ({ feed, loading, hasMore, onLoadMore, onAction, currentUs
               />
             </div>
           </div>
+
+          {/* PREMIUM TRENDING WIDGET */}
+          <section style={{ marginBottom: '16px', padding: '0 8px' }}>
+            <div style={{ 
+              background: 'linear-gradient(135deg, #FFFFFF 0%, #F8FAFC 100%)', 
+              borderRadius: '20px', 
+              padding: '16px', 
+              border: '1px solid #E2E8F0', 
+              display: 'flex', 
+              flexDirection: 'column', 
+              gap: '12px', 
+              boxShadow: '0 10px 25px -5px rgba(31, 42, 86, 0.05)' 
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #F1F5F9', paddingBottom: '10px' }}>
+                <h3 style={{ fontSize: '11px', color: '#1f2a56', fontWeight: '800', margin: 0, display: 'flex', alignItems: 'center', gap: '8px', letterSpacing: '0.08em' }}>
+                  <div style={{ backgroundColor: '#EF4444', padding: '4px', borderRadius: '6px', display: 'flex' }}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="white" stroke="white" strokeWidth="2"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 3.5 2.5 6 .5 2.5-1 4.5-3 5.5"></path></svg>
+                  </div>
+                  HOT TOPICS
+                </h3>
+                <span style={{ fontSize: '10px', color: '#94A3B8', fontWeight: 'bold' }}>LIVE UPDATES</span>
+              </div>
+
+              {trendingItems.length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {trendingItems.map((item, index) => (
+                    <div 
+                      key={item.id} 
+                      onClick={() => onOpenComments(item)}
+                      style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        backgroundColor: index === 0 ? '#FFFFFF' : 'transparent', 
+                        padding: '12px', 
+                        borderRadius: '16px', 
+                        border: index === 0 ? '1px solid #DBEAFE' : '1px solid transparent',
+                        cursor: 'pointer',
+                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                        position: 'relative',
+                        overflow: 'hidden'
+                      }}
+                      onMouseEnter={(e) => { 
+                        e.currentTarget.style.backgroundColor = '#FFFFFF';
+                        e.currentTarget.style.borderColor = '#1f2a56';
+                        e.currentTarget.style.transform = 'translateY(-2px) scale(1.01)';
+                        e.currentTarget.style.boxShadow = '0 8px 20px rgba(31, 42, 86, 0.08)';
+                      }}
+                      onMouseLeave={(e) => { 
+                        e.currentTarget.style.backgroundColor = index === 0 ? '#FFFFFF' : 'transparent';
+                        e.currentTarget.style.borderColor = index === 0 ? '#DBEAFE' : 'transparent';
+                        e.currentTarget.style.transform = 'translateY(0) scale(1)';
+                        e.currentTarget.style.boxShadow = 'none';
+                      }}
+                    >
+                      {index === 0 && <div style={{ position: 'absolute', top: 0, right: 0, padding: '2px 8px', backgroundColor: '#1f2a56', color: 'white', fontSize: '8px', fontWeight: '900', borderBottomLeftRadius: '8px' }}>TOP STORY</div>}
+                      
+                      <div style={{ 
+                        width: '28px', 
+                        height: '28px', 
+                        backgroundColor: index === 0 ? '#1f2a56' : '#F1F5F9', 
+                        color: index === 0 ? 'white' : '#64748B', 
+                        borderRadius: '10px', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center', 
+                        fontWeight: '900', 
+                        fontSize: '12px', 
+                        marginRight: '14px', 
+                        flexShrink: 0,
+                        boxShadow: index === 0 ? '0 4px 8px rgba(31, 42, 86, 0.2)' : 'none'
+                      }}>
+                        {index + 1}
+                      </div>
+
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ 
+                          margin: 0, 
+                          fontSize: '14px', 
+                          fontWeight: '700', 
+                          color: '#1E293B', 
+                          whiteSpace: 'nowrap', 
+                          overflow: 'hidden', 
+                          textOverflow: 'ellipsis',
+                          letterSpacing: '-0.01em'
+                        }}>
+                          {item.title}
+                        </p>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '4px' }}>
+                           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                             <div style={{ backgroundColor: '#DBEAFE', padding: '2px', borderRadius: '4px', display: 'flex' }}><Icons.Message size={8} color="#1D4ED8" /></div>
+                             <span style={{ fontSize: '10px', color: '#1D4ED8', fontWeight: 'bold' }}>{item.replies_count || 0}</span>
+                           </div>
+                           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                             <div style={{ backgroundColor: '#F0FDF4', padding: '2px', borderRadius: '4px', display: 'flex' }}><Icons.ThumbUp size={8} color="#166534" /></div>
+                             <span style={{ fontSize: '10px', color: '#166534', fontWeight: 'bold' }}>{item.likes_count || 0}</span>
+                           </div>
+                           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                             <div style={{ backgroundColor: '#FEF2F2', padding: '2px', borderRadius: '4px', display: 'flex' }}><Icons.ThumbDown size={8} color="#991B1B" /></div>
+                             <span style={{ fontSize: '10px', color: '#991B1B', fontWeight: 'bold' }}>{item.dislikes_count || 0}</span>
+                           </div>
+                           <span style={{ fontSize: '9px', color: '#94A3B8', fontWeight: '600', marginLeft: 'auto' }}>{item.category_name}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p style={{ fontSize: '10px', color: '#94A3B8', margin: 0, textAlign: 'center', padding: '10px' }}>No trending topics yet.</p>
+              )}
+            </div>
+          </section>
 
           <section style={{ ...styles.feedList, flex: 1, overflowY: 'auto', paddingBottom: '20px', border: '1px solid #E2E8F0', borderRadius: '12px', minHeight: '400px', backgroundColor: publicFeedEnabled ? 'transparent' : 'white' }}>
             {!publicFeedEnabled ? (
@@ -1337,8 +1521,31 @@ const DashboardView = ({ feed, loading, hasMore, onLoadMore, onAction, currentUs
                     <FeedCard key={item.id} item={item} currentUser={currentUser} onShowToast={onShowToast} onOpenComments={onOpenComments} onRefresh={onRefresh} setFullscreenImg={setFullscreenImg} />
                   ))
                 ) : (
-                  <div style={styles.emptyState}>
-                    <p style={styles.emptyText}>No activity found in this category.</p>
+                  <div style={{ ...styles.emptyState, padding: '48px 20px', backgroundColor: 'white', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+                    <div style={{ width: '64px', height: '64px', backgroundColor: '#F1F5F9', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Icons.Message size={32} color="#94A3B8" />
+                    </div>
+                    <div style={{ textAlign: 'center' }}>
+                      <p style={{ ...styles.emptyText, fontWeight: '800', color: '#1f2a56', margin: '0 0 4px 0', fontSize: '16px' }}>
+                        No feedback yet in this category
+                      </p>
+                      <p style={{ fontSize: '12px', color: '#64748B', margin: 0 }}>
+                        Be the first to submit feedback
+                      </p>
+                    </div>
+                    <button 
+                      onClick={() => onAction()}
+                      style={{ 
+                        ...styles.primaryAction, 
+                        width: 'auto', 
+                        padding: '10px 24px', 
+                        fontSize: '13px',
+                        background: '#1f2a56',
+                        marginTop: '8px'
+                      }}
+                    >
+                      Submit Feedback
+                    </button>
                   </div>
                 )}
                 {hasMore && feed.length >= 10 && (
@@ -1357,6 +1564,16 @@ const DashboardView = ({ feed, loading, hasMore, onLoadMore, onAction, currentUs
           </section>
         </div>
       </div>
+
+      {/* FLOATING ACTION BUTTON (FAB) */}
+      <button 
+        className="fab-btn"
+        style={styles.fab} 
+        onClick={(e) => { e.stopPropagation(); onAction(); }}
+        title={`New ${getLabel("feedback_label", "Report")}`}
+      >
+        <Icons.Plus />
+      </button>
     </div>
   );
 };
@@ -1395,6 +1612,12 @@ const styles = {
   notifDot: { position: 'absolute', top: '0px', right: '0px', width: '8px', height: '8px', backgroundColor: '#1f2a56', borderRadius: '50%', border: '2px solid white' },
   mainScroll: { flex: 1, overflowY: 'auto', padding: '0 20px 20px 20px', display: 'flex', flexDirection: 'column', borderLeft: '1px solid #E2E8F0', borderRight: '1px solid #E2E8F0' },
   fadeIn: { animation: 'fadeIn 0.3s ease-in-out' },
+  fabBtnHtml: `
+    .fab-btn:hover {
+      transform: scale(1.05) !important;
+      background-color: #2563EB !important;
+    }
+  `,
   layoutCenter: { maxWidth: '700px', margin: '0 auto', width: '100%' },
   welcomeSection: { marginBottom: '12px', maxWidth: '700px', margin: '0 auto', width: '100%' },
   greeting: { fontSize: '16px', fontWeight: '800', background: '-webkit-linear-gradient(45deg, #1f2a56, #3B82F6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' },
@@ -1459,7 +1682,46 @@ const styles = {
     minWidth: 0,
     width: '100%',
   },
-  feedTabBtn: { display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 10px', border: 'none', borderRadius: '16px', cursor: 'pointer', whiteSpace: 'nowrap', transition: 'background-color 0.2s', flexShrink: 0 },
+  feedTabBtn: { 
+    display: 'flex', 
+    alignItems: 'center', 
+    gap: '6px', 
+    padding: '8px 14px', 
+    border: 'none', 
+    borderRadius: '20px', 
+    cursor: 'pointer', 
+    whiteSpace: 'nowrap', 
+    transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)', 
+    flexShrink: 0,
+    fontSize: '11.5px',
+    boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
+  },
+  tabIconWrapper: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '16px',
+    height: '16px',
+    flexShrink: 0
+  },
+  fab: {
+    position: 'fixed',
+    bottom: '24px',
+    right: '24px',
+    width: '56px',
+    height: '56px',
+    borderRadius: '28px',
+    backgroundColor: '#1f2a56',
+    color: 'white',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    boxShadow: '0 8px 16px rgba(31, 42, 86, 0.3)',
+    border: 'none',
+    cursor: 'pointer',
+    zIndex: 900,
+    transition: 'transform 0.2s, background-color 0.2s',
+  },
 
   metaGrid: { display: 'flex', flexDirection: 'column', gap: '3px', marginBottom: '8px' },
   metaItem: { display: 'flex', alignItems: 'flex-start', gap: '5px' },
@@ -1517,7 +1779,17 @@ const styles = {
   commentDate: { fontSize: '10px', color: '#94A3B8', marginLeft: 'auto' },
   commentModalFooter: { padding: '12px 16px', borderTop: '1px solid #F1F5F9', borderBottomLeftRadius: '28px', borderBottomRightRadius: '28px', backgroundColor: 'white' },
   modalInputWrapper: { display: 'flex', alignItems: 'center', gap: '8px' },
-  modalCommentInput: { flex: 1, backgroundColor: '#F1F5F9', border: 'none', borderRadius: '20px', padding: '10px 16px', fontSize: '13px', outline: 'none' },
+  modalCommentInput: { 
+    flex: 1, 
+    backgroundColor: '#F1F5F9', 
+    border: '1px solid #E2E8F0', 
+    borderRadius: '20px', 
+    padding: '10px 16px', 
+    fontSize: '13px', 
+    outline: 'none',
+    transition: 'border-color 0.2s',
+    '&:focus': { borderColor: '#3B82F6' }
+  },
   modalSendBtn: { background: '#1f2a56', border: 'none', color: 'white', width: '36px', height: '36px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'transform 0.2s' },
   modalEditInput: { width: '100%', border: '2px solid #3B82F6', borderRadius: '12px', padding: '8px', fontSize: '13px', outline: 'none', marginBottom: '6px', boxSizing: 'border-box' },
   modalMiniBtn: { background: '#F1F5F9', border: 'none', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', color: '#64748B', padding: '4px 10px', borderRadius: '8px' },

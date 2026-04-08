@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { createFeedback, getCategories, getDepartments, getAdminSettings, getUserProfiles, getFormFields } from "../services/api";
+import { useTerminology } from "../context/TerminologyContext";
 import CustomModal from "./CustomModal";
 import { IconRegistry } from "./IconRegistry";
 
@@ -34,11 +35,13 @@ const PRODUCT_TYPES = ['furniture', 'cosmetics'];
 const PACKAGE_TYPES = ['resort', 'hotel'];
 
 const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialDraft }) => {
+  const { getLabel } = useTerminology();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedBusiness, setSelectedBusiness] = useState(null);
   const [isFilipino, setIsFilipino] = useState(false);
 
   const [selectedType, setSelectedType] = useState("");
+  const [selectedEntity, setSelectedEntity] = useState(null);
   const [specificName, setSpecificName] = useState(initialDraft?.specificName || "");
   const [otherSpecificName, setOtherSpecificName] = useState(initialDraft?.otherSpecificName || "");
 
@@ -140,10 +143,10 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
 
   const [allowVoiceSetting, setAllowVoiceSetting] = useState(true);
   const [uiText, setUiText] = useState({
-    en_title: "Submit Your Feedback",
-    en_desc: "Share your thoughts, concerns, or suggestions about any service, office, or establishment. Please select the appropriate category to proceed.",
-    fil_title: "Submit Your Feedback",
-    fil_desc: "Ang feedback ay para sa pagbabahagi ng inyong opinyon, reklamo, o mungkahi tungkol sa anumang serbisyo o opisina. Mangyaring piliin ang naaangkop na kategorya sa ibaba."
+    en_title: `Submit Your ${getLabel("feedback_label", "Feedback")}`,
+    en_desc: `Share your thoughts, concerns, or suggestions about any service, office, or establishment. Please select the appropriate ${getLabel("category_label", "category")} to proceed.`,
+    fil_title: `Submit Your ${getLabel("feedback_label", "Feedback")}`,
+    fil_desc: `Ang ${getLabel("feedback_label", "feedback")} ay para sa pagbabahagi ng inyong opinyon, reklamo, o mungkahi tungkol sa anumang serbisyo o opisina. Mangyaring piliin ang naaangkop na kategorya sa ibaba.`
   });
   const [formLayout, setFormLayout] = useState({
     show_staff: true,
@@ -232,10 +235,10 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
           settings.value.forEach(s => { dict[s.key] = s.value; });
           setAllowVoiceSetting(dict['allow_voice'] !== 'false');
           setUiText({
-            en_title: dict['general_report_title'] || "Submit Your Feedback",
-            en_desc: dict['general_report_instruction'] || "Share your thoughts, concerns, or suggestions about any service, office, or establishment. Please select the appropriate category to proceed.",
-            fil_title: dict['general_report_title'] || "Submit Your Feedback",
-            fil_desc: dict['general_report_instruction_fil'] || "Ang feedback ay para sa pagbabahagi ng inyong opinyon, reklamo, o mungkahi tungkol sa anumang serbisyo o opisina. Mangyaring piliin ang naaangkop na kategorya sa ibaba.",
+            en_title: dict['general_report_title'] || `Submit Your ${getLabel("feedback_label", "Feedback")}`,
+            en_desc: dict['general_report_instruction'] || `Share your thoughts, concerns, or suggestions about any service, office, or establishment. Please select the appropriate ${getLabel("category_label", "category")} to proceed.`,
+            fil_title: dict['general_report_title'] || `Submit Your ${getLabel("feedback_label", "Feedback")}`,
+            fil_desc: dict['general_report_instruction_fil'] || `Ang ${getLabel("feedback_label", "feedback")} ay para sa pagbabahagi ng inyong opinyon, reklamo, o mungkahi tungkol sa anumang serbisyo o opisina. Mangyaring piliin ang naaangkop na kategorya sa ibaba.`,
           });
           setFormLayout({
             show_staff: dict['form_show_staff'] !== 'false',
@@ -402,6 +405,10 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
   const filteredBusinesses = allBusinessTypes.filter(b =>
     b.label.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const filteredEntities = selectedBusiness ? dbDepartments.filter(d => 
+    d.category_id === selectedBusiness.id
+  ) : [];
   
   const searchTerm = focusedMentionIndex !== null ? mentions[focusedMentionIndex]?.name || '' : '';
   const filteredUserSuggestions = searchTerm.trim().length >= 1 ? userProfiles.filter(u => {
@@ -474,7 +481,7 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
         is_approved: true, // No longer flagging "Other" string since it's removed
         sender_id: currentUser.id,
         category_id: selectedBusiness?.id || generalCategoryId || 1,
-        recipient_dept_id: matchedDeptId || null,
+        recipient_dept_id: selectedEntity?.id || matchedDeptId || null,
         region, province, city, barangay,
         mentions: mentions.filter(m => m.name.trim() !== '').map(m => ({
           employee_name: m.name,
@@ -511,12 +518,21 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
   return (
     <div style={styles.container}>
       <header style={styles.header}>
-        <button onClick={() => { if (selectedBusiness) setSelectedBusiness(null); else onBack(); }} style={styles.iconBtn} aria-label="Go back">
+        <button onClick={() => { 
+          if (selectedEntity) setSelectedEntity(null);
+          else if (selectedBusiness) setSelectedBusiness(null); 
+          else onBack(); 
+        }} style={styles.iconBtn} aria-label="Go back">
           <Icons.Back />
         </button>
-        <h1 style={styles.headerTitle}>{initialDraft ? "Resume Draft" : "New General Report"}</h1>
+        <h1 style={styles.headerTitle}>
+          {initialDraft ? "Resume Draft" : 
+           selectedEntity ? `Report: ${selectedEntity.name}` :
+           selectedBusiness ? `Choose ${selectedBusiness.name}` :
+           `New ${getLabel("feedback_label", "Report")}`}
+        </h1>
         <div style={{ minWidth: 80, textAlign: 'right', fontSize: '11px', color: '#64748B' }}>
-          {selectedBusiness && (isSavingDraft ? (
+          {(selectedBusiness || selectedEntity) && (isSavingDraft ? (
             <span style={{ color: '#10B981', fontWeight: 'bold' }}>Saved! ✅</span>
           ) : (
             saveTimer <= 3 && <span>Saving in {saveTimer}s...</span>
@@ -541,7 +557,7 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
 
             <div style={styles.searchContainer}>
               <Icons.Search />
-              <input type="text" placeholder="Search category type..." style={styles.searchInput}
+              <input type="text" placeholder={`Search ${getLabel("category_label", "category")} type...`} style={styles.searchInput}
                 value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
             </div>
 
@@ -549,7 +565,16 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
               {filteredBusinesses.map(biz => {
                 const IconComp = IconRegistry[biz.icon] || IconRegistry.default;
                 return (
-                  <div key={biz.id} style={{ ...styles.card, flexDirection: 'column', gap: '12px', padding: '20px', minHeight: '120px' }} onClick={() => { setSelectedBusiness(biz); setSpecificName(""); setOtherSpecificName(""); setSelectedType(""); }}>
+                  <div key={biz.id} style={{ ...styles.card, flexDirection: 'column', gap: '12px', padding: '20px', minHeight: '120px' }} 
+                    onClick={() => { 
+                      setSelectedBusiness(biz); 
+                      // Check if this category has entities
+                      const hasEntities = dbDepartments.some(d => d.category_id === biz.id);
+                      if (!hasEntities) {
+                        setSelectedEntity(null); // Direct to form
+                      }
+                      setSpecificName(""); setOtherSpecificName(""); setSelectedType(""); 
+                    }}>
                     <div style={{ padding: '12px', background: 'rgba(59, 130, 246, 0.08)', borderRadius: '12px', color: '#1D6C8A' }}>
                       <IconComp width="28" height="28" />
                     </div>
@@ -557,6 +582,27 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
                   </div>
                 );
               })}
+            </div>
+          </>
+        ) : !selectedEntity && dbDepartments.some(d => d.category_id === selectedBusiness.id) ? (
+          <>
+            <div style={styles.explainBox}>
+              <span style={styles.explainTitle}>Select {selectedBusiness.name}</span>
+              <p style={styles.explainDesc}>
+                Which specific {selectedBusiness.name.toLowerCase()} would you like to provide feedback for?
+              </p>
+            </div>
+            
+            <div style={styles.grid}>
+              {filteredEntities.map(entity => (
+                <div key={entity.id} style={{ ...styles.card, flexDirection: 'column', gap: '10px', padding: '16px' }} 
+                  onClick={() => setSelectedEntity(entity)}>
+                  <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: 'rgba(59, 130, 246, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#3B82F6' }}>
+                    <Icons.Building />
+                  </div>
+                  <span style={{ ...styles.cardLabel, fontSize: '13px' }}>{entity.name}</span>
+                </div>
+              ))}
             </div>
           </>
         ) : (
@@ -568,7 +614,10 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
                   return <IconComp width="24" height="24" />;
                 })()}
               </div>
-              <h2 style={{ ...styles.selectedTitle, margin: 0, fontSize: '18px' }}>{selectedBusiness.name} Feedback</h2>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <h2 style={{ ...styles.selectedTitle, margin: 0, fontSize: '16px' }}>{selectedEntity ? selectedEntity.name : selectedBusiness.name}</h2>
+                {selectedEntity && <span style={{ fontSize: '12px', color: '#64748B' }}>{selectedBusiness.name}</span>}
+              </div>
             </div>
 
             <div style={styles.formGroup}>

@@ -1,551 +1,453 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import CustomModal from "./CustomModal";
-import { deleteUser, updateUser, getUserById, getDepartments } from "../services/api";
+import { deleteUser, updateUser, getUserById, getCategories } from "../services/api";
 
-// --- PROFESSIONAL SVGs (Strict Navy/Grey Palette) ---
+// --- MODERN PREMIUM ICONS ---
 const Icons = {
-  Back: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1f2a56" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>,
-  Gear: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1f2a56" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>,
-  Edit: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>,
-  User: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>,
-  Role: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>,
-  Bell: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>,
-  Lock: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>,
-  Chevron: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>,
-  Circle: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#CBD5E1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle></svg>,
-  Shield: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+  Profile: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
+  Lock: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>,
+  Bell: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>,
+  Gear: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1-2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>,
+  Edit: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>,
+  Logout: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>,
+  Chevron: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>,
 };
 
-const ProfileSettings = ({ currentUser, onBack, onLogout, onUserUpdate, initialSubView = "main" }) => {
-  const [subView, setSubView] = useState(initialSubView);
-  const [toastMessage, setToastMessage] = useState(null);
-  const fileInputRef = React.useRef(null);
-
-  const [impactPoints, setImpactPoints] = useState(0);
-  const [postsCount, setPostsCount] = useState(0);
-  const [likesCount, setLikesCount] = useState(0);
-
-  // Notification states moved from AlertPreferencesView
-  const [pushEnabled, setPushEnabled] = useState(currentUser?.push_notifications ?? true);
-  const [emailEnabled, setEmailEnabled] = useState(currentUser?.email_notifications ?? false);
-  const [statusUpdates, setStatusUpdates] = useState(currentUser?.status_updates ?? true);
-  const [newReplies, setNewReplies] = useState(currentUser?.reply_notifications ?? true);
-  const [weeklyDigest, setWeeklyDigest] = useState(currentUser?.weekly_digest ?? false);
-
+const ProfileSettings = ({ currentUser, onBack, onLogout, onUserUpdate, initialSubView = "personal_info" }) => {
+  const [activeTab, setActiveTab] = useState(initialSubView);
+  
   useEffect(() => {
-    setSubView(initialSubView);
+    setActiveTab(initialSubView);
   }, [initialSubView]);
+  const [toastMessage, setToastMessage] = useState(null);
+  const fileInputRef = useRef(null);
+
+  // States for stats
+  const [stats, setStats] = useState({ impact_points: 0, posts_count: 0, likes_received: 0 });
+
+  // Notification states
+  const [notifs, setNotifs] = useState({
+    push: currentUser?.push_notifications ?? true,
+    email: currentUser?.email_notifications ?? false,
+    status: currentUser?.status_updates ?? true,
+    replies: currentUser?.reply_notifications ?? true,
+    weekly: currentUser?.weekly_digest ?? false,
+  });
 
   useEffect(() => {
-    const fetchImpact = async () => {
+    const fetchStats = async () => {
       if (!currentUser?.id) return;
       try {
-        const stats = await getUserById(currentUser.id);
-        setImpactPoints(stats.impact_points);
-        setPostsCount(stats.posts_count);
-        setLikesCount(stats.likes_received);
-      } catch(e) { console.error("Error fetching impact points", e); }
+        const data = await getUserById(currentUser.id);
+        setStats({
+          impact_points: data.impact_points,
+          posts_count: data.posts_count,
+          likes_received: data.likes_received
+        });
+      } catch(e) { console.error(e); }
     };
-    fetchImpact();
+    fetchStats();
   }, [currentUser]);
 
-  const showToast = (message) => {
-    setToastMessage(message);
-    setTimeout(() => setToastMessage(null), 2500);
+  const showToast = (msg) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  const handleTogglePreference = async (field, key) => {
+    const next = !notifs[key];
+    try {
+      const updated = await updateUser(currentUser.id, { [field]: next });
+      setNotifs(prev => ({ ...prev, [key]: next }));
+      if (onUserUpdate) onUserUpdate({ ...currentUser, ...updated });
+      showToast("Preference updated successfully");
+    } catch { showToast("Failed to update preference"); }
   };
 
   const handleAvatarUpload = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    
-    if (file.size < 500000) {
-      const reader = new FileReader();
-      reader.onload = async () => {
-        try {
-          const updated = await updateUser(currentUser.id, { avatar_url: reader.result });
-          if (onUserUpdate) onUserUpdate({ ...currentUser, ...updated, avatar_url: reader.result });
-          showToast("Profile picture updated!");
-        } catch (err) { 
-          const exact = err.response ? err.response.data?.detail || err.message : err.message;
-          showToast(`Upload Failed (${err.response?.status || 'Network'}): ${typeof exact === 'string' ? exact : JSON.stringify(exact)}`); 
-        }
-      };
-      reader.readAsDataURL(file);
-      return;
-    }
-
     const reader = new FileReader();
-    reader.onload = (event) => {
-      const img = new Image();
-      img.onload = async () => {
-        const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 200;
-        const MAX_HEIGHT = 200;
-        let width = img.width;
-        let height = img.height;
-        
-        if (width > height) {
-          if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; }
-        } else {
-          if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; }
-        }
-        
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, width, height);
-        
-        const base64 = canvas.toDataURL('image/jpeg', 0.8);
-        try {
-          const updated = await updateUser(currentUser.id, { avatar_url: base64 });
-          if (onUserUpdate) onUserUpdate({ ...currentUser, ...updated, avatar_url: base64 });
-          showToast("Profile picture updated!");
-        } catch (err) { 
-          const exact = err.response ? err.response.data?.detail || err.message : err.message;
-          showToast(`Upload Failed (${err.response?.status || 'Network'}): ${typeof exact === 'string' ? exact : JSON.stringify(exact)}`); 
-        }
-      };
-      img.src = event.target.result;
+    reader.onload = async () => {
+      try {
+        const updated = await updateUser(currentUser.id, { avatar_url: reader.result });
+        if (onUserUpdate) onUserUpdate({ ...currentUser, ...updated, avatar_url: reader.result });
+        showToast("Profile image updated");
+      } catch { showToast("Upload failed"); }
     };
     reader.readAsDataURL(file);
   };
 
-  const handleToggle = async (field, currentVal, setter, label) => {
-    const next = !currentVal;
-    try {
-      const updated = await updateUser(currentUser.id, { [field]: next });
-      setter(next);
-      if (onUserUpdate) onUserUpdate({ ...currentUser, ...updated });
-      showToast(`${label} updated`);
-    } catch {
-      showToast(`Failed to update ${label}`);
-    }
-  };
+  return (
+    <div style={styles.contentAreaOnly}>
+        <div style={styles.scrollWrapper}>
+            {activeTab === "personal_info" && <PersonalInfoView currentUser={currentUser} onUserUpdate={onUserUpdate} showToast={showToast} stats={stats} fileInputRef={fileInputRef} handleAvatarUpload={handleAvatarUpload} />}
+            {activeTab === "notifs" && <NotificationsView notifs={notifs} handleToggle={handleTogglePreference} />}
+            {activeTab === "privacy" && <PrivacyView currentUser={currentUser} onUserUpdate={onUserUpdate} showToast={showToast} onLogout={onLogout} />}
+        </div>
+        {toastMessage && <div style={styles.toast}>{toastMessage}</div>}
+    </div>
+  );
+};
 
-  const renderView = () => {
-    if (subView === "personal_info") return <PersonalInfoView currentUser={currentUser} onBack={initialSubView === "personal_info" ? onBack : () => setSubView("main")} showToast={showToast} onUserUpdate={onUserUpdate} fileInputRef={fileInputRef} handleAvatarUpload={handleAvatarUpload} />;
-    if (subView === "privacy_security") return <PrivacySecurityView currentUser={currentUser} onBack={() => setSubView("main")} onLogout={onLogout} showToast={showToast} onUserUpdate={onUserUpdate} />;
+const NavBtn = ({ icon, label, active, onClick }) => (
+    <button onClick={onClick} style={{...styles.navBtn, backgroundColor: active ? 'rgba(31, 42, 86, 0.08)' : 'transparent', color: active ? '#1f2a56' : '#64748B'}}>
+        <div style={{...styles.iconContainer, color: active ? '#1f2a56' : '#94A3B8'}}>{icon}</div>
+        <span style={{fontWeight: active ? '700' : '500'}}>{label}</span>
+        {active && <div style={styles.activeIndicator} />}
+    </button>
+);
+
+const PersonalInfoView = ({ currentUser, onUserUpdate, showToast, stats, fileInputRef, handleAvatarUpload }) => {
+    const [isEditing, setIsEditing] = useState(false);
+    const [formData, setFormData] = useState({ ...currentUser });
+    const [programOptions, setProgramOptions] = useState([]);
+    
+    // LOCATION STATES
+    const [regionList, setRegionList] = useState([]);
+    const [allProvinces, setAllProvinces] = useState({});
+    const [provinceList, setProvinceList] = useState([]);
+    const [allCities, setAllCities] = useState({});
+    const [cityList, setCityList] = useState([]);
+    const [barangayList, setBarangayList] = useState([]);
+    const [isLoadingLocations, setIsLoadingLocations] = useState(false);
+
+    useEffect(() => {
+        getCategories()
+            .then(cats => {
+                const names = (cats || []).map(c => c.name).filter(Boolean);
+                setProgramOptions(names);
+            })
+            .catch(err => console.error("Failed to load categories", err));
+            
+        // LOAD LOCATIONS
+        const loadBaseLocations = async () => {
+            try {
+                const [regRes, provRes, cityRes] = await Promise.all([
+                    fetch("/assets/locations/regions.json"),
+                    fetch("/assets/locations/provinces.json"),
+                    fetch("/assets/locations/cities.json"),
+                ]);
+                setRegionList(await regRes.json());
+                setAllProvinces(await provRes.json());
+                setAllCities(await cityRes.json());
+            } catch (err) { console.error("Failed to load locations", err); }
+        };
+        loadBaseLocations();
+    }, []);
+
+    // CASCADE LOCATION LOGIC
+    useEffect(() => {
+        if (formData.region && allProvinces[formData.region]) {
+            setProvinceList(allProvinces[formData.region]);
+        } else { setProvinceList([]); }
+    }, [formData.region, allProvinces]);
+
+    useEffect(() => {
+        if (formData.province && allCities[formData.province]) {
+            setCityList(allCities[formData.province]);
+        } else { setCityList([]); }
+    }, [formData.province, allCities]);
+
+    useEffect(() => {
+        const loadBarangays = async () => {
+            if (formData.city) {
+                setIsLoadingLocations(true);
+                try {
+                    const safeCity = formData.city.replace(/[^a-z0-9]/gi, (x) => (" -_".includes(x) ? x : "")).trim();
+                    const res = await fetch(`/assets/locations/barangays/${safeCity}.json`);
+                    if (res.ok) setBarangayList(await res.json());
+                    else setBarangayList([]);
+                } catch (err) { setBarangayList([]); }
+                finally { setIsLoadingLocations(false); }
+            } else { setBarangayList([]); }
+        };
+        loadBarangays();
+    }, [formData.city]);
+
+    const handleSave = async () => {
+        try {
+            const updated = await updateUser(currentUser.id, formData);
+            if (onUserUpdate) onUserUpdate({ ...currentUser, ...updated });
+            showToast("Profile details updated");
+            setIsEditing(false);
+        } catch { showToast("Failed to save changes"); }
+    };
 
     return (
-      <div style={styles.container}>
-        <header style={styles.header}>
-        <div style={{ width: 24 }}></div>
-        <h1 style={styles.headerTitle}>Settings</h1>
-        <button style={styles.iconBtn}>
-          <Icons.Gear />
-        </button>
-      </header>
+        <div style={styles.viewContainer}>
+            {/* PROFILE HEADER CARD */}
+            <div style={styles.heroCard}>
+                <div style={styles.heroContent}>
+                    <div style={styles.avatarLargeContainer}>
+                        {currentUser?.avatar_url ? (
+                            <img src={currentUser.avatar_url} style={styles.avatarLarge} alt="profile" />
+                        ) : (
+                            <div style={styles.avatarLargePlaceholder}>{currentUser?.name?.charAt(0)}</div>
+                        )}
+                        <button style={styles.heroEditBadge} onClick={() => fileInputRef.current?.click()}><Icons.Edit /></button>
+                        <input ref={fileInputRef} type="file" accept="image/*" style={{display:'none'}} onChange={handleAvatarUpload} />
+                    </div>
+                    <div style={styles.heroText}>
+                        <h1 style={styles.heroName}>{currentUser?.name}</h1>
+                        <p style={styles.heroUsername}>@{currentUser?.username || "username"}</p>
+                        <div style={styles.badgeRow}>
+                            <span style={styles.roleBadge}>{currentUser?.role_identity || "Member"}</span>
+                            <span style={styles.statusBadge}>{currentUser?.is_active ? "Verified" : "Pending"}</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div style={styles.statsBar}>
+                    <div style={styles.statBox}>
+                        <span style={styles.statVal}>{stats.posts_count}</span>
+                        <span style={styles.statLab}>POSTS</span>
+                    </div>
+                    <div style={styles.statDivider} />
+                    <div style={styles.statBox}>
+                        <span style={styles.statVal}>{stats.impact_points}</span>
+                        <span style={styles.statLab}>POINTS</span>
+                    </div>
+                    <div style={styles.statDivider} />
+                    <div style={styles.statBox}>
+                        <span style={styles.statVal}>{stats.likes_received}</span>
+                        <span style={styles.statLab}>LIKES</span>
+                    </div>
+                </div>
+            </div>
 
-      <main style={styles.mainScroll}>
-        <div style={{ ...styles.sectionWrapper, marginTop: '8px' }}>
-          <h3 style={styles.sectionLabel}>ALERT PREFERENCES</h3>
-          <div style={styles.cardGroup}>
-            <ToggleRow title="Push Notifications" subtitle="Receive alerts on your mobile device" isOn={pushEnabled} onToggle={() => handleToggle("push_notifications", pushEnabled, setPushEnabled, "Push Notifications")} />
-            <ToggleRow title="Email Notifications" subtitle="Receive updates to your company email" isOn={emailEnabled} onToggle={() => handleToggle("email_notifications", emailEnabled, setEmailEnabled, "Email Notifications")} />
-            <ToggleRow title="Status Changes" subtitle="A report you made is marked resolved or active" isOn={statusUpdates} onToggle={() => handleToggle("status_updates", statusUpdates, setStatusUpdates, "Status Updates")} />
-            <ToggleRow title="New Replies" subtitle="Someone comments on your feedback thread" isOn={newReplies} onToggle={() => handleToggle("reply_notifications", newReplies, setNewReplies, "Reply Notifications")} />
-            <ToggleRow title="Weekly Digest" subtitle="A summary of department activity every Friday" isOn={weeklyDigest} onToggle={() => handleToggle("weekly_digest", weeklyDigest, setWeeklyDigest, "Weekly Digest")} />
-          </div>
+            {/* DETAILS SECTION */}
+            <div style={styles.sectionCard}>
+                <div style={styles.cardHeader}>
+                    <h3 style={styles.cardTitle}>Basic Information</h3>
+                    {!isEditing && (
+                        <button onClick={() => setIsEditing(true)} style={styles.actionLink}>
+                            Edit Details
+                        </button>
+                    )}
+                </div>
+
+                {!isEditing ? (
+                    <div style={styles.dataGrid}>
+                        <DataTile label="Username" value={currentUser.username} icon="@" />
+                        <DataTile label="Position" value={currentUser.position_title} icon="💼" />
+                        {currentUser.role_identity === "Employee" && <DataTile label="Company" value={currentUser.company_name} icon="🏢" />}
+                        <DataTile label="Program / Office" value={currentUser.program} icon="🏫" />
+                        <DataTile label="Phone" value={currentUser.phone} icon="📞" />
+                        <DataTile label="Address" value={`${currentUser.barangay || ""} ${currentUser.city || ""} ${currentUser.province || ""}`} icon="📍" />
+                    </div>
+                ) : (
+                    <div style={styles.formGrid}>
+                        <InputGroup label="Full Name" value={formData.name} onChange={v => setFormData({...formData, name: v})} />
+                        <InputGroup label="Username" value={formData.username} onChange={v => setFormData({...formData, username: v})} />
+                        <InputGroup label="Email" value={formData.email} onChange={v => setFormData({...formData, email: v})} />
+                        <InputGroup label="Phone" value={formData.phone} onChange={v => setFormData({...formData, phone: v})} />
+                        
+                        <div style={styles.inputWrap}>
+                            <label style={styles.fieldLabel}>Program / Office</label>
+                            <select style={styles.selectField} value={formData.program} onChange={e => setFormData({...formData, program: e.target.value})}>
+                                <option value="">Select Option</option>
+                                {programOptions.map(p => <option key={p} value={p}>{p}</option>)}
+                            </select>
+                        </div>
+
+                        <InputGroup label="Position" value={formData.position_title} onChange={v => setFormData({...formData, position_title: v})} />
+                        {formData.role_identity === "Employee" && <InputGroup label="Company" value={formData.company_name} onChange={v => setFormData({...formData, company_name: v})} />}
+                        
+                        {/* LOCATION INPUTS */}
+                        <div style={{gridColumn: '1 / -1', marginTop: '24px', padding: '20px', background: '#F8FAFC', borderRadius: '16px', border: '1px solid #E2E8F0'}}>
+                            <h4 style={{margin: '0 0 16px 0', fontSize: '15px', color: '#1f2a56'}}>Location & Address</h4>
+                            <div style={{...styles.formGrid, gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', padding: 0}}>
+                                <div style={styles.inputWrap}>
+                                    <label style={styles.fieldLabel}>Region</label>
+                                    <select style={styles.selectField} value={formData.region} onChange={e => setFormData({...formData, region: e.target.value, province: "", city: "", barangay: ""})}>
+                                        <option value="">Select Region</option>
+                                        {regionList.map(r => <option key={r} value={r}>{r}</option>)}
+                                    </select>
+                                </div>
+                                <div style={styles.inputWrap}>
+                                    <label style={styles.fieldLabel}>Province</label>
+                                    <select style={styles.selectField} value={formData.province} onChange={e => setFormData({...formData, province: e.target.value, city: "", barangay: ""})} disabled={!formData.region}>
+                                        <option value="">Select Province</option>
+                                        {provinceList.map(p => <option key={p} value={p}>{p}</option>)}
+                                    </select>
+                                </div>
+                                <div style={styles.inputWrap}>
+                                    <label style={styles.fieldLabel}>City / Municipality</label>
+                                    <select style={styles.selectField} value={formData.city} onChange={e => setFormData({...formData, city: e.target.value, barangay: ""})} disabled={!formData.province}>
+                                        <option value="">Select City / Municipality</option>
+                                        {cityList.map(c => <option key={c} value={c}>{c}</option>)}
+                                    </select>
+                                </div>
+                                <div style={styles.inputWrap}>
+                                    <label style={styles.fieldLabel}>Barangay</label>
+                                    <select style={styles.selectField} value={formData.barangay} onChange={e => setFormData({...formData, barangay: e.target.value})} disabled={!formData.city || isLoadingLocations}>
+                                        <option value="">{isLoadingLocations ? "Loading..." : "Select Barangay"}</option>
+                                        {barangayList.map(b => <option key={b} value={b}>{b}</option>)}
+                                    </select>
+                                </div>
+                                <div style={{...styles.inputWrap, gridColumn: '1 / -1'}}>
+                                    <InputGroup label="Exact Address (Optional)" value={formData.exact_address} onChange={v => setFormData({...formData, exact_address: v})} placeholder="House no, Street, etc." />
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div style={{gridColumn: '1 / -1', marginTop: '20px', display: 'flex', gap: '12px'}}>
+                            <button style={styles.primaryBtn} onClick={handleSave}>Save Changes</button>
+                            <button style={styles.secondaryBtn} onClick={() => setIsEditing(false)}>Cancel</button>
+                        </div>
+                    </div>
+                )}
+            </div>
         </div>
-
-        <div style={styles.sectionWrapper}>
-          <h3 style={styles.sectionLabel}>PRIVACY SETTINGS</h3>
-          <div style={styles.cardGroup}>
-            <SettingItem icon={<Icons.Lock />} title="Privacy & Security" subtitle="Anonymous mode, Password, 2FA" onClick={() => setSubView("privacy_security")} />
-          </div>
-        </div>
-
-        <p style={styles.versionText}>APP VERSION 2.4.1 (BUILD 890)</p>
-      </main>
-    </div>
     );
-  };
-
-  return (
-    <>
-      {renderView()}
-      {toastMessage && (
-        <div style={styles.toastModal}>
-          {toastMessage}
-        </div>
-      )}
-    </>
-  );
 };
 
-const PersonalInfoView = ({ currentUser, onBack, showToast, onUserUpdate, fileInputRef, handleAvatarUpload }) => {
-  const [name, setName] = useState(currentUser?.name || "");
-  const [email, setEmail] = useState(currentUser?.email || "");
-  const [phone, setPhone] = useState(currentUser?.phone || "");
-  const [program, setProgram] = useState(currentUser?.program || "");
-  const [username, setUsername] = useState(currentUser?.username || "");
-  const [roleIdentity, setRoleIdentity] = useState(currentUser?.role_identity || "");
-  const [school, setSchool] = useState(currentUser?.school || "");
-  const [companyName, setCompanyName] = useState(currentUser?.company_name || "");
-  const [positionTitle, setPositionTitle] = useState(currentUser?.position_title || "");
-  const [region, setRegion] = useState(currentUser?.region || "");
-  const [province, setProvince] = useState(currentUser?.province || "");
-  const [city, setCity] = useState(currentUser?.city || "");
-  const [barangay, setBarangay] = useState(currentUser?.barangay || "");
-  const [exactAddress, setExactAddress] = useState(currentUser?.exact_address || "");
-  const [programOptions, setProgramOptions] = useState([]);
-
-  useEffect(() => {
-    setName(currentUser?.name || "");
-    setEmail(currentUser?.email || "");
-    setPhone(currentUser?.phone || "");
-    setProgram(currentUser?.program || "");
-    setUsername(currentUser?.username || "");
-    setRoleIdentity(currentUser?.role_identity || "");
-    setSchool(currentUser?.school || "");
-    setCompanyName(currentUser?.company_name || "");
-    setPositionTitle(currentUser?.position_title || "");
-    setRegion(currentUser?.region || "");
-    setProvince(currentUser?.province || "");
-    setCity(currentUser?.city || "");
-    setBarangay(currentUser?.barangay || "");
-    setExactAddress(currentUser?.exact_address || "");
-  }, [currentUser]);
-
-  useEffect(() => {
-    const loadPrograms = async () => {
-      try {
-        const deps = await getDepartments();
-        setProgramOptions((deps || []).map((d) => d.name).filter(Boolean));
-      } catch (e) {
-        console.error("Failed to load programs/departments", e);
-      }
-    };
-    loadPrograms();
-  }, []);
-
-  useEffect(() => {
-    if (roleIdentity === "Student") {
-      setCompanyName("");
-      setPositionTitle("");
-    } else if (roleIdentity === "Employee") {
-      setSchool("");
-    } else {
-      setSchool("");
-      setCompanyName("");
-      setPositionTitle("");
-    }
-  }, [roleIdentity]);
-
-  const handleSave = async () => {
-    try {
-      const updated = await updateUser(currentUser.id, {
-        name,
-        email,
-        phone,
-        program,
-        username,
-        role_identity: roleIdentity,
-        school,
-        company_name: companyName,
-        position_title: positionTitle,
-        region,
-        province,
-        city,
-        barangay,
-        exact_address: exactAddress,
-      });
-      // Merge server response with existing - ensures all fields (id, role, etc.) preserved
-      const merged = { ...currentUser, ...updated };
-      if (onUserUpdate) onUserUpdate(merged);
-      showToast("Personal Information saved");
-      onBack();
-    } catch (err) {
-      showToast("Failed to save. Make sure you are logged in.");
-    }
-  };
-
-  return (
-    <div style={styles.container}>
-      <header style={styles.header}>
-        <div style={{ width: 24 }}></div>
-        <h1 style={styles.headerTitle}>Personal Info</h1>
-        <div style={{ width: 24 }}></div>
-      </header>
-      <main style={styles.mainScroll}>
-        <section style={{ ...styles.profileSection, marginBottom: '24px' }}>
-           <div style={styles.avatarContainer}>
-              {currentUser?.avatar_url ? (
-                <img src={currentUser.avatar_url} alt="avatar" style={{...styles.avatar, objectFit: 'cover'}} />
-              ) : (
-                <div style={styles.avatar}>{currentUser?.name?.charAt(0) || "U"}</div>
-              )}
-              <button style={styles.editBadge} onClick={() => fileInputRef.current?.click()}><Icons.Edit /></button>
-              <input ref={fileInputRef} type="file" accept="image/*" style={{display:'none'}} onChange={handleAvatarUpload} />
-           </div>
-        </section>
-        <div style={styles.formGroup}><label style={styles.inputLabel}>Full Name</label><input type="text" style={styles.inputField} value={name} onChange={e => setName(e.target.value)} /></div>
-        <div style={styles.formGroup}><label style={styles.inputLabel}>Username</label><input type="text" style={styles.inputField} value={username} onChange={e => setUsername(e.target.value)} /></div>
-        <div style={styles.formGroup}><label style={styles.inputLabel}>Email Address</label><input type="email" style={styles.inputField} value={email} onChange={e => setEmail(e.target.value)} /></div>
-        <div style={styles.formGroup}><label style={styles.inputLabel}>Phone Number</label><input type="tel" style={styles.inputField} value={phone} onChange={e => setPhone(e.target.value)} /></div>
-        {roleIdentity === "Employee" && <div style={styles.formGroup}><label style={styles.inputLabel}>Company Name</label><input type="text" style={styles.inputField} value={companyName} onChange={e => setCompanyName(e.target.value)} /></div>}
-        <div style={styles.formGroup}>
-          <label style={styles.inputLabel}>Program / Office</label>
-          <select style={styles.inputField} value={program} onChange={e => setProgram(e.target.value)}>
-            <option value="">Select Program / Office</option>
-            {programOptions.map((name) => (
-              <option key={name} value={name}>{name}</option>
-            ))}
-          </select>
+const DataTile = ({ label, value, icon }) => (
+    <div style={styles.dataTile}>
+        <div style={styles.tileIcon}>{icon}</div>
+        <div>
+            <span style={styles.tileLabel}>{label}</span>
+            <span style={styles.tileValue}>{value || "—"}</span>
         </div>
-        <div style={styles.formGroup}><label style={styles.inputLabel}>Role Identity</label><input type="text" style={styles.inputField} value={roleIdentity} onChange={e => setRoleIdentity(e.target.value)} /></div>
-        {roleIdentity === "Student" && <div style={styles.formGroup}><label style={styles.inputLabel}>School Name</label><input type="text" style={styles.inputField} value={school} onChange={e => setSchool(e.target.value)} /></div>}
-        {roleIdentity === "Employee" && <div style={styles.formGroup}><label style={styles.inputLabel}>Position</label><input type="text" style={styles.inputField} value={positionTitle} onChange={e => setPositionTitle(e.target.value)} /></div>}
-        <div style={styles.formGroup}><label style={styles.inputLabel}>Region</label><input type="text" style={styles.inputField} value={region} onChange={e => setRegion(e.target.value)} /></div>
-        <div style={styles.formGroup}><label style={styles.inputLabel}>Province</label><input type="text" style={styles.inputField} value={province} onChange={e => setProvince(e.target.value)} /></div>
-        <div style={styles.formGroup}><label style={styles.inputLabel}>City / Municipality</label><input type="text" style={styles.inputField} value={city} onChange={e => setCity(e.target.value)} /></div>
-        <div style={styles.formGroup}><label style={styles.inputLabel}>Barangay</label><input type="text" style={styles.inputField} value={barangay} onChange={e => setBarangay(e.target.value)} /></div>
-        <div style={styles.formGroup}><label style={styles.inputLabel}>Exact Address</label><input type="text" style={styles.inputField} value={exactAddress} onChange={e => setExactAddress(e.target.value)} /></div>
-        <button style={styles.saveBtn} onClick={handleSave}>Save Changes</button>
-      </main>
     </div>
-  );
-};
-
- 
-
-const PrivacySecurityView = ({ currentUser, onBack, onLogout, showToast, onUserUpdate }) => {
-  const [showStatus, setShowStatus] = useState(currentUser?.show_activity_status ?? true);
-  const [biometrics, setBiometrics] = useState(currentUser?.biometrics_enabled ?? true);
-  const [twoFA, setTwoFA] = useState(currentUser?.two_factor_enabled || false);
-  const [showPasswordForm, setShowPasswordForm] = useState(false);
-  const [oldPassword, setOldPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-
-  // Delete account state
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [deletePassword, setDeletePassword] = useState("");
-  const [deleteCountdown, setDeleteCountdown] = useState(5);
-  const [deleteTimerStarted, setDeleteTimerStarted] = useState(false);
-
-  const startDeleteTimer = () => {
-    setDeleteCountdown(5);
-    setDeleteTimerStarted(true);
-    const interval = setInterval(() => {
-      setDeleteCountdown(prev => {
-        if (prev <= 1) { clearInterval(interval); return 0; }
-        return prev - 1;
-      });
-    }, 1000);
-  };
-
-  const handleToggleActivityStatus = async () => {
-    const next = !showStatus;
-    try {
-      const updated = await updateUser(currentUser.id, { show_activity_status: next });
-      setShowStatus(next);
-      if (onUserUpdate) onUserUpdate({ ...currentUser, ...updated });
-      showToast(next ? "Activity Status is now Visible" : "Activity Status Hidden");
-    } catch { showToast("Failed to update activity status"); }
-  };
-
-  const handleToggle2FA = async () => {
-    const next = !twoFA;
-    try {
-      const updated = await updateUser(currentUser.id, { two_factor_enabled: next });
-      setTwoFA(next);
-      if (onUserUpdate) onUserUpdate({ ...currentUser, ...updated });
-      showToast(next ? "Two-Factor Authentication Enabled" : "Two-Factor Authentication Disabled");
-    } catch { showToast("Failed to update 2FA"); }
-  };
-
-  const handleToggleBiometrics = async () => {
-    const next = !biometrics;
-    try {
-      const updated = await updateUser(currentUser.id, { biometrics_enabled: next });
-      setBiometrics(next);
-      if (onUserUpdate) onUserUpdate({ ...currentUser, ...updated });
-      showToast(next ? "Biometric Login Enabled" : "Biometric Login Disabled");
-    } catch { showToast("Failed to update biometrics"); }
-  };
-
-  const handleChangePassword = async () => {
-    if (!oldPassword || !newPassword) { showToast("Please fill both fields"); return; }
-    const stored = JSON.parse(localStorage.getItem("currentUser") || "{}");
-    if (stored.password && stored.password !== oldPassword) {
-      showToast("Current password is incorrect"); return;
-    }
-    try {
-      const updated = await updateUser(currentUser.id, { password: newPassword });
-      if (onUserUpdate) onUserUpdate({ ...currentUser, password: newPassword });
-      showToast("Password changed successfully!");
-      setShowPasswordForm(false);
-      setOldPassword(""); setNewPassword("");
-    } catch { showToast("Failed to change password"); }
-  };
-
-  const handleDeleteAccount = async () => {
-    if (!deletePassword) { showToast("Please enter your password to confirm"); return; }
-    const stored = JSON.parse(localStorage.getItem("currentUser") || "{}");
-    if (stored.password && stored.password !== deletePassword) {
-      showToast("Incorrect password"); return;
-    }
-    try {
-      if (currentUser?.id) await deleteUser(currentUser.id);
-      localStorage.removeItem("token");
-      localStorage.removeItem("currentUser");
-      if (onLogout) onLogout();
-      else window.location.reload();
-    } catch (err) {
-      showToast("Failed to delete account");
-    }
-  };
-
-  return (
-    <div style={styles.container}>
-      <header style={styles.header}>
-        <div style={{ width: 24 }}></div>
-        <h1 style={styles.headerTitle}>Privacy & Security</h1>
-        <div style={{ width: 24 }}></div>
-      </header>
-      <main style={styles.mainScroll}>
-        
-        <h3 style={styles.sectionLabel}>PRIVACY</h3>
-        <div style={styles.cardGroup}>
-          <ToggleRow title="Show Activity Status" subtitle={showStatus ? "Online — others can see you are active" : "Hidden — your status is private"} isOn={showStatus} onToggle={handleToggleActivityStatus} />
-        </div>
-
-        <h3 style={{...styles.sectionLabel, marginTop: '24px'}}>SECURITY</h3>
-        <div style={styles.cardGroup}>
-          <SettingItem icon={<Icons.Lock />} title="Change Password" subtitle={showPasswordForm ? "Enter your details below" : "Click to update your password"} onClick={() => setShowPasswordForm(!showPasswordForm)} />
-          {showPasswordForm && (
-            <div style={{padding: '16px', backgroundColor: 'white', borderRadius: '16px', border: '1px solid #E2E8F0', display: 'flex', flexDirection: 'column', gap: '12px'}}>
-              <input type="password" placeholder="Current Password" value={oldPassword} onChange={e => setOldPassword(e.target.value)} style={{...styles.inputField, padding: '12px'}} />
-              <input type="password" placeholder="New Password" value={newPassword} onChange={e => setNewPassword(e.target.value)} style={{...styles.inputField, padding: '12px'}} />
-              <button style={{...styles.saveBtn, marginTop: 0, padding: '12px'}} onClick={handleChangePassword}>Update Password</button>
-            </div>
-          )}
-          <ToggleRow title="Two-Factor Authentication" subtitle={twoFA ? "2FA is Active — your account is protected" : "Enable for extra security"} isOn={twoFA} onToggle={handleToggle2FA} />
-          <ToggleRow title="Biometric Login" subtitle="Use Face ID / Touch ID to open the app" isOn={biometrics} onToggle={handleToggleBiometrics} />
-        </div>
-
-        <h3 style={{...styles.sectionLabel, marginTop: '32px', color: '#EF4444'}}>DANGER ZONE</h3>
-        <div style={{...styles.cardGroup, backgroundColor: '#FEF2F2', padding: '16px', borderRadius: '16px', border: '1px solid #FEE2E2', display: 'flex', flexDirection: 'column', gap: '12px'}}>
-          <p style={{fontSize: '14px', color: '#991B1B', margin: 0, fontWeight: '500'}}>
-            Deleting your account is permanent. All your data will be erased and cannot be recovered.
-          </p>
-          {!showDeleteConfirm ? (
-            <button style={{backgroundColor: '#EF4444', color: 'white', padding: '12px', border: 'none', borderRadius: '10px', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer'}} 
-              onClick={() => { setShowDeleteConfirm(true); startDeleteTimer(); }}>
-              Delete Account
-            </button>
-          ) : (
-            <div style={{display: 'flex', flexDirection: 'column', gap: '12px'}}>
-              <input
-                type="password"
-                placeholder="Enter your password to confirm"
-                value={deletePassword}
-                onChange={e => setDeletePassword(e.target.value)}
-                style={{...styles.inputField, padding: '12px', border: '2px solid #FCA5A5'}}
-              />
-              <div style={{display: 'flex', gap: '10px'}}>
-                <button
-                  style={{flex: 1, backgroundColor: '#E2E8F0', color: '#475569', padding: '12px', border: 'none', borderRadius: '10px', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer'}}
-                  onClick={() => { setShowDeleteConfirm(false); setDeletePassword(""); setDeleteTimerStarted(false); setDeleteCountdown(5); }}>
-                  Cancel
-                </button>
-                <button
-                  disabled={deleteCountdown > 0}
-                  onClick={handleDeleteAccount}
-                  style={{flex: 1, backgroundColor: deleteCountdown > 0 ? '#FCA5A5' : '#EF4444', color: 'white', padding: '12px', border: 'none', borderRadius: '10px', fontSize: '14px', fontWeight: 'bold', cursor: deleteCountdown > 0 ? 'not-allowed' : 'pointer', transition: 'background-color 0.3s'}}>
-                  {deleteCountdown > 0 ? `Confirm (${deleteCountdown}s)` : 'Confirm Delete'}
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      </main>
-    </div>
-  );
-};
-
-// --- HELPER COMPONENTS ---
-const SettingItem = ({ icon, title, subtitle, onClick }) => (
-  <button style={styles.settingItem} onClick={onClick}>
-    <div style={styles.iconWrapper}>{icon}</div>
-    <div style={styles.itemText}>
-      <p style={styles.itemTitle}>{title}</p>
-      <p style={styles.itemSubtitle}>{subtitle}</p>
-    </div>
-    <Icons.Chevron />
-  </button>
 );
 
-const ToggleRow = ({ title, subtitle, isOn, onToggle, highlight }) => (
-  <div style={styles.toggleRowContainer}>
-    <div style={styles.itemText}>
-      <p style={{...styles.itemTitle, color: highlight && isOn ? '#1f2a56' : '#1E293B'}}>{title}</p>
-      <p style={styles.itemSubtitle}>{subtitle}</p>
+const InputGroup = ({ label, value, onChange, placeholder }) => (
+    <div style={styles.inputWrap}>
+        <label style={styles.fieldLabel}>{label}</label>
+        <input 
+            style={styles.inputField}
+            value={value || ""}
+            onChange={e => onChange(e.target.value)}
+            placeholder={placeholder}
+        />
     </div>
-    <div 
-      style={{...styles.toggleBg, backgroundColor: isOn ? '#1f2a56' : '#E2E8F0', position: 'relative'}} 
-      onClick={onToggle}
-    >
-      <span style={{position: 'absolute', fontSize: '10px', fontWeight: 'bold', color: 'white', left: isOn ? '6px' : '22px', transition: 'all 0.3s ease', userSelect: 'none'}}>
-        {isOn ? 'ON' : 'OFF'}
-      </span>
-      <div style={{...styles.toggleCircle, transform: isOn ? 'translateX(24px)' : 'translateX(2px)'}} />
-    </div>
-  </div>
 );
+
+const NotificationsView = ({ notifs, handleToggle }) => (
+    <div style={styles.viewContainer}>
+        <div style={styles.sectionHeader}>
+            <h2 style={styles.viewTitle}>Alert Preferences</h2>
+            <p style={styles.viewSubtitle}>Choose how and when you want to be notified by the system.</p>
+        </div>
+
+        <div style={styles.cardStack}>
+            <ToggleCard title="Push Notifications" desc="Get real-time alerts on your mobile device" isOn={notifs.push} onToggle={() => handleToggle("push_notifications", "push")} />
+            <ToggleCard title="Email Updates" desc="Receive formal reports to your professional email" isOn={notifs.email} onToggle={() => handleToggle("email_notifications", "email")} />
+            <ToggleCard title="Status Changes" desc="Notify when your feedback is marked resolved" isOn={notifs.status} onToggle={() => handleToggle("status_updates", "status")} />
+            <ToggleCard title="Weekly Digest" desc="A summary of system activity every Friday" isOn={notifs.weekly} onToggle={() => handleToggle("weekly_digest", "weekly")} />
+        </div>
+    </div>
+);
+
+const ToggleCard = ({ title, desc, isOn, onToggle }) => (
+    <div style={styles.toggleCard}>
+        <div style={{flex: 1}}>
+            <h4 style={styles.toggleTitle}>{title}</h4>
+            <p style={styles.toggleDesc}>{desc}</p>
+        </div>
+        <button onClick={onToggle} style={{...styles.toggleBtn, backgroundColor: isOn ? '#1f2a56' : '#E2E8F0'}}>
+            <div style={{...styles.toggleCircle, transform: isOn ? 'translateX(24px)' : 'translateX(2px)'}} />
+        </button>
+    </div>
+);
+
+const PrivacyView = ({ currentUser, onUserUpdate, showToast, onLogout }) => {
+    const [showDelete, setShowDelete] = useState(false);
+    return (
+        <div style={styles.viewContainer}>
+            <div style={styles.sectionHeader}>
+                <h2 style={styles.viewTitle}>Account & Security</h2>
+                <p style={styles.viewSubtitle}>Manage your access and data privacy settings.</p>
+            </div>
+
+            <div style={styles.sectionCard}>
+                <h4 style={styles.cardTitle}>Change Password</h4>
+                <div style={styles.formGrid}>
+                    <InputGroup label="New Password" placeholder="Minimum 8 characters" />
+                    <button style={{...styles.primaryBtn, width: 'fit-content', gridColumn: '1 / -1'}}>Update Password</button>
+                </div>
+            </div>
+
+            <div style={{...styles.sectionCard, borderColor: '#FCA5A5', background: '#FFF5F5'}}>
+                <h4 style={{...styles.cardTitle, color: '#B91C1C'}}>Danger Zone</h4>
+                <p style={{fontSize: '13px', color: '#991B1B', marginBottom: '16px'}}>Once deleted, your account and all associated feedback cannot be restored.</p>
+                <button style={{...styles.secondaryBtn, color: '#EF4444', borderColor: '#FCA5A5'}} onClick={() => setShowDelete(true)}>Delete Permanentally</button>
+            </div>
+
+            {showDelete && (
+                <CustomModal 
+                    isOpen={true} title="Delete Account?" 
+                    message="Are you sure? This action is irreversible." 
+                    onConfirm={() => deleteUser(currentUser.id).then(onLogout)}
+                    onCancel={() => setShowDelete(false)}
+                    isDestructive={true}
+                />
+            )}
+        </div>
+    );
+}
 
 // --- STYLES ---
-const statsCard = { flex: 1, background: 'white', padding: '16px', borderRadius: '20px', border: '1px solid #E2E8F0', textAlign: 'center', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' };
-const statsValue = { fontSize: '24px', fontWeight: '900', color: '#1f2a56', display: 'block' };
-const statsLabel = { fontSize: '10px', fontWeight: '800', color: '#94A3B8', letterSpacing: '0.05em', marginTop: '4px' };
-
 const styles = {
-  container: { height: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: '#F8FAFC', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' },
-  header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 20px', backgroundColor: '#F8FAFC', flexShrink: 0, maxWidth: '800px', margin: '0 auto', width: '100%', borderBottom: '1px solid #F1F5F9' },
-  headerTitle: { fontSize: '16px', fontWeight: '800', color: '#1f2a56', margin: 0 },
-  iconBtn: { background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', color: '#1f2a56' },
-  
-  mainScroll: { flex: 1, overflowY: 'auto', padding: '16px', maxWidth: '800px', margin: '0 auto', width: '100%' },
-  
-  profileSection: { display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '32px' },
-  avatarContainer: { position: 'relative', marginBottom: '16px' },
-  avatar: { width: '88px', height: '88px', borderRadius: '50%', backgroundColor: '#E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '32px', fontWeight: 'bold', color: '#64748B', border: '4px solid white', boxShadow: '0 4px 10px rgba(0,0,0,0.05)' },
-  editBadge: { position: 'absolute', bottom: '0', right: '0', width: '28px', height: '28px', borderRadius: '50%', backgroundColor: '#1f2a56', border: '2px solid white', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0 },
-  userName: { fontSize: '22px', fontWeight: 'bold', color: '#0F172A', margin: '0 0 10px 0' },
-  roleBadges: { display: 'flex', gap: '8px' },
-  badge: { backgroundColor: '#F1F5F9', color: '#1f2a56', padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: 'bold' },
+    contentAreaOnly: { flex: 1, display: 'flex', flexDirection: 'column', height: '100%' },
+    scrollWrapper: { flex: 1, overflowY: 'auto', padding: '24px' },
 
-  sectionWrapper: { marginBottom: '24px' },
-  sectionLabel: { fontSize: '11px', fontWeight: 'bold', color: '#94A3B8', letterSpacing: '1px', marginBottom: '12px', paddingLeft: '4px' },
-  cardGroup: { display: 'flex', flexDirection: 'column', gap: '8px' },
-  
-  settingItem: { display: 'flex', alignItems: 'center', backgroundColor: 'white', padding: '16px', borderRadius: '16px', border: '1px solid #F1F5F9', cursor: 'pointer', width: '100%', textAlign: 'left', transition: 'background-color 0.2s' },
-  iconWrapper: { width: '40px', height: '40px', borderRadius: '10px', backgroundColor: '#F1F5F9', color: '#1f2a56', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: '16px' },
-  
-  itemText: { flex: 1, paddingRight: '16px' },
-  itemTitle: { fontSize: '15px', fontWeight: '600', color: '#1E293B', margin: '0 0 4px 0' },
-  itemSubtitle: { fontSize: '12px', color: '#94A3B8', margin: 0, lineHeight: '1.4' },
+    viewContainer: { maxWidth: '900px', margin: '0 auto', animation: 'fadeIn 0.4s ease-out' },
+    sectionHeader: { marginBottom: '32px' },
+    viewTitle: { fontSize: '28px', fontWeight: '800', color: '#1f2a56', margin: '0 0 8px 0' },
+    viewSubtitle: { fontSize: '15px', color: '#64748B', margin: 0 },
 
-  versionText: { textAlign: 'center', fontSize: '11px', color: '#CBD5E1', fontWeight: '600', marginTop: '30px' },
-  pageDescription: { fontSize: '14px', color: '#64748B', lineHeight: '1.5', marginBottom: '24px' },
+    heroCard: { background: 'white', borderRadius: '24px', border: '1px solid #E2E8F0', padding: '32px', marginBottom: '32px', boxShadow: '0 10px 30px rgba(0,0,0,0.03)', position: 'relative', overflow: 'hidden' },
+    heroContent: { display: 'flex', alignItems: 'center', gap: '24px', marginBottom: '40px' },
+    avatarLargeContainer: { position: 'relative' },
+    avatarLarge: { width: '100px', height: '100px', borderRadius: '30px', objectFit: 'cover', border: '4px solid white', boxShadow: '0 8px 20px rgba(0,0,0,0.08)' },
+    avatarLargePlaceholder: { width: '100px', height: '100px', borderRadius: '30px', background: '#F1F5F9', color: '#1f2a56', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '36px', fontWeight: '800' },
+    heroEditBadge: { position: 'absolute', bottom: '-4px', right: '-4px', width: '32px', height: '32px', borderRadius: '10px', background: '#1f2a56', color: 'white', border: '2px solid white', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'transform 0.2s' },
+    
+    heroText: { flex: 1 },
+    heroName: { fontSize: '24px', fontWeight: '800', color: '#1f2a56', margin: '0 0 2px 0' },
+    heroUsername: { fontSize: '13px', fontWeight: '800', color: '#3B82F6', margin: '0 0 4px 0', opacity: 0.8 },
+    heroEmail: { fontSize: '14px', color: '#64748B', margin: '0 0 16px 0' },
+    badgeRow: { display: 'flex', gap: '8px' },
+    roleBadge: { padding: '4px 12px', background: '#E0E7FF', color: '#4338CA', borderRadius: '20px', fontSize: '11px', fontWeight: '800', textTransform: 'uppercase' },
+    statusBadge: { padding: '4px 12px', background: '#D1FAE5', color: '#065F46', borderRadius: '20px', fontSize: '11px', fontWeight: '800', textTransform: 'uppercase' },
+    
+    statsBar: { display: 'flex', background: '#F8FAFC', borderRadius: '16px', padding: '16px 0', border: '1px solid #F1F5F9' },
+    statBox: { flex: 1, textAlign: 'center', display: 'flex', flexDirection: 'column' },
+    statVal: { fontSize: '20px', fontWeight: '800', color: '#1f2a56' },
+    statLab: { fontSize: '10px', color: '#94A3B8', fontWeight: '800', letterSpacing: '0.1em', marginTop: '4px' },
+    statDivider: { width: '1px', background: '#E2E8F0', height: '30px', alignSelf: 'center' },
 
-  formGroup: { marginBottom: '16px' },
-  inputLabel: { display: 'block', fontSize: '13px', fontWeight: 'bold', color: '#64748B', marginBottom: '8px', paddingLeft: '4px' },
-  inputField: { width: '100%', padding: '16px', backgroundColor: 'white', border: '1px solid #E2E8F0', borderRadius: '14px', fontSize: '15px', color: '#0F172A', boxSizing: 'border-box', outline: 'none' },
-  saveBtn: { width: '100%', padding: '16px', backgroundColor: '#1f2a56', color: 'white', border: 'none', borderRadius: '14px', fontSize: '16px', fontWeight: 'bold', marginTop: '20px', cursor: 'pointer', boxShadow: '0 4px 12px rgba(31, 42, 86, 0.2)' },
+    sectionCard: { background: 'white', borderRadius: '24px', border: '1px solid #E2E8F0', padding: '32px', marginBottom: '24px', boxShadow: '0 4px 15px rgba(0,0,0,0.02)' },
+    cardHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' },
+    cardTitle: { fontSize: '18px', fontWeight: '800', color: '#1f2a56', margin: 0 },
+    actionLink: { background: 'none', border: 'none', color: '#3B82F6', fontWeight: '700', fontSize: '14px', cursor: 'pointer', padding: 0 },
+    
+    dataGrid: { display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '20px' },
+    dataTile: { display: 'flex', gap: '16px', padding: '16px', background: '#F8FAFC', borderRadius: '16px', border: '1px solid #F1F5F9' },
+    tileIcon: { fontSize: '18px', opacity: 0.7 },
+    tileLabel: { display: 'block', fontSize: '11px', fontWeight: '800', color: '#94A3B8', textTransform: 'uppercase', marginBottom: '4px' },
+    tileValue: { display: 'block', fontSize: '15px', fontWeight: '700', color: '#1E293B' },
 
-  roleCard: { padding: '20px', borderRadius: '16px', border: '2px solid', marginBottom: '16px', cursor: 'pointer', transition: 'all 0.2s ease' },
-  roleHeader: { display: 'flex', alignItems: 'center', marginBottom: '12px' },
-  roleIconBox: { width: '44px', height: '44px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: '16px' },
-  roleTitleBox: { flex: 1 },
-  roleTitle: { margin: '0 0 4px 0', fontSize: '16px', fontWeight: 'bold', color: '#0F172A' },
-  roleSubtitle: { margin: 0, fontSize: '12px', color: '#64748B', fontWeight: '600' },
-  roleDesc: { margin: 0, fontSize: '13px', color: '#475569', lineHeight: '1.5' },
-
-  toggleRowContainer: { display: 'flex', alignItems: 'center', backgroundColor: 'white', padding: '16px', borderRadius: '16px', border: '1px solid #F1F5F9', justifyContent: 'space-between' },
-  toggleBg: { width: '50px', height: '26px', borderRadius: '13px', display: 'flex', alignItems: 'center', cursor: 'pointer', transition: 'background-color 0.3s ease' },
-  toggleCircle: { width: '22px', height: '22px', backgroundColor: 'white', borderRadius: '50%', boxShadow: '0 2px 4px rgba(0,0,0,0.2)', transition: 'transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)' },
-  toastModal: { position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', padding: '16px 24px', backgroundColor: '#1f2a56', color: 'white', fontWeight: 'bold', fontSize: '15px', borderRadius: '16px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)', zIndex: 9999, animation: 'fadeIn 0.2s ease-out', pointerEvents: 'none'}
+    formGrid: { display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '20px' },
+    inputWrap: { display: 'flex', flexDirection: 'column' },
+    fieldLabel: { fontSize: '13px', fontWeight: '700', color: '#64748B', marginBottom: '8px', paddingLeft: '4px' },
+    inputField: { padding: '14px 16px', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '12px', fontSize: '15px', color: '#1E293B', outline: 'none', transition: 'border-color 0.2s' },
+    selectField: { padding: '14px 16px', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '12px', fontSize: '15px', color: '#1E293B', outline: 'none', cursor: 'pointer' },
+    
+    primaryBtn: { padding: '14px 28px', background: '#1f2a56', color: 'white', border: 'none', borderRadius: '12px', fontSize: '15px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 4px 12px rgba(31, 42, 86, 0.2)' },
+    secondaryBtn: { padding: '14px 28px', background: 'white', color: '#1f2a56', border: '1px solid #E2E8F0', borderRadius: '12px', fontSize: '15px', fontWeight: '700', cursor: 'pointer' },
+    
+    cardStack: { display: 'flex', flexDirection: 'column', gap: '12px' },
+    toggleCard: { display: 'flex', alignItems: 'center', padding: '20px 24px', background: 'white', border: '1px solid #E2E8F0', borderRadius: '20px', transition: 'transform 0.2s' },
+    toggleTitle: { fontSize: '16px', fontWeight: '800', color: '#1f2a56', margin: '0 0 4px 0' },
+    toggleDesc: { fontSize: '13px', color: '#64748B', margin: 0 },
+    toggleBtn: { width: '52px', height: '28px', borderRadius: '14px', position: 'relative', border: 'none', cursor: 'pointer', transition: 'background 0.3s' },
+    toggleCircle: { width: '24px', height: '24px', background: 'white', borderRadius: '50%', boxShadow: '0 2px 4px rgba(0,0,0,0.2)', transition: 'transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)' },
+    
+    toast: { position: 'fixed', bottom: '30px', right: '30px', background: '#1f2a56', color: 'white', padding: '16px 24px', borderRadius: '16px', fontWeight: '700', boxShadow: '0 10px 40px rgba(0,0,0,0.2)', animation: 'slideUp 0.3s ease-out', zIndex: 9999 }
 };
 
 export default ProfileSettings;
