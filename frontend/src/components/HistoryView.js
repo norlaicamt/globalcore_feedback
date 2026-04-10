@@ -13,7 +13,12 @@ const Icons = {
     <svg width={size} height={size} viewBox="0 0 24 24" fill={filled ? "#FFB800" : "none"} stroke={filled ? "#FFB800" : "#CBD5E1"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
     </svg>
-  )
+  ),
+  Hash: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" y1="9" x2="20" y2="9"></line><line x1="4" y1="15" x2="20" y2="15"></line><line x1="10" y1="3" x2="8" y2="21"></line><line x1="16" y1="3" x2="14" y2="21"></line></svg>,
+  Shield: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>,
+  Tag: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>,
+  Image: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>,
+  User: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>,
 };
 
 const formatDateTime = (dateStr) => {
@@ -25,7 +30,7 @@ const formatDateTime = (dateStr) => {
   };
 };
 
-const HistoryView = ({ currentUser, onBack, minimalist = false }) => {
+const HistoryView = ({ currentUser, onBack, mode = "sent", minimalist = false }) => {
   const [history, setHistory] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -36,11 +41,15 @@ const HistoryView = ({ currentUser, onBack, minimalist = false }) => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [allFeedbacks, deptsData] = await Promise.all([
-          getFeedbacks(),
+        const isSentMode = mode === 'sent' || mode === 'history';
+        const params = isSentMode 
+          ? { sender_id: currentUser.id } 
+          : { mentioned_user_id: currentUser.id };
+          
+        const [historyData, deptsData] = await Promise.all([
+          getFeedbacks(params),
           getDepartments().catch(() => [])
         ]);
-        const historyData = allFeedbacks.filter(fb => fb.sender_id === currentUser.id);
         setHistory(historyData);
         setDepartments(deptsData);
       } catch (error) {
@@ -50,12 +59,7 @@ const HistoryView = ({ currentUser, onBack, minimalist = false }) => {
       }
     };
     if (currentUser?.id) fetchData();
-  }, [currentUser]);
-
-  const getFeedbackType = (item) => {
-    const title = item?.title || ""; 
-    return (title.toLowerCase().includes("praise") || title.toLowerCase().includes("general")) ? "FEED" : "TICKET";
-  };
+  }, [currentUser, mode]);
 
   const getDepartmentName = (deptId) => {
     if (!deptId) return null;
@@ -66,15 +70,13 @@ const HistoryView = ({ currentUser, onBack, minimalist = false }) => {
   const renderStars = (rating) => {
     const starCount = rating || 0;
     return (
-      <div style={{ display: 'flex', gap: '2px', marginBottom: '8px' }}>
+      <div style={{ display: 'flex', gap: '2px', alignItems: 'center' }}>
         {[1, 2, 3, 4, 5].map(s => (
-          <Icons.Star key={s} filled={s <= starCount} size={14} />
+          <Icons.Star key={s} filled={s <= starCount} size={12} />
         ))}
       </div>
     );
   };
-
-  const [filterType, setFilterType] = useState('ALL');
 
   const filteredHistory = history.filter(item => {
     const title = item?.title || "";
@@ -83,21 +85,19 @@ const HistoryView = ({ currentUser, onBack, minimalist = false }) => {
     const matchesSearch = title.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           description.toLowerCase().includes(searchQuery.toLowerCase());
                           
-    if (!matchesSearch) return false;
-    
-    const type = getFeedbackType(item);
-    if (filterType === 'FEED' && type !== 'FEED') return false;
-    if (filterType === 'TICKET' && type !== 'TICKET') return false;
-    
-    return true;
+    return matchesSearch;
   }).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+  const isSentMode = mode === 'sent' || mode === 'history';
+  const viewTitle = isSentMode ? "Sent" : "Mentions";
+  const searchPlaceholder = isSentMode ? "Search sent feedback..." : "Search mentions...";
 
   return (
     <div style={minimalist ? styles.minimalContainer : styles.container}>
       {!minimalist && (
         <header style={styles.header}>
           <div style={{ width: 24 }}></div> 
-          <h1 style={styles.headerTitle}>Sent Feedback</h1>
+          <h1 style={styles.headerTitle}>{viewTitle}</h1>
           <div style={{ width: 24 }}></div> 
         </header>
       )}
@@ -107,42 +107,27 @@ const HistoryView = ({ currentUser, onBack, minimalist = false }) => {
           <div style={styles.searchIcon}><Icons.Search /></div>
           <input 
             type="text" 
-            placeholder="Search sent feedback..." 
+            placeholder={searchPlaceholder}
             style={styles.searchInput}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
 
-
-
-        <div style={styles.tabContainer}>
-          <button 
-            style={{...styles.tabBtn, backgroundColor: filterType === 'ALL' ? 'white' : 'transparent', color: filterType === 'ALL' ? '#1f2a56' : '#64748B', boxShadow: filterType === 'ALL' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'}}
-            onClick={() => setFilterType('ALL')}
-          >All</button>
-          <button 
-            style={{...styles.tabBtn, backgroundColor: filterType === 'FEED' ? 'white' : 'transparent', color: filterType === 'FEED' ? '#1f2a56' : '#64748B', boxShadow: filterType === 'FEED' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'}}
-            onClick={() => setFilterType('FEED')}
-          >Informational</button>
-          <button 
-            style={{...styles.tabBtn, backgroundColor: filterType === 'TICKET' ? 'white' : 'transparent', color: filterType === 'TICKET' ? '#1f2a56' : '#64748B', boxShadow: filterType === 'TICKET' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'}}
-            onClick={() => setFilterType('TICKET')}
-          >Tickets</button>
-        </div>
-
         <div style={styles.listContainer}>
-          {filteredHistory.length === 0 ? (
+          {isLoading ? (
+            <div style={{ textAlign: 'center', padding: '40px 20px' }}>
+              <p style={{ color: '#64748B' }}>Loading...</p>
+            </div>
+          ) : filteredHistory.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '40px 20px' }}>
               <p style={{ color: '#64748B', fontWeight: 'bold' }}>No feedback found.</p>
             </div>
           ) : filteredHistory.map((item) => {
-            const isFeed = getFeedbackType(item) === "FEED";
             const dt = formatDateTime(item.created_at);
             return (
-              <div key={item.id} style={isFeed ? styles.feedCard : styles.historyCard} onClick={() => setSelectedItem(item)}>
+              <div key={item.id} style={styles.historyCard} onClick={() => setSelectedItem(item)}>
                 <div style={styles.cardHeader}>
-                  <span style={styles.itemType}>{isFeed ? "✨ Informational" : `Ticket #${item.id}`}</span>
                   <span style={styles.itemDate}>{dt.date}</span>
                 </div>
                 {renderStars(item.rating)}
@@ -161,15 +146,25 @@ const HistoryView = ({ currentUser, onBack, minimalist = false }) => {
         <div style={styles.modalOverlay}>
           <div style={styles.modalContent}>
             <button style={styles.closeBtn} onClick={() => setSelectedItem(null)}>
-              <Icons.Close />
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#64748B" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
             </button>
-
+            
             <div style={styles.modalHeader}>
-              <span style={styles.modalTag}>
-                {getFeedbackType(selectedItem) === "FEED" ? "✨ Informational Feed" : "🛠 Service Ticket"}
-              </span>
-              <h2 style={styles.modalTitle}>{selectedItem.title}</h2>
+              <div style={styles.headerBadgeRow}>
+                <span style={styles.caseId}><Icons.Hash /> REF-{selectedItem.id}</span>
+              </div>
+              <h2 style={styles.modalTitle}>{selectedItem.subject || selectedItem.title}</h2>
               <div style={styles.modalMeta}>
+                <span style={{display: 'flex', alignItems: 'center', gap: '4px'}}>
+                  <Icons.User /> {selectedItem.sender_id === currentUser.id ? "By You" : (selectedItem.user_name || "Another User")}
+                </span>
+                <span style={styles.bullet}>•</span>
+                {selectedItem.rating > 0 && (
+                  <>
+                    {renderStars(selectedItem.rating)}
+                    <span style={styles.bullet}>•</span>
+                  </>
+                )}
                 <span>{formatDateTime(selectedItem.created_at).date}</span>
                 <span style={styles.bullet}>•</span>
                 <span style={{display: 'flex', alignItems: 'center', gap: '4px'}}>
@@ -181,34 +176,61 @@ const HistoryView = ({ currentUser, onBack, minimalist = false }) => {
             <div style={styles.divider} />
 
             <div style={styles.modalBody}>
-              {/* SUBJECT (Fallback to title if subject doesn't exist) */}
-              <div style={styles.infoSection}>
-                <h4 style={styles.sectionLabel}>Subject</h4>
-                <p style={styles.infoValue}>{selectedItem.subject || selectedItem.title}</p>
-              </div>
-
-              {/* 5. DEPARTMENT REVEALED */}
-              {(selectedItem.department_name || selectedItem.recipient_dept_id) && (
+              {/* TARGET JURISDICTION */}
+              {(selectedItem.recipient_dept_name || selectedItem.department_name || getDepartmentName(selectedItem.recipient_dept_id)) && (
                 <div style={styles.infoSection}>
-                  <h4 style={styles.sectionLabel}>Target Department</h4>
-                  <p style={styles.infoValue}>
-                    {selectedItem.department_name || getDepartmentName(selectedItem.recipient_dept_id)}
-                  </p>
+                  <div style={styles.jurisdictionPill}>
+                    <Icons.Shield />
+                    <span>{selectedItem.recipient_dept_name || selectedItem.department_name || getDepartmentName(selectedItem.recipient_dept_id)}</span>
+                  </div>
                 </div>
               )}
 
-              {/* 6. MESSAGE CONTENT REVEALED (Added .description) */}
+              {/* MESSAGE CONTENT */}
               <div style={styles.infoSection}>
-                <h4 style={styles.sectionLabel}>Message Details</h4>
-                <p style={styles.messageText}>
-                  {selectedItem.description || selectedItem.details || selectedItem.message || selectedItem.idea || "No message content."}
-                </p>
+                <h4 style={styles.sectionLabel}>Communication Details</h4>
+                <div style={styles.messageBox}>
+                  {selectedItem.description || selectedItem.details || selectedItem.message || selectedItem.idea || "No content provided."}
+                </div>
               </div>
+
+              {/* MENTIONED STAFF */}
+              {selectedItem.mentions && selectedItem.mentions.length > 0 && (
+                <div style={styles.infoSection}>
+                  <h4 style={styles.sectionLabel}>Personnel Tagged</h4>
+                  <div style={styles.mentionsGrid}>
+                    {selectedItem.mentions.map((m, i) => (
+                      <div key={i} style={styles.mentionPill}>
+                        <Icons.Tag />
+                        <span>{m.employee_prefix} {m.employee_name}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* ATTACHMENTS */}
+              {selectedItem.attachments && selectedItem.attachments !== "[]" && (
+                <div style={styles.infoSection}>
+                  <h4 style={styles.sectionLabel}>Report evidence</h4>
+                  <div style={styles.attachmentGrid}>
+                    {(() => {
+                      try {
+                        const files = typeof selectedItem.attachments === 'string' ? JSON.parse(selectedItem.attachments) : selectedItem.attachments;
+                        return Array.isArray(files) && files.map((f, i) => (
+                          <div key={i} style={styles.attachmentItem}>
+                            <Icons.Image />
+                            <span style={styles.fileName}>evidence_{i+1}.jpg</span>
+                          </div>
+                        ));
+                      } catch (e) { return null; }
+                    })()}
+                  </div>
+                </div>
+              )}
             </div>
 
-            <div style={{ display: 'flex', gap: '12px' }}>
-              <button style={styles.primaryAction} onClick={() => setSelectedItem(null)}>Close View</button>
-            </div>
+            <button style={styles.primaryActionPremium} onClick={() => setSelectedItem(null)}>Finish Review</button>
           </div>
         </div>
       )}
@@ -270,12 +292,25 @@ const styles = {
   modalMeta: { display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#94A3B8', flexWrap: 'wrap' },
   bullet: { color: '#CBD5E1' },
   divider: { height: '1px', backgroundColor: '#F1F5F9', margin: '16px 0' },
-  modalBody: { marginBottom: '24px' },
-  infoSection: { marginBottom: '16px' },
-  sectionLabel: { fontSize: '10px', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px', fontWeight: '700', display: 'block' },
-  infoValue: { fontSize: '14px', color: '#1f2a56', fontWeight: '600', margin: 0 },
-  messageText: { fontSize: '14px', color: '#475569', lineHeight: '1.5', margin: 0, backgroundColor: '#F8FAFC', padding: '10px', borderRadius: '10px' },
-  primaryAction: { width: '100%', padding: '14px', borderRadius: '12px', border: 'none', backgroundColor: '#1f2a56', color: 'white', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer' }
+  modalBody: { marginBottom: '32px' },
+  infoSection: { marginBottom: '20px' },
+  sectionLabel: { fontSize: '10px', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px', fontWeight: '800', display: 'block' },
+  
+  headerBadgeRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' },
+  caseId: { fontSize: '11px', fontWeight: '800', color: '#64748B', display: 'flex', alignItems: 'center', gap: '4px', backgroundColor: '#F1F5F9', padding: '4px 10px', borderRadius: '6px' },
+  statusBadge: { fontSize: '10px', fontWeight: '900', padding: '4px 12px', borderRadius: '20px', letterSpacing: '0.5px' },
+  
+  jurisdictionPill: { display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', backgroundColor: '#F0F9FF', color: '#0369A1', borderRadius: '12px', fontSize: '13px', fontWeight: '700', border: '1px solid #E0F2FE' },
+  messageBox: { padding: '16px', background: '#F8FAFC', border: '1px solid #F1F5F9', borderRadius: '16px', fontSize: '14px', color: '#475569', lineHeight: '1.6', whiteSpace: 'pre-wrap' },
+  
+  mentionsGrid: { display: 'flex', flexWrap: 'wrap', gap: '8px' },
+  mentionPill: { display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', backgroundColor: '#F1F5F9', color: '#475569', borderRadius: '8px', fontSize: '12px', fontWeight: '600' },
+  
+  attachmentGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '10px' },
+  attachmentItem: { display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'white', border: '1px solid #E2E8F0', borderRadius: '10px', color: '#64748B', cursor: 'pointer' },
+  fileName: { fontSize: '11px', fontWeight: '600', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+
+  primaryActionPremium: { width: '100%', padding: '16px', borderRadius: '16px', border: 'none', backgroundColor: '#1f2a56', color: 'white', fontSize: '15px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 4px 12px rgba(31, 42, 86, 0.2)', transition: 'transform 0.2s' }
 };
 
 export default HistoryView;

@@ -21,6 +21,7 @@ const formatDateTime = (dateStr) => {
 const ActivityView = ({ currentUser, onBack, onViewPost }) => {
   const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [hoveredId, setHoveredId] = useState(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -52,11 +53,14 @@ const ActivityView = ({ currentUser, onBack, onViewPost }) => {
 
       <main style={styles.main}>
         {loading ? (
-          <p style={styles.emptyText}>Loading your activity...</p>
+          <div style={styles.emptyContainer}>
+            <p style={styles.emptyText}>Loading your activity...</p>
+          </div>
         ) : activities.length === 0 ? (
           <div style={styles.emptyContainer}>
+            <div style={styles.emptyIcon}>✨</div>
             <p style={styles.emptyText}>No interactions found.</p>
-            <p style={styles.emptySubText}>Like or comment on posts to see them here.</p>
+            <p style={styles.emptySubText}>Join the conversation by liking or commenting on feedback from your peers.</p>
           </div>
         ) : (
           <div style={styles.list}>
@@ -64,26 +68,44 @@ const ActivityView = ({ currentUser, onBack, onViewPost }) => {
               const { date, time } = formatDateTime(act.created_at);
               let Icon = Icons.Comment;
               let actionText = "commented on";
+              let iconBg = "#E0E7FF";
+              let iconColor = "#4338CA";
               
-              if (act.type === 'like') { Icon = Icons.Like; actionText = "liked"; }
-              else if (act.type === 'dislike') { Icon = Icons.Dislike; actionText = "disliked"; }
-              else if (act.type === 'post') { Icon = Icons.Post; actionText = "posted"; }
+              if (act.type === 'like') { 
+                Icon = Icons.Like; actionText = "liked"; 
+                iconBg = "#DCFCE7"; iconColor = "#15803D";
+              }
+              else if (act.type === 'dislike') { 
+                Icon = Icons.Dislike; actionText = "disliked"; 
+                iconBg = "#FEE2E2"; iconColor = "#B91C1C";
+              }
+              else if (act.type === 'post') { 
+                Icon = Icons.Post; actionText = "published"; 
+                iconBg = "#DBEAFE"; iconColor = "#1D4ED8";
+              }
 
               return (
-                <div key={act.id} style={styles.card} onClick={() => onViewPost && onViewPost(act.feedback_id)}>
+                <div 
+                  key={act.id} 
+                  style={{...styles.card, transform: hoveredId === act.id ? 'scale(1.01)' : 'scale(1)', borderColor: hoveredId === act.id ? '#3B82F6' : '#F1F5F9'}} 
+                  onMouseEnter={() => setHoveredId(act.id)}
+                  onMouseLeave={() => setHoveredId(null)}
+                  onClick={() => onViewPost && onViewPost(act.feedback_id)}
+                >
                   <div style={styles.cardHeader}>
-                    <div style={styles.iconWrapper}><Icon /></div>
+                    <div style={{...styles.iconWrapper, backgroundColor: iconBg, color: iconColor}}><Icon /></div>
                     <div style={styles.meta}>
                       <span style={styles.actionText}>
-                        You {actionText} <span style={styles.targetTitle}>a post</span>
+                        <span style={styles.actor}>You</span> {actionText} <span style={styles.targetTitle}>"{act.title || "a post"}"</span>
                         {act.type === 'post' && act.mentions && act.mentions.length > 0 && (
-                          <div style={{ marginTop: '8px', fontSize: '11px', color: '#1D4ED8', fontWeight: '600' }}>
-                            Mentioned: {act.mentions.map(m => `${m.employee_prefix} ${m.employee_name}`.trim()).join(", ")}
+                          <div style={styles.mentionsList}>
+                            <span style={styles.mentionsLabel}>MENTIONED:</span> {act.mentions.map(m => `${m.employee_prefix} ${m.employee_name}`.trim()).join(", ")}
                           </div>
                         )}
                       </span>
-                      <span style={styles.date}>{date} at {time}</span>
+                      <span style={styles.date}>{date} • {time}</span>
                     </div>
+                    <div style={styles.chevron}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg></div>
                   </div>
                 </div>
               );
@@ -97,23 +119,25 @@ const ActivityView = ({ currentUser, onBack, onViewPost }) => {
 
 const styles = {
   container: { height: '100%', display: 'flex', flexDirection: 'column', backgroundColor: '#F8FAFC', fontFamily: '"Inter", sans-serif' },
-  header: { padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'white', borderBottom: '1px solid #E2E8F0', position: 'sticky', top: 0, zIndex: 10 },
-  iconBtn: { background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex' },
-  title: { margin: 0, fontSize: '16px', fontWeight: '800', color: '#1f2a56' },
-  main: { flex: 1, overflowY: 'auto', padding: '20px' },
+  header: { padding: '12px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'white', borderBottom: '1px solid #F1F5F9', position: 'sticky', top: 0, zIndex: 10 },
+  title: { margin: 0, fontSize: '15px', fontWeight: '800', color: '#1f2a56', letterSpacing: '-0.2px' },
+  main: { flex: 1, overflowY: 'auto', padding: '24px 20px' },
   list: { display: 'flex', flexDirection: 'column', gap: '12px', maxWidth: '800px', margin: '0 auto', width: '100%' },
-  card: { backgroundColor: 'white', borderRadius: '12px', padding: '16px', border: '1px solid #E2E8F0', boxShadow: '0 1px 2px rgba(0,0,0,0.02)', cursor: 'pointer', transition: 'transform 0.1s ease', ':hover': { backgroundColor: '#F8FAFC' } },
-  cardHeader: { display: 'flex', gap: '12px', alignItems: 'flex-start' },
-  iconWrapper: { marginTop: '2px', color: '#1f2a56', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', backgroundColor: '#F1F5F9', borderRadius: '8px' },
-  meta: { display: 'flex', flexDirection: 'column', gap: '4px' },
-  actionText: { fontSize: '14px', color: '#334155', lineHeight: '1.4' },
+  card: { backgroundColor: 'white', borderRadius: '16px', padding: '16px', border: '1px solid #F1F5F9', boxShadow: '0 2px 4px rgba(0,0,0,0.02)', cursor: 'pointer', transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)', position: 'relative' },
+  cardHeader: { display: 'flex', gap: '16px', alignItems: 'center' },
+  iconWrapper: { flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '40px', height: '40px', borderRadius: '12px', transition: 'all 0.2s ease' },
+  meta: { flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' },
+  actionText: { fontSize: '13px', color: '#64748B', lineHeight: '1.5' },
+  actor: { fontWeight: '600', color: '#1E293B' },
   targetTitle: { fontWeight: '700', color: '#1f2a56' },
-  date: { fontSize: '12px', color: '#64748B' },
-  messageSnippet: { marginTop: '12px', padding: '12px', backgroundColor: '#F1F5F9', borderRadius: '8px', fontSize: '13px', color: '#475569', fontStyle: 'italic', borderLeft: '3px solid #CBD5E1' },
-  emptyContainer: { textAlign: 'center', padding: '40px 20px' },
-  emptyText: { color: '#64748B', fontSize: '14px', fontWeight: 'bold', textAlign: 'center' },
-  emptySubText: { color: '#94A3B8', fontSize: '13px', marginTop: '8px', textAlign: 'center' },
-  viewBtn: { marginLeft: 'auto', padding: '6px 12px', backgroundColor: '#F1F5F9', border: 'none', borderRadius: '8px', fontSize: '12px', fontWeight: '700', color: '#1f2a56', cursor: 'pointer' }
+  date: { fontSize: '11px', color: '#94A3B8', fontWeight: '500' },
+  mentionsList: { marginTop: '8px', fontSize: '10px', color: '#3B82F6', fontWeight: '600', backgroundColor: '#F0F7FF', padding: '4px 8px', borderRadius: '6px', width: 'fit-content' },
+  mentionsLabel: { color: '#1E40AF', letterSpacing: '0.5px' },
+  emptyContainer: { textAlign: 'center', padding: '80px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center' },
+  emptyIcon: { fontSize: '32px', marginBottom: '16px' },
+  emptyText: { color: '#1f2a56', fontSize: '16px', fontWeight: '800', marginBottom: '8px' },
+  emptySubText: { color: '#64748B', fontSize: '13px', maxWidth: '240px', lineHeight: '1.6' },
+  chevron: { marginLeft: '8px' }
 };
 
 export default ActivityView;

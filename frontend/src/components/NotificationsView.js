@@ -128,9 +128,8 @@ const NotificationsView = ({ currentUser, onBack, onOpenComment, onRead }) => {
                 if (t === 'comment') return { icon: <Icons.Message />, bg: 'linear-gradient(135deg, #E0F2FE 0%, #BAE6FD 100%)', color: '#0369A1' };
                 if (t === 'reply') return { icon: <Icons.Reply />, bg: 'linear-gradient(135deg, #F3E8FF 0%, #E9D5FF 100%)', color: '#7E22CE' };
                 if (t === 'like') return { icon: <Icons.HeartFill />, bg: 'linear-gradient(135deg, #FEE2E2 0%, #FECACA 100%)', color: '#B91C1C' };
-                if (t === 'dislike') return { icon: <Icons.ThumbsDown />, bg: 'linear-gradient(135deg, #FFEDD5 0%, #FED7AA 100%)', color: '#C2410C' };
-                if (t === 'broadcast') return { icon: <Icons.BellRing />, bg: 'linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%)', color: '#92400E' };
-                if (t === 'approval') return { icon: <Icons.CheckCircle />, bg: 'linear-gradient(135deg, #DCFCE7 0%, #BBF7D0 100%)', color: '#15803D' };
+                if (t === 'announcement') return { icon: <Icons.BellRing />, bg: 'linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%)', color: '#92400E' };
+                if (t === 'mention') return { icon: <Icons.AtSign />, bg: 'linear-gradient(135deg, #DCFCE7 0%, #BBF7D0 100%)', color: '#15803D' };
                 return { icon: <Icons.Message />, bg: '#F1F5F9', color: '#64748B' };
               };
 
@@ -138,19 +137,19 @@ const NotificationsView = ({ currentUser, onBack, onOpenComment, onRead }) => {
                 const t = notif.type.toLowerCase();
                 if (t === 'comment') return 'commented on';
                 if (t === 'reply') return 'replied directly to';
-                if (t === 'like') return 'loved';
-                if (t === 'dislike') return 'disagreed with';
-                if (t === 'broadcast') return 'sent an announcement';
+                if (t === 'like') {
+                  if (notif.meta?.actor_count > 1) return 'and others liked';
+                  return 'liked';
+                }
+                if (t === 'announcement') return 'sent an announcement';
                 if (t === 'mention') return 'mentioned you in';
                 return 'reacted to';
               };
 
               const getTargetText = () => {
-                if (notif.type === 'reply' || isCommentReaction) {
-                  return `your comment`;
-                }
+                if (notif.type === 'reply') return `your comment`;
                 if (notif.type === 'mention') return `their post`;
-                return `your post`;
+                return `your feedback`;
               };
 
               const viz = getVisuals();
@@ -177,14 +176,14 @@ const NotificationsView = ({ currentUser, onBack, onOpenComment, onRead }) => {
                   <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     <div style={{ display: 'flex', alignItems: 'center' }}>
                       <p style={styles.notifText}>
-                        {notif.type === 'broadcast' ? (
+                        {notif.type === 'announcement' ? (
                           <>
-                            <span style={{ color: '#0F172A', fontWeight: 700 }}>System Announcement:</span> {notif.subject || "Important Update"}
+                            <span style={{ color: '#0F172A', fontWeight: 700 }}>Announcement:</span> {notif.subject || "Important Update"}
                           </>
-                        ) : notif.type === 'approval' ? (
-                          <>
-                            <span style={{ color: '#15803D', fontWeight: 700 }}>Great News!</span> {notif.message}
-                          </>
+                        ) : notif.type === 'like' && notif.meta?.actor_count > 1 ? (
+                          <span style={{ color: '#0F172A', fontWeight: notif.is_read ? 600 : 800 }}>
+                            {notif.message || "Multiple people liked your feedback"}
+                          </span>
                         ) : (
                           <>
                             <span style={{ color: '#0F172A', fontWeight: notif.is_read ? 600 : 800 }}>{notif.actor_name || "Someone"}</span> 

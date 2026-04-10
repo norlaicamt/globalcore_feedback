@@ -63,6 +63,27 @@ def delete_user(user_id: int, db: Session = Depends(get_db)):
     if db_user is None:
         raise HTTPException(status_code=404, detail="User not found")
 
+@router.post("/{user_id}/deactivate", response_model=schemas.User)
+def deactivate_user(user_id: int, days: int, db: Session = Depends(get_db)):
+    db_user = crud.deactivate_user(db, user_id=user_id, days=days)
+    if db_user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    return db_user
+
+@router.post("/{user_id}/change-password")
+def change_password(user_id: int, passwords: schemas.UserPasswordUpdate, db: Session = Depends(get_db)):
+    result = crud.update_user_password(
+        db, 
+        user_id=user_id, 
+        old_password=passwords.old_password, 
+        new_password=passwords.new_password
+    )
+    if result is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    if result is False:
+        raise HTTPException(status_code=400, detail="Incorrect old password")
+    return {"message": "Password updated successfully"}
+
 @router.get("/{user_id}/activity", response_model=List[schemas.ActivityEntry])
 def get_user_activity(user_id: int, db: Session = Depends(get_db)):
     return crud.get_user_activity(db, user_id=user_id)

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { createFeedback, getCategories, getDepartments, getAdminSettings, getUserProfiles, getFormFields } from "../services/api";
+import { createFeedback, getEntities, getDepartments, getAdminSettings, getUserProfiles, getFormFields } from "../services/api";
 import { useTerminology } from "../context/TerminologyContext";
 import CustomModal from "./CustomModal";
 import { IconRegistry } from "./IconRegistry";
@@ -68,8 +68,8 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
   const fileInputRef = useRef(null);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [generalCategoryId, setGeneralCategoryId] = useState(null);
-  const [dbCategories, setDbCategories] = useState([]);
+  const [generalEntityId, setGeneralEntityId] = useState(null);
+  const [dbEntities, setDbEntities] = useState([]);
   const [dbDepartments, setDbDepartments] = useState([]);
   const [userProfiles, setUserProfiles] = useState([]);
   const [showUserSuggestions, setShowUserSuggestions] = useState(false);
@@ -222,9 +222,9 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
   useEffect(() => {
     const fetchEverything = async () => {
       try {
-        const [settings, categories, departments, allProfiles, fields] = await Promise.allSettled([
+        const [settings, entities, departments, allProfiles, fields] = await Promise.allSettled([
           getAdminSettings(),
-          getCategories(),
+          getEntities(),
           getDepartments(),
           getUserProfiles(),
           getFormFields()
@@ -249,14 +249,14 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
           });
         }
 
-        if (categories.status === 'fulfilled') {
-          setDbCategories(categories.value);
-          const genCat = categories.value.find(c => c.name.toLowerCase() === 'general') || categories.value[0];
-          if (genCat) setGeneralCategoryId(genCat.id);
+        if (entities.status === 'fulfilled') {
+          setDbEntities(entities.value);
+          const genEnt = entities.value.find(c => c.name.toLowerCase() === 'general') || entities.value[0];
+          if (genEnt) setGeneralEntityId(genEnt.id);
           
           // Restore selected business from draft if exists
           if (initialDraft?.business_id) {
-            const found = categories.value.find(c => c.id === initialDraft.business_id);
+            const found = entities.value.find(c => c.id === initialDraft.business_id);
             if (found) setSelectedBusiness(found);
           }
         }
@@ -393,7 +393,7 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
 
   // Location cascading is managed by specific useEffects in the location section
 
-  const allBusinessTypes = dbCategories.map(cat => ({
+  const allBusinessTypes = dbEntities.map(cat => ({
     id: cat.id,
     name: cat.name,
     label: cat.name, // Keep label for filtering compatibility
@@ -407,7 +407,7 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
   );
 
   const filteredEntities = selectedBusiness ? dbDepartments.filter(d => 
-    d.category_id === selectedBusiness.id
+    d.entity_id === selectedBusiness.id
   ) : [];
   
   const searchTerm = focusedMentionIndex !== null ? mentions[focusedMentionIndex]?.name || '' : '';
@@ -415,7 +415,15 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
     const isSelf = u.id == currentUser?.id;
     const matches = u.name?.toLowerCase().includes(searchTerm.toLowerCase());
     return matches && !isSelf;
-  }).slice(0, 5) : [];
+  }).sort((a, b) => {
+    if (selectedEntity) {
+      const aInDept = (a.department || '').toLowerCase() === selectedEntity.name.toLowerCase();
+      const bInDept = (b.department || '').toLowerCase() === selectedEntity.name.toLowerCase();
+      if (aInDept && !bInDept) return -1;
+      if (!aInDept && bInDept) return 1;
+    }
+    return 0;
+  }).slice(0, 10) : [];
 
   const handleUpdateMention = (index, field, value) => {
     const newMentions = [...mentions];
@@ -480,7 +488,7 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
         allow_comments: allowComments,
         is_approved: true, // No longer flagging "Other" string since it's removed
         sender_id: currentUser.id,
-        category_id: selectedBusiness?.id || generalCategoryId || 1,
+        entity_id: selectedBusiness?.id || generalEntityId || 1,
         recipient_dept_id: selectedEntity?.id || matchedDeptId || null,
         region, province, city, barangay,
         mentions: mentions.filter(m => m.name.trim() !== '').map(m => ({
@@ -569,7 +577,7 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
                     onClick={() => { 
                       setSelectedBusiness(biz); 
                       // Check if this category has entities
-                      const hasEntities = dbDepartments.some(d => d.category_id === biz.id);
+                      const hasEntities = dbDepartments.some(d => d.entity_id === biz.id);
                       if (!hasEntities) {
                         setSelectedEntity(null); // Direct to form
                       }
@@ -584,7 +592,7 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
               })}
             </div>
           </>
-        ) : !selectedEntity && dbDepartments.some(d => d.category_id === selectedBusiness.id) ? (
+        ) : !selectedEntity && dbDepartments.some(d => d.entity_id === selectedBusiness.id) ? (
           <>
             <div style={styles.explainBox}>
               <span style={styles.explainTitle}>Select {selectedBusiness.name}</span>
@@ -723,7 +731,14 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
                                   ? <img src={u.avatar_url} alt="" style={styles.suggestionAvatar} />
                                   : <div style={styles.suggestionAvatarPlaceholder}>{u.name.charAt(0)}</div>}
                                 <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                  <span style={styles.suggestionName}>{u.name}</span>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <span style={styles.suggestionName}>{u.name}</span>
+                                    {u.role_identity && (
+                                      <span style={{ fontSize: '9px', backgroundColor: '#F1F5F9', color: '#64748B', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold' }}>
+                                        {u.role_identity.toUpperCase()}
+                                      </span>
+                                    )}
+                                  </div>
                                   <span style={styles.suggestionMeta}>{u.department || 'General'}</span>
                                 </div>
                               </div>

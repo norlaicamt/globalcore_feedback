@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { 
   adminGetUsers, adminToggleUserStatus, adminDeleteUser, adminUpdateUserRole, 
-  adminUpdateUserDetails, adminGetDepartments
+  adminUpdateUserDetails, adminGetScopeOptions
 } from "../../../services/adminApi";
 import { useTerminology } from "../../../context/TerminologyContext";
 import CustomModal from "../../CustomModal";
@@ -11,7 +11,7 @@ import * as XLSX from "xlsx";
 
 // 3-dot dropdown menu component
 const DotsMenu = ({ user, onToggle, onDelete, onRoleChange, theme, darkMode, adminUser }) => {
-  const hasGlobalAdminAccess = ["admin", "superadmin"].includes(adminUser?.role);
+  const hasGlobalAdminAccess = adminUser?.role === "superadmin" || (adminUser?.role === "admin" && !adminUser?.entity_id);
   const isGlobalCoreAdmin = (adminUser?.email || "").toLowerCase() === "admin@globalcore.com";
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
@@ -140,7 +140,7 @@ const menuItemStyle = {
 
 const AdminUsers = ({ theme, darkMode, adminUser }) => {
   const { getLabel } = useTerminology();
-  const hasGlobalAdminAccess = ["admin", "superadmin"].includes(adminUser?.role) && !adminUser?.department;
+  const hasGlobalAdminAccess = adminUser?.role === "superadmin" || (adminUser?.role === "admin" && !adminUser?.entity_id);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -149,14 +149,14 @@ const AdminUsers = ({ theme, darkMode, adminUser }) => {
   const [savingByUser, setSavingByUser] = useState({});
   const [dialog, setDialog] = useState({ isOpen: false });
   const [deptModal, setDeptModal] = useState({ isOpen: false, user: null });
-  const [depts, setDepts] = useState([]);
+  const [scopeOptions, setScopeOptions] = useState([]);
   
   const load = () => {
     setLoading(true);
-    Promise.all([adminGetUsers(), adminGetDepartments()])
-      .then(([userData, deptData]) => {
+    Promise.all([adminGetUsers(), adminGetScopeOptions()])
+      .then(([userData, scopeData]) => {
         setUsers(userData);
-        setDepts(deptData);
+        setScopeOptions(scopeData);
       })
       .catch(console.error)
       .finally(() => setLoading(false));
@@ -175,20 +175,20 @@ const AdminUsers = ({ theme, darkMode, adminUser }) => {
     .filter(u =>
     u.name?.toLowerCase().includes(search.toLowerCase()) ||
     u.email?.toLowerCase().includes(search.toLowerCase()) ||
-    u.program?.toLowerCase().includes(search.toLowerCase()) ||
+    u.entity_name?.toLowerCase().includes(search.toLowerCase()) ||
     u.position_title?.toLowerCase().includes(search.toLowerCase())
   );
 
-  const getDraft = (user) => draftByUser[user.id] || { program: user.program || "" };
+  const getDraft = (user) => draftByUser[user.id] || { entity_id: user.entity_id || "" };
   const setDraftField = (userId, key, value) => {
     setDraftByUser((prev) => ({ ...prev, [userId]: { ...(prev[userId] || {}), [key]: value } }));
   };
 
-  const saveProgram = async (user) => {
+  const saveEntity = async (user) => {
     const draft = getDraft(user);
     setSavingByUser((p) => ({ ...p, [user.id]: true }));
     try {
-      await adminUpdateUserDetails(user.id, undefined, undefined, draft.program || "");
+      await adminUpdateUserDetails(user.id, undefined, undefined, undefined, draft.entity_id || "");
       load();
     } finally {
       setSavingByUser((p) => ({ ...p, [user.id]: false }));
@@ -229,12 +229,12 @@ const AdminUsers = ({ theme, darkMode, adminUser }) => {
     });
   };
 
-  const handlePromoteWithDept = async (user, deptName) => {
-    if (!deptName) return;
+  const handlePromoteWithEntity = async (user, entityObj) => {
+    if (!entityObj) return;
     setDeptModal({ isOpen: false, user: null });
     setLoading(true);
     try {
-      await adminUpdateUserDetails(user.id, "admin", deptName);
+      await adminUpdateUserDetails(user.id, "admin", undefined, undefined, entityObj.id);
       load();
     } catch (err) {
       console.error(err);
@@ -256,7 +256,7 @@ const AdminUsers = ({ theme, darkMode, adminUser }) => {
   };
 
   const handleExport = (format) => {
-    const headers = ["ID", "Name", "Email", "Role", "Position", getLabel("dept_label", "Program"), "Created Date", "Status", "Posts", "Impact Points"];
+    const headers = ["ID", "Name", "Email", "Role", "Position", getLabel("category_label", "Entity"), "Created Date", "Status", "Posts", "Impact Points"];
     const data = filtered.map((u, idx) => {
       const createdDate = u.created_at ? new Date(u.created_at).toLocaleString() : "—";
       return [
@@ -265,7 +265,7 @@ const AdminUsers = ({ theme, darkMode, adminUser }) => {
         u.email || "—",
         u.role_identity && u.role_identity !== "Others" ? u.role_identity : (u.role || "user"),
         u.position_title || "—",
-        u.program || "—",
+        u.entity_name || "—",
         createdDate,
         u.is_active ? "Active" : "Inactive",
         u.total_posts || 0,
@@ -406,7 +406,7 @@ const AdminUsers = ({ theme, darkMode, adminUser }) => {
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
             <thead>
               <tr style={{ background: darkMode ? "rgba(255,255,255,0.02)" : "#F8FAFC", borderBottom: `1px solid ${theme.border}` }}>
-                {["#", "Name", "Email", "Role", "Position", getLabel("dept_label", "Program"), "Created Date", "Posts", "Points", "Status", ""].map(h => (
+                {["#", "Name", "Email", "Role", "Position", getLabel("category_label", "Entity"), "Created Date", "Posts", "Points", "Status", ""].map(h => (
                   <th key={h} style={{ ...thStyle, color: theme.textMuted }}>{h}</th>
                 ))}
               </tr>
@@ -434,18 +434,25 @@ const AdminUsers = ({ theme, darkMode, adminUser }) => {
                   </td>
                   <td style={{ ...tdStyle, color: theme.textMuted }}>{u.email}</td>
                   <td style={tdStyle}>
-                    <span style={{
-                      padding: "3px 8px", borderRadius: "6px", fontSize: "10px", fontWeight: "700", textTransform: "uppercase",
-                      background: u.role === 'superadmin' ? '#FAF5FF' : u.role === 'admin' ? '#EFF6FF' : 'transparent',
-                      color: u.role === 'superadmin' ? '#9333EA' : u.role === 'admin' ? '#3B82F6' : theme.textMuted,
-                      border: u.role === 'user' ? 'none' : `1px solid ${u.role === 'superadmin' ? '#F3E8FF' : '#DBEAFE'}`
-                    }}>
-                      {u.role_identity && u.role_identity !== "Others" ? u.role_identity : (u.role || "user")}
-                    </span>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <span style={{ fontSize: "11px", fontWeight: "600", color: theme.textMuted }}>
+                        {u.role_identity && u.role_identity !== "Others" ? u.role_identity : "Member"}
+                      </span>
+                      {(u.role === 'admin' || u.role === 'superadmin') && (
+                        <span style={{
+                          padding: "2px 6px", borderRadius: "5px", fontSize: "9px", fontWeight: "900", textTransform: "uppercase",
+                          background: u.role === 'superadmin' ? '#FAF5FF' : '#EFF6FF',
+                          color: u.role === 'superadmin' ? '#9333EA' : '#3B82F6',
+                          border: `1px solid ${u.role === 'superadmin' ? '#F3E8FF' : '#DBEAFE'}`
+                        }}>
+                          {u.role}
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td style={{ ...tdStyle, color: theme.textMuted }}>{u.position_title || "—"}</td>
                   <td style={{ ...tdStyle, color: theme.textMuted }}>
-                    {u.program || "—"}
+                    {u.entity_name || "—"}
                   </td>
                   <td style={{ ...tdStyle, color: theme.textMuted, whiteSpace: 'nowrap' }}>
                     {u.created_at ? (
@@ -492,14 +499,14 @@ const AdminUsers = ({ theme, darkMode, adminUser }) => {
       {deptModal.isOpen && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15, 23, 42, 0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000 }}>
           <div style={{ background: theme.surface, padding: '32px', borderRadius: '16px', width: '100%', maxWidth: '400px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
-            <h3 style={{ margin: '0 0 12px 0', fontSize: '18px', fontWeight: '800', color: theme.text }}>Assign to Program</h3>
-            <p style={{ margin: '0 0 24px 0', fontSize: '14px', color: theme.textMuted }}>Select the Program or Office that <strong>{deptModal.user?.name}</strong> will manage as an administrator.</p>
+            <h3 style={{ margin: '0 0 12px 0', fontSize: '18px', fontWeight: '800', color: theme.text }}>Assign to {getLabel("category_label", "Entity")}</h3>
+            <p style={{ margin: '0 0 24px 0', fontSize: '14px', color: theme.textMuted }}>Select the {getLabel("category_label", "Entity")} or Office that <strong>{deptModal.user?.name}</strong> will manage as an administrator.</p>
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '300px', overflowY: 'auto', paddingRight: '4px' }}>
-              {depts.map(d => (
+              {scopeOptions.map(opt => (
                 <button 
-                  key={d.id} 
-                  onClick={() => handlePromoteWithDept(deptModal.user, d.name)}
+                  key={opt.id} 
+                  onClick={() => handlePromoteWithEntity(deptModal.user, opt)}
                   style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px', background: darkMode ? 'rgba(255,255,255,0.03)' : '#F8FAFC', border: `1.5px solid ${theme.border}`, borderRadius: '12px', color: theme.text, fontSize: '14px', fontWeight: '600', cursor: 'pointer', textAlign: 'left', transition: 'all 0.2s' }}
                   onMouseEnter={e => { e.currentTarget.style.borderColor = '#3B82F6'; e.currentTarget.style.background = darkMode ? 'rgba(59, 130, 246, 0.05)' : '#EFF6FF'; }}
                   onMouseLeave={e => { e.currentTarget.style.borderColor = theme.border; e.currentTarget.style.background = darkMode ? 'rgba(255,255,255,0.03)' : '#F8FAFC'; }}
@@ -507,7 +514,7 @@ const AdminUsers = ({ theme, darkMode, adminUser }) => {
                   <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'rgba(59, 130, 246, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#3B82F6' }}>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M3 21h18M3 7v1a3 3 0 0 0 6 0V7m0 1a3 3 0 0 0 6 0V7m0 1a3 3 0 0 0 6 0V7M4 7l2-4h12l2 4"/></svg>
                   </div>
-                  {d.name}
+                  {opt.name}
                 </button>
               ))}
             </div>

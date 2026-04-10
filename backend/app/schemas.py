@@ -1,12 +1,17 @@
 from pydantic import BaseModel, ConfigDict
 from typing import List, Optional
 from datetime import datetime
-from app.models import FeedbackStatus
+from app.models import FeedbackStatus, NotificationType
 
 # --- USER SCHEMAS ---
 class UserBase(BaseModel):
     name: str
     email: str
+    name: str
+    email: str
+    entity_id: Optional[int] = None
+    organization_id: Optional[int] = None
+    session_token: Optional[str] = None
     is_active: Optional[bool] = True
     username: Optional[str] = None
     phone: Optional[str] = None
@@ -33,12 +38,16 @@ class UserBase(BaseModel):
     show_activity_status: Optional[bool] = True
     push_notifications: Optional[bool] = True
     email_notifications: Optional[bool] = False
-    status_updates: Optional[bool] = True
-    reply_notifications: Optional[bool] = True
+    notify_replies: Optional[bool] = True
+    notify_comments: Optional[bool] = True
+    notify_mentions: Optional[bool] = True
+    notify_likes: Optional[bool] = True
+    notify_announcements: Optional[bool] = True
     weekly_digest: Optional[bool] = False
     biometrics_enabled: Optional[bool] = True
     avatar_url: Optional[str] = None
     id_photo_url: Optional[str] = None
+    deactivated_until: Optional[datetime] = None
 
 class UserCreate(UserBase):
     password: str
@@ -72,12 +81,20 @@ class UserUpdate(BaseModel):
     show_activity_status: Optional[bool] = None
     push_notifications: Optional[bool] = None
     email_notifications: Optional[bool] = None
-    status_updates: Optional[bool] = True
-    reply_notifications: Optional[bool] = True
-    weekly_digest: Optional[bool] = False
+    notify_replies: Optional[bool] = None
+    notify_comments: Optional[bool] = None
+    notify_mentions: Optional[bool] = None
+    notify_likes: Optional[bool] = None
+    notify_announcements: Optional[bool] = None
+    weekly_digest: Optional[bool] = None
     biometrics_enabled: Optional[bool] = True
     avatar_url: Optional[str] = None
     id_photo_url: Optional[str] = None
+    deactivated_until: Optional[datetime] = None
+
+class UserPasswordUpdate(BaseModel):
+    old_password: str
+    new_password: str
 
 class User(UserBase):
     id: int
@@ -91,8 +108,29 @@ class UserProfile(BaseModel):
     id: int
     name: str
     department: Optional[str] = None
+    program: Optional[str] = None
+    entity_id: Optional[int] = None
+    organization_id: Optional[int] = None
+    role_identity: Optional[str] = None
     avatar_url: Optional[str] = None
     show_activity_status: Optional[bool] = True
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+# --- ORGANIZATION SCHEMAS ---
+class OrganizationBase(BaseModel):
+    name: str
+    logo_url: Optional[str] = None
+
+class OrganizationCreate(OrganizationBase):
+    pass
+
+class OrganizationUpdate(BaseModel):
+    name: Optional[str] = None
+    logo_url: Optional[str] = None
+
+class Organization(OrganizationBase):
+    id: int
     created_at: datetime
     model_config = ConfigDict(from_attributes=True)
 
@@ -101,24 +139,25 @@ class DepartmentBase(BaseModel):
     name: str
 
 class DepartmentCreate(DepartmentBase):
-    category_id: Optional[int] = None
+    entity_id: Optional[int] = None
 
 class Department(DepartmentBase):
     id: int
-    category_id: Optional[int] = None
+    entity_id: Optional[int] = None
     model_config = ConfigDict(from_attributes=True)
 
-# --- CATEGORY SCHEMAS ---
-class CategoryBase(BaseModel):
+# --- ENTITY SCHEMAS ---
+class EntityBase(BaseModel):
     name: str
     description: Optional[str] = None
     icon: Optional[str] = None
     fields: Optional[List[dict]] = None # List of {label, type, placeholder, required}
+    organization_id: Optional[int] = None
 
-class CategoryCreate(CategoryBase):
+class EntityCreate(EntityBase):
     pass
 
-class Category(CategoryBase):
+class Entity(EntityBase):
     id: int
     model_config = ConfigDict(from_attributes=True)
 
@@ -188,7 +227,7 @@ class Mention(MentionBase):
 class FeedbackBase(BaseModel):
     title: str
     description: str
-    category_id: int
+    entity_id: int
     recipient_dept_id: Optional[int] = None
     recipient_user_id: Optional[int] = None
     mentions: List[MentionCreate] = []
@@ -237,7 +276,7 @@ class Feedback(FeedbackBase):
     sender_show_status: Optional[bool] = True
     recipient_dept_name: Optional[str] = None
     recipient_user_name: Optional[str] = None
-    category_name: Optional[str] = None
+    entity_name: Optional[str] = None
     likes_count: Optional[int] = 0
     dislikes_count: Optional[int] = 0
     replies_count: Optional[int] = 0
@@ -246,10 +285,12 @@ class Feedback(FeedbackBase):
 class NotificationBase(BaseModel):
     user_id: int
     actor_id: Optional[int] = None
-    type: str # 'comment', 'like', 'dislike', 'broadcast'
+    type: NotificationType
     feedback_id: int
     reply_id: Optional[int] = None
+    broadcast_id: Optional[int] = None
     broadcast_type: Optional[str] = "announcement"
+    meta: Optional[dict] = None
     is_read: bool = False
 
 class NotificationCreate(NotificationBase):
@@ -271,7 +312,7 @@ class FeedbackDetail(Feedback):
     sender: Optional[User] = None
     recipient_user: Optional[User] = None
     recipient_dept: Optional[Department] = None
-    category: Optional[Category] = None
+    entity: Optional[Entity] = None
     replies: List[ReplyWithUser] = []
     reactions: List[Reaction] = []
 

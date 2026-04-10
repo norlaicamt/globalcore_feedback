@@ -141,29 +141,31 @@ const HeaderFilter = ({ label, value, onChange, theme, darkMode }) => {
 
 const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
   const { getLabel } = useTerminology();
-  const hasGlobalAdminAccess = ["admin", "superadmin"].includes(adminUser?.role) && !adminUser?.department;
+  const hasGlobalAdminAccess = (adminUser?.role === "superadmin") || (adminUser?.role === "admin" && !adminUser?.entity_id);
   const [feedbacks, setFeedbacks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [filters, setFilters] = useState({ category: "", establishment: "", author: "" });
+  const [filters, setFilters] = useState({ entity: "", service: "", author: "" });
   const [dialog, setDialog] = useState({ isOpen: false });
 
   const load = () => {
-    const dept = hasGlobalAdminAccess ? "" : (adminUser?.department || "");
-    adminGetFeedbacks({ dept_name: dept }).then(setFeedbacks).catch(console.error).finally(() => setLoading(false));
+    // For program-scoped admins, the backend handles scoping via session token.
+    // We only pass dept_name for global admins using the dropdown filter.
+    adminGetFeedbacks({}).then(setFeedbacks).catch(console.error).finally(() => setLoading(false));
   };
 
   useEffect(() => { load(); }, [adminUser]);
 
   const filtered = feedbacks.filter(f => {
-    const catMatch = f.title?.split(": ")[0]?.toLowerCase().includes(filters.category.toLowerCase());
-    const estMatch = (f.title?.split(": ")[1] || f.title)?.toLowerCase().includes(filters.establishment.toLowerCase());
+    const entMatch = f.entity_name?.toLowerCase().includes(filters.entity.toLowerCase());
+    const serviceMatch = (f.title?.split(": ")[1] || f.title)?.toLowerCase().includes(filters.service.toLowerCase());
     const authMatch = f.user_name?.toLowerCase().includes(filters.author.toLowerCase());
     const globalSearch = search === "" || 
       f.title?.toLowerCase().includes(search.toLowerCase()) || 
-      f.user_name?.toLowerCase().includes(search.toLowerCase());
+      f.user_name?.toLowerCase().includes(search.toLowerCase()) ||
+      f.entity_name?.toLowerCase().includes(search.toLowerCase());
     
-    return catMatch && estMatch && authMatch && globalSearch;
+    return entMatch && serviceMatch && authMatch && globalSearch;
   });
 
   const handleDelete = (fb) => {
@@ -177,10 +179,10 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
   };
 
   const handleExport = (format) => {
-    const headers = ["ID", getLabel("category_label", "Category"), getLabel("entity_label", "Establishment"), getLabel("dept_label", "Department"), "Author", "Rating", "Comments", "Date"];
+    const headers = ["ID", getLabel("category_label", "Entity"), getLabel("entity_label", "Service/Instance"), getLabel("dept_label", "Department"), "Author", "Rating", "Comments", "Date"];
     const data = filtered.map((f, idx) => [
       idx + 1,
-      f.title?.split(": ")[0] || "General",
+      f.entity_name || "General",
       f.title?.split(": ")[1] || f.title || "—",
       f.dept_name || "—",
       f.user_name || "Anonymous",
@@ -301,8 +303,8 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
             <thead>
               <tr style={{ background: darkMode ? "rgba(255,255,255,0.02)" : "#F8FAFC", borderBottom: `1px solid ${theme.border}` }}>
                 <th style={{ ...thStyle, color: theme.textMuted }}>#</th>
-                <HeaderFilter theme={theme} darkMode={darkMode} label={getLabel("category_label", "Category")} value={filters.category} onChange={v => setFilters({...filters, category: v})} />
-                <HeaderFilter theme={theme} darkMode={darkMode} label={getLabel("entity_label", "Establishment/Service")} value={filters.establishment} onChange={v => setFilters({...filters, establishment: v})} />
+                <HeaderFilter theme={theme} darkMode={darkMode} label={getLabel("category_label", "Entity")} value={filters.entity} onChange={v => setFilters({...filters, entity: v})} />
+                <HeaderFilter theme={theme} darkMode={darkMode} label={getLabel("entity_label", "Service/Instance")} value={filters.service} onChange={v => setFilters({...filters, service: v})} />
                 {hasGlobalAdminAccess && <HeaderFilter theme={theme} darkMode={darkMode} label={getLabel("dept_label", "Department")} value={filters.dept_name || ""} onChange={v => setFilters({...filters, dept_name: v})} />}
                 <HeaderFilter theme={theme} darkMode={darkMode} label="Author" value={filters.author} onChange={v => setFilters({...filters, author: v})} />
                 {["Rating", "Comments", "Date", ""].map(h => (
@@ -318,7 +320,7 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
                   <td style={{ ...tdStyle, color: theme.text }}>{i + 1}</td>
                   <td style={tdStyle}>
                     <p style={{ margin: 0, fontWeight: "600", color: theme.textMuted }}>
-                      {f.title?.split(": ")[0] || "General"}
+                      {f.entity_name || "General"}
                     </p>
                   </td>
                   <td style={{ ...tdStyle, maxWidth: "220px" }}>

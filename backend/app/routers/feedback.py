@@ -21,6 +21,7 @@ def read_feedbacks(
     skip: int = 0,
     limit: int = 10,
     user_id: Optional[int] = None,
+    mentioned_user_id: Optional[int] = None,
     db: Session = Depends(get_db)
 ):
     """The primary public newsfeed. Optionally filter by recipient or sender."""
@@ -30,6 +31,7 @@ def read_feedbacks(
         limit=limit, 
         sender_id=sender_id, 
         recipient_user_id=recipient_user_id,
+        mentioned_user_id=mentioned_user_id,
         current_user_id=user_id
     )
 

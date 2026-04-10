@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { adminGetDepartments, adminCreateDepartment, adminUpdateDepartment, adminDeleteDepartment, adminGetCategories } from "../../../services/adminApi";
+import { adminGetDepartments, adminCreateDepartment, adminUpdateDepartment, adminDeleteDepartment, adminGetEntities } from "../../../services/adminApi";
 import CustomModal from "../../CustomModal";
 
 const AdminDepartments = ({ theme, darkMode }) => {
@@ -15,7 +15,7 @@ const AdminDepartments = ({ theme, darkMode }) => {
 
   const load = () => {
     setLoading(true);
-    Promise.all([adminGetDepartments(), adminGetCategories()])
+    Promise.all([adminGetDepartments(), adminGetEntities()])
       .then(([d, c]) => {
         setDepts(d);
         setCategories(c);
@@ -105,7 +105,7 @@ const AdminDepartments = ({ theme, darkMode }) => {
             </thead>
             <tbody>
               {depts.map((d, i) => {
-                const cat = categories.find(c => c.id === d.category_id);
+                const cat = categories.find(c => c.id === (d.entity_id || d.category_id));
                 return (
                   <tr key={d.id} style={{ borderBottom: `1px solid ${theme.border}` }}
                     onMouseEnter={e => e.currentTarget.style.background = darkMode ? "rgba(255,255,255,0.02)" : "#FAFAFA"}
@@ -148,7 +148,7 @@ const AdminDepartments = ({ theme, darkMode }) => {
                           </>
                         ) : (
                           <>
-                            <button onClick={() => { setEditId(d.id); setEditName(d.name); setEditCatId(d.category_id || ""); }} style={actBtn("#3B82F6", theme)}>Edit</button>
+                            <button onClick={() => { setEditId(d.id); setEditName(d.name); setEditCatId(d.entity_id || d.category_id || ""); }} style={actBtn("#3B82F6", theme)}>Edit</button>
                             <button onClick={() => handleDelete(d)} style={actBtn("#EF4444", theme)}>Delete</button>
                           </>
                         )}

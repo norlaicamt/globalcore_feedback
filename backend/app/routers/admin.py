@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, Body
+from fastapi import APIRouter, Depends, HTTPException, Body, Header
 from sqlalchemy.orm import Session
 from sqlalchemy import func, cast, Date
 from typing import List, Optional
 from datetime import datetime, timedelta, timezone
 import os
+import uuid
 from dotenv import load_dotenv
 
 from app import models, schemas, crud
@@ -17,37 +18,69 @@ ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "admin@globalcore.com")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "YOUR_ADMIN_PASSWORD")
 ADMIN_NAME = os.getenv("ADMIN_NAME", "GlobalCore Admin")
 
-# Dependency to get admin context from headers (simulating JWT for prototype)
-from fastapi import Header
-def get_admin_context(
-    x_admin_id: Optional[int] = Header(None),
-    x_admin_role: Optional[str] = Header(None),
-    x_admin_dept: Optional[str] = Header(None)
+# Dependency to get admin user from session token
+def get_current_admin(
+    x_session_token: Optional[str] = Header(None),
+    db: Session = Depends(get_db)
 ):
-    if x_admin_id is None or x_admin_role is None:
-        # Fallback for paths that might not have headers yet
-        return {"id": 0, "role": "admin", "department": None}
-    return {"id": x_admin_id, "role": x_admin_role, "department": x_admin_dept}
+    """
+    Standard dependency to fetch and validate the administrative user session.
+    Returns 401 if the token is missing/invalid, and 403 if the user lacks admin rights.
+    """
+    if not x_session_token:
+        raise HTTPException(
+            status_code=401, 
+            detail="Session token missing. Please log in."
+        )
+    
+    admin = db.query(models.User).filter(models.User.session_token == x_session_token).first()
+    
+    if not admin:
+        raise HTTPException(status_code=401, detail="Invalid or expired session")
+    
+    if admin.role not in ["admin", "superadmin"]:
+        raise HTTPException(status_code=403, detail="Access denied: Administrative privileges required")
+        
+    if not admin.is_active:
+        raise HTTPException(status_code=403, detail="Account is deactivated")
+        
+    return admin
 
 
-def has_global_admin_access(admin: dict) -> bool:
-    # Global access is role-based (we are deprecating strict department scoping).
-    return admin.get("role") in {"admin", "superadmin"}
+def has_global_admin_access(admin_user: models.User) -> bool:
+    """
+    Returns True if the admin is a Global Admin (has no organization_id or entity_id restriction).
+    """
+    return (admin_user.role in {"admin", "superadmin"}) and (admin_user.organization_id is None) and (admin_user.entity_id is None)
 
 
-def is_globalcore_admin(db: Session, admin: dict) -> bool:
-    admin_user = db.query(models.User).filter(models.User.id == admin.get("id")).first()
-    return bool(admin_user and admin_user.email == ADMIN_EMAIL)
+def is_globalcore_admin(db: Session, admin_user: models.User) -> bool:
+    return admin_user.email == ADMIN_EMAIL
 
 
-def apply_scope_filter(db: Session, query, scope_name: Optional[str]):
-    """Apply scope filter using Department name first, then Category name fallback."""
-    if not scope_name:
+def apply_data_scope(query, model, admin_user: models.User):
+    """
+    Applies organization and entity-based scoping to a query.
+    """
+    if has_global_admin_access(admin_user):
         return query
-    dept_exists = db.query(models.Department.id).filter(models.Department.name == scope_name).first() is not None
-    if dept_exists:
-        return query.join(models.Department).filter(models.Department.name == scope_name)
-    return query.join(models.Category, models.Feedback.category_id == models.Category.id).filter(models.Category.name == scope_name)
+    
+    # Scoped admin: Filter by assigned organization_id first
+    if hasattr(model, "organization_id") and admin_user.organization_id:
+        query = query.filter(model.organization_id == admin_user.organization_id)
+    
+    # Then filter by entity_id if restricted
+    if admin_user.entity_id:
+        if model == models.User:
+            query = query.filter(models.User.entity_id == admin_user.entity_id)
+        elif model == models.Feedback:
+            query = query.filter(models.Feedback.entity_id == admin_user.entity_id)
+        elif model == models.Department:
+            query = query.filter(models.Department.entity_id == admin_user.entity_id)
+        elif hasattr(model, "entity_id"):
+            query = query.filter(model.entity_id == admin_user.entity_id)
+            
+    return query
 
 
 # ?????????????????????????????????????????????
@@ -57,18 +90,15 @@ def apply_scope_filter(db: Session, query, scope_name: Optional[str]):
 @router.post("/login")
 def admin_login(email: str, password: str, db: Session = Depends(get_db)):
     # Check Database for Admin users
-    user = db.query(models.User).filter(models.User.email == email).first()
+    user = db.query(models.User).filter(models.User.email.ilike(email)).first()
     if user and user.password == password: # In production, use hash checking
-        if user.role == "admin":
+        # Allow both 'admin' and 'superadmin' roles
+        if user.role in ["admin", "superadmin"]:
             if not user.is_active:
                 raise HTTPException(status_code=403, detail="Account is deactivated")
-            crud.create_audit_log(
-                db,
-                action_type="login",
-                performed_by_id=user.id,
-                target_id=str(user.id),
-                details={"email": user.email}
-            )
+            # Generate/Update session token
+            token = str(uuid.uuid4())
+            user.session_token = token
             user.last_login = datetime.now(timezone.utc)
             db.commit()
             
@@ -79,6 +109,9 @@ def admin_login(email: str, password: str, db: Session = Depends(get_db)):
                 "role": user.role,
                 "is_active": user.is_active,
                 "department": user.department,
+                "entity_id": user.entity_id,
+                "organization_id": user.organization_id,
+                "session_token": token,
                 "avatar_url": user.avatar_url,
                 "position_title": user.position_title,
                 "unit_name": user.unit_name,
@@ -96,68 +129,64 @@ def admin_login(email: str, password: str, db: Session = Depends(get_db)):
 # ?????????????????????????????????????????????
 
 @router.get("/analytics/snapshot")
-def analytics_snapshot(dept_name: Optional[str] = None, db: Session = Depends(get_db), admin: dict = Depends(get_admin_context)):
+def analytics_snapshot(dept_name: Optional[str] = None, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
     """Consolidated endpoint to fetch all dashboard data in a single request."""
-    # Enforce departmental scoping
-    effective_dept = dept_name if has_global_admin_access(admin) else admin["department"]
+    # Logic: Global admins can use dept_name param. Scoped admins are locked to their entity_id.
+    target_entity_id = admin.entity_id if not has_global_admin_access(admin) else None
     
     return {
-        "summary": crud.get_analytics_summary(db, dept_name=effective_dept),
-        "volume": analytics_volume(30, effective_dept, db, admin),
-        "by_category": analytics_by_category(effective_dept, db, admin),
+        "summary": crud.get_analytics_summary(db, entity_id=target_entity_id, dept_name=dept_name if has_global_admin_access(admin) else None),
+        "volume": analytics_volume(30, dept_name, db, admin),
+        "by_entity": analytics_by_entity(dept_name, db, admin),
         "by_department": analytics_by_department(db),
-        "by_status": analytics_by_status(effective_dept, db, admin),
-        "ratings": analytics_ratings(effective_dept, db, admin),
-        "top_users": analytics_top_users(8, dept_name=effective_dept, db=db, admin=admin),
-        "engagement": analytics_engagement(30, dept_name=effective_dept, db=db, admin=admin),
-        "sentiment": crud.get_sentiment_summary(db, dept_name=effective_dept),
-        "user_distribution": crud.get_user_distribution(db, dept_name=effective_dept)
+        "by_status": analytics_by_status(dept_name, db, admin),
+        "ratings": analytics_ratings(dept_name, db, admin),
+        "top_users": analytics_top_users(8, dept_name=dept_name, db=db, admin=admin),
+        "engagement": analytics_engagement(30, dept_name=dept_name, db=db, admin=admin),
+        "sentiment": crud.get_sentiment_summary(db, entity_id=target_entity_id, dept_name=dept_name if has_global_admin_access(admin) else None),
+        "user_distribution": crud.get_user_distribution(db, entity_id=target_entity_id, dept_name=dept_name if has_global_admin_access(admin) else None)
     }
 
 @router.get("/analytics/summary")
-def analytics_summary(dept_name: Optional[str] = None, db: Session = Depends(get_db), admin: dict = Depends(get_admin_context)):
-    effective_dept = dept_name if has_global_admin_access(admin) else admin["department"]
-    return crud.get_analytics_summary(db, dept_name=effective_dept)
+def analytics_summary(dept_name: Optional[str] = None, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
+    target_entity_id = admin.entity_id if not has_global_admin_access(admin) else None
+    return crud.get_analytics_summary(db, entity_id=target_entity_id, dept_name=dept_name if has_global_admin_access(admin) else None)
 
 
 @router.get("/analytics/volume")
-def analytics_volume(days: int = 30, dept_name: Optional[str] = None, db: Session = Depends(get_db), admin: dict = Depends(get_admin_context)):
-    effective_dept = dept_name if has_global_admin_access(admin) else admin["department"]
+def analytics_volume(days: int = 30, dept_name: Optional[str] = None, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
+    effective_dept = dept_name if has_global_admin_access(admin) else admin.department
     since = datetime.now(timezone.utc) - timedelta(days=days)
     q = db.query(
         cast(models.Feedback.created_at, Date).label("day"),
         func.count(models.Feedback.id).label("count")
     ).filter(models.Feedback.created_at >= since)
     
-    q = apply_scope_filter(db, q, effective_dept)
+    q = apply_data_scope(q, models.Feedback, admin)
         
     rows = q.group_by(cast(models.Feedback.created_at, Date))\
             .order_by(cast(models.Feedback.created_at, Date)).all()
     return [{"day": str(r.day), "count": r.count} for r in rows]
 
 
-@router.get("/analytics/by-category")
-def analytics_by_category(dept_name: Optional[str] = None, db: Session = Depends(get_db), admin: dict = Depends(get_admin_context)):
-    effective_dept = dept_name if has_global_admin_access(admin) else admin["department"]
+@router.get("/analytics/by-entity")
+def analytics_by_entity(dept_name: Optional[str] = None, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
+    effective_dept = dept_name if has_global_admin_access(admin) else admin.department
     q = db.query(
-        models.Category.name,
+        models.Entity.name,
         func.count(models.Feedback.id).label("count")
-    ).outerjoin(models.Feedback, models.Feedback.category_id == models.Category.id)
+    ).outerjoin(models.Feedback, models.Feedback.entity_id == models.Entity.id)
     
-    if effective_dept:
-        dept_exists = db.query(models.Department.id).filter(models.Department.name == effective_dept).first() is not None
-        if dept_exists:
-            q = q.join(models.Department, models.Feedback.recipient_dept_id == models.Department.id).filter(models.Department.name == effective_dept)
-        else:
-            q = q.filter(models.Category.name == effective_dept)
+    # Apply scoping
+    q = apply_data_scope(q, models.Feedback, admin)
         
-    rows = q.group_by(models.Category.name)\
+    rows = q.group_by(models.Entity.name)\
             .order_by(func.count(models.Feedback.id).desc()).all()
     return [{"name": r.name, "count": r.count} for r in rows]
 
 
 @router.get("/analytics/by-department")
-def analytics_by_department(db: Session = Depends(get_db)):
+def analytics_by_department(db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
     rows = db.query(
         models.Department.name,
         func.count(models.Feedback.id).label("count")
@@ -168,25 +197,25 @@ def analytics_by_department(db: Session = Depends(get_db)):
 
 
 @router.get("/analytics/by-status")
-def analytics_by_status(dept_name: Optional[str] = None, db: Session = Depends(get_db), admin: dict = Depends(get_admin_context)):
-    effective_dept = dept_name if has_global_admin_access(admin) else admin["department"]
+def analytics_by_status(dept_name: Optional[str] = None, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
+    effective_dept = dept_name if has_global_admin_access(admin) else admin.department
     q = db.query(
         models.Feedback.status,
         func.count(models.Feedback.id).label("count")
     )
-    q = apply_scope_filter(db, q, effective_dept)
+    q = apply_data_scope(q, models.Feedback, admin)
     rows = q.group_by(models.Feedback.status).all()
     return [{"status": str(r.status).replace("FeedbackStatus.", ""), "count": r.count} for r in rows]
 
 
 @router.get("/analytics/ratings")
-def analytics_ratings(dept_name: Optional[str] = None, db: Session = Depends(get_db), admin: dict = Depends(get_admin_context)):
-    effective_dept = dept_name if has_global_admin_access(admin) else admin["department"]
+def analytics_ratings(dept_name: Optional[str] = None, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
+    effective_dept = dept_name if has_global_admin_access(admin) else admin.department
     q = db.query(
         models.Feedback.rating,
         func.count(models.Feedback.id).label("count")
     ).filter(models.Feedback.rating != None)
-    q = apply_scope_filter(db, q, effective_dept)
+    q = apply_data_scope(q, models.Feedback, admin)
     rows = q.group_by(models.Feedback.rating)\
             .order_by(models.Feedback.rating).all()
     return [{"rating": r.rating, "count": r.count} for r in rows]
@@ -197,14 +226,14 @@ def analytics_top_users(
     limit: int = 10,
     dept_name: Optional[str] = None,
     db: Session = Depends(get_db),
-    admin: dict = Depends(get_admin_context),
+    admin: models.User = Depends(get_current_admin),
 ):
     # If dept_name is explicitly passed (from snapshot), use it.
     # Otherwise, fall back to admin scoping rules.
     effective_dept = (
         dept_name
         if dept_name is not None
-        else (None if has_global_admin_access(admin) else admin["department"])
+        else (None if has_global_admin_access(admin) else admin.department)
     )
     
     query = db.query(
@@ -234,12 +263,12 @@ def analytics_engagement(
     days: int = 30,
     dept_name: Optional[str] = None,
     db: Session = Depends(get_db),
-    admin: dict = Depends(get_admin_context),
+    admin: models.User = Depends(get_current_admin),
 ):
     effective_dept = (
         dept_name
         if dept_name is not None
-        else (None if has_global_admin_access(admin) else admin["department"])
+        else (None if has_global_admin_access(admin) else admin.department)
     )
     since = datetime.now(timezone.utc) - timedelta(days=days)
     q = db.query(
@@ -248,7 +277,7 @@ def analytics_engagement(
     ).filter(models.Reply.created_at >= since)\
      .join(models.Feedback, models.Reply.feedback_id == models.Feedback.id)
 
-    q = apply_scope_filter(db, q, effective_dept)
+    q = apply_data_scope(q, models.Feedback, admin)
 
     rows = q.group_by(cast(models.Reply.created_at, Date))\
         .order_by(cast(models.Reply.created_at, Date)).all()
@@ -256,15 +285,15 @@ def analytics_engagement(
 
 
 @router.get("/analytics/by-location")
-def analytics_by_location(dept_name: Optional[str] = None, db: Session = Depends(get_db), admin: dict = Depends(get_admin_context)):
-    effective_dept = dept_name if has_global_admin_access(admin) else admin["department"]
+def analytics_by_location(dept_name: Optional[str] = None, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
+    effective_dept = dept_name if has_global_admin_access(admin) else admin.department
     q = db.query(
         models.Feedback.region,
         models.Feedback.city,
         func.count(models.Feedback.id).label("count")
     ).filter(models.Feedback.region != None)
     
-    q = apply_scope_filter(db, q, effective_dept)
+    q = apply_data_scope(q, models.Feedback, admin)
         
     rows = q.group_by(models.Feedback.region, models.Feedback.city)\
             .order_by(func.count(models.Feedback.id).desc()).all()
@@ -272,20 +301,18 @@ def analytics_by_location(dept_name: Optional[str] = None, db: Session = Depends
 
 
 @router.get("/analytics/sentiment")
-def analytics_sentiment(dept_name: Optional[str] = None, db: Session = Depends(get_db)):
+def analytics_sentiment(dept_name: Optional[str] = None, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
     """Analyze overall mood of user feedback."""
-    return crud.get_sentiment_summary(db, dept_name=dept_name)
+    target_entity_id = admin.entity_id if not has_global_admin_access(admin) else None
+    return crud.get_sentiment_summary(db, entity_id=target_entity_id, dept_name=dept_name if has_global_admin_access(admin) else None)
 
 # ?????????????????????????????????????????????
 # USER MANAGEMENT
 # ?????????????????????????????????????????????
 
 @router.get("/users")
-def admin_get_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_db), admin: dict = Depends(get_admin_context)):
+def admin_get_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
     from sqlalchemy import select, func, literal_column
-    
-    # Enforce departmental scoping
-    dept_name = None if has_global_admin_access(admin) else admin["department"]
     
     # 1. Post count (Approved only)
     post_count_sq = (
@@ -331,8 +358,8 @@ def admin_get_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_d
         give_comm_sq
     )
     
-    if dept_name:
-        query = query.filter(models.User.department == dept_name)
+    # Apply program-based scoping
+    query = apply_data_scope(query, models.User, admin)
         
     users_with_stats = query.order_by(models.User.id).offset(skip).limit(limit).all()
 
@@ -348,7 +375,9 @@ def admin_get_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_d
         pts = (p_cnt * 3) + (r_recv * 1.5) + (c_recv * 1) + (actions_given * 0.5) + (c_give * 0.5)
         
         result.append({
-            "id": u.id, "name": u.name, "email": u.email, "department": u.department, "program": u.program,
+            "id": u.id, "name": u.name, "email": u.email, "department": u.department, 
+            "program": u.program, "entity_id": u.entity_id,
+            "entity_name": u.entity.name if u.entity else None,
             "position_title": u.position_title, "role_identity": u.role_identity,
             "role": "user" if u.role == "maker" else u.role,
             "is_active": u.is_active, "avatar_url": u.avatar_url,
@@ -360,14 +389,14 @@ def admin_get_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_d
 
 
 @router.put("/users/{user_id}/status")
-def admin_toggle_user_status(user_id: int, is_active: bool, db: Session = Depends(get_db), admin: dict = Depends(get_admin_context)):
+def admin_toggle_user_status(user_id: int, is_active: bool, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
     # Authority Check
     if not has_global_admin_access(admin):
-        if user.department != admin["department"]:
+        if user.department != admin.department:
             raise HTTPException(status_code=403, detail="Cannot manage users outside your department")
         if user.role in ["admin", "superadmin"]:
             raise HTTPException(status_code=403, detail="Departmental admins cannot manage other admins")
@@ -378,7 +407,7 @@ def admin_toggle_user_status(user_id: int, is_active: bool, db: Session = Depend
     crud.create_audit_log(
         db, 
         action_type="deactivate_user" if not is_active else "reactivate_user",
-        performed_by_id=admin["id"],
+        performed_by_id=admin.id,
         target_id=str(user_id),
         details={"user_email": user.email, "new_status": "active" if is_active else "inactive"}
     )
@@ -387,7 +416,7 @@ def admin_toggle_user_status(user_id: int, is_active: bool, db: Session = Depend
     return {"id": user_id, "is_active": is_active}
 
 @router.put("/users/{user_id}/role")
-def admin_update_user_role(user_id: int, role: str, db: Session = Depends(get_db), admin: dict = Depends(get_admin_context)):
+def admin_update_user_role(user_id: int, role: str, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
     if not is_globalcore_admin(db, admin):
         raise HTTPException(status_code=403, detail="Only GlobalCore Admin can update roles")
         
@@ -397,6 +426,10 @@ def admin_update_user_role(user_id: int, role: str, db: Session = Depends(get_db
     if role not in ["user", "admin", "maker"]:
         raise HTTPException(status_code=400, detail="Invalid role")
     
+    # Restriction: Program Admins cannot promote to admin
+    if not has_global_admin_access(admin) and role == "admin":
+         raise HTTPException(status_code=403, detail="Program Admins cannot promote users to Admin")
+    
     old_role = user.role
     # Backward-compat: map old "maker" naming to "user"
     user.role = "user" if role == "maker" else role
@@ -405,7 +438,7 @@ def admin_update_user_role(user_id: int, role: str, db: Session = Depends(get_db
     crud.create_audit_log(
         db, 
         action_type="update_user_role",
-        performed_by_id=admin["id"],
+        performed_by_id=admin.id,
         target_id=str(user_id),
         details={"user_email": user.email, "old_role": old_role, "new_role": role}
     )
@@ -414,9 +447,23 @@ def admin_update_user_role(user_id: int, role: str, db: Session = Depends(get_db
     return {"id": user_id, "role": role}
 
 @router.put("/users/{user_id}/details")
-def admin_update_user_details(user_id: int, role: Optional[str] = None, department: Optional[str] = None, program: Optional[str] = None, position_title: Optional[str] = None, db: Session = Depends(get_db), admin: dict = Depends(get_admin_context)):
+def admin_update_user_details(
+    user_id: int, 
+    role: Optional[str] = None, 
+    department: Optional[str] = None, 
+    program: Optional[str] = None,
+    entity_id: Optional[int] = None,
+    position_title: Optional[str] = None,
+    db: Session = Depends(get_db), 
+    admin: models.User = Depends(get_current_admin)
+):
+    # General check: scoped admins can only edit within their scope
     if not has_global_admin_access(admin):
-        raise HTTPException(status_code=403, detail="Only admins can update user details completely")
+        target_user = db.query(models.User).filter(models.User.id == user_id).first()
+        if not target_user or (admin.organization_id and target_user.organization_id != admin.organization_id):
+            raise HTTPException(status_code=403, detail="Cannot manage users outside your organization")
+        if admin.entity_id and target_user.entity_id != admin.entity_id:
+            raise HTTPException(status_code=403, detail="Cannot manage users outside your assigned entity")
         
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if not user:
@@ -424,6 +471,11 @@ def admin_update_user_details(user_id: int, role: Optional[str] = None, departme
         
     updates_made = {}
     if role and role in ["user", "admin", "maker"] and role != user.role:
+        # Restriction: Scoped Admins cannot promote to admin unless it's their scope (already handled by outer check)
+        # But we double lock promote-to-admin to global admins only for extra security
+        if not has_global_admin_access(admin) and role == "admin":
+             raise HTTPException(status_code=403, detail="Scoped Admins cannot promote users to Admin via this endpoint")
+             
         normalized_role = "user" if role == "maker" else role
         updates_made["role"] = {"old": user.role, "new": normalized_role}
         user.role = normalized_role
@@ -434,6 +486,9 @@ def admin_update_user_details(user_id: int, role: Optional[str] = None, departme
     if program is not None and program != user.program:
         updates_made["program"] = {"old": user.program, "new": program}
         user.program = program if program else None
+    if entity_id is not None and entity_id != user.entity_id:
+        updates_made["entity_id"] = {"old": user.entity_id, "new": entity_id}
+        user.entity_id = entity_id
     if position_title is not None and position_title != user.position_title:
         updates_made["position_title"] = {"old": user.position_title, "new": position_title}
         user.position_title = position_title if position_title else None
@@ -443,18 +498,18 @@ def admin_update_user_details(user_id: int, role: Optional[str] = None, departme
         crud.create_audit_log(
             db, 
             action_type="update_user_details",
-            performed_by_id=admin["id"],
+            performed_by_id=admin.id,
             target_id=str(user_id),
             details={"user_email": user.email, "updates": updates_made}
         )
         db.commit()
         db.refresh(user)
         
-    return {"id": user.id, "role": user.role, "department": user.department, "program": user.program}
+    return {"id": user.id, "role": user.role, "department": user.department, "entity_id": user.entity_id}
 
 
 @router.delete("/users/{user_id}", status_code=204)
-def admin_delete_user(user_id: int, db: Session = Depends(get_db), admin: dict = Depends(get_admin_context)):
+def admin_delete_user(user_id: int, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
     if not is_globalcore_admin(db, admin):
         raise HTTPException(status_code=403, detail="Only GlobalCore Admin can permanently delete users")
         
@@ -466,7 +521,7 @@ def admin_delete_user(user_id: int, db: Session = Depends(get_db), admin: dict =
     crud.create_audit_log(
         db, 
         action_type="delete_user",
-        performed_by_id=admin["id"],
+        performed_by_id=admin.id,
         target_id=str(user_id),
         details={"user_email": user.email}
     )
@@ -482,33 +537,36 @@ def admin_delete_user(user_id: int, db: Session = Depends(get_db), admin: dict =
 def admin_get_feedbacks(
     skip: int = 0, limit: int = 50,
     status: Optional[str] = None,
-    category_id: Optional[int] = None,
+    entity_id: Optional[int] = None,
     dept_name: Optional[str] = None,
     db: Session = Depends(get_db),
-    admin: dict = Depends(get_admin_context)
+    admin: models.User = Depends(get_current_admin)
 ):
     q = db.query(
         models.Feedback.id, models.Feedback.title, models.Feedback.description,
         models.Feedback.status, models.Feedback.is_anonymous, models.Feedback.created_at,
         models.Feedback.rating, models.Feedback.sender_id, models.Feedback.custom_data,
         models.User.name.label("user_name"),
-        models.Category.name.label("category_name"),
+        models.Entity.name.label("entity_name"),
         models.Department.name.label("dept_name"),
         func.count(models.Reply.id).label("comments_count")
     ).outerjoin(models.User, models.Feedback.sender_id == models.User.id)\
-     .outerjoin(models.Category, models.Feedback.category_id == models.Category.id)\
+     .outerjoin(models.Entity, models.Feedback.entity_id == models.Entity.id)\
      .outerjoin(models.Department, models.Feedback.recipient_dept_id == models.Department.id)\
      .outerjoin(models.Reply, models.Reply.feedback_id == models.Feedback.id)\
-     .group_by(models.Feedback.id, models.User.name, models.Category.name, models.Department.name)
+     .group_by(models.Feedback.id, models.User.name, models.Entity.name, models.Department.name)
 
     if status:
         q = q.filter(models.Feedback.status == status)
-    if category_id:
-        q = q.filter(models.Feedback.category_id == category_id)
-    
-    effective_dept = dept_name if has_global_admin_access(admin) else admin["department"]
-    if effective_dept:
-        q = q.filter(models.Department.name == effective_dept)
+    if entity_id:
+        q = q.filter(models.Feedback.entity_id == entity_id)
+
+    # Use centralized scoping.
+    q = apply_data_scope(q, models.Feedback, admin)
+
+    # Global admins can additionally filter by entity name
+    if has_global_admin_access(admin) and dept_name:
+        q = q.filter(models.Entity.name == dept_name)
 
     rows = q.order_by(models.Feedback.created_at.desc()).offset(skip).limit(limit).all()
     return [{
@@ -516,14 +574,14 @@ def admin_get_feedbacks(
         "status": str(r.status).replace("FeedbackStatus.", ""),
         "is_anonymous": r.is_anonymous, "created_at": str(r.created_at),
         "rating": r.rating, "sender_id": r.sender_id,
-        "user_name": r.user_name, "category_name": r.category_name,
+        "user_name": r.user_name, "entity_name": r.entity_name,
         "dept_name": r.dept_name, "comments_count": r.comments_count,
         "custom_data": r.custom_data
     } for r in rows]
 
 
 @router.put("/feedbacks/{feedback_id}/status")
-def admin_update_feedback_status(feedback_id: int, status: str, db: Session = Depends(get_db), admin: dict = Depends(get_admin_context)):
+def admin_update_feedback_status(feedback_id: int, status: str, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
     feedback = db.query(models.Feedback).filter(models.Feedback.id == feedback_id).first()
     if not feedback:
         raise HTTPException(status_code=404, detail="Feedback found")
@@ -531,7 +589,7 @@ def admin_update_feedback_status(feedback_id: int, status: str, db: Session = De
     # Scoping check
     if not has_global_admin_access(admin):
         dept = db.query(models.Department).filter(models.Department.id == feedback.recipient_dept_id).first()
-        if not dept or dept.name != admin["department"]:
+        if not dept or dept.name != admin.department:
             raise HTTPException(status_code=403, detail="Cannot manage feedback for other departments")
 
     status_map = {
@@ -550,30 +608,19 @@ def admin_update_feedback_status(feedback_id: int, status: str, db: Session = De
     crud.create_audit_log(
         db, 
         action_type="update_feedback_status",
-        performed_by_id=admin["id"],
+        performed_by_id=admin.id,
         target_id=str(feedback_id),
         details={"old_status": str(old_status), "new_status": status}
     )
     
     db.commit()
 
-    # Notify the original poster
-    if feedback.sender_id:
-        notif = models.Notification(
-            user_id=feedback.sender_id,
-            actor_id=None,
-            type="status_update",
-            feedback_id=feedback_id,
-            is_read=False,
-        )
-        db.add(notif)
-        db.commit()
-
+    # Status notifications removed as per "Interaction-First" vision (Discussion over Workflow)
     return {"id": feedback_id, "status": status}
 
 
 @router.delete("/feedbacks/{feedback_id}", status_code=204)
-def admin_delete_feedback(feedback_id: int, db: Session = Depends(get_db), admin: dict = Depends(get_admin_context)):
+def admin_delete_feedback(feedback_id: int, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
     if not has_global_admin_access(admin):
         raise HTTPException(status_code=403, detail="Only admins can delete feedback")
         
@@ -581,7 +628,7 @@ def admin_delete_feedback(feedback_id: int, db: Session = Depends(get_db), admin
     crud.create_audit_log(
         db, 
         action_type="delete_feedback",
-        performed_by_id=admin["id"],
+        performed_by_id=admin.id,
         target_id=str(feedback_id)
     )
     
@@ -593,29 +640,29 @@ def admin_delete_feedback(feedback_id: int, db: Session = Depends(get_db), admin
 # ?????????????????????????????????????????????
 
 @router.get("/scope-options")
-def admin_get_scope_options(db: Session = Depends(get_db)):
+def admin_get_scope_options(db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
     """
     Returns scope options for the dashboard dropdown.
 
     Head Admin should pick from the configured "program/office" list only.
     In this app, those are the stored Category Types in the `categories` table.
     """
-    # Category Types (Category.name)
-    cat_names = [
+    # Entity Types (Entity.name)
+    ent_names = [
         r[0]
-        for r in db.query(models.Category.name)
-        .filter(models.Category.name != None)
+        for r in db.query(models.Entity.name)
+        .filter(models.Entity.name != None)
         .all()
     ]
-    cat_set = {str(n).strip() for n in cat_names if n and str(n).strip()}
+    ent_set = {str(n).strip() for n in ent_names if n and str(n).strip()}
 
     # Normalize + unique
-    names = set(cat_set)
+    names = set(ent_set)
 
     return [{"name": n} for n in sorted(names, key=lambda x: x.lower())]
 
 @router.get("/departments")
-def admin_get_departments(db: Session = Depends(get_db)):
+def admin_get_departments(db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
     rows = db.query(
         models.Department.id,
         models.Department.name,
@@ -627,8 +674,8 @@ def admin_get_departments(db: Session = Depends(get_db)):
 
 
 @router.post("/departments")
-def admin_create_department(name: str, category_id: Optional[int] = None, db: Session = Depends(get_db)):
-    dept = models.Department(name=name, category_id=category_id)
+def admin_create_department(name: str, entity_id: Optional[int] = None, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
+    dept = models.Department(name=name, entity_id=entity_id)
     db.add(dept)
     db.commit()
     db.refresh(dept)
@@ -636,19 +683,19 @@ def admin_create_department(name: str, category_id: Optional[int] = None, db: Se
 
 
 @router.put("/departments/{dept_id}")
-def admin_update_department(dept_id: int, name: str, category_id: Optional[int] = None, db: Session = Depends(get_db)):
+def admin_update_department(dept_id: int, name: str, entity_id: Optional[int] = None, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
     dept = db.query(models.Department).filter(models.Department.id == dept_id).first()
     if not dept:
         raise HTTPException(status_code=404, detail="Department not found")
     dept.name = name
-    if category_id is not None:
-        dept.category_id = category_id
+    if entity_id is not None:
+        dept.entity_id = entity_id
     db.commit()
     return dept
 
 
 @router.delete("/departments/{dept_id}", status_code=204)
-def admin_delete_department(dept_id: int, db: Session = Depends(get_db)):
+def admin_delete_department(dept_id: int, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
     dept = db.query(models.Department).filter(models.Department.id == dept_id).first()
     if not dept:
         raise HTTPException(status_code=404, detail="Department not found")
@@ -657,60 +704,60 @@ def admin_delete_department(dept_id: int, db: Session = Depends(get_db)):
 
 
 # ?????????????????????????????????????????????
-# CATEGORIES
+# ENTITIES
 # ?????????????????????????????????????????????
 
-@router.get("/categories")
-def admin_get_categories(db: Session = Depends(get_db)):
+@router.get("/entities")
+def admin_get_entities(db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
     rows = db.query(
-        models.Category.id,
-        models.Category.name,
-        models.Category.description,
-        models.Category.icon,
-        models.Category.fields,
+        models.Entity.id,
+        models.Entity.name,
+        models.Entity.description,
+        models.Entity.icon,
+        models.Entity.fields,
         func.count(models.Feedback.id).label("count")
-    ).outerjoin(models.Feedback, models.Feedback.category_id == models.Category.id)\
-     .group_by(models.Category.id, models.Category.name, models.Category.description, models.Category.icon, models.Category.fields)\
-     .order_by(models.Category.name).all()
+    ).outerjoin(models.Feedback, models.Feedback.entity_id == models.Entity.id)\
+     .group_by(models.Entity.id, models.Entity.name, models.Entity.description, models.Entity.icon, models.Entity.fields)\
+     .order_by(models.Entity.name).all()
     return [{"id": r.id, "name": r.name, "description": r.description, "icon": r.icon, "fields": r.fields, "count": r.count} for r in rows]
 
 
-@router.post("/categories")
-def admin_create_category(category: schemas.CategoryCreate, db: Session = Depends(get_db)):
-    cat = models.Category(name=category.name, description=category.description, icon=category.icon, fields=category.fields)
-    db.add(cat)
+@router.post("/entities")
+def admin_create_entity(entity: schemas.EntityCreate, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
+    ent = models.Entity(name=entity.name, description=entity.description, icon=entity.icon, fields=entity.fields, organization_id=entity.organization_id)
+    db.add(ent)
     db.commit()
-    db.refresh(cat)
-    return cat
+    db.refresh(ent)
+    return ent
 
 
-@router.put("/categories/{cat_id}")
-def admin_update_category(cat_id: int, category: schemas.CategoryCreate, db: Session = Depends(get_db)):
-    db_cat = db.query(models.Category).filter(models.Category.id == cat_id).first()
-    if not db_cat:
-        raise HTTPException(status_code=404, detail="Category not found")
-    db_cat.name = category.name
-    if category.description is not None:
-        db_cat.description = category.description
-    if category.icon is not None:
-        db_cat.icon = category.icon
-    if category.fields is not None:
-        db_cat.fields = category.fields
+@router.put("/entities/{ent_id}")
+def admin_update_entity(ent_id: int, entity: schemas.EntityCreate, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
+    db_ent = db.query(models.Entity).filter(models.Entity.id == ent_id).first()
+    if not db_ent:
+        raise HTTPException(status_code=404, detail="Entity not found")
+    db_ent.name = entity.name
+    if entity.description is not None:
+        db_ent.description = entity.description
+    if entity.icon is not None:
+        db_ent.icon = entity.icon
+    if entity.fields is not None:
+        db_ent.fields = entity.fields
     db.commit()
-    return db_cat
+    return db_ent
 
 
-@router.delete("/categories/{cat_id}", status_code=204)
-def admin_delete_category(cat_id: int, db: Session = Depends(get_db)):
-    cat = db.query(models.Category).filter(models.Category.id == cat_id).first()
-    if not cat:
-        raise HTTPException(status_code=404, detail="Category not found")
+@router.delete("/entities/{ent_id}", status_code=204)
+def admin_delete_entity(ent_id: int, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
+    ent = db.query(models.Entity).filter(models.Entity.id == ent_id).first()
+    if not ent:
+        raise HTTPException(status_code=404, detail="Entity not found")
     
-    usage_count = db.query(models.Feedback).filter(models.Feedback.category_id == cat_id).count()
+    usage_count = db.query(models.Feedback).filter(models.Feedback.entity_id == ent_id).count()
     if usage_count > 0:
-        raise HTTPException(status_code=400, detail=f"Cannot delete category '{cat.name}' because it is in use by {usage_count} feedback(s).")
+        raise HTTPException(status_code=400, detail=f"Cannot delete entity '{ent.name}' because it is in use by {usage_count} feedback(s).")
 
-    db.delete(cat)
+    db.delete(ent)
     db.commit()
 
 # ?????????????????????????????????????????????
@@ -723,10 +770,10 @@ def get_system_labels(db: Session = Depends(get_db)):
     if not labels:
         # Seed defaults if empty
         defaults = [
-            ("category_label", "Category"),
-            ("entity_label", "Establishment/Service"),
-            ("category_label_plural", "Categories"),
-            ("entity_label_plural", "Establishments/Services"),
+            ("category_label", "Entity / Service"),
+            ("entity_label", "Entity"),
+            ("category_label_plural", "Entities / Services"),
+            ("entity_label_plural", "Entities"),
             ("dept_label", "Department"),
             ("dept_label_plural", "Departments"),
             ("feedback_label", "Feedback"),
@@ -738,7 +785,7 @@ def get_system_labels(db: Session = Depends(get_db)):
     return labels
 
 @router.post("/labels")
-def update_system_label(key: str, value: str, db: Session = Depends(get_db), admin: dict = Depends(get_admin_context)):
+def update_system_label(key: str, value: str, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
     if not has_global_admin_access(admin):
         raise HTTPException(status_code=403, detail="Only global admins can change terminology")
     
@@ -748,14 +795,14 @@ def update_system_label(key: str, value: str, db: Session = Depends(get_db), adm
     crud.create_audit_log(
         db,
         action_type="update_terminology",
-        performed_by_id=admin["id"],
+        performed_by_id=admin.id,
         target_id=key,
         details={"key": key, "new_value": value}
     )
     
     return label
 @router.post("/labels/bulk")
-def update_system_labels_bulk(data: dict = Body(...), db: Session = Depends(get_db), admin: dict = Depends(get_admin_context)):
+def update_system_labels_bulk(data: dict = Body(...), db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
     if not has_global_admin_access(admin):
         raise HTTPException(status_code=403, detail="Only global admins can change terminology")
     
@@ -768,7 +815,7 @@ def update_system_labels_bulk(data: dict = Body(...), db: Session = Depends(get_
     crud.create_audit_log(
         db,
         action_type="bulk_update_terminology",
-        performed_by_id=admin["id"],
+        performed_by_id=admin.id,
         target_id="system",
         details={"updated_labels": updated_keys}
     )
@@ -786,10 +833,10 @@ def admin_broadcast(
     message: str, 
     broadcast_type: str = "announcement",
     db: Session = Depends(get_db), 
-    admin: dict = Depends(get_admin_context)
+    admin: models.User = Depends(get_current_admin)
 ):
     # Enforce departmental scoping
-    dept_name = None if has_global_admin_access(admin) else admin["department"]
+    dept_name = None if has_global_admin_access(admin) else admin.department
     
     query = db.query(models.User)
     if dept_name:
@@ -807,24 +854,22 @@ def admin_broadcast(
     broadcast_log = crud.create_broadcast_log(db, subject=official_subject, message=message, count=len(users))
     
     for user in users:
-        notif = models.Notification(
+        crud.create_notification(
+            db,
             user_id=user.id,
             actor_id=None,
-            type="broadcast",
-            broadcast_type=broadcast_type,
+            notif_type=models.NotificationType.ANNOUNCEMENT,
             feedback_id=any_feedback.id,
             subject=official_subject,
             message=message,
-            is_read=False,
             broadcast_id=broadcast_log.id
         )
-        db.add(notif)
     
     # Audit Log
     crud.create_audit_log(
         db, 
         action_type="broadcast_created",
-        performed_by_id=admin["id"],
+        performed_by_id=admin.id,
         details={"subject": official_subject, "sent_to_count": len(users), "type": broadcast_type}
     )
     
@@ -833,16 +878,16 @@ def admin_broadcast(
 
 
 @router.get("/audit-logs", response_model=List[schemas.AuditLog])
-def get_audit_logs(skip: int = 0, limit: int = 200, db: Session = Depends(get_db), admin: dict = Depends(get_admin_context)):
+def get_audit_logs(skip: int = 0, limit: int = 200, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
     if not has_global_admin_access(admin):
         # Department admins can only see their own department's audit logs
-        return crud.get_audit_logs(db, skip=skip, limit=limit, dept_name=admin["department"])
+        return crud.get_audit_logs(db, skip=skip, limit=limit, dept_name=admin.department)
     return crud.get_audit_logs(db, skip=skip, limit=limit)
 
 
 @router.get("/profile")
-def get_admin_profile(db: Session = Depends(get_db), admin: dict = Depends(get_admin_context)):
-    db_admin = db.query(models.User).filter(models.User.id == admin.get("id")).first()
+def get_admin_profile(db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
+    db_admin = db.query(models.User).filter(models.User.id == admin.id).first()
     if not db_admin:
         raise HTTPException(status_code=404, detail="Admin profile not found")
     return {
@@ -859,8 +904,11 @@ def get_admin_profile(db: Session = Depends(get_db), admin: dict = Depends(get_a
         "two_factor_enabled": db_admin.two_factor_enabled,
         "push_notifications": db_admin.push_notifications,
         "email_notifications": db_admin.email_notifications,
-        "status_updates": db_admin.status_updates,
-        "reply_notifications": db_admin.reply_notifications,
+        "notify_announcements": db_admin.notify_announcements,
+        "notify_replies": db_admin.notify_replies,
+        "notify_comments": db_admin.notify_comments,
+        "notify_mentions": db_admin.notify_mentions,
+        "notify_likes": db_admin.notify_likes,
         "weekly_digest": db_admin.weekly_digest,
         "biometrics_enabled": db_admin.biometrics_enabled,
         "show_activity_status": db_admin.show_activity_status,
@@ -871,14 +919,15 @@ def get_admin_profile(db: Session = Depends(get_db), admin: dict = Depends(get_a
 
 
 @router.put("/profile")
-def update_admin_profile(payload: dict = Body(...), db: Session = Depends(get_db), admin: dict = Depends(get_admin_context)):
-    db_admin = db.query(models.User).filter(models.User.id == admin.get("id")).first()
+def update_admin_profile(payload: dict = Body(...), db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
+    db_admin = db.query(models.User).filter(models.User.id == admin.id).first()
     if not db_admin:
         raise HTTPException(status_code=404, detail="Admin profile not found")
 
     allowed_fields = {
         "name", "password", "avatar_url", "two_factor_enabled", "push_notifications",
-        "email_notifications", "status_updates", "reply_notifications",
+        "email_notifications", "notify_announcements", "notify_replies",
+        "notify_comments", "notify_mentions", "notify_likes",
         "weekly_digest", "biometrics_enabled", "show_activity_status",
         "position_title", "unit_name", "phone"
     }
@@ -899,7 +948,7 @@ def update_admin_profile(payload: dict = Body(...), db: Session = Depends(get_db
         crud.create_audit_log(
             db,
             action_type="update_admin_profile",
-            performed_by_id=admin["id"],
+            performed_by_id=admin.id,
             target_id=str(db_admin.id),
             details={"updated_fields": list(changed.keys())}
         )
@@ -910,16 +959,16 @@ def update_admin_profile(payload: dict = Body(...), db: Session = Depends(get_db
 
 
 @router.get("/profile/activity")
-def get_admin_profile_activity(limit: int = 20, db: Session = Depends(get_db), admin: dict = Depends(get_admin_context)):
+def get_admin_profile_activity(limit: int = 20, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
     rows = db.query(models.AuditLog)\
-        .filter(models.AuditLog.performed_by_id == admin.get("id"))\
+        .filter(models.AuditLog.performed_by_id == admin.id)\
         .order_by(models.AuditLog.timestamp.desc())\
         .limit(limit).all()
     return rows
 
 
 @router.post("/approve-suggestion")
-def admin_approve_suggestion(feedback_id: int, approved_name: str, db: Session = Depends(get_db)):
+def admin_approve_suggestion(feedback_id: int, approved_name: str, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
     """Approve a suggested name, edit it if needed, and update category choices."""
     feedback = crud.approve_feedback_choice(db, feedback_id=feedback_id, approved_name=approved_name)
     if not feedback:
@@ -932,13 +981,13 @@ def admin_approve_suggestion(feedback_id: int, approved_name: str, db: Session =
 # ---------------------------------------------
 
 @router.get("/form-sections", response_model=List[schemas.FormSection])
-def get_form_sections(db: Session = Depends(get_db)):
+def get_form_sections(db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
     """Get all form sections with their nested fields."""
     return db.query(models.FormSection).order_by(models.FormSection.order).all()
 
 
 @router.post("/form-sections/save")
-def save_form_sections(sections: List[schemas.FormSectionUpdate], db: Session = Depends(get_db)):
+def save_form_sections(sections: List[schemas.FormSectionUpdate], db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
     """Bulk-save (replace) all sections and their fields. Deletes existing and re-inserts."""
     # 1. Clear existing
     db.query(models.FormField).delete()
@@ -974,13 +1023,13 @@ def save_form_sections(sections: List[schemas.FormSectionUpdate], db: Session = 
 
 
 @router.get("/form-fields", response_model=List[schemas.FormField])
-def get_form_fields(db: Session = Depends(get_db)):
+def get_form_fields(db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
     """Flat list of all active fields for simple user form rendering."""
     return db.query(models.FormField).filter(models.FormField.is_active == True).order_by(models.FormField.order).all()
 
 
 @router.post("/form-fields/save")
-def save_form_fields(fields: List[schemas.FormFieldUpdate], db: Session = Depends(get_db)):
+def save_form_fields(fields: List[schemas.FormFieldUpdate], db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
     """Legacy flat save. Clears sections and saves flat list."""
     db.query(models.FormField).delete()
     db.query(models.FormSection).delete()
@@ -1000,7 +1049,7 @@ def save_form_fields(fields: List[schemas.FormFieldUpdate], db: Session = Depend
 
 
 @router.delete("/form-fields/{field_id}", status_code=204)
-def delete_form_field(field_id: int, db: Session = Depends(get_db)):
+def delete_form_field(field_id: int, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
     """Delete a single form field by ID."""
     field = db.query(models.FormField).filter(models.FormField.id == field_id).first()
     if not field:

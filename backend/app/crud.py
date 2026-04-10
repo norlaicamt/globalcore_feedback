@@ -10,13 +10,29 @@ def get_user(db: Session, user_id: int):
     return db.query(models.User).filter(models.User.id == user_id).first()
 
 def get_user_by_email(db: Session, email: str):
-    return db.query(models.User).filter(models.User.email == email).first()
+    if not email: return None
+    return db.query(models.User).filter(models.User.email.ilike(email)).first()
 
 def get_users(db: Session, skip: int = 0, limit: int = 100):
     return db.query(models.User).offset(skip).limit(limit).all()
 
+def get_user_profiles(db: Session):
+    return db.query(
+        models.User.id,
+        models.User.name,
+        func.coalesce(models.User.unit_name, models.User.program, models.User.department).label("department"),
+        models.User.program,
+        models.User.role_identity,
+        models.User.avatar_url,
+        models.User.show_activity_status,
+        models.User.created_at
+    ).filter(models.User.is_active == True).all()
+
 def create_user(db: Session, user: schemas.UserCreate):
-    db_user = models.User(**user.model_dump())
+    data = user.model_dump()
+    if "email" in data:
+        data["email"] = data["email"].lower()
+    db_user = models.User(**data)
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
@@ -26,6 +42,17 @@ def update_user(db: Session, user_id: int, updates: schemas.UserUpdate):
     db_user = db.query(models.User).filter(models.User.id == user_id).first()
     if db_user:
         update_data = updates.model_dump(exclude_unset=True)
+        
+        # Data Integrity: Normalize email and check for collisions
+        if "email" in update_data:
+            new_email = update_data["email"].lower()
+            if new_email != db_user.email:
+                existing = db.query(models.User).filter(models.User.email.ilike(new_email)).first()
+                if existing:
+                    # In this generic CRUD, we'll raise an error that the router can handle
+                    raise ValueError(f"Email {new_email} is already taken")
+            update_data["email"] = new_email
+            
         for key, value in update_data.items():
             setattr(db_user, key, value)
         db.commit()
@@ -48,6 +75,34 @@ def delete_user(db: Session, user_id: int):
         db.commit()
     return db_user
 
+def deactivate_user(db: Session, user_id: int, days: int):
+    from datetime import datetime, timedelta, timezone
+    db_user = db.query(models.User).filter(models.User.id == user_id).first()
+    if db_user:
+        db_user.is_active = False
+        if days > 0:
+            db_user.deactivated_until = datetime.now(timezone.utc) + timedelta(days=days)
+        else:
+            db_user.deactivated_until = None
+        db.commit()
+        db.refresh(db_user)
+    return db_user
+
+def update_user_password(db: Session, user_id: int, old_password: str, new_password: str):
+    db_user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not db_user:
+        return None
+    
+    # Verify old password
+    # NOTE: In a real system, use pwd_context.verify(old_password, db_user.password)
+    # But current system uses plain text for simplicity (based on previous observations of login)
+    if db_user.password != old_password:
+        return False
+    
+    db_user.password = new_password
+    db.commit()
+    return True
+
 # Department operations
 def get_departments(db: Session, skip: int = 0, limit: int = 100):
     return db.query(models.Department).offset(skip).limit(limit).all()
@@ -60,16 +115,27 @@ def create_department(db: Session, department: schemas.DepartmentCreate):
     db.refresh(db_dept)
     return db_dept
 
-# Category operations
-def get_categories(db: Session, skip: int = 0, limit: int = 100):
-    return db.query(models.Category).offset(skip).limit(limit).all()
+# Entity operations
+def get_entities(db: Session, skip: int = 0, limit: int = 100):
+    return db.query(models.Entity).offset(skip).limit(limit).all()
 
-def create_category(db: Session, category: schemas.CategoryCreate):
-    db_cat = models.Category(**category.model_dump())
-    db.add(db_cat)
+def create_entity(db: Session, entity: schemas.EntityCreate):
+    db_ent = models.Entity(**entity.model_dump())
+    db.add(db_ent)
     db.commit()
-    db.refresh(db_cat)
-    return db_cat
+    db.refresh(db_ent)
+    return db_ent
+
+# Organization operations
+def get_organizations(db: Session, skip: int = 0, limit: int = 100):
+    return db.query(models.Organization).offset(skip).limit(limit).all()
+
+def create_organization(db: Session, organization: schemas.OrganizationCreate):
+    db_org = models.Organization(**organization.model_dump())
+    db.add(db_org)
+    db.commit()
+    db.refresh(db_org)
+    return db_org
 
 # Feedback operations
 def get_feedbacks(
@@ -79,6 +145,7 @@ def get_feedbacks(
     sender_id: int = None, 
     recipient_user_id: int = None,
     recipient_dept_id: int = None,
+    mentioned_user_id: int = None,
     current_user_id: int = None,
     only_approved: bool = True
 ):
@@ -114,8 +181,15 @@ def get_feedbacks(
         joinedload(models.Feedback.sender),
         joinedload(models.Feedback.recipient_user),
         joinedload(models.Feedback.recipient_dept),
-        joinedload(models.Feedback.category)
+        joinedload(models.Feedback.entity)
     )
+
+    # If mentioned_user_id provided, join with FeedbackMention
+    if mentioned_user_id:
+        query = query.join(models.FeedbackMention).filter(
+            models.FeedbackMention.user_id == mentioned_user_id,
+            models.Feedback.sender_id != mentioned_user_id
+        )
 
     # If current_user_id provided, also get current user's reaction
     if current_user_id:
@@ -166,7 +240,7 @@ def get_feedbacks(
         
         fb.recipient_dept_name = fb.recipient_dept.name if fb.recipient_dept else None
         fb.recipient_user_name = fb.recipient_user.name if fb.recipient_user else None
-        fb.category_name = fb.category.name if fb.category else None
+        fb.entity_name = fb.entity.name if fb.entity else None
         
         results.append(fb)
 
@@ -198,7 +272,7 @@ def create_feedback(db: Session, feedback: schemas.FeedbackCreate):
                 db,
                 user_id=m.get("user_id"),
                 actor_id=db_feedback.sender_id,
-                notif_type='mention',
+                notif_type=models.NotificationType.MENTION,
                 feedback_id=db_feedback.id
             )
             
@@ -277,7 +351,7 @@ def create_reply(db: Session, reply: schemas.ReplyCreate):
             db,
             user_id=feedback.sender_id,
             actor_id=db_reply.user_id,
-            notif_type='comment',
+            notif_type=models.NotificationType.COMMENT,
             feedback_id=feedback.id,
             reply_id=db_reply.id
         )
@@ -290,7 +364,7 @@ def create_reply(db: Session, reply: schemas.ReplyCreate):
                 db,
                 user_id=parent_comment.user_id,
                 actor_id=reply.user_id,
-                notif_type='reply',
+                notif_type=models.NotificationType.REPLY,
                 feedback_id=reply.feedback_id,
                 reply_id=db_reply.id
             )
@@ -356,12 +430,12 @@ def toggle_reaction(db: Session, user_id: int, feedback_id: int, is_like: bool):
         db.refresh(new_reaction)
         
         feedback = db.query(models.Feedback).filter(models.Feedback.id == feedback_id).first()
-        if feedback and feedback.sender_id != user_id:
+        if feedback and feedback.sender_id != user_id and is_like:
             create_notification(
                 db,
                 user_id=feedback.sender_id,
                 actor_id=user_id,
-                notif_type='like' if is_like else 'dislike',
+                notif_type=models.NotificationType.LIKE,
                 feedback_id=feedback_id
             )
             
@@ -390,12 +464,12 @@ def toggle_reply_reaction(db: Session, user_id: int, reply_id: int, is_like: boo
         db.refresh(new_reaction)
         
         reply = db.query(models.Reply).filter(models.Reply.id == reply_id).first()
-        if reply and reply.user_id != user_id:
+        if reply and reply.user_id != user_id and is_like:
             create_notification(
                 db,
                 user_id=reply.user_id,
                 actor_id=user_id,
-                notif_type='like' if is_like else 'dislike',
+                notif_type=models.NotificationType.LIKE,
                 feedback_id=reply.feedback_id,
                 reply_id=reply_id
             )
@@ -403,7 +477,35 @@ def toggle_reply_reaction(db: Session, user_id: int, reply_id: int, is_like: boo
         return new_reaction
 
 # Notification operations
-def create_notification(db: Session, user_id: int, actor_id: int, notif_type: str, feedback_id: int, reply_id: int = None, message: str = None, subject: str = None, broadcast_id: int = None):
+def create_notification(db: Session, user_id: int, actor_id: int, notif_type: models.NotificationType, feedback_id: int, reply_id: int = None, message: str = None, subject: str = None, broadcast_id: int = None):
+    # 1. Smart Grouping for Likes
+    if notif_type == models.NotificationType.LIKE:
+        existing = db.query(models.Notification).filter(
+            models.Notification.user_id == user_id,
+            models.Notification.feedback_id == feedback_id,
+            models.Notification.type == models.NotificationType.LIKE,
+            models.Notification.is_read == False
+        ).first()
+        
+        if existing:
+            meta = existing.meta or {"actor_count": 1, "actor_ids": [existing.actor_id]}
+            if actor_id not in meta.get("actor_ids", []):
+                meta["actor_ids"].append(actor_id)
+                meta["actor_count"] = len(meta["actor_ids"])
+                existing.meta = meta
+                
+                # Update message for grouped display
+                actor_user = db.query(models.User).filter(models.User.id == actor_id).first()
+                others_count = meta["actor_count"] - 1
+                if others_count > 0:
+                    existing.message = f"{actor_user.name} and {others_count} others liked your feedback"
+                
+                db.commit()
+                db.refresh(existing)
+                deliver_notification(db, existing)
+                return existing
+
+    # 2. Standard Creation
     notif = models.Notification(
         user_id=user_id,
         actor_id=actor_id,
@@ -413,26 +515,55 @@ def create_notification(db: Session, user_id: int, actor_id: int, notif_type: st
         message=message,
         subject=subject,
         broadcast_id=broadcast_id,
-        is_read=False
+        is_read=False,
+        meta={"actor_ids": [actor_id], "actor_count": 1} if notif_type == models.NotificationType.LIKE else None
     )
     db.add(notif)
     db.commit()
     db.refresh(notif)
     
-    # SSE Trigger to the stream
-    from app.sse import sse_manager
-    try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            asyncio.create_task(sse_manager.notify(user_id))
-    except (RuntimeError, Exception):
-        # Fallback if no loop is running (rare but good to have)
-        pass
-        
+    deliver_notification(db, notif)
     return notif
 
+def deliver_notification(db: Session, notif: models.Notification):
+    """Layer 2: Check preferences and deliver (SSE/Push/Email)."""
+    user = db.query(models.User).filter(models.User.id == notif.user_id).first()
+    if not user: return
+    
+    # Map Type to Preference Flag
+    pref_map = {
+        models.NotificationType.REPLY: user.notify_replies,
+        models.NotificationType.COMMENT: user.notify_comments,
+        models.NotificationType.MENTION: user.notify_mentions,
+        models.NotificationType.LIKE: user.notify_likes,
+        models.NotificationType.ANNOUNCEMENT: user.notify_announcements
+    }
+    
+    should_deliver = pref_map.get(notif.type, True)
+    if not should_deliver: return
+
+    # A. Bell (SSE) - Immediate visibility
+    from app.sse import sse_manager
+    try:
+        import asyncio
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            asyncio.create_task(sse_manager.notify(notif.user_id))
+    except (RuntimeError, Exception): pass
+
+    # B. Email / Push - (Placeholders for production services)
+    if user.email_notifications:
+        # deliver_via_email(user.email, notif)
+        pass
+    if user.push_notifications:
+        # deliver_via_push(user.id, notif)
+        pass
+
 def get_notifications(db: Session, user_id: int):
-    return db.query(
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user: return []
+
+    notifs_query = db.query(
         models.Notification.id,
         models.Notification.user_id,
         models.Notification.actor_id,
@@ -443,15 +574,27 @@ def get_notifications(db: Session, user_id: int):
         models.Notification.message,
         models.Notification.subject,
         models.Notification.created_at,
+        models.Notification.meta,
         models.User.name.label("actor_name"),
         models.Feedback.title.label("feedback_title"),
         models.Reply.message.label("reply_message")
     ).outerjoin(models.User, models.Notification.actor_id == models.User.id) \
      .outerjoin(models.Feedback, models.Notification.feedback_id == models.Feedback.id) \
      .outerjoin(models.Reply, models.Notification.reply_id == models.Reply.id) \
-     .filter(models.Notification.user_id == user_id) \
-     .order_by(models.Notification.created_at.desc()) \
-     .all()
+     .filter(models.Notification.user_id == user_id)
+
+    # Apply preference filtering (Bell Visibility)
+    active_filters = []
+    if not user.notify_replies: active_filters.append(models.NotificationType.REPLY)
+    if not user.notify_comments: active_filters.append(models.NotificationType.COMMENT)
+    if not user.notify_mentions: active_filters.append(models.NotificationType.MENTION)
+    if not user.notify_likes: active_filters.append(models.NotificationType.LIKE)
+    if not user.notify_announcements: active_filters.append(models.NotificationType.ANNOUNCEMENT)
+    
+    if active_filters:
+        notifs_query = notifs_query.filter(~models.Notification.type.in_(active_filters))
+
+    return notifs_query.order_by(models.Notification.created_at.desc()).all()
 
 def mark_notifications_as_read(db: Session, user_id: int):
     db.query(models.Notification).filter(models.Notification.user_id == user_id, models.Notification.is_read == False).update({"is_read": True}, synchronize_session=False)
@@ -488,31 +631,32 @@ def get_user_impact_stats(db: Session, user_id: int):
         'likes_received': likes_received
     }
 
-def get_analytics_summary(db: Session, dept_name: Optional[str] = None):
+def get_analytics_summary(db: Session, dept_name: Optional[str] = None, entity_id: Optional[int] = None):
     # Base queries
     fb_q = db.query(models.Feedback)
     u_q = db.query(models.User)
     c_q = db.query(models.Reply)
     r_q = db.query(models.Reaction)
 
-    if dept_name:
+    if entity_id:
+        fb_q = fb_q.filter(models.Feedback.entity_id == entity_id)
+        u_q = u_q.filter(models.User.entity_id == entity_id)
+        c_q = c_q.join(models.Feedback).filter(models.Feedback.entity_id == entity_id)
+        r_q = r_q.join(models.Feedback).filter(models.Feedback.entity_id == entity_id)
+    elif dept_name:
         dept_exists = db.query(models.Department.id).filter(models.Department.name == dept_name).first() is not None
         # Filter everything by department
         if dept_exists:
             dept_filter = db.query(models.Department.id).filter(models.Department.name == dept_name).scalar_subquery()
             fb_q = fb_q.filter(models.Feedback.recipient_dept_id == dept_filter)
             u_q = u_q.filter(models.User.unit_name == dept_name)
-            # Note: Users and Reactions might not be directly department-linked in the same way, 
-            # but we filter total_feedback and related metrics.
             c_q = c_q.join(models.Feedback).filter(models.Feedback.recipient_dept_id == dept_filter)
             r_q = r_q.join(models.Feedback).filter(models.Feedback.recipient_dept_id == dept_filter)
         else:
-            # Fallback scope: interpret selected "department" as category name.
-            fb_q = fb_q.join(models.Category, models.Feedback.category_id == models.Category.id).filter(models.Category.name == dept_name)
-            c_q = c_q.join(models.Feedback).join(models.Category, models.Feedback.category_id == models.Category.id).filter(models.Category.name == dept_name)
-            r_q = r_q.join(models.Feedback).join(models.Category, models.Feedback.category_id == models.Category.id).filter(models.Category.name == dept_name)
-            # Scope users to the same "program/office" label.
-            # User records may store org info across `unit_name`, `program`, or `department`.
+            # Fallback scope: interpret selected "department" as entity name.
+            fb_q = fb_q.join(models.Entity, models.Feedback.entity_id == models.Entity.id).filter(models.Entity.name == dept_name)
+            c_q = c_q.join(models.Feedback).join(models.Entity, models.Feedback.entity_id == models.Entity.id).filter(models.Entity.name == dept_name)
+            r_q = r_q.join(models.Feedback).join(models.Entity, models.Feedback.entity_id == models.Entity.id).filter(models.Entity.name == dept_name)
             u_q = u_q.filter(
                 (models.User.unit_name == dept_name) |
                 (models.User.program == dept_name) |
@@ -539,15 +683,17 @@ def get_analytics_summary(db: Session, dept_name: Optional[str] = None):
         "anonymous_rate": anon_rate,
     }
 
-def get_sentiment_summary(db: Session, dept_name: Optional[str] = None):
+def get_sentiment_summary(db: Session, dept_name: Optional[str] = None, entity_id: Optional[int] = None):
     """Analyze overall mood of user feedback."""
     q = db.query(models.Feedback.description)
-    if dept_name:
+    if entity_id:
+        q = q.filter(models.Feedback.entity_id == entity_id)
+    elif dept_name:
         dept_exists = db.query(models.Department.id).filter(models.Department.name == dept_name).first() is not None
         if dept_exists:
             q = q.join(models.Department).filter(models.Department.name == dept_name)
         else:
-            q = q.join(models.Category).filter(models.Category.name == dept_name)
+            q = q.join(models.Entity).filter(models.Entity.name == dept_name)
     
     feedbacks = q.all()
     pos_words = {"great", "excellent", "good", "happy", "thanks", "improved", "perfect", "amazing", "love", "awesome", "fast", "efficient"}
@@ -618,7 +764,7 @@ def get_pending_feedbacks(db: Session, skip: int = 0, limit: int = 100):
         models.Feedback.id,
         models.Feedback.title,
         models.Feedback.description,
-        models.Feedback.category_id,
+        models.Feedback.entity_id,
         models.Feedback.sender_id,
         models.Feedback.recipient_user_id,
         models.Feedback.recipient_dept_id,
@@ -626,9 +772,9 @@ def get_pending_feedbacks(db: Session, skip: int = 0, limit: int = 100):
         models.Feedback.is_approved,
         models.Feedback.created_at,
         models.User.name.label("user_name"),
-        models.Category.name.label("category_name")
+        models.Entity.name.label("entity_name")
     ).join(models.User, models.Feedback.sender_id == models.User.id) \
-     .join(models.Category, models.Feedback.category_id == models.Category.id) \
+     .join(models.Entity, models.Feedback.entity_id == models.Entity.id) \
      .filter(models.Feedback.is_approved == False) \
      .order_by(models.Feedback.created_at.desc()) \
      .offset(skip).limit(limit).all()
@@ -639,20 +785,20 @@ def approve_feedback_choice(db: Session, feedback_id: int, approved_name: str):
     db_fb = db.query(models.Feedback).filter(models.Feedback.id == feedback_id).first()
     if not db_fb: return None
     
-    # 1. Update Category choices list
-    db_cat = db.query(models.Category).filter(models.Category.id == db_fb.category_id).first()
-    if db_cat:
+    # 1. Update Entity choices list
+    db_ent = db.query(models.Entity).filter(models.Entity.id == db_fb.entity_id).first()
+    if db_ent:
         try:
-            choices = json.loads(db_cat.description or "[]")
+            choices = json.loads(db_ent.description or "[]")
             if approved_name not in choices:
                 choices.append(approved_name)
-                db_cat.description = json.dumps(choices)
+                db_ent.description = json.dumps(choices)
         except Exception: pass
     
     # 2. Update Feedback title and approve
-    # Title is usually "Category Name: Establishment Name"
-    cat_label = db_cat.name if db_cat else "Feedback"
-    db_fb.title = f"{cat_label}: {approved_name}"
+    # Title is usually "Entity Name: Establishment Name"
+    ent_label = db_ent.name if db_ent else "Feedback"
+    db_fb.title = f"{ent_label}: {approved_name}"
     db_fb.is_approved = True
     
     # Update timestamp so it appears "Just Now" in public feed
@@ -728,19 +874,23 @@ def get_user_activity(db: Session, user_id: int):
     results.sort(key=lambda x: x["created_at"], reverse=True)
     return results[:50]
 
-def get_user_distribution(db: Session, dept_name: Optional[str] = None):
-    """Provides breakdown of users by Program and Role Identity with Admin mapping."""
-    # 1. By Program (Priority: unit_name -> program fallback)
-    program_label = func.coalesce(models.User.unit_name, models.User.program).label("name")
-    program_q = db.query(
-        program_label,
+def get_user_distribution(db: Session, dept_name: Optional[str] = None, entity_id: Optional[int] = None):
+    """Provides breakdown of users by Entity and Role Identity with Admin mapping."""
+    from sqlalchemy import case
+    # 1. By Entity / Service (Priority: Entity.name -> unit_name fallback)
+    entity_label = func.coalesce(models.Entity.name, models.User.unit_name).label("name")
+    entity_q = db.query(
+        entity_label,
         func.count(models.User.id).label("value")
-    ).filter(program_label != None, program_label != "")
+    ).outerjoin(models.Entity, models.User.entity_id == models.Entity.id)\
+     .filter(entity_label != None, entity_label != "")
     
-    if dept_name:
-        program_q = program_q.filter(models.User.unit_name == dept_name)
+    if entity_id:
+        entity_q = entity_q.filter(models.User.entity_id == entity_id)
+    elif dept_name:
+        entity_q = entity_q.filter(models.User.unit_name == dept_name)
     
-    program_dist = program_q.group_by(program_label).all()
+    entity_dist = entity_q.group_by(entity_label).all()
     
     # 2. By Role Identity (Admins mapped to Employee)
     role_label = case(
@@ -753,8 +903,13 @@ def get_user_distribution(db: Session, dept_name: Optional[str] = None):
         func.count(models.User.id).label("value")
     ).filter(role_label != None, role_label != "")
     
-    if dept_name:
+    if entity_id:
+        role_q = role_q.filter(models.User.entity_id == entity_id)
+    elif dept_name:
         role_q = role_q.filter(models.User.unit_name == dept_name)
+    else:
+        # Fallback: if no scope, maybe default to some filter? No, global system.
+        pass
     
     role_dist = role_q.group_by(role_label).all()
 
@@ -762,7 +917,7 @@ def get_user_distribution(db: Session, dept_name: Optional[str] = None):
     format_data = lambda rows: [{"name": r.name, "value": r.value} for r in rows if r.name]
     
     return {
-        "by_program": format_data(program_dist),
+        "by_entity": format_data(entity_dist),
         "by_role": format_data(role_dist)
     }
 # Audit Logs
@@ -778,10 +933,13 @@ def create_audit_log(db: Session, action_type: str, performed_by_id: int, target
     db.refresh(db_log)
     return db_log
 
-def get_audit_logs(db: Session, skip: int = 0, limit: int = 200, dept_name: Optional[str] = None):
+def get_audit_logs(db: Session, skip: int = 0, limit: int = 200, dept_name: Optional[str] = None, entity_id: Optional[int] = None):
     query = db.query(models.AuditLog).options(joinedload(models.AuditLog.performed_by))
     
-    if dept_name:
+    if entity_id:
+        query = query.join(models.User, models.AuditLog.performed_by_id == models.User.id)\
+                     .filter(models.User.entity_id == entity_id)
+    elif dept_name:
         query = query.join(models.User, models.AuditLog.performed_by_id == models.User.id)\
                      .filter(models.User.department == dept_name)
     

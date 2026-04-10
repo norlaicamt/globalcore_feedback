@@ -7,18 +7,23 @@ from datetime import datetime, timezone
 def simulate_admin_login(email, password):
     db = SessionLocal()
     try:
-        # TESTING CASE-INSENSITIVITY
-        print(f"Testing case-insensitive lookup for: {email}")
-        user = db.query(models.User).filter(models.User.email.ilike(email)).first()
+        user = db.query(models.User).filter(models.User.email == email).first()
         if not user:
             print("User not found")
             return
         
-        print(f"User found: {user.email}, Role: {user.role}, Password matched: {user.password == password}")
+        print(f"User found: {user.email}, Role: {user.role}, Password: {user.password}")
         
         if user.password == password:
             if user.role in ["admin", "superadmin"]:
-                print("SUCCESS: Login logic passed for mixed-case email.")
+                print("Role check passed")
+                token = str(uuid.uuid4())
+                print(f"Setting session_token to {token}...")
+                user.session_token = token
+                user.last_login = datetime.now(timezone.utc)
+                db.commit()
+                print("Commit successful!")
+                print(f"Token in DB: {user.session_token}")
             else:
                 print(f"Access denied: role is {user.role}")
         else:
@@ -29,5 +34,4 @@ def simulate_admin_login(email, password):
         db.close()
 
 if __name__ == "__main__":
-    # Test with mixed case email
-    simulate_admin_login("User@Lyka.com", "YOUR_ADMIN_PASSWORD")
+    simulate_admin_login("user@lyka.com", "YOUR_ADMIN_PASSWORD")

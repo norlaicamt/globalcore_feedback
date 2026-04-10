@@ -6,7 +6,7 @@ import NotificationsView from './NotificationsView';
 import CustomModal from './CustomModal';
 import GeneralFeedback from './GeneralFeedback';
 import ActivityView from './ActivityView';
-import { getFeedbacks, getUserById, getUserNotifications, getFeedbackReplies, createFeedbackReply, updateFeedbackReply, deleteFeedbackReply, toggleReaction, toggleReplyReaction, getReactionsSummary, markNotificationsAsRead, updateFeedback, deleteFeedback, getAdminSettings, getCategories } from "../services/api";
+import { getFeedbacks, getUserById, getUserNotifications, getFeedbackReplies, createFeedbackReply, updateFeedbackReply, deleteFeedbackReply, toggleReaction, toggleReplyReaction, getReactionsSummary, markNotificationsAsRead, updateFeedback, deleteFeedback, getAdminSettings, getEntities } from "../services/api";
 import { useTerminology } from "../context/TerminologyContext";
 import { IconRegistry } from "./IconRegistry";
 import { QRCodeCanvas } from "qrcode.react";
@@ -44,6 +44,7 @@ const Icons = {
   TrendingUp: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>,
   TrendingDownGood: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"></polyline><polyline points="17 18 23 18 23 12"></polyline></svg>,
   Lock: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>,
+  Tag: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>,
 };
 
 const calculateLevel = (points) => {
@@ -83,14 +84,14 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
   });
 
   const [publicFeedEnabled, setPublicFeedEnabled] = useState(true);
-  const [categories, setCategories] = useState([]);
+  const [entities, setEntities] = useState([]);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const cats = await getCategories();
-        setCategories(cats);
-      } catch (e) { console.error("Error fetching categories", e); }
+        const ents = await getEntities();
+        setEntities(ents);
+      } catch (e) { console.error("Error fetching entities", e); }
 
       try {
         const settings = await getAdminSettings();
@@ -259,18 +260,19 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
       label: `My ${getLabel("feedback_label", "Feedback")}`,
       icon: <Icons.Inbox />,
       subItems: [
-        { id: 'history', label: 'Sent', icon: <Icons.History /> },
-        { id: 'drafts', label: 'Drafts', icon: <Icons.Message /> },
-        { id: 'activity', label: 'Activity', icon: <Icons.Bell /> }
+        { id: 'history', label: 'Sent', icon: <Icons.User /> },
+        { id: 'mentioned', label: 'Mentions', icon: <Icons.Tag /> },
+        { id: 'drafts', label: 'Drafts', icon: <Icons.Message /> }
       ]
     },
     { id: 'settings_group', label: 'Settings', icon: <Icons.Gear />, subItems: [
         { id: 'profile', label: 'Personal Details', icon: <Icons.User /> },
-        { id: 'notifs_settings', label: 'Preferences', icon: <Icons.Bell /> },
-        { id: 'privacy', label: 'Security', icon: <Icons.Lock /> }
+        { id: 'notifs_settings', label: 'Notification Preferences', icon: <Icons.Bell /> },
+        { id: 'privacy', label: 'Security', icon: <Icons.Lock /> },
+        { id: 'activity', label: 'Activity Feed', icon: <Icons.Bell /> }
     ]},
     { id: 'logout', label: 'Logout', icon: <Icons.Logout />, color: '#EF4444', action: triggerLogout },
-  ];
+];
 
   return (
     <div style={{ ...styles.hubContainer, backgroundColor: '#F8FAFC', color: '#1E293B' }}>
@@ -294,7 +296,7 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
           <span style={{ ...styles.headerTitle, color: '#1f2a56' }}>Command Center</span>
           <span style={{ fontSize: '10px', color: '#64748B', fontWeight: '500', textAlign: 'center' }}>
-            Submit and track feedback across programs, offices, or services
+            Submit and track feedback across entities, offices, or services
           </span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -323,10 +325,14 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
             setFullscreenImg={setFullscreenImg}
             onRefresh={() => fetchFeed(0)}
             publicFeedEnabled={publicFeedEnabled}
-            categories={categories}
+            entities={entities}
           />
-        ) : view === "history" ? (
-          <HistoryView currentUser={localUser} onBack={() => { setView("home"); setIsMenuOpen(true); }} />
+        ) : (view === "history" || view === "mentioned") ? (
+          <HistoryView 
+            currentUser={localUser}
+            mode={view}
+            onBack={() => { setView("home"); setIsMenuOpen(true); }}
+          />
         ) : view === "drafts" ? (
           <DraftsView
             currentUser={localUser}
@@ -813,7 +819,7 @@ const CommentModal = ({ item, currentUser, onClose, onShowToast, onRefreshProfil
               <div style={{ flex: 1 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span style={{ fontWeight: '800', fontSize: '16px', color: '#1E293B' }}>{itemMeta.is_anonymous ? 'Anonymous' : (itemMeta.user_name || 'Anonymous')}</span>
-                  <div style={{ backgroundColor: '#F1F5F9', padding: '2px 8px', borderRadius: '10px', fontSize: '10px', color: '#64748B', fontWeight: 'bold' }}>{itemMeta.category_name}</div>
+                  <div style={{ backgroundColor: '#F1F5F9', padding: '2px 8px', borderRadius: '10px', fontSize: '10px', color: '#64748B', fontWeight: 'bold' }}>{itemMeta.entity_name}</div>
                 </div>
                 <div style={{ fontSize: '12px', color: '#94A3B8', marginTop: '2px' }}>{formatDate(itemMeta.created_at)}</div>
               </div>
@@ -1027,12 +1033,12 @@ const FeedCard = ({ item: initialItem, currentUser, onShowToast, onOpenComments,
   const isAnonymous = item.is_anonymous;
   const avatarText = isAnonymous ? "?" : (item.user_name || item.sender_name || 'U').charAt(0).toUpperCase();
 
-  const categoryColorMap = {
+  const entityColorMap = {
     1: '#3B82F6',
     2: '#1f2a56',
     3: '#64748B'
   };
-  const markerColor = categoryColorMap[item.category_id] || '#64748B';
+  const markerColor = entityColorMap[item.entity_id] || '#64748B';
 
   const getEmotion = (rating) => {
     if (rating === 5) return "🤩 ecstatic";
@@ -1047,7 +1053,7 @@ const FeedCard = ({ item: initialItem, currentUser, onShowToast, onOpenComments,
     if (item.title && item.title.includes(":")) {
       return item.title.split(":")[1].trim();
     }
-    return item.category_name || item.recipient_dept_name || item.establishment_name || 'General';
+    return item.entity_name || item.recipient_dept_name || 'General';
   };
 
   const emotion = getEmotion(item.rating);
@@ -1249,10 +1255,10 @@ const FeedCard = ({ item: initialItem, currentUser, onShowToast, onOpenComments,
   );
 };
 
-const DashboardView = ({ feed, loading, hasMore, onLoadMore, onAction, currentUser, onShowToast, onOpenComments, onRefresh, publicFeedEnabled, categories, setFullscreenImg }) => {
+const DashboardView = ({ feed, loading, hasMore, onLoadMore, onAction, currentUser, onShowToast, onOpenComments, onRefresh, publicFeedEnabled, entities, setFullscreenImg }) => {
+  const [isHotTopicsExpanded, setIsHotTopicsExpanded] = useState(false);
   const { getLabel } = useTerminology();
   const [activeTab, setActiveTab] = useState('All');
-  const [isTrendingExpanded, setIsTrendingExpanded] = useState(false);
   const [searchDash, setSearchDash] = useState("");
 
   const getTabIcon = (cat) => {
@@ -1276,51 +1282,52 @@ const DashboardView = ({ feed, loading, hasMore, onLoadMore, onAction, currentUs
     return IconRegistry.default;
   };
 
-  // Calculate counts for each category
-  const getCategoryCount = (catName) => {
-    if (catName === 'All') return feed.length;
-    return feed.filter(item => (item.category_name || "").toLowerCase() === catName.toLowerCase()).length;
+  // Calculate counts for each entity
+  const getEntityCount = (entName) => {
+    if (entName === 'All') return feed.length;
+    return feed.filter(item => (item.entity_name || "").toLowerCase() === entName.toLowerCase()).length;
   };
 
   const tabs = [
-    { id: 'All', label: `All (${getCategoryCount('All')})`, icon: Icons.History },
-    ...(categories || []).map(cat => ({
-      id: cat.name,
-      label: `${cat.name.charAt(0).toUpperCase() + cat.name.slice(1)} (${getCategoryCount(cat.name)})`,
-      icon: getTabIcon(cat)
+    { id: 'All', label: `All (${getEntityCount('All')})`, icon: Icons.History },
+    ...(entities || []).map(ent => ({
+      id: ent.name,
+      label: `${ent.name.charAt(0).toUpperCase() + ent.name.slice(1)} (${getEntityCount(ent.name)})`,
+      icon: getTabIcon(ent)
     }))
   ];
 
   const filteredFeed = feed.filter(item => {
     // Tab Filter
-    const catName = (item.category_name || "").toLowerCase();
-    const deptName = (item.dept_name || "").toLowerCase();
+    const entName = (item.entity_name || "").toLowerCase();
+    const deptName = (item.recipient_dept_name || "").toLowerCase();
     const activeLower = activeTab.toLowerCase();
 
     let matchesTab = false;
     if (activeTab === 'All') matchesTab = true;
-    else if (catName === activeLower) matchesTab = true;
-    else if (activeLower === 'dept' && (catName.includes('dept') || catName.includes('department') || deptName)) matchesTab = true;
+    else if (entName === activeLower) matchesTab = true;
+    else if (activeLower === 'dept' && (entName.includes('dept') || entName.includes('department') || deptName)) matchesTab = true;
 
     if (!matchesTab) return false;
 
     // Search Filter
     if (searchDash) {
       const q = searchDash.toLowerCase();
-      const searchableStr = `${item.title} ${item.description} ${item.product_name || ""} ${item.employee_name || ""} ${item.establishment_name || ""}`.toLowerCase();
+      const searchableStr = `${item.title} ${item.description} ${item.product_name || ""} ${item.employee_name || ""} ${item.entity_name || ""}`.toLowerCase();
       return searchableStr.includes(q);
     }
     return true;
   });
 
-  const trendingItems = [...feed]
+  const allTrendingItems = [...feed]
     .filter(item => (item.replies_count > 0) || (item.likes_count > 0) || (item.dislikes_count > 0))
     .sort((a, b) => {
       const scoreA = (a.replies_count || 0) * 2 + (a.likes_count || 0) + (a.dislikes_count || 0);
       const scoreB = (b.replies_count || 0) * 2 + (b.likes_count || 0) + (b.dislikes_count || 0);
       return scoreB - scoreA;
-    })
-    .slice(0, 3);
+    });
+  
+  const trendingItems = isHotTopicsExpanded ? allTrendingItems : allTrendingItems.slice(0, 3);
 
 
   const level = calculateLevel(currentUser?.impact_points || 0);
@@ -1380,7 +1387,7 @@ const DashboardView = ({ feed, loading, hasMore, onLoadMore, onAction, currentUs
               </div>
               <input
                 type="text"
-                placeholder={`Search office, program, or service...`}
+                placeholder={`Search office, entity, or service...`}
                 value={searchDash}
                 onChange={(e) => setSearchDash(e.target.value)}
                 style={{
@@ -1493,7 +1500,7 @@ const DashboardView = ({ feed, loading, hasMore, onLoadMore, onAction, currentUs
                              <div style={{ backgroundColor: '#FEF2F2', padding: '2px', borderRadius: '4px', display: 'flex' }}><Icons.ThumbDown size={8} color="#991B1B" /></div>
                              <span style={{ fontSize: '10px', color: '#991B1B', fontWeight: 'bold' }}>{item.dislikes_count || 0}</span>
                            </div>
-                           <span style={{ fontSize: '9px', color: '#94A3B8', fontWeight: '600', marginLeft: 'auto' }}>{item.category_name}</span>
+                           <span style={{ fontSize: '9px', color: '#94A3B8', fontWeight: '600', marginLeft: 'auto' }}>{item.entity_name}</span>
                         </div>
                       </div>
                     </div>
@@ -1501,6 +1508,46 @@ const DashboardView = ({ feed, loading, hasMore, onLoadMore, onAction, currentUs
                 </div>
               ) : (
                 <p style={{ fontSize: '10px', color: '#94A3B8', margin: 0, textAlign: 'center', padding: '10px' }}>No trending topics yet.</p>
+              )}
+
+              {allTrendingItems.length > 3 && (
+                <button
+                  onClick={() => setIsHotTopicsExpanded(!isHotTopicsExpanded)}
+                  style={{
+                    marginTop: '8px',
+                    padding: '10px',
+                    width: '100%',
+                    background: 'none',
+                    border: '1.5px solid #F1F5F9',
+                    borderRadius: '12px',
+                    color: '#1f2a56',
+                    fontSize: '11px',
+                    fontWeight: '800',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    letterSpacing: '0.05em'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = '#1f2a56';
+                    e.currentTarget.style.backgroundColor = '#F8FAFC';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = '#F1F5F9';
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                  }}
+                >
+                  {isHotTopicsExpanded ? 'SHOW LESS' : `SEE ALL TRENDING (${allTrendingItems.length})`}
+                  <svg 
+                    width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"
+                    style={{ transform: isHotTopicsExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)' }}
+                  >
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
+                </button>
               )}
             </div>
           </section>
@@ -1527,7 +1574,7 @@ const DashboardView = ({ feed, loading, hasMore, onLoadMore, onAction, currentUs
                     </div>
                     <div style={{ textAlign: 'center' }}>
                       <p style={{ ...styles.emptyText, fontWeight: '800', color: '#1f2a56', margin: '0 0 4px 0', fontSize: '16px' }}>
-                        No feedback yet in this category
+                        No feedback yet in this entity
                       </p>
                       <p style={{ fontSize: '12px', color: '#64748B', margin: 0 }}>
                         Be the first to submit feedback

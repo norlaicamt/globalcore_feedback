@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { getCategories } from "../services/api";
+import { getEntities } from "../services/api";
 import { IconRegistry } from "./IconRegistry";
 
 const Icons = {
@@ -8,12 +8,12 @@ const Icons = {
 
 const CategorySelection = ({ onBack, onSelect }) => {
   const [isTranslated, setIsTranslated] = useState(false);
-  const [categories, setCategories] = useState([]);
+  const [entities, setEntities] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getCategories()
-      .then(setCategories)
+    getEntities()
+      .then(setEntities)
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
@@ -22,13 +22,13 @@ const CategorySelection = ({ onBack, onSelect }) => {
     <div style={styles.container}>
       <button onClick={onBack} style={styles.backBtn}>←</button>
       <h1 style={styles.title}>What would you like to provide feedback on?</h1>
-      <p style={styles.subTitle}>Select a category to help us direct your thoughts to the right place.</p>
+      <p style={styles.subTitle}>Select an entity to help us direct your thoughts to the right place.</p>
       
       <div style={styles.list}>
         {loading ? (
-          <div style={{ textAlign: 'center', padding: '40px', color: '#94a3b8', fontSize: '14px' }}>Loading categories...</div>
+          <div style={{ textAlign: 'center', padding: '40px', color: '#94a3b8', fontSize: '14px' }}>Loading...</div>
         ) : (
-          categories.map(cat => {
+          entities.map(cat => {
             const IconComp = IconRegistry[cat.icon] || IconRegistry.default;
             return (
               <div key={cat.id} style={styles.card} onClick={() => onSelect(cat.id)}>
@@ -39,8 +39,8 @@ const CategorySelection = ({ onBack, onSelect }) => {
                   <h3 style={styles.cardTitle}>{cat.name}</h3>
                   <p style={styles.cardDesc}>
                     {isTranslated 
-                      ? "Magbigay ng feedback para sa kategoryang ito." 
-                      : "Provide feedback for this category."}
+                      ? "Magbigay ng feedback para sa entity na ito." 
+                      : "Provide feedback for this entity."}
                   </p>
                 </div>
                 <span style={styles.arrow}>›</span>
@@ -48,8 +48,8 @@ const CategorySelection = ({ onBack, onSelect }) => {
             );
           })
         )}
-        {!loading && categories.length === 0 && (
-          <div style={{ textAlign: 'center', padding: '40px', color: '#94a3b8', fontSize: '14px' }}>No categories available yet.</div>
+        {!loading && entities.length === 0 && (
+          <div style={{ textAlign: 'center', padding: '40px', color: '#94a3b8', fontSize: '14px' }}>No entities available yet.</div>
         )}
       </div>
       

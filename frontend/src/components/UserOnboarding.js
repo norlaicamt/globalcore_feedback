@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { updateUser, getCategories } from "../services/api";
+import { updateUser, getEntities } from "../services/api";
 
 const ROLE_OPTIONS = ["Student", "Visitor", "Employee", "Parent", "Staff", "Others"];
 
@@ -80,7 +80,7 @@ const UserOnboarding = ({ currentUser, onComplete }) => {
       }
     };
     loadBaseLocations();
-    getCategories().then(cats => setAgencyList((cats || []).map(c => c.name).filter(Boolean)));
+    getEntities().then(cats => setAgencyList((cats || []).map(c => c.name).filter(Boolean)));
   }, []);
 
   useEffect(() => {

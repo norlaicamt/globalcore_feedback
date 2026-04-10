@@ -30,6 +30,19 @@ export const deleteUser = async (id) => {
   return response.data;
 };
 
+export const deactivateUser = async (id, days) => {
+  const response = await axios.post(`${API_BASE}/users/${id}/deactivate?days=${days}`);
+  return response.data;
+};
+
+export const changePassword = async (id, oldPassword, newPassword) => {
+  const response = await axios.post(`${API_BASE}/users/${id}/change-password`, {
+    old_password: oldPassword,
+    new_password: newPassword
+  });
+  return response.data;
+};
+
 export const getUserNotifications = async (id) => {
   const response = await axios.get(`${API_BASE}/users/${id}/notifications`);
   return response.data;
@@ -120,14 +133,14 @@ export const getReactionsSummary = async (feedbackId, userId) => {
   return response.data;
 };
 
-/* -------------------- CATEGORIES -------------------- */
-export const getCategories = async () => {
-  const response = await axios.get(`${API_BASE}/categories/`);
+/* -------------------- ENTITIES -------------------- */
+export const getEntities = async () => {
+  const response = await axios.get(`${API_BASE}/entities/`);
   return response.data;
 };
 
-export const createCategory = async (category) => {
-  const response = await axios.post(`${API_BASE}/categories/`, category);
+export const createEntity = async (entity) => {
+  const response = await axios.post(`${API_BASE}/entities/`, entity);
   return response.data;
 };
 

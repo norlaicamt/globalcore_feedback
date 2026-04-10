@@ -1,9 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useTerminology } from "../../../context/TerminologyContext";
 import {
-  getAnalyticsSummary, getAnalyticsVolume, getAnalyticsByCategory,
-  getAnalyticsByDepartment, getAnalyticsByStatus, getAnalyticsRatings,
-  getTopUsers, getAnalyticsEngagement, getAnalyticsSentiment,
   getAnalyticsSnapshot, adminGetScopeOptions
 } from "../../../services/adminApi";
 import {
@@ -39,23 +36,21 @@ const Section = ({ title, children, theme }) => (
 
 const AdminDashboard = ({ onNavigate, theme, darkMode, adminUser }) => {
   const { getLabel } = useTerminology();
-  // Treat any admin/superadmin as "global" for scope tracking.
-  // (We are moving away from strict department-based scoping.)
-  const hasGlobalAdminAccess = ["admin", "superadmin"].includes(adminUser?.role);
+  // Global admins have no organization_id or entity_id restriction. Scoped admins are restricted.
+  const hasGlobalAdminAccess = (adminUser?.role === "superadmin") || (adminUser?.role === "admin" && !adminUser?.entity_id);
   const tooltipStyle = { 
     fontSize: "12px", borderRadius: "8px", border: `1px solid ${theme.border}`, 
     boxShadow: "0 2px 8px rgba(0,0,0,0.06)", backgroundColor: theme.surface, color: theme.text 
   };
   const [summary, setSummary] = useState(null);
   const [volume, setVolume] = useState([]);
-  const [byCategory, setByCategory] = useState([]);
-  const [byDept, setByDept] = useState([]);
+  const [byEntity, setByEntity] = useState([]);
   const [byStatus, setByStatus] = useState([]);
   const [ratings, setRatings] = useState([]);
   const [topUsers, setTopUsers] = useState([]);
   const [engagement, setEngagement] = useState([]);
   const [sentiment, setSentiment] = useState({ positive: 0, neutral: 0, frustrated: 0 });
-  const [userDistribution, setUserDistribution] = useState({ by_program: [], by_role: [] });
+  const [userDistribution, setUserDistribution] = useState({ by_entity: [], by_role: [] });
   const [loading, setLoading] = useState(true);
   
   const [scopeCategories, setScopeCategories] = useState([]);
@@ -79,14 +74,13 @@ const AdminDashboard = ({ onNavigate, theme, darkMode, adminUser }) => {
         const data = await getAnalyticsSnapshot(deptFilter);
         setSummary(data.summary);
         setVolume(data.volume);
-        setByCategory(data.by_category);
-        setByDept(data.by_department);
+        setByEntity(data.by_entity);
         setByStatus(data.by_status);
         setRatings(data.ratings);
         setTopUsers(data.top_users);
         setEngagement(data.engagement);
         setSentiment(data.sentiment);
-        setUserDistribution(data.user_distribution || { by_program: [], by_role: [] });
+        setUserDistribution(data.user_distribution || { by_entity: [], by_role: [] });
       } catch (err) {
         console.error(err);
       } finally {
@@ -99,7 +93,7 @@ const AdminDashboard = ({ onNavigate, theme, darkMode, adminUser }) => {
     // Auto-refresh every 15 seconds
     const intervalId = setInterval(() => fetchAnalytics(false), 15000);
     return () => clearInterval(intervalId);
-  }, [adminUser, selectedDept]);
+  }, [adminUser, selectedDept, hasGlobalAdminAccess]);
 
   if (loading) return (
     <div style={{ textAlign: "center", padding: "60px", color: "#94A3B8", fontSize: "13px" }}>
@@ -141,10 +135,10 @@ const AdminDashboard = ({ onNavigate, theme, darkMode, adminUser }) => {
       ) : (
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: theme.surface, padding: "12px 20px", borderRadius: "12px", border: `1px solid ${theme.border}` }}>
            <div>
-            <h3 style={{ margin: 0, fontSize: "14px", fontWeight: "800", color: theme.text }}>{adminUser?.department} Dashboard</h3>
+            <h3 style={{ margin: 0, fontSize: "14px", fontWeight: "800", color: theme.text }}>{getLabel("category_label", "Entity")} Dashboard</h3>
             <p style={{ margin: "4px 0 0", fontSize: "12px", color: "#3B82F6", fontWeight: "700", display: "flex", alignItems: "center", gap: "6px" }}>
               <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#3B82F6" }} />
-              Scoped to your assigned program
+              Viewing your assigned {getLabel("category_label", "Entity").toLowerCase()} data
             </p>
           </div>
         </div>
@@ -157,28 +151,28 @@ const AdminDashboard = ({ onNavigate, theme, darkMode, adminUser }) => {
         gap: "16px",
         justifyContent: "center"
       }}>
-        <KpiCard theme={theme} label={hasGlobalAdminAccess ? `Total ${getLabel("feedback_label_plural", "Feedback")}` : `${adminUser?.department} ${getLabel("feedback_label", "Feedback")}`} value={summary?.total_feedback ?? 0} sub={hasGlobalAdminAccess ? "System-wide" : "Total reports"} onClick={() => onNavigate("feedbacks")} />
+        <KpiCard theme={theme} label={hasGlobalAdminAccess ? `Total ${getLabel("feedback_label_plural", "Feedback")}` : `${getLabel("category_label", "Entity")} ${getLabel("feedback_label", "Feedback")}`} value={summary?.total_feedback ?? 0} sub={hasGlobalAdminAccess ? "System-wide" : "Assigned scope"} onClick={() => onNavigate("feedbacks")} />
         {hasGlobalAdminAccess ? (
           <KpiCard theme={theme} label="Total Users" value={summary?.total_users ?? 0} sub="Registered" onClick={() => onNavigate("users")} />
         ) : (
-          <KpiCard theme={theme} label="Dept. Users" value={summary?.total_users ?? 0} sub={`In ${adminUser?.department}`} onClick={() => onNavigate("users")} />
+          <KpiCard theme={theme} label="Scoped Users" value={summary?.total_users ?? 0} sub={`In your ${getLabel("category_label", "Entity").toLowerCase()}`} onClick={() => onNavigate("users")} />
         )}
         <KpiCard theme={theme} label="Avg. Rating" value={summary?.avg_rating ?? 0} sub="Out of 5" />
-        <KpiCard theme={theme} label="Anonymous Rate" value={`${summary?.anonymous_rate ?? 0}%`} sub={`Of all ${getLabel("feedback_label_plural", "submissions")}`} />
+        <KpiCard theme={theme} label="Anonymous Rate" value={`${summary?.anonymous_rate ?? 0}%`} sub="Of submissions" />
         <KpiCard theme={theme} label="Total Comments" value={summary?.total_comments ?? 0} sub="All replies" />
       </div>
 
       {/* 📊 User Insight Section */}
       <div style={{ display: "grid", gridTemplateColumns: hasGlobalAdminAccess ? "1fr 1fr" : "1fr", gap: "16px" }}>
         {hasGlobalAdminAccess && (
-          <Section theme={theme} title="Program/Office distribution">
+          <Section theme={theme} title={`${getLabel("category_label", "Entity")} distribution`}>
             <ResponsiveContainer width="100%" height={250}>
               <PieChart>
                 <Pie
-                  data={userDistribution.by_program}
+                  data={userDistribution.by_entity}
                   cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value"
                 >
-                  {userDistribution.by_program.map((entry, index) => (
+                  {userDistribution.by_entity.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                   ))}
                 </Pie>
@@ -186,7 +180,7 @@ const AdminDashboard = ({ onNavigate, theme, darkMode, adminUser }) => {
               </PieChart>
             </ResponsiveContainer>
             <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "10px", marginTop: "10px" }}>
-              {userDistribution.by_program.map((entry, index) => (
+              {userDistribution.by_entity.map((entry, index) => (
                 <div key={index} style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                   <div style={{ width: "8px", height: "8px", borderRadius: "2px", background: CHART_COLORS[index % CHART_COLORS.length] }} />
                   <span style={{ fontSize: "10px", color: theme.textMuted }}>{entry.name}</span>
@@ -281,16 +275,16 @@ const AdminDashboard = ({ onNavigate, theme, darkMode, adminUser }) => {
         </div>
       </Section>
 
-      {/* Category Analytics */}
-      <Section theme={theme} title={`Submissions by ${getLabel("category_label", "Category")} Type`}>
+      {/* Entity Analytics */}
+      <Section theme={theme} title={`Submissions by ${getLabel("category_label", "Entity")} Type`}>
         <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={byCategory} layout="vertical">
+          <BarChart data={byEntity} layout="vertical">
             <XAxis type="number" tick={{ fontSize: 10, fill: theme.textMuted }} tickLine={false} axisLine={false} />
             <YAxis dataKey="name" type="category" tick={{ fontSize: 10, fill: theme.textMuted }} tickLine={false} axisLine={false} width={120} />
             <Tooltip contentStyle={tooltipStyle} />
             <Bar dataKey="count" fill="#1f2a56" radius={[0, 6, 6, 0]} name={getLabel("feedback_label_plural", "Posts")}>
-              {byCategory.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={darkMode ? CHART_COLORS[index % CHART_COLORS.length] : CHART_COLORS[index % CHART_COLORS.length]} />
+              {byEntity.map((entry, index) => (
+                <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
               ))}
             </Bar>
           </BarChart>

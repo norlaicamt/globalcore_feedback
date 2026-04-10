@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { adminGetCategories, adminCreateCategory, adminUpdateCategory, adminDeleteCategory } from "../../../services/adminApi";
+import { adminGetEntities, adminCreateEntity, adminUpdateEntity, adminDeleteEntity } from "../../../services/adminApi";
 import CustomModal from "../../CustomModal";
 
 const AdminCategories = () => {
@@ -9,27 +9,27 @@ const AdminCategories = () => {
   const [editId, setEditId] = useState(null); const [editName, setEditName] = useState(""); const [editDesc, setEditDesc] = useState("");
   const [dialog, setDialog] = useState({ isOpen: false });
 
-  const load = () => adminGetCategories().then(setCats).catch(console.error).finally(() => setLoading(false));
+  const load = () => adminGetEntities().then(setCats).catch(console.error).finally(() => setLoading(false));
   useEffect(() => { load(); }, []);
 
   const handleCreate = async (e) => {
     e.preventDefault();
     if (!newName.trim()) return;
-    await adminCreateCategory(newName.trim(), newDesc.trim());
+    await adminCreateEntity(newName.trim(), newDesc.trim());
     setNewName(""); setNewDesc(""); load();
   };
 
   const handleUpdate = async (id) => {
-    await adminUpdateCategory(id, editName.trim(), editDesc.trim());
+    await adminUpdateEntity(id, editName.trim(), editDesc.trim());
     setEditId(null); load();
   };
 
   const handleDelete = (cat) => {
     setDialog({
-      isOpen: true, type: "alert", title: "Delete Category",
-      message: `Delete "${cat.name}"? ${cat.count} feedback post(s) use this category.`,
+      isOpen: true, type: "alert", title: "Delete Entity",
+      message: `Delete "${cat.name}"? ${cat.count} feedback post(s) use this entity.`,
       confirmText: "Delete", isDestructive: true,
-      onConfirm: async () => { await adminDeleteCategory(cat.id); setDialog({ isOpen: false }); load(); },
+      onConfirm: async () => { await adminDeleteEntity(cat.id); setDialog({ isOpen: false }); load(); },
       onCancel: () => setDialog({ isOpen: false }),
     });
   };
@@ -37,10 +37,10 @@ const AdminCategories = () => {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
       <div style={{ background: "white", borderRadius: "16px", padding: "20px", border: "1px solid #E2E8F0" }}>
-        <h3 style={{ margin: "0 0 14px 0", fontSize: "14px", fontWeight: "800", color: "#1E293B" }}>Add New Category</h3>
+        <h3 style={{ margin: "0 0 14px 0", fontSize: "14px", fontWeight: "800", color: "#1E293B" }}>Add New Entity</h3>
         <form onSubmit={handleCreate} style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
           <div style={{ display: "flex", gap: "10px" }}>
-            <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Category name…"
+            <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Entity name…"
               style={{ flex: 1, padding: "10px 14px", border: "1.5px solid #E2E8F0", borderRadius: "10px", fontSize: "13px", outline: "none", fontFamily: "inherit" }} />
             <input value={newDesc} onChange={e => setNewDesc(e.target.value)} placeholder="Description (optional)"
               style={{ flex: 2, padding: "10px 14px", border: "1.5px solid #E2E8F0", borderRadius: "10px", fontSize: "13px", outline: "none", fontFamily: "inherit" }} />
@@ -54,7 +54,7 @@ const AdminCategories = () => {
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
             <thead>
               <tr style={{ background: "#F8FAFC", borderBottom: "1px solid #E2E8F0" }}>
-                {["#", "Category", "Description", "Usage", "Actions"].map(h => (
+                {["#", "Entity", "Description", "Usage", "Actions"].map(h => (
                   <th key={h} style={{ padding: "12px 16px", textAlign: "left", fontSize: "11px", fontWeight: "700", color: "#64748B", textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</th>
                 ))}
               </tr>

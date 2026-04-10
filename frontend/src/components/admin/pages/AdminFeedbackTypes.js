@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
-import { adminGetCategories, adminCreateCategory, adminUpdateCategory, adminDeleteCategory } from "../../../services/adminApi";
+import { adminGetEntities, adminCreateEntity, adminUpdateEntity, adminDeleteEntity } from "../../../services/adminApi";
 import { useTerminology } from "../../../context/TerminologyContext";
 import CustomModal from "../../CustomModal";
 import { IconRegistry } from "../../IconRegistry";
@@ -150,7 +150,7 @@ const AdminFeedbackTypes = ({ theme, darkMode, adminUser }) => {
   const load = async () => {
     setLoading(true);
     try {
-      const data = await adminGetCategories();
+      const data = await adminGetEntities();
       setCats(data || []);
       setCatPresets(data || []);
     } catch(err) { console.error(err); }
@@ -192,7 +192,7 @@ const AdminFeedbackTypes = ({ theme, darkMode, adminUser }) => {
           throw new Error("Category to update not found.");
         }
         // Rename-only behavior for Edit Type flow.
-        await adminUpdateCategory(
+        await adminUpdateEntity(
           target.id,
           newName.trim(),
           target.description || "",
@@ -206,7 +206,7 @@ const AdminFeedbackTypes = ({ theme, darkMode, adminUser }) => {
         });
       } else {
         const descVal = JSON.stringify(newChoices);
-        await adminCreateCategory(newName.trim(), descVal, [], newIconKey);
+        await adminCreateEntity(newName.trim(), descVal, [], newIconKey);
         setDialog({
           isOpen: true, type: "alert", title: "Success",
           message: `${getLabel("category_label", "Category")} "${newName}" has been created.`,
@@ -234,7 +234,7 @@ const AdminFeedbackTypes = ({ theme, darkMode, adminUser }) => {
     if (!editName.trim()) return;
     const descVal = JSON.stringify(editChoices);
     const existing = cats.find(c => c.id === id);
-    await adminUpdateCategory(id, editName.trim(), descVal, [], existing?.icon || "default");
+    await adminUpdateEntity(id, editName.trim(), descVal, [], existing?.icon || "default");
     setEditId(null); setEditName(""); setEditChoices([]); load();
   };
 
@@ -277,7 +277,7 @@ const AdminFeedbackTypes = ({ theme, darkMode, adminUser }) => {
       confirmText: "Delete", isDestructive: true,
       onConfirm: async () => { 
         try {
-          await adminDeleteCategory(cat.id); 
+          await adminDeleteEntity(cat.id); 
           setDialog({ isOpen: false }); 
           load(); 
         } catch (err) {

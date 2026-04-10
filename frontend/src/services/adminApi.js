@@ -9,15 +9,35 @@ const adminApi = axios.create({ baseURL: BASE });
 // Request interceptor to add admin context headers
 adminApi.interceptors.request.use((config) => {
   const adminUser = JSON.parse(localStorage.getItem("adminUser") || "null");
-  if (adminUser) {
-    config.headers["X-Admin-Id"] = adminUser.id;
-    config.headers["X-Admin-Role"] = adminUser.role;
-    if (adminUser.department) {
-      config.headers["X-Admin-Dept"] = adminUser.department;
-    }
+  if (adminUser?.session_token) {
+    config.headers["X-Session-Token"] = adminUser.session_token;
   }
   return config;
 });
+
+// Response interceptor to handle session expiry (401)
+// We use a flag to prevent infinite reload loops if a subsequent request also fails 401 during unload
+let isRedirecting = false;
+
+adminApi.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const isLoginRequest = error.config?.url?.includes('/login');
+    if (error.response?.status === 401 && !isRedirecting && !isLoginRequest) {
+      isRedirecting = true;
+      console.warn("Session expired or unauthorized. Logging out...");
+      
+      // Clear all potential admin-related session storage
+      localStorage.removeItem("adminUser");
+      localStorage.removeItem("adminView");
+      
+      // Direct redirect to the admin login page
+      // Using window.location.href ensures we break out of current React state
+      window.location.href = "/admin";
+    }
+    return Promise.reject(error);
+  }
+);
 
 // Auth
 export const adminLogin = (email, password) =>
@@ -27,7 +47,7 @@ export const adminLogin = (email, password) =>
 export const getAnalyticsSnapshot = (dept_name = "") => adminApi.get(`/analytics/snapshot${dept_name ? `?dept_name=${encodeURIComponent(dept_name)}` : ""}`).then(r => r.data);
 export const getAnalyticsSummary = (dept_name = "") => adminApi.get(`/analytics/summary${dept_name ? `?dept_name=${encodeURIComponent(dept_name)}` : ""}`).then(r => r.data);
 export const getAnalyticsVolume = (days = 30, dept_name = "") => adminApi.get(`/analytics/volume?days=${days}${dept_name ? `&dept_name=${encodeURIComponent(dept_name)}` : ""}`).then(r => r.data);
-export const getAnalyticsByCategory = (dept_name = "") => adminApi.get(`/analytics/by-category${dept_name ? `?dept_name=${encodeURIComponent(dept_name)}` : ""}`).then(r => r.data);
+export const getAnalyticsByEntity = (dept_name = "") => adminApi.get(`/analytics/by-entity${dept_name ? `?dept_name=${encodeURIComponent(dept_name)}` : ""}`).then(r => r.data);
 export const getAnalyticsByDepartment = () => adminApi.get("/analytics/by-department").then(r => r.data);
 export const getAnalyticsByStatus = (dept_name = "") => adminApi.get(`/analytics/by-status${dept_name ? `?dept_name=${encodeURIComponent(dept_name)}` : ""}`).then(r => r.data);
 export const getAnalyticsRatings = (dept_name = "") => adminApi.get(`/analytics/ratings${dept_name ? `?dept_name=${encodeURIComponent(dept_name)}` : ""}`).then(r => r.data);
@@ -40,11 +60,12 @@ export const getAnalyticsSentiment = (dept_name = "") => adminApi.get(`/analytic
 export const adminGetUsers = () => adminApi.get("/users").then(r => r.data);
 export const adminToggleUserStatus = (id, isActive) => adminApi.put(`/users/${id}/status?is_active=${isActive}`).then(r => r.data);
 export const adminUpdateUserRole = (id, role) => adminApi.put(`/users/${id}/role?role=${encodeURIComponent(role)}`).then(r => r.data);
-export const adminUpdateUserDetails = (id, role, department, program, position_title) => {
+export const adminUpdateUserDetails = (id, role, department, program, entity_id, position_title) => {
   const q = new URLSearchParams();
   if (role) q.set("role", role);
   if (department !== undefined) q.set("department", department);
   if (program !== undefined) q.set("program", program);
+  if (entity_id !== undefined) q.set("entity_id", entity_id);
   if (position_title !== undefined) q.set("position_title", position_title);
   return adminApi.put(`/users/${id}/details?${q.toString()}`).then(r => r.data);
 };
@@ -54,7 +75,7 @@ export const adminDeleteUser = (id) => adminApi.delete(`/users/${id}`);
 export const adminGetFeedbacks = (params = {}) => {
   const q = new URLSearchParams();
   if (params.status) q.set("status", params.status);
-  if (params.category_id) q.set("category_id", params.category_id);
+  if (params.entity_id) q.set("entity_id", params.entity_id);
   if (params.dept_name) q.set("dept_name", params.dept_name);
   q.set("skip", params.skip || 0);
   q.set("limit", params.limit || 50);
@@ -65,22 +86,22 @@ export const adminDeleteFeedback = (id) => adminApi.delete(`/feedbacks/${id}`);
 
 // Departments
 export const adminGetDepartments = () => adminApi.get("/departments").then(r => r.data);
-export const adminCreateDepartment = (name, category_id = null) => 
-  adminApi.post(`/departments?name=${encodeURIComponent(name)}${category_id ? `&category_id=${category_id}` : ""}`).then(r => r.data);
-export const adminUpdateDepartment = (id, name, category_id = null) => 
-  adminApi.put(`/departments/${id}?name=${encodeURIComponent(name)}${category_id ? `&category_id=${category_id}` : ""}`).then(r => r.data);
+export const adminCreateDepartment = (name, entity_id = null) => 
+  adminApi.post(`/departments?name=${encodeURIComponent(name)}${entity_id ? `&entity_id=${entity_id}` : ""}`).then(r => r.data);
+export const adminUpdateDepartment = (id, name, entity_id = null) => 
+  adminApi.put(`/departments/${id}?name=${encodeURIComponent(name)}${entity_id ? `&entity_id=${entity_id}` : ""}`).then(r => r.data);
 export const adminDeleteDepartment = (id) => adminApi.delete(`/departments/${id}`);
 
 // Dashboard scope options (Program/Office/Entities)
 export const adminGetScopeOptions = () => adminApi.get("/scope-options").then(r => r.data);
 
-// Categories
-export const adminGetCategories = () => adminApi.get("/categories").then(r => r.data);
-export const adminCreateCategory = (name, description = "", fields = [], icon = "default") => 
-  adminApi.post("/categories", { name, description, fields, icon }).then(r => r.data);
-export const adminUpdateCategory = (id, name, description = "", fields = [], icon = "default") => 
-  adminApi.put(`/categories/${id}`, { name, description, fields, icon }).then(r => r.data);
-export const adminDeleteCategory = (id) => adminApi.delete(`/categories/${id}`);
+// Entities
+export const adminGetEntities = () => adminApi.get("/entities").then(r => r.data);
+export const adminCreateEntity = (name, description = "", fields = [], icon = "default", organization_id = null) => 
+  adminApi.post("/entities", { name, description, fields, icon, organization_id }).then(r => r.data);
+export const adminUpdateEntity = (id, name, description = "", fields = [], icon = "default") => 
+  adminApi.put(`/entities/${id}`, { name, description, fields, icon }).then(r => r.data);
+export const adminDeleteEntity = (id) => adminApi.delete(`/entities/${id}`);
 
 // Broadcast
 export const adminBroadcast = (subject, message, broadcast_type = "announcement") => 

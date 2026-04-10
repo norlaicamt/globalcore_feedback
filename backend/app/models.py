@@ -11,6 +11,13 @@ class FeedbackStatus(str, enum.Enum):
     RESOLVED = "RESOLVED"
     CLOSED = "CLOSED"
 
+class NotificationType(str, enum.Enum):
+    REPLY = "reply"
+    COMMENT = "comment"
+    MENTION = "mention"
+    LIKE = "like"
+    ANNOUNCEMENT = "announcement"
+
 class User(Base):
     __tablename__ = "global_user"
     id = Column(Integer, primary_key=True, index=True)
@@ -21,6 +28,8 @@ class User(Base):
     phone = Column(String, nullable=True)
     department = Column(String, nullable=True)
     program = Column(String, nullable=True)
+    entity_id = Column(Integer, ForeignKey("entities.id"), nullable=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=True)
     password = Column(String, nullable=True)
     two_factor_enabled = Column(Boolean, default=False)
     role = Column(String, default="user")
@@ -40,14 +49,20 @@ class User(Base):
     avatar_url = Column(Text, nullable=True)  # base64 data URI or URL
     id_photo_url = Column(Text, nullable=True)
     
-    # New Preference Fields
+    # Interaction Preference Fields (Interaction-First Architecture)
+    notify_replies = Column(Boolean, default=True)      # Replaces reply_notifications
+    notify_comments = Column(Boolean, default=True)     # New
+    notify_mentions = Column(Boolean, default=True)     # New
+    notify_likes = Column(Boolean, default=True)        # New
+    notify_announcements = Column(Boolean, default=True) # Replaces status_updates
+    
+    # Notification Delivery Channels
     push_notifications = Column(Boolean, default=True)
     email_notifications = Column(Boolean, default=False)
-    status_updates = Column(Boolean, default=True)
-    reply_notifications = Column(Boolean, default=True)
     weekly_digest = Column(Boolean, default=False)
     biometrics_enabled = Column(Boolean, default=True)
     avatar_url = Column(Text, nullable=True)
+    session_token = Column(String, nullable=True, index=True)
     impact_points = Column(Integer, default=0)
     
     # Tracking fields
@@ -56,26 +71,45 @@ class User(Base):
     completed_at = Column(DateTime, nullable=True)
     last_login = Column(DateTime, nullable=True)
     
+    deactivated_until = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-
+    
+    # Relationships
+    organization = relationship("Organization", back_populates="users")
+    entity = relationship("Entity")
 
 class Department(Base):
     __tablename__ = "departments"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, index=True)
-    category_id = Column(Integer, ForeignKey("categories.id"), nullable=True)
+    entity_id = Column(Integer, ForeignKey("entities.id"), nullable=True)
     
-    category = relationship("Category", backref="departments")
+    entity = relationship("Entity", back_populates="departments")
     
-    __table_args__ = (UniqueConstraint('name', 'category_id', name='_dept_name_cat_uc'),)
+    __table_args__ = (UniqueConstraint('name', 'entity_id', name='_dept_name_entity_uc'),)
 
-class Category(Base):
-    __tablename__ = "categories"
+class Organization(Base):
+    __tablename__ = "organizations"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, index=True)
+    logo_url = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    entities = relationship("Entity", back_populates="organization", cascade="all, delete-orphan")
+    users = relationship("User", back_populates="organization")
+
+class Entity(Base):
+    __tablename__ = "entities"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, index=True)
     description = Column(String, nullable=True)
     icon = Column(String, nullable=True) # stores icon identifier (emoji or svg key)
     fields = Column(JSONB, nullable=True) # stores List[dict] of field definitions
+    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=True)
+    
+    organization = relationship("Organization", back_populates="entities")
+    departments = relationship("Department", back_populates="entity", cascade="all, delete-orphan")
+    feedbacks = relationship("Feedback", back_populates="entity")
 
 class Feedback(Base):
     __tablename__ = "feedbacks"
@@ -87,7 +121,7 @@ class Feedback(Base):
     sender_id = Column(Integer, ForeignKey("global_user.id"))
     recipient_user_id = Column(Integer, ForeignKey("global_user.id"), nullable=True)
     recipient_dept_id = Column(Integer, ForeignKey("departments.id"), nullable=True)
-    category_id = Column(Integer, ForeignKey("categories.id"))
+    entity_id = Column(Integer, ForeignKey("entities.id"))
     rating = Column(Integer, nullable=True) # 1-5 stars
     address = Column(String, nullable=True)
     region = Column(String, nullable=True)
@@ -108,7 +142,7 @@ class Feedback(Base):
     sender = relationship("User", foreign_keys=[sender_id])
     recipient_user = relationship("User", foreign_keys=[recipient_user_id])
     recipient_dept = relationship("Department")
-    category = relationship("Category")
+    entity = relationship("Entity", back_populates="feedbacks")
     replies = relationship("Reply", back_populates="feedback")
     reactions = relationship("Reaction", back_populates="feedback", cascade="all, delete-orphan")
     mentions = relationship("FeedbackMention", back_populates="feedback", cascade="all, delete-orphan")
@@ -176,13 +210,14 @@ class Notification(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("global_user.id"))  # Recipient
     actor_id = Column(Integer, ForeignKey("global_user.id")) # Who did it
-    type = Column(String) # 'comment', 'like', 'dislike'
+    type = Column(Enum(NotificationType)) # Interaction type
     feedback_id = Column(Integer, ForeignKey("feedbacks.id"))
     reply_id = Column(Integer, ForeignKey("replies.id"), nullable=True)
-    message = Column(String, nullable=True)  # New field for broadcast message
-    subject = Column(String, nullable=True)  # New field for broadcast title
+    message = Column(String, nullable=True)  # Legacy/Custom message
+    subject = Column(String, nullable=True)  # Legacy/Custom subject
     broadcast_id = Column(Integer, ForeignKey("broadcast_logs.id"), nullable=True)
-    broadcast_type = Column(String, default="announcement") # announcement, alert, reminder
+    broadcast_type = Column(String, default="announcement")
+    meta = Column(JSONB, nullable=True)     # For smart grouping (e.g. {actor_count: 5, actor_names: [...]})
     is_read = Column(Boolean, default=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
@@ -201,7 +236,7 @@ class SystemLabel(Base):
     id = Column(Integer, primary_key=True, index=True)
     key = Column(String, unique=True, index=True)
     value = Column(String)
-    organization_id = Column(Integer, nullable=True) # Future-proofing
+    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=True) # Future-proofing
 
 class BroadcastLog(Base):
     __tablename__ = "broadcast_logs"
