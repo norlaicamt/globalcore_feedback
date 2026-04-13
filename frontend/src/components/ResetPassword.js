@@ -132,18 +132,18 @@ const styles = {
     logoCircle: {
         width: '56px',
         height: '56px',
-        background: 'rgba(31, 42, 86, 0.05)',
+        background: 'rgba(var(--primary-rgb), 0.05)',
         borderRadius: '18px',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         margin: '0 auto 24px',
-        color: '#1f2a56'
+        color: 'var(--primary-color)'
     },
     title: {
         fontSize: '28px',
         fontWeight: '900',
-        color: '#1f2a56',
+        color: 'var(--primary-color)',
         margin: '0 0 12px 0',
         letterSpacing: '-1px'
     },
@@ -166,7 +166,7 @@ const styles = {
     label: {
         fontSize: '13px',
         fontWeight: '800',
-        color: '#1f2a56',
+        color: 'var(--primary-color)',
         textTransform: 'uppercase',
         letterSpacing: '0.05em',
         paddingLeft: '4px'
@@ -185,14 +185,14 @@ const styles = {
     button: {
         width: '100%',
         padding: '18px',
-        background: '#1f2a56',
+        background: 'var(--primary-color)',
         color: 'white',
         border: 'none',
         borderRadius: '18px',
         fontSize: '16px',
         fontWeight: '800',
         cursor: 'pointer',
-        boxShadow: '0 10px 25px rgba(31, 42, 86, 0.15)',
+        boxShadow: '0 10px 25px rgba(var(--primary-rgb), 0.15)',
         transition: 'transform 0.2s'
     },
     error: {

@@ -328,9 +328,9 @@ const AdminUsers = ({ theme, darkMode, adminUser }) => {
         <head><meta charset='utf-8'><title>User Oversight Report</title>
         <style>
           body { font-family: 'Segoe UI', Arial, sans-serif; color: #1e293b; padding: 20px; }
-          h1 { color: #1f2a56; border-bottom: 2px solid #3b82f6; padding-bottom: 5px; }
+          h1 { color: var(--primary-color); border-bottom: 2px solid #3b82f6; padding-bottom: 5px; }
           table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-          th { background-color: #1f2a56; color: white; text-align: left; padding: 12px; }
+          th { background-color: var(--primary-color); color: white; text-align: left; padding: 12px; }
           td { border-bottom: 1px solid #e2e8f0; padding: 10px; font-size: 11px; }
         </style>
         </head>
@@ -379,7 +379,7 @@ const AdminUsers = ({ theme, darkMode, adminUser }) => {
                 fontSize: "12px",
                 fontWeight: "700",
                 fontFamily: "inherit",
-                background: roleTab === tab ? "#1f2a56" : "transparent",
+                background: roleTab === tab ? "var(--primary-color)" : "transparent",
                 color: roleTab === tab ? "#fff" : theme.textMuted
               }}
             >
@@ -421,7 +421,7 @@ const AdminUsers = ({ theme, darkMode, adminUser }) => {
                     <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                       {u.avatar_url
                         ? <img src={u.avatar_url} alt={u.name} style={{ width: "30px", height: "30px", borderRadius: "50%", objectFit: "cover", border: `1px solid ${theme.border}` }} />
-                        : <div style={{ width: "30px", height: "30px", borderRadius: "50%", background: "#1f2a56", display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontWeight: "700", fontSize: "12px", flexShrink: 0 }}>{u.name?.charAt(0)}</div>}
+                        : <div style={{ width: "30px", height: "30px", borderRadius: "50%", background: "var(--primary-color)", display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontWeight: "700", fontSize: "12px", flexShrink: 0 }}>{u.name?.charAt(0)}</div>}
                       <span style={{ fontWeight: "600", color: theme.text, display: "flex", alignItems: "center", gap: "4px" }}>
                         {u.name}
                         {u.impact_points >= 200 && (
@@ -438,6 +438,14 @@ const AdminUsers = ({ theme, darkMode, adminUser }) => {
                       <span style={{ fontSize: "11px", fontWeight: "600", color: theme.textMuted }}>
                         {u.role_identity && u.role_identity !== "Others" ? u.role_identity : "Member"}
                       </span>
+                      {u.is_global_user && (
+                        <span style={{
+                          padding: "2px 6px", borderRadius: "5px", fontSize: "9px", fontWeight: "900", textTransform: "uppercase",
+                          background: '#F0FDF4', color: '#15803D', border: '1px solid #DCFCE7'
+                        }}>
+                          Beneficiary
+                        </span>
+                      )}
                       {(u.role === 'admin' || u.role === 'superadmin') && (
                         <span style={{
                           padding: "2px 6px", borderRadius: "5px", fontSize: "9px", fontWeight: "900", textTransform: "uppercase",
@@ -533,7 +541,7 @@ const AdminUsers = ({ theme, darkMode, adminUser }) => {
 };
 
 const inputStyle = { flex: 1, padding: "8px 12px", border: "1.5px solid #E2E8F0", borderRadius: "8px", fontSize: "13px", outline: "none", fontFamily: "inherit", color: "#1E293B" };
-const outlineBtn = { padding: "8px 16px", background: "white", color: "#1f2a56", border: "1.5px solid #CBD5E1", borderRadius: "8px", fontSize: "12px", fontWeight: "600", cursor: "pointer", fontFamily: "inherit" };
+const outlineBtn = { padding: "8px 16px", background: "white", color: "var(--primary-color)", border: "1.5px solid #CBD5E1", borderRadius: "8px", fontSize: "12px", fontWeight: "600", cursor: "pointer", fontFamily: "inherit" };
 const thStyle = { padding: "11px 14px", textAlign: "left", fontSize: "10px", fontWeight: "700", color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.06em" };
 const tdStyle = { padding: "11px 14px", verticalAlign: "middle" };
 

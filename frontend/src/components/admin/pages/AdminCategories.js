@@ -44,7 +44,7 @@ const AdminCategories = () => {
               style={{ flex: 1, padding: "10px 14px", border: "1.5px solid #E2E8F0", borderRadius: "10px", fontSize: "13px", outline: "none", fontFamily: "inherit" }} />
             <input value={newDesc} onChange={e => setNewDesc(e.target.value)} placeholder="Description (optional)"
               style={{ flex: 2, padding: "10px 14px", border: "1.5px solid #E2E8F0", borderRadius: "10px", fontSize: "13px", outline: "none", fontFamily: "inherit" }} />
-            <button type="submit" style={{ padding: "10px 20px", background: "linear-gradient(135deg,#1f2a56,#2563EB)", color: "white", border: "none", borderRadius: "10px", fontSize: "13px", fontWeight: "700", cursor: "pointer", fontFamily: "inherit" }}>+ Add</button>
+            <button type="submit" style={{ padding: "10px 20px", background: "linear-gradient(135deg,var(--primary-color),#2563EB)", color: "white", border: "none", borderRadius: "10px", fontSize: "13px", fontWeight: "700", cursor: "pointer", fontFamily: "inherit" }}>+ Add</button>
           </div>
         </form>
       </div>

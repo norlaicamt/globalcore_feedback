@@ -85,7 +85,7 @@ const AdminDepartments = ({ theme, darkMode }) => {
             </select>
           </div>
           <div style={{ display: 'flex', alignItems: 'flex-end' }}>
-            <button type="submit" style={{ padding: "10px 24px", background: "#1f2a56", color: "white", border: "none", borderRadius: "10px", fontSize: "13px", fontWeight: "700", cursor: "pointer", fontFamily: "inherit", transition: 'all 0.2s', height: '42px' }}>
+            <button type="submit" style={{ padding: "10px 24px", background: "var(--primary-color)", color: "white", border: "none", borderRadius: "10px", fontSize: "13px", fontWeight: "700", cursor: "pointer", fontFamily: "inherit", transition: 'all 0.2s', height: '42px' }}>
               + Create Entity
             </button>
           </div>

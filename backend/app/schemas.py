@@ -11,6 +11,7 @@ class UserBase(BaseModel):
     organization_id: Optional[int] = None
     session_token: Optional[str] = None
     is_active: Optional[bool] = True
+    is_global_user: Optional[bool] = False
     username: Optional[str] = None
     phone: Optional[str] = None
     department: Optional[str] = None
@@ -82,6 +83,7 @@ class UserUpdate(BaseModel):
     two_factor_enabled: Optional[bool] = None
     role: Optional[str] = None
     show_activity_status: Optional[bool] = None
+    is_global_user: Optional[bool] = None
     push_notifications: Optional[bool] = None
     email_notifications: Optional[bool] = None
     notify_replies: Optional[bool] = None
@@ -368,6 +370,7 @@ class BroadcastLogBase(BaseModel):
 
 class BroadcastLog(BroadcastLogBase):
     id: int
+    entity_id: Optional[int] = None
     created_at: datetime
     read_count: Optional[int] = 0
     model_config = ConfigDict(from_attributes=True)

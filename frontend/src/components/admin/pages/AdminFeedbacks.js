@@ -105,7 +105,7 @@ const HeaderFilter = ({ label, value, onChange, theme, darkMode }) => {
   return (
     <th style={{ ...thStyle, position: "relative" }}>
       <div 
-        style={{ display: "flex", alignItems: "center", gap: "6px", cursor: "pointer", userSelect: "none", color: value ? (darkMode ? "#60A5FA" : "#1f2a56") : "inherit" }}
+        style={{ display: "flex", alignItems: "center", gap: "6px", cursor: "pointer", userSelect: "none", color: value ? (darkMode ? "#60A5FA" : "var(--primary-color)") : "inherit" }}
         onClick={() => setIsOpen(!isOpen)}
       >
         <span>{label}</span>
@@ -249,10 +249,10 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
         <head><meta charset='utf-8'><title>Feedback Audit Report</title>
         <style>
           body { font-family: 'Segoe UI', Tahoma, Arial, sans-serif; color: #1e293b; padding: 20px; }
-          h1 { color: #1f2a56; border-bottom: 2px solid #3b82f6; padding-bottom: 5px; font-size: 24px; }
+          h1 { color: var(--primary-color); border-bottom: 2px solid #3b82f6; padding-bottom: 5px; font-size: 24px; }
           .meta { color: #64748b; font-size: 11px; margin-bottom: 20px; }
           table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-          th { background-color: #1f2a56; color: white; text-align: left; padding: 12px; font-size: 13px; }
+          th { background-color: var(--primary-color); color: white; text-align: left; padding: 12px; font-size: 13px; }
           td { border-bottom: 1px solid #e2e8f0; padding: 10px; font-size: 12px; }
           .stripe { background-color: #f8fafc; }
         </style>
@@ -377,7 +377,7 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
 
 const inputStyle = { flex: 1, padding: "8px 12px", border: "1.5px solid #E2E8F0", borderRadius: "8px", fontSize: "13px", outline: "none", fontFamily: "inherit", color: "#1E293B" };
 const miniFilter = { width: '100%', padding: "4px 8px", border: "1px solid #F1F5F9", borderRadius: "6px", fontSize: "11px", outline: "none", fontFamily: "inherit", color: "#475569", background: '#F8FAFC' };
-const outlineBtn = { padding: "8px 16px", background: "white", color: "#1f2a56", border: "1.5px solid #CBD5E1", borderRadius: "8px", fontSize: "12px", fontWeight: "600", cursor: "pointer", fontFamily: "inherit" };
+const outlineBtn = { padding: "8px 16px", background: "white", color: "var(--primary-color)", border: "1.5px solid #CBD5E1", borderRadius: "8px", fontSize: "12px", fontWeight: "600", cursor: "pointer", fontFamily: "inherit" };
 const thStyle = { padding: "11px 14px", textAlign: "left", fontSize: "10px", fontWeight: "700", color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.06em", whiteSpace: "nowrap" };
 const tdStyle = { padding: "11px 14px", color: "#374151", verticalAlign: "middle" };
 

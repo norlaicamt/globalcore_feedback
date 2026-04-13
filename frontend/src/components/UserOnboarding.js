@@ -258,8 +258,8 @@ const UserOnboarding = ({ currentUser, onBack, onComplete }) => {
                   }))}
                   style={{
                     ...styles.roleBtn,
-                    borderColor: form.role_identity === role ? "#2563EB" : "#E2E8F0",
-                    background: form.role_identity === role ? "#EFF6FF" : "#fff",
+                    borderColor: form.role_identity === role ? "var(--primary-color)" : "#E2E8F0",
+                    background: form.role_identity === role ? "rgba(var(--primary-rgb), 0.05)" : "#fff",
                   }}
                 >
                   {role}
@@ -480,11 +480,11 @@ const styles = {
   card: { 
     width: "100%", maxWidth: 640, background: "rgba(255, 255, 255, 0.95)", 
     backdropFilter: "blur(20px)", border: "1px solid rgba(255, 255, 255, 0.5)", 
-    borderRadius: 32, padding: 0, boxShadow: "0 30px 60px rgba(31, 42, 86, 0.12)",
+    borderRadius: 32, padding: 0, boxShadow: "0 30px 60px rgba(var(--primary-rgb), 0.12)",
     overflow: "hidden"
   },
   header: {
-    background: "linear-gradient(135deg, #1f2a56 0%, #3b82f6 100%)",
+    background: "linear-gradient(135deg, var(--primary-color) 0%, rgba(var(--primary-rgb), 0.8) 100%)",
     padding: "32px", color: "#fff", borderBottom: "1px solid rgba(255,255,255,0.1)"
   },
   body: { padding: "32px" },
@@ -500,8 +500,8 @@ const styles = {
     border: "1px solid #E2E8F0", marginBottom: 15, animation: 'fadeIn 0.3s ease-out'
   },
   progress: { height: 6, background: "#E2E8F0", borderRadius: 99, overflow: "hidden", margin: "20px 0 24px" },
-  progressFill: { height: "100%", background: "linear-gradient(90deg, #2563EB, #3B82F6)", transition: "width 0.4s ease" },
-  stepTitle: { fontWeight: 800, fontSize: 13, color: "#3B82F6", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 16 },
+  progressFill: { height: "100%", background: "linear-gradient(90deg, var(--primary-color), var(--primary-color))", transition: "width 0.4s ease" },
+  stepTitle: { fontWeight: 800, fontSize: 13, color: "var(--primary-color)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 16 },
   roleGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 },
   roleBtn: { 
     padding: "16px 12px", borderRadius: 14, border: "2px solid #E2E8F0", 
@@ -523,9 +523,9 @@ const styles = {
   avatarPreview: { width: 48, height: 48, objectFit: "cover", borderRadius: "50%", border: "2px solid #fff", boxShadow: "0 2px 4px rgba(0,0,0,0.1)" },
   actions: { marginTop: 32, display: "flex", justifyContent: "space-between", gap: 12 },
   primaryBtn: { 
-    flex: 2, background: "#2563EB", color: "#fff", border: "none", borderRadius: 12, 
+    flex: 2, background: "var(--primary-color)", color: "#fff", border: "none", borderRadius: 12, 
     padding: "14px 24px", cursor: "pointer", fontWeight: 800, fontSize: 15,
-    boxShadow: "0 4px 12px rgba(37, 99, 235, 0.2)", transition: "transform 0.1s"
+    boxShadow: "0 4px 12px rgba(var(--primary-rgb), 0.2)", transition: "transform 0.1s"
   },
   secondaryBtn: { 
     flex: 1, background: "#fff", color: "#475569", border: "1.5px solid #E2E8F0", 

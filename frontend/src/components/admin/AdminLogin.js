@@ -104,11 +104,11 @@ const AdminLogin = ({ onLoginSuccess }) => {
 const styles = {
   container: { position: "relative", display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", background: "linear-gradient(135deg, #F8FAFC 0%, #EEF2F6 100%)", padding: "20px", fontFamily: '"Inter", sans-serif', overflow: "hidden" },
   blob1: { position: "absolute", top: "-120px", right: "-120px", width: "400px", height: "400px", borderRadius: "50%", background: "radial-gradient(circle, rgba(59,130,246,0.12) 0%, transparent 70%)", pointerEvents: "none" },
-  blob2: { position: "absolute", bottom: "-100px", left: "-100px", width: "350px", height: "350px", borderRadius: "50%", background: "radial-gradient(circle, rgba(31,42,86,0.08) 0%, transparent 70%)", pointerEvents: "none" },
+  blob2: { position: "absolute", bottom: "-100px", left: "-100px", width: "350px", height: "350px", borderRadius: "50%", background: "radial-gradient(circle, rgba(var(--primary-rgb), 0.08) 0%, transparent 70%)", pointerEvents: "none" },
   wrapper: { display: "flex", flexDirection: "column", alignItems: "center", width: "100%", maxWidth: "400px", animation: "fadeUp 0.4s ease-out both" },
   brandSection: { display: "flex", flexDirection: "column", alignItems: "center", marginBottom: "24px" },
-  logoSquare: { width: "60px", height: "60px", borderRadius: "18px", background: "linear-gradient(135deg, #1f2a56 0%, #2563EB 100%)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 8px 24px rgba(37,99,235,0.3)" },
-  brandTitle: { marginTop: "12px", fontSize: "11px", fontWeight: "800", letterSpacing: "0.18em", textTransform: "uppercase", background: "linear-gradient(45deg, #1f2a56, #3B82F6)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" },
+  logoSquare: { width: "60px", height: "60px", borderRadius: "18px", background: "linear-gradient(135deg, var(--primary-color) 0%, #2563EB 100%)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 8px 24px rgba(37,99,235,0.3)" },
+  brandTitle: { marginTop: "12px", fontSize: "11px", fontWeight: "800", letterSpacing: "0.18em", textTransform: "uppercase", background: "linear-gradient(45deg, var(--primary-color), #3B82F6)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" },
   brandSub: { fontSize: "12px", color: "#94A3B8", marginTop: "4px", fontWeight: "500" },
   card: { width: "100%", backgroundColor: "white", padding: "32px 28px", borderRadius: "24px", border: "1px solid rgba(226,232,240,0.8)", boxShadow: "0 8px 30px rgba(0,0,0,0.06)" },
   cardHeader: { fontSize: "20px", fontWeight: "800", color: "#0F172A", marginBottom: "6px", textAlign: "center" },
@@ -117,7 +117,7 @@ const styles = {
   inputGroup: { textAlign: "left" },
   label: { display: "block", fontSize: "11px", fontWeight: "700", color: "#1E293B", marginBottom: "6px", textTransform: "uppercase", letterSpacing: "0.04em" },
   input: { width: "100%", padding: "11px 14px", fontSize: "13px", border: "1.5px solid #E2E8F0", borderRadius: "10px", boxSizing: "border-box", color: "#1E293B", backgroundColor: "#FAFAFA", transition: "border-color 0.2s", fontFamily: "inherit" },
-  loginBtn: { width: "100%", marginTop: "4px", background: "linear-gradient(135deg, #1f2a56 0%, #2563EB 100%)", color: "white", padding: "13px", borderRadius: "10px", fontWeight: "700", border: "none", fontSize: "14px", boxShadow: "0 4px 12px rgba(37,99,235,0.25)", transition: "transform 0.2s, box-shadow 0.2s", fontFamily: "inherit" },
+  loginBtn: { width: "100%", marginTop: "4px", background: "linear-gradient(135deg, var(--primary-color) 0%, #2563EB 100%)", color: "white", padding: "13px", borderRadius: "10px", fontWeight: "700", border: "none", fontSize: "14px", boxShadow: "0 4px 12px rgba(37,99,235,0.25)", transition: "transform 0.2s, box-shadow 0.2s", fontFamily: "inherit" },
   securityBadge: { display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", marginTop: "20px", fontSize: "11px", color: "#94A3B8", fontWeight: "500" },
 };
 

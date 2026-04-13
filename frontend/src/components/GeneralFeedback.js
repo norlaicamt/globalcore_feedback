@@ -5,7 +5,7 @@ import CustomModal from "./CustomModal";
 import { IconRegistry } from "./IconRegistry";
 
 const Icons = {
-  Back: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1f2a56" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>,
+  Back: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary-color)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>,
   Search: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
   Building: () => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/></svg>,
   Food: () => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 18 0H3z"/><path d="M3 12h18"/><path d="M8 12v-2a4 4 0 0 1 8 0v2"/></svg>,
@@ -14,7 +14,7 @@ const Icons = {
   Car: () => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="8" rx="2"/><path d="M4 11l1.5-4h13L20 11"/><circle cx="7" cy="19" r="2"/><circle cx="17" cy="19" r="2"/></svg>,
   Resort: () => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
   Hotel: () => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>,
-  Translate: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>,
+  Translate: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary-color)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>,
   Paperclip: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>,
   X: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
   Star: ({ filled }) => (
@@ -583,7 +583,7 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
                       }
                       setSpecificName(""); setOtherSpecificName(""); setSelectedType(""); 
                     }}>
-                    <div style={{ padding: '12px', background: 'rgba(59, 130, 246, 0.08)', borderRadius: '12px', color: '#1D6C8A' }}>
+                    <div style={{ padding: '12px', background: 'rgba(var(--primary-rgb), 0.08)', borderRadius: '12px', color: '#1D6C8A' }}>
                       <IconComp width="28" height="28" />
                     </div>
                     <span style={{ ...styles.cardLabel, fontSize: '14px', fontWeight: '800', textAlign: 'center' }}>{biz.name}</span>
@@ -605,7 +605,7 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
               {filteredEntities.map(entity => (
                 <div key={entity.id} style={{ ...styles.card, flexDirection: 'column', gap: '10px', padding: '16px' }} 
                   onClick={() => setSelectedEntity(entity)}>
-                  <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: 'rgba(59, 130, 246, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#3B82F6' }}>
+                  <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: 'rgba(var(--primary-rgb), 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--primary-color)' }}>
                     <Icons.Building />
                   </div>
                   <span style={{ ...styles.cardLabel, fontSize: '13px' }}>{entity.name}</span>
@@ -616,7 +616,7 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
         ) : (
           <div style={styles.formContainer}>
             <div style={{ ...styles.selectedHeader, display: 'flex', alignItems: 'center', gap: '12px', padding: '16px 20px', background: 'white', borderRadius: '16px', border: '1px solid #f1f5f9', marginBottom: '24px' }}>
-              <div style={{ padding: '10px', background: 'rgba(59, 130, 246, 0.08)', borderRadius: '12px', color: '#1D6C8A' }}>
+              <div style={{ padding: '10px', background: 'rgba(var(--primary-rgb), 0.08)', borderRadius: '12px', color: '#1D6C8A' }}>
                 {(() => {
                   const IconComp = IconRegistry[selectedBusiness.icon] || IconRegistry.default;
                   return <IconComp width="24" height="24" />;
@@ -676,7 +676,7 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
                   <button 
                     type="button" 
                     onClick={handleAddMention}
-                    style={{ background: 'none', border: 'none', color: '#3B82F6', fontSize: '12px', fontWeight: '700', cursor: 'pointer', outline: 'none' }}
+                    style={{ background: 'none', border: 'none', color: 'var(--primary-color)', fontSize: '12px', fontWeight: '700', cursor: 'pointer', outline: 'none' }}
                   >
                     + Add another employee
                   </button>
@@ -922,7 +922,7 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialD
       {showDraftModal && (
         <div style={styles.draftOverlay}>
           <div style={styles.draftModal}>
-            <h3 style={{ margin: '0 0 10px 0', color: '#1f2a56' }}>Save to draft?</h3>
+            <h3 style={{ margin: '0 0 10px 0', color: 'var(--primary-color)' }}>Save to draft?</h3>
             <p style={{ margin: '0 0 20px 0', color: '#64748B', fontSize: '13px' }}>Would you like to save your progress?</p>
             <div style={{ display: 'flex', gap: '8px' }}>
               <button style={styles.draftDiscardBtn} onClick={handleDiscard}>Cancel</button>
@@ -994,7 +994,7 @@ const styles = {
     borderBottom: '1px solid #F1F5F9'
   },
   suggestionAvatar: { width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', border: '1px solid #E2E8F0' },
-  suggestionAvatarPlaceholder: { width: '32px', height: '32px', borderRadius: '50%', backgroundColor: '#1f2a56', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 'bold' },
+  suggestionAvatarPlaceholder: { width: '32px', height: '32px', borderRadius: '50%', backgroundColor: 'var(--primary-color)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 'bold' },
   suggestionName: { fontSize: '13px', fontWeight: '700', color: '#1E293B' },
   suggestionMeta: { fontSize: '11px', color: '#64748B' },
   draftOverlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(15, 23, 42, 0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 },

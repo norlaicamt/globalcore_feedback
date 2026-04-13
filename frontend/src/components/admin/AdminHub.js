@@ -162,7 +162,26 @@ const AdminHub = ({ adminUser, onLogout }) => {
         {/* Nav */}
         <nav style={styles.nav}>
           {NAV_ITEMS
-            .filter(item => !item.superOnly || hasGlobalAdminAccess)
+            .filter(item => {
+              // Standard Role Check
+              if (item.superOnly && !hasGlobalAdminAccess) return false;
+              
+              // Program Admin Restictions (Admins with entity_id)
+              const isScopedAdmin = !!localAdminUser?.entity_id;
+              if (isScopedAdmin) {
+                // Hide global configuration tools from program admins
+                const globalTools = ["feedbacktypes", "feedbacksetup", "settings", "auditlogs", "pendingsuggestions"];
+                if (globalTools.includes(item.id)) return false;
+                
+                // Hide "ORGANIZATION" and "PREFERENCES" labels if all their sub-items are hidden
+                if (item.type === "label") {
+                  if (item.label === "ORGANIZATION") return false;
+                  if (item.label === "PREFERENCES") return false;
+                }
+              }
+              
+              return true;
+            })
             .map((item, idx) => (
               item.type === "label" ? (
                 <div key={`label-${idx}`} style={styles.navLabel}>{item.label}</div>
@@ -192,7 +211,7 @@ const AdminHub = ({ adminUser, onLogout }) => {
         {/* Bottom user info */}
         <div style={styles.sidebarBottom}>
           <div style={styles.adminBadge}>
-            <div style={{ ...styles.adminAvatar, background: hasGlobalAdminAccess ? '#9333ea' : '#3b82f6' }}>
+            <div style={{ ...styles.adminAvatar, background: hasGlobalAdminAccess ? '#9333ea' : 'var(--primary-color)' }}>
               {localAdminUser?.name?.charAt(0) || "A"}
             </div>
             <div>
@@ -286,7 +305,7 @@ function OrgIcon()      { return <svg width="15" height="15" viewBox="0 0 24 24"
 const SIDEBAR_W = 280;
 const styles = {
   root: { display: "flex", height: "100vh", fontFamily: '"Inter", sans-serif', backgroundColor: "#F1F5F9" },
-  sidebar: { width: SIDEBAR_W, minWidth: SIDEBAR_W, height: "100vh", background: "linear-gradient(180deg, #1f2a56 0%, #1a2347 100%)", display: "flex", flexDirection: "column", color: "white", flexShrink: 0, overflowY: "auto" },
+  sidebar: { width: SIDEBAR_W, minWidth: SIDEBAR_W, height: "100vh", background: "linear-gradient(180deg, var(--primary-color) 0%, #1a2347 100%)", display: "flex", flexDirection: "column", color: "white", flexShrink: 0, overflowY: "auto" },
   sidebarLogo: { display: "flex", alignItems: "center", gap: "12px", padding: "20px 16px 16px" },
   logoIcon: { width: "36px", height: "36px", borderRadius: "10px", background: "rgba(255,255,255,0.12)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 },
   logoText: { fontSize: "14px", fontWeight: "800", margin: 0, color: "white" },

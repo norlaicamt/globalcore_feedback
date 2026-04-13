@@ -104,8 +104,8 @@ export const adminUpdateEntity = (id, name, description = "", fields = [], icon 
 export const adminDeleteEntity = (id) => adminApi.delete(`/entities/${id}`);
 
 // Broadcast
-export const adminBroadcast = (subject, message, broadcast_type = "announcement") => 
-  adminApi.post(`/broadcast?subject=${encodeURIComponent(subject)}&message=${encodeURIComponent(message)}&broadcast_type=${broadcast_type}`).then(r => r.data);
+export const adminBroadcast = (subject, message, broadcast_type = "announcement", target_group = "all") => 
+  adminApi.post(`/broadcast?subject=${encodeURIComponent(subject)}&message=${encodeURIComponent(message)}&broadcast_type=${broadcast_type}&target_group=${target_group}`).then(r => r.data);
 export const adminGetBroadcastLogs = () => adminApi.get("/broadcasts").then(r => r.data);
 
 // Audit

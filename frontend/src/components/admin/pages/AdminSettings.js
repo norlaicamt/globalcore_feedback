@@ -10,7 +10,7 @@ const ToggleRow = ({ title, description, checked, onChange, loading, theme, dark
     </div>
     <div onClick={loading ? null : onChange} style={{
       width: "40px", height: "22px", borderRadius: "11px", padding: "2px",
-      background: checked ? "#3B82F6" : (darkMode ? "rgba(255,255,255,0.1)" : "#E2E8F0"), cursor: loading ? "wait" : "pointer", transition: "background 0.2s",
+      background: checked ? "var(--primary-color)" : (darkMode ? "rgba(255,255,255,0.1)" : "#E2E8F0"), cursor: loading ? "wait" : "pointer", transition: "background 0.2s",
       display: "flex", alignItems: "center", flexShrink: 0
     }}>
       <div style={{
@@ -149,12 +149,30 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
     }
   };
 
+  // Convert hex to RGB string for rgba() usage
+  const hexToRgb = (hex) => {
+    if (!hex || !hex.startsWith('#')) return "31, 42, 86";
+    hex = hex.replace(/^#/, '');
+    if (hex.length === 3) hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
+    if (hex.length !== 6) return "31, 42, 86";
+    return `${parseInt(hex.substring(0,2),16)}, ${parseInt(hex.substring(2,4),16)}, ${parseInt(hex.substring(4,6),16)}`;
+  };
+
   const handleBrandingUpdate = async () => {
     setUpdatingKey("branding");
     try {
-      await updateAdminSetting("primary_organization_name", settings.primary_organization_name);
-      setSuccessMsg("System branding updated successfully.");
-      setTimeout(() => setSuccessMsg(""), 2500);
+      if (settings.primary_organization_name) {
+        await updateAdminSetting("primary_organization_name", settings.primary_organization_name);
+      }
+      if (settings.primary_color) {
+        await updateAdminSetting("primary_color", settings.primary_color);
+        // Apply both CSS variables live — no page refresh needed
+        const root = document.documentElement;
+        root.style.setProperty('--primary-color', settings.primary_color);
+        root.style.setProperty('--primary-rgb', hexToRgb(settings.primary_color));
+      }
+      setSuccessMsg("✅ System branding updated. Colors applied live.");
+      setTimeout(() => setSuccessMsg(""), 3000);
     } catch (e) {
       console.error(e);
       alert("Failed to update branding.");
@@ -255,7 +273,7 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
 
       <div style={{ borderBottom: `1px solid ${theme.border}`, marginBottom: "24px", display: "flex", gap: "16px", flexWrap: "wrap" }}>
         {tabs.map(tab => (
-          <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{ background: "none", border: "none", padding: "12px 4px", fontSize: "13px", fontWeight: activeTab === tab.id ? "700" : "600", color: activeTab === tab.id ? "#3B82F6" : theme.textMuted, borderBottom: `2.5px solid ${activeTab === tab.id ? "#3B82F6" : "transparent"}`, cursor: "pointer", fontFamily: "inherit" }}>
+          <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{ background: "none", border: "none", padding: "12px 4px", fontSize: "13px", fontWeight: activeTab === tab.id ? "700" : "600", color: activeTab === tab.id ? "var(--primary-color)" : theme.textMuted, borderBottom: `2.5px solid ${activeTab === tab.id ? "var(--primary-color)" : "transparent"}`, cursor: "pointer", fontFamily: "inherit" }}>
             {tab.label}
           </button>
         ))}
@@ -270,7 +288,7 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
                   <div style={{ position: "relative" }}>
                     {profile.avatar_url 
                       ? <img src={profile.avatar_url} alt={profile.name} style={{ width: "110px", height: "110px", borderRadius: "20px", objectFit: "cover", border: `2px solid ${theme.border}` }} />
-                      : <div style={{ width: "110px", height: "110px", borderRadius: "20px", background: "#1f2a56", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "36px", fontWeight: "800" }}>{profile.name?.charAt(0)}</div>}
+                      : <div style={{ width: "110px", height: "110px", borderRadius: "20px", background: "var(--primary-color)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "36px", fontWeight: "800" }}>{profile.name?.charAt(0)}</div>}
                     {profile.profile_completed && (
                        <div style={{ position: 'absolute', bottom: -5, right: -5, background: '#10B981', border: '3px solid white', borderRadius: '50%', padding: '4px', display: 'flex' }}>
                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="4"><polyline points="20 6 9 17 4 12"/></svg>
@@ -317,7 +335,7 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
               ) : (
                 <form onSubmit={handleProfileSave}>
                    {/* 🧩 1. Basic Information */}
-                   <p style={{ fontSize: '11px', fontWeight: '800', color: '#3B82F6', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>🧩 1. Basic Information</p>
+                   <p style={{ fontSize: '11px', fontWeight: '800', color: 'var(--primary-color)', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>🧩 1. Basic Information</p>
                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: '24px' }}>
                     <div style={{ gridColumn: '1 / span 2' }}>
                       <label style={labelStyle}>Full Name</label>
@@ -334,7 +352,7 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
                   </div>
 
                   {/* 🧩 2. Organization Context */}
-                  <p style={{ fontSize: '11px', fontWeight: '800', color: '#3B82F6', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>🧩 2. Organization Context</p>
+                  <p style={{ fontSize: '11px', fontWeight: '800', color: 'var(--primary-color)', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>🧩 2. Organization Context</p>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: '24px' }}>
                     <div>
                       <label style={labelStyle}>Organization Name (Read-only)</label>
@@ -347,7 +365,7 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
                   </div>
 
                   {/* 🧩 3. Contact Information */}
-                  <p style={{ fontSize: '11px', fontWeight: '800', color: '#3B82F6', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>🧩 3. Contact Information</p>
+                  <p style={{ fontSize: '11px', fontWeight: '800', color: 'var(--primary-color)', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>🧩 3. Contact Information</p>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: '24px' }}>
                     <div style={{ gridColumn: '1 / span 2' }}>
                       <label style={labelStyle}>Contact Number</label>
@@ -356,7 +374,7 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
                   </div>
 
                   <div style={{ display: "flex", gap: "12px", borderTop: `1px solid ${theme.border}`, paddingTop: '20px' }}>
-                    <button type="submit" disabled={profileSaving} style={{ padding: "10px 24px", background: "#3B82F6", color: "white", border: "none", borderRadius: 10, fontWeight: 700, cursor: "pointer" }}>
+                    <button type="submit" disabled={profileSaving} style={{ padding: "10px 24px", background: "var(--primary-color)", color: "white", border: "none", borderRadius: 10, fontWeight: 700, cursor: "pointer" }}>
                       {profileSaving ? "Saving..." : "Verify & Save Profile"}
                     </button>
                     <button type="button" onClick={() => setIsEditingProfile(false)} style={{ padding: "10px 24px", background: theme.bg, color: theme.text, border: `1.5px solid ${theme.border}`, borderRadius: 10, fontWeight: 700, cursor: "pointer" }}>
@@ -381,7 +399,7 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
             <div style={{ marginTop: 14, padding: "12px", border: `1px solid ${theme.border}`, borderRadius: 8, fontSize: 12, color: theme.textMuted }}>
               Active Sessions: Current device only (multi-session management coming soon).
             </div>
-            <button onClick={() => saveProfile({ ...(form.password ? { password: form.password } : {}), two_factor_enabled: form.two_factor_enabled })} style={{ marginTop: 12, padding: "10px 16px", background: "#1f2a56", color: "white", border: "none", borderRadius: 8, fontWeight: 700, cursor: "pointer" }}>Save Security</button>
+            <button onClick={() => saveProfile({ ...(form.password ? { password: form.password } : {}), two_factor_enabled: form.two_factor_enabled })} style={{ marginTop: 12, padding: "10px 16px", background: "var(--primary-color)", color: "white", border: "none", borderRadius: 8, fontWeight: 700, cursor: "pointer" }}>Save Security</button>
           </div>
         </SectionCard>
       )}
@@ -392,16 +410,16 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
           <ToggleRow title="Email on Assigned Feedback" description="Receive updates on assigned actions." checked={form.status_updates} onChange={() => setForm(prev => ({ ...prev, status_updates: !prev.status_updates }))} theme={theme} darkMode={darkMode} />
           <ToggleRow title="Broadcast Alerts" description="Get urgent broadcast notices." checked={form.push_notifications} onChange={() => setForm(prev => ({ ...prev, push_notifications: !prev.push_notifications }))} theme={theme} darkMode={darkMode} />
           <ToggleRow title="Daily / Weekly Summary" description="Receive digest emails." checked={form.weekly_digest} onChange={() => setForm(prev => ({ ...prev, weekly_digest: !prev.weekly_digest }))} theme={theme} darkMode={darkMode} />
-          <button onClick={handleNotificationSave} style={{ marginTop: 14, padding: "10px 16px", background: "#3B82F6", color: "#fff", border: 0, borderRadius: 8, fontWeight: 700, cursor: "pointer" }}>Save Notification Preferences</button>
+          <button onClick={handleNotificationSave} style={{ marginTop: 14, padding: "10px 16px", background: "var(--primary-color)", color: "#fff", border: 0, borderRadius: 8, fontWeight: 700, cursor: "pointer" }}>Save Notification Preferences</button>
         </SectionCard>
       )}
 
       {activeTab === "display" && (
         <SectionCard theme={theme} title="System Configuration" subtitle="System-wide and terminal preferences.">
              {isGlobalCoreAdmin && (
-               <div style={{ marginBottom: 24, padding: 16, background: 'rgba(59,130,246,0.05)', borderRadius: 12, border: '1px solid rgba(59,130,246,0.1)' }}>
-                 <p style={{ margin: '0 0 12px 0', fontSize: 13, fontWeight: 700, color: '#3B82F6' }}>TERMINOLOGY & LABELS</p>
-                 <button onClick={() => setActiveTab("terminology")} style={{ padding: '8px 16px', background: '#3B82F6', color: 'white', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Manage Industry Labels</button>
+               <div style={{ marginBottom: 24, padding: 16, background: 'rgba(var(--primary-rgb),0.05)', borderRadius: 12, border: '1px solid rgba(var(--primary-rgb),0.12)' }}>
+                 <p style={{ margin: '0 0 12px 0', fontSize: 13, fontWeight: 700, color: 'var(--primary-color)' }}>TERMINOLOGY & LABELS</p>
+                 <button onClick={() => setActiveTab("terminology")} style={{ padding: '8px 16px', background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Manage Industry Labels</button>
                </div>
              )}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
@@ -424,7 +442,7 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
           <div style={{ marginTop: 12 }}>
             <ToggleRow title="Dark Mode" description="Switch your workspace theme." checked={darkMode} onChange={onToggleTheme} theme={theme} darkMode={darkMode} />
           </div>
-          <button onClick={saveDisplayPrefs} style={{ marginTop: 12, padding: "10px 16px", background: "#1f2a56", color: "#fff", border: 0, borderRadius: 8, fontWeight: 700, cursor: "pointer" }}>Save Preferences</button>
+          <button onClick={saveDisplayPrefs} style={{ marginTop: 12, padding: "10px 16px", background: "var(--primary-color)", color: "#fff", border: 0, borderRadius: 8, fontWeight: 700, cursor: "pointer" }}>Save Preferences</button>
         </SectionCard>
       )}
 
@@ -434,13 +452,13 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
             <div style={{ padding: "16px", background: theme.bg, borderRadius: "12px", border: `1px solid ${theme.border}` }}>
               <label style={labelStyle}>Last Login Timestamp</label>
               <p style={{ margin: 0, fontSize: "14px", fontWeight: "600", color: theme.text }}>
-                {profile.last_login ? new Date(profile.last_login).toLocaleString() : "Never (First session)"}
+                {profile?.last_login ? new Date(profile.last_login).toLocaleString() : "Never (First session)"}
               </p>
             </div>
             <div style={{ padding: "16px", background: theme.bg, borderRadius: "12px", border: `1px solid ${theme.border}` }}>
               <label style={labelStyle}>Profile Set-up Status</label>
-              <p style={{ margin: 0, fontSize: "14px", fontWeight: "600", color: profile.profile_completed ? "#10B981" : "#F59E0B" }}>
-                {profile.profile_completed ? "Identity Fully Verified" : "Information Incomplete"}
+              <p style={{ margin: 0, fontSize: "14px", fontWeight: "600", color: profile?.profile_completed ? "#10B981" : "#F59E0B" }}>
+                {profile?.profile_completed ? "Identity Fully Verified" : "Information Incomplete"}
               </p>
             </div>
           </div>
@@ -454,19 +472,19 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
             <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
               {recentActions.map((act, i) => (
                 <div key={i} style={{ display: "flex", alignItems: "center", gap: "12px", padding: "12px 16px", background: theme.bg, borderRadius: "10px", border: `1px solid ${theme.border}` }}>
-                  <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#3B82F6" }} />
+                  <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: "var(--primary-color)" }} />
                   <div style={{ flex: 1 }}>
                     <p style={{ margin: 0, fontSize: "13px", fontWeight: "600", color: theme.text }}>{act.action_type.replace(/_/g, ' ')}</p>
                     <p style={{ margin: 0, fontSize: "11px", color: theme.textMuted }}>{new Date(act.timestamp).toLocaleString()}</p>
                   </div>
                   {act.details?.updated_fields && (
-                    <div style={{ fontSize: '11px', padding: '4px 8px', background: 'rgba(59,130,246,0.1)', color: '#3B82F6', borderRadius: '4px', fontWeight: 600 }}>
+                    <div style={{ fontSize: '11px', padding: '4px 8px', background: 'rgba(var(--primary-rgb),0.12)', color: 'var(--primary-color)', borderRadius: '4px', fontWeight: 600 }}>
                       {act.details.updated_fields.join(', ')}
                     </div>
                   )}
                 </div>
               ))}
-              <p style={{ textAlign: 'center', marginTop: '12px', fontSize: '12px', color: theme.textMuted }}>Full audit logs are available in the <span onClick={() => onNavigate("auditlogs")} style={{ color: '#3B82F6', cursor: 'pointer', fontWeight: 600 }}>Admin Activity</span> page.</p>
+              <p style={{ textAlign: 'center', marginTop: '12px', fontSize: '12px', color: theme.textMuted }}>Full audit logs are available in the <span onClick={() => onNavigate("auditlogs")} style={{ color: 'var(--primary-color)', cursor: 'pointer', fontWeight: 600 }}>Admin Activity</span> page.</p>
             </div>
           )}
         </SectionCard>
@@ -492,24 +510,47 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
               <ToggleRow theme={theme} darkMode={darkMode} title="Status Notifications" description="Notify on status updates." checked={settings.status_notifications} onChange={() => handleToggle("status_notifications")} loading={updatingKey === "status_notifications"} />
               
               <div style={{ marginTop: 24, borderTop: `1px solid ${theme.border}`, paddingTop: 20 }}>
-                <p style={{ margin: '0 0 12px 0', fontSize: 13, fontWeight: 700, color: '#3B82F6' }}>SYSTEM BRANDING</p>
-                <label style={labelStyle}>Primary Organization Name</label>
-                <div style={{ display: 'flex', gap: 10 }}>
-                   <input 
-                     value={settings.primary_organization_name || ""} 
-                     onChange={e => setSettings(p => ({ ...p, primary_organization_name: e.target.value }))}
-                     style={inputStyle} 
-                     placeholder="e.g. DSWD"
-                   />
+                <p style={{ margin: '0 0 12px 0', fontSize: 13, fontWeight: 700, color: 'var(--primary-color)' }}>SYSTEM BRANDING</p>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                  <div>
+                    <label style={labelStyle}>Primary Organization Name</label>
+                    <input 
+                      value={settings.primary_organization_name || ""} 
+                      onChange={e => setSettings(p => ({ ...p, primary_organization_name: e.target.value }))}
+                      style={inputStyle} 
+                      placeholder="e.g. DSWD"
+                    />
+                    <p style={{ margin: "6px 0 0 0", fontSize: "11px", color: theme.textMuted }}>Auto-filled for new employees during onboarding.</p>
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Primary Theme Color</label>
+                    <div style={{ display: 'flex', gap: 10 }}>
+                      <input 
+                        type="color"
+                        value={settings.primary_color || "var(--primary-color)"} 
+                        onChange={e => setSettings(p => ({ ...p, primary_color: e.target.value }))}
+                        style={{ ...inputStyle, padding: "2px", width: "50px", height: "40px", cursor: "pointer" }} 
+                      />
+                      <input 
+                        type="text"
+                        value={settings.primary_color || "var(--primary-color)"} 
+                        onChange={e => setSettings(p => ({ ...p, primary_color: e.target.value }))}
+                        style={{ ...inputStyle, flex: 1 }} 
+                        placeholder="var(--primary-color)"
+                      />
+                    </div>
+                    <p style={{ margin: "6px 0 0 0", fontSize: "11px", color: theme.textMuted }}>Main brand color for UI elements.</p>
+                  </div>
+                </div>
+                <div style={{ marginTop: 16 }}>
                    <button 
                      onClick={handleBrandingUpdate}
                      disabled={updatingKey === "branding"}
-                     style={{ padding: '0 20px', background: '#3B82F6', color: 'white', border: 'none', borderRadius: 8, fontWeight: 700, cursor: 'pointer', fontSize: 12, opacity: updatingKey === "branding" ? 0.6 : 1 }}
+                     style={{ padding: '10px 24px', background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: 8, fontWeight: 700, cursor: 'pointer', fontSize: 13, opacity: updatingKey === "branding" ? 0.6 : 1 }}
                    >
-                     {updatingKey === "branding" ? "Updating..." : "Update"}
+                     {updatingKey === "branding" ? "Updating..." : "Update Branding"}
                    </button>
                 </div>
-                <p style={{ margin: "6px 0 0 0", fontSize: "11px", color: theme.textMuted }}>This name will be auto-filled for new employees during onboarding.</p>
               </div>
             </>
           )}
@@ -559,7 +600,7 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
               </div>
             </div>
 
-            <button onClick={saveTerminology} disabled={termSaving} style={{ marginTop: 24, padding: "12px 24px", background: "#3B82F6", color: "white", border: "none", borderRadius: 8, fontWeight: 700, cursor: "pointer" }}>
+            <button onClick={saveTerminology} disabled={termSaving} style={{ marginTop: 24, padding: "12px 24px", background: "var(--primary-color)", color: "white", border: "none", borderRadius: 8, fontWeight: 700, cursor: "pointer" }}>
               {termSaving ? "Saving..." : "Save Terminology Changes"}
             </button>
           </SectionCard>
@@ -580,7 +621,7 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
               <div style={{ padding: 16, border: `1px solid ${theme.border}`, borderRadius: 8, background: theme.bg, gridColumn: "1 / span 2" }}>
                 <p style={{ fontSize: 11, fontWeight: 700, color: theme.textMuted, marginBottom: 8 }}>MENU ITEM / HEADER</p>
                 <div style={{ display: 'flex', gap: 20 }}>
-                  <span style={{ fontSize: 14, fontWeight: 700, color: '#3B82F6', borderBottom: '2px solid #3B82F6', paddingBottom: 4 }}>Manage {termForm.category_label_plural}</span>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--primary-color)', borderBottom: '2px solid var(--primary-color)', paddingBottom: 4 }}>Manage {termForm.category_label_plural}</span>
                   <span style={{ fontSize: 14, fontWeight: 600, color: theme.textMuted }}>{termForm.entity_label_plural}</span>
                 </div>
               </div>

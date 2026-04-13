@@ -52,7 +52,7 @@ const calculateLevel = (points) => {
   if (points >= 200) return { lv: 4, name: "Silver Citizen", color: "#94A3B8" };
   if (points >= 100) return { lv: 3, name: "Bronze Citizen", color: "#B45309" };
   if (points >= 50) return { lv: 2, name: "Active Citizen", color: "#10B981" };
-  return { lv: 1, name: "New Citizen", color: "#3B82F6" };
+  return { lv: 1, name: "New Citizen", color: "var(--primary-color)" };
 };
 
 const FeedbackHub = ({ currentUser, onLogout }) => {
@@ -280,27 +280,27 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         .fab-btn:hover {
           transform: scale(1.1) !important;
-          background-color: #2563EB !important;
-          box-shadow: 0 12px 24px rgba(37, 99, 235, 0.4) !important;
+          background-color: var(--primary-color) !important;
+          box-shadow: 0 12px 24px rgba(var(--primary-rgb), 0.4) !important;
         }
         .fab-btn:active { transform: scale(0.95) !important; }
       `}</style>
       <header style={{ ...styles.header, backgroundColor: '#FFFFFF', borderBottom: '1px solid #E2E8F0' }}>
         <button onClick={() => setIsMenuOpen(true)} style={styles.iconBtn}>
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1f2a56" strokeWidth="2.5" strokeLinecap="round">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--primary-color)" strokeWidth="2.5" strokeLinecap="round">
             <line x1="3" y1="12" x2="21" y2="12"></line>
             <line x1="3" y1="6" x2="18" y2="6"></line>
             <line x1="3" y1="18" x2="15" y2="18"></line>
           </svg>
         </button>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
-          <span style={{ ...styles.headerTitle, color: '#1f2a56' }}>Command Center</span>
+          <span style={{ ...styles.headerTitle, color: 'var(--primary-color)' }}>Command Center</span>
           <span style={{ fontSize: '10px', color: '#64748B', fontWeight: '500', textAlign: 'center' }}>
             Submit and track feedback across entities, offices, or services
           </span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-          <button onClick={handleOpenNotifications} style={{ ...styles.iconBtn, color: '#1f2a56' }} title="Notifications">
+          <button onClick={handleOpenNotifications} style={{ ...styles.iconBtn, color: 'var(--primary-color)' }} title="Notifications">
             <Icons.Bell />
             {unreadNotifCount > 0 && (
               <div style={{ ...styles.notifDot, backgroundColor: '#EF4444', width: '16px', height: '16px', fontSize: '10px', fontWeight: '800', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', border: '2px solid #FFFFFF', top: -4, right: -4 }}>
@@ -450,7 +450,7 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
                     <button
                       style={{
                         ...styles.menuLink,
-                        backgroundColor: (isActive && !item.subItems) ? '#3B82F6' : 'transparent',
+                        backgroundColor: (isActive && !item.subItems) ? 'var(--primary-color)' : 'transparent',
                         color: (isActive && !item.subItems) ? 'white' : (item.color || 'rgba(255, 255, 255, 0.8)'),
                         display: 'flex', alignItems: 'center', gap: '12px', width: '100%'
                       }}
@@ -544,7 +544,7 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
 
       {/* Center Toast Message */}
       {toastMessage && (
-        <div style={{ ...styles.toastModal, backgroundColor: toastMessage.isError ? '#EF4444' : '#1f2a56' }}>
+        <div style={{ ...styles.toastModal, backgroundColor: toastMessage.isError ? '#EF4444' : 'var(--primary-color)' }}>
           {toastMessage.text}
         </div>
       )}
@@ -741,7 +741,7 @@ const CommentModal = ({ item, currentUser, onClose, onShowToast, onRefreshProfil
             width: isReply ? '28px' : '32px',
             height: isReply ? '28px' : '32px',
             borderRadius: '50%',
-            backgroundColor: isReply ? '#E2E8F0' : '#1f2a56',
+            backgroundColor: isReply ? '#E2E8F0' : 'var(--primary-color)',
             color: isReply ? '#64748B' : 'white',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: isReply ? '11px' : '13px', fontWeight: 'bold',
@@ -755,7 +755,7 @@ const CommentModal = ({ item, currentUser, onClose, onShowToast, onRefreshProfil
             <div style={{ ...styles.commentBubble, backgroundColor: isReply ? 'rgba(0,0,0,0.02)' : '#FFFFFF', borderColor: '#E2E8F0' }}>
               {editingCommentId === node.id ? (
                 <div>
-                  <input style={{ ...styles.modalEditInput, backgroundColor: 'white', color: '#1E293B', borderColor: '#3B82F6' }} value={editCommentText} onChange={e => setEditCommentText(e.target.value)} autoFocus />
+                  <input style={{ ...styles.modalEditInput, backgroundColor: 'white', color: '#1E293B', borderColor: 'var(--primary-color)' }} value={editCommentText} onChange={e => setEditCommentText(e.target.value)} autoFocus />
                   <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
                     <button onClick={() => setEditingCommentId(null)} style={{ ...styles.modalMiniBtn, backgroundColor: '#F1F5F9', color: '#64748B' }}>Cancel</button>
                     <button onClick={() => handleEditSave(node)} style={{ ...styles.modalMiniBtn, color: '#3B82F6', backgroundColor: '#F1F5F9' }}>Save</button>
@@ -774,7 +774,7 @@ const CommentModal = ({ item, currentUser, onClose, onShowToast, onRefreshProfil
                   </div>
                   <p style={{ ...styles.commentText, fontSize: '13px', color: '#1E293B' }}>
                     {node.message.split(' ').map((word, i) =>
-                      word.startsWith('@') ? <strong key={i} style={{ color: '#3B82F6' }}>{word} </strong> : word + ' '
+                      word.startsWith('@') ? <strong key={i} style={{ color: 'var(--primary-color)' }}>{word} </strong> : word + ' '
                     )}
                   </p>
                 </>
@@ -784,7 +784,7 @@ const CommentModal = ({ item, currentUser, onClose, onShowToast, onRefreshProfil
               <div style={{ ...styles.commentActionsRow, marginTop: '4px', paddingLeft: '8px' }}>
                 <button style={{ ...styles.commentReactBtn, color: node.user_reaction === true ? '#3B82F6' : '#64748B' }} onClick={() => handleReplyReaction(node.id, true)}><Icons.ThumbUp size={12} /> <span>{node.likes_count || ''}</span></button>
                 <button style={{ ...styles.commentReactBtn, color: node.user_reaction === false ? '#EF4444' : '#64748B' }} onClick={() => handleReplyReaction(node.id, false)}><Icons.ThumbDown size={12} /> <span>{node.dislikes_count || ''}</span></button>
-                <button style={{ ...styles.commentReplyLink, color: '#1f2a56' }} onClick={() => handleStartReply(node)}>Reply</button>
+                <button style={{ ...styles.commentReplyLink, color: 'var(--primary-color)' }} onClick={() => handleStartReply(node)}>Reply</button>
                 <span style={styles.commentDate}>{formatDate(node.created_at)}</span>
               </div>
             )}
@@ -846,7 +846,7 @@ const CommentModal = ({ item, currentUser, onClose, onShowToast, onRefreshProfil
               </div>
             )}
 
-            <h2 style={{ fontSize: '18px', fontWeight: '800', color: '#1f2a56', margin: '0 0 12px 0', lineHeight: 1.3 }}>{itemMeta.title}</h2>
+            <h2 style={{ fontSize: '18px', fontWeight: '800', color: 'var(--primary-color)', margin: '0 0 12px 0', lineHeight: 1.3 }}>{itemMeta.title}</h2>
             <p style={{ ...styles.snippetTextFull, color: '#334155', lineHeight: 1.6, fontSize: '14px', marginBottom: '20px' }}>{itemMeta.description || itemMeta.comment}</p>
 
             {/* ATTACHMENTS */}
@@ -938,7 +938,7 @@ const CommentModal = ({ item, currentUser, onClose, onShowToast, onRefreshProfil
               onChange={(e) => setNewComment(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handlePostComment()}
             />
-            <button style={{ ...styles.modalSendBtn, backgroundColor: '#1f2a56' }} onClick={handlePostComment}>
+            <button style={{ ...styles.modalSendBtn, backgroundColor: 'var(--primary-color)' }} onClick={handlePostComment}>
               Post
             </button>
           </div>
@@ -1035,7 +1035,7 @@ const FeedCard = ({ item: initialItem, currentUser, onShowToast, onOpenComments,
 
   const entityColorMap = {
     1: '#3B82F6',
-    2: '#1f2a56',
+    2: 'var(--primary-color)',
     3: '#64748B'
   };
   const markerColor = entityColorMap[item.entity_id] || '#64748B';
@@ -1102,7 +1102,7 @@ const FeedCard = ({ item: initialItem, currentUser, onShowToast, onOpenComments,
         cursor: 'pointer',
         transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)'
       }}
-      onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#1f2a56'; e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(31, 42, 86, 0.08)'; }}
+      onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary-color)'; e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(var(--primary-rgb), 0.08)'; }}
       onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#E2E8F0'; e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none'; }}
     >
       <CustomModal
@@ -1117,21 +1117,21 @@ const FeedCard = ({ item: initialItem, currentUser, onShowToast, onOpenComments,
       />
       <div style={styles.cardHeader}>
         {item.is_anonymous || !item.sender_avatar_url ? (
-          <div style={{ ...styles.cardAvatar, backgroundColor: '#1f2a56', color: '#FFFFFF' }}>{(item.user_name || 'U').charAt(0)}</div>
+          <div style={{ ...styles.cardAvatar, backgroundColor: 'var(--primary-color)', color: '#FFFFFF' }}>{(item.user_name || 'U').charAt(0)}</div>
         ) : (
           <img
             src={item.sender_avatar_url}
             alt={item.user_name}
-            style={{ ...styles.cardAvatar, objectFit: 'cover', border: '2px solid #3B82F6' }}
+            style={{ ...styles.cardAvatar, objectFit: 'cover', border: '2px solid var(--primary-color)' }}
           />
         )}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
           <div style={styles.fbSenderRow}>
-            <span style={{ ...styles.cardSender, color: '#1E293B', fontWeight: 'bold' }}>{senderName}</span>
+            <span style={{ ...styles.cardSender, color: '#000000', fontWeight: 'bold' }}>{senderName}</span>
             {emotion ? (
-              <span style={{ color: '#1f2a56', opacity: 0.85 }}> is feeling {emotion} at <span style={{ fontWeight: '700', color: '#1877F2' }}>{establishmentName}</span></span>
+              <span style={{ color: '#000000' }}> is feeling {emotion} at <span style={{ fontWeight: '700', color: '#000000' }}>{establishmentName}</span></span>
             ) : (
-              <span style={{ color: '#1f2a56', opacity: 0.85 }}> reported about <span style={{ fontWeight: '700', color: '#1877F2' }}>{establishmentName}</span></span>
+              <span style={{ color: '#000000' }}> reported about <span style={{ fontWeight: '700', color: '#000000' }}>{establishmentName}</span></span>
             )}
             {(item.mentions && item.mentions.length > 0) ? (
               <span style={{ marginLeft: '4px', fontSize: '11px', backgroundColor: '#EFF6FF', color: '#1D4ED8', padding: '2px 8px', borderRadius: '12px', fontWeight: '600', border: '1px solid #DBEAFE' }}>
@@ -1143,7 +1143,7 @@ const FeedCard = ({ item: initialItem, currentUser, onShowToast, onOpenComments,
               </span>
             )}
           </div>
-          <div style={{ ...styles.cardMeta, color: '#1f2a56', fontWeight: '500', opacity: 0.7 }}>{timeAgo(item.created_at)} {locationText && ` • ${locationText}`}</div>
+          <div style={{ ...styles.cardMeta, color: '#000000', fontWeight: '600' }}>{timeAgo(item.created_at)} {locationText && ` • ${locationText}`}</div>
         </div>
         {item.status && item.status !== 'Open' && item.status !== 'OPEN' && (
           <div style={{ ...styles.statusBadge, backgroundColor: getStatusColor(item.status), marginLeft: 'auto' }}>
@@ -1200,7 +1200,7 @@ const FeedCard = ({ item: initialItem, currentUser, onShowToast, onOpenComments,
           </div>
         </div>
       ) : (
-        <p style={{ ...styles.cardText, color: '#1E293B' }}>
+        <p style={{ ...styles.cardText, color: '#000000' }}>
           {(item.description || '').substring(0, 200) + ((item.description || '').length > 200 ? '...' : '')}
         </p>
       )}
@@ -1411,10 +1411,10 @@ const DashboardView = ({ feed, loading, hasMore, onLoadMore, onAction, currentUs
               display: 'flex', 
               flexDirection: 'column', 
               gap: '12px', 
-              boxShadow: '0 10px 25px -5px rgba(31, 42, 86, 0.05)' 
+              boxShadow: '0 10px 25px -5px rgba(var(--primary-rgb), 0.05)' 
             }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #F1F5F9', paddingBottom: '10px' }}>
-                <h3 style={{ fontSize: '11px', color: '#1f2a56', fontWeight: '800', margin: 0, display: 'flex', alignItems: 'center', gap: '8px', letterSpacing: '0.08em' }}>
+                <h3 style={{ fontSize: '11px', color: 'var(--primary-color)', fontWeight: '800', margin: 0, display: 'flex', alignItems: 'center', gap: '8px', letterSpacing: '0.08em' }}>
                   <div style={{ backgroundColor: '#EF4444', padding: '4px', borderRadius: '6px', display: 'flex' }}>
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="white" stroke="white" strokeWidth="2"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 3.5 2.5 6 .5 2.5-1 4.5-3 5.5"></path></svg>
                   </div>
@@ -1443,9 +1443,9 @@ const DashboardView = ({ feed, loading, hasMore, onLoadMore, onAction, currentUs
                       }}
                       onMouseEnter={(e) => { 
                         e.currentTarget.style.backgroundColor = '#FFFFFF';
-                        e.currentTarget.style.borderColor = '#1f2a56';
+                        e.currentTarget.style.borderColor = 'var(--primary-color)';
                         e.currentTarget.style.transform = 'translateY(-2px) scale(1.01)';
-                        e.currentTarget.style.boxShadow = '0 8px 20px rgba(31, 42, 86, 0.08)';
+                        e.currentTarget.style.boxShadow = '0 8px 20px rgba(var(--primary-rgb), 0.08)';
                       }}
                       onMouseLeave={(e) => { 
                         e.currentTarget.style.backgroundColor = index === 0 ? '#FFFFFF' : 'transparent';
@@ -1454,12 +1454,12 @@ const DashboardView = ({ feed, loading, hasMore, onLoadMore, onAction, currentUs
                         e.currentTarget.style.boxShadow = 'none';
                       }}
                     >
-                      {index === 0 && <div style={{ position: 'absolute', top: 0, right: 0, padding: '2px 8px', backgroundColor: '#1f2a56', color: 'white', fontSize: '8px', fontWeight: '900', borderBottomLeftRadius: '8px' }}>TOP STORY</div>}
+                      {index === 0 && <div style={{ position: 'absolute', top: 0, right: 0, padding: '2px 8px', backgroundColor: 'var(--primary-color)', color: 'white', fontSize: '8px', fontWeight: '900', borderBottomLeftRadius: '8px' }}>TOP STORY</div>}
                       
                       <div style={{ 
                         width: '28px', 
                         height: '28px', 
-                        backgroundColor: index === 0 ? '#1f2a56' : '#F1F5F9', 
+                        backgroundColor: index === 0 ? 'var(--primary-color)' : '#F1F5F9', 
                         color: index === 0 ? 'white' : '#64748B', 
                         borderRadius: '10px', 
                         display: 'flex', 
@@ -1469,7 +1469,7 @@ const DashboardView = ({ feed, loading, hasMore, onLoadMore, onAction, currentUs
                         fontSize: '12px', 
                         marginRight: '14px', 
                         flexShrink: 0,
-                        boxShadow: index === 0 ? '0 4px 8px rgba(31, 42, 86, 0.2)' : 'none'
+                        boxShadow: index === 0 ? '0 4px 8px rgba(var(--primary-rgb), 0.2)' : 'none'
                       }}>
                         {index + 1}
                       </div>
@@ -1520,7 +1520,7 @@ const DashboardView = ({ feed, loading, hasMore, onLoadMore, onAction, currentUs
                     background: 'none',
                     border: '1.5px solid #F1F5F9',
                     borderRadius: '12px',
-                    color: '#1f2a56',
+                    color: 'var(--primary-color)',
                     fontSize: '11px',
                     fontWeight: '800',
                     cursor: 'pointer',
@@ -1532,7 +1532,7 @@ const DashboardView = ({ feed, loading, hasMore, onLoadMore, onAction, currentUs
                     letterSpacing: '0.05em'
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = '#1f2a56';
+                    e.currentTarget.style.borderColor = 'var(--primary-color)';
                     e.currentTarget.style.backgroundColor = '#F8FAFC';
                   }}
                   onMouseLeave={(e) => {
@@ -1556,7 +1556,7 @@ const DashboardView = ({ feed, loading, hasMore, onLoadMore, onAction, currentUs
             {!publicFeedEnabled ? (
               <div style={{ padding: '60px 20px', textAlign: 'center' }}>
                 <div style={{ fontSize: '48px', marginBottom: '16px' }}>🔒</div>
-                <h3 style={{ color: '#1f2a56', margin: '0 0 8px 0' }}>Feed Restricted</h3>
+                <h3 style={{ color: 'var(--primary-color)', margin: '0 0 8px 0' }}>Feed Restricted</h3>
                 <p style={{ color: '#64748B', fontSize: '13px', margin: 0, maxWidth: '250px', marginLeft: 'auto', marginRight: 'auto' }}>The community feed has been set to private by the administrator.</p>
               </div>
             ) : (
@@ -1573,7 +1573,7 @@ const DashboardView = ({ feed, loading, hasMore, onLoadMore, onAction, currentUs
                       <Icons.Message size={32} color="#94A3B8" />
                     </div>
                     <div style={{ textAlign: 'center' }}>
-                      <p style={{ ...styles.emptyText, fontWeight: '800', color: '#1f2a56', margin: '0 0 4px 0', fontSize: '16px' }}>
+                      <p style={{ ...styles.emptyText, fontWeight: '800', color: 'var(--primary-color)', margin: '0 0 4px 0', fontSize: '16px' }}>
                         No feedback yet in this entity
                       </p>
                       <p style={{ fontSize: '12px', color: '#64748B', margin: 0 }}>
@@ -1587,7 +1587,7 @@ const DashboardView = ({ feed, loading, hasMore, onLoadMore, onAction, currentUs
                         width: 'auto', 
                         padding: '10px 24px', 
                         fontSize: '13px',
-                        background: '#1f2a56',
+                        background: 'var(--primary-color)',
                         marginTop: '8px'
                       }}
                     >
@@ -1600,7 +1600,7 @@ const DashboardView = ({ feed, loading, hasMore, onLoadMore, onAction, currentUs
                     <button
                       onClick={onLoadMore}
                       disabled={loading}
-                      style={{ ...styles.submitBtn, width: 'auto', padding: '10px 30px', backgroundColor: '#F1F5F9', color: '#1f2a56', border: '1px solid #E2E8F0' }}
+                      style={{ ...styles.submitBtn, width: 'auto', padding: '10px 30px', backgroundColor: '#F1F5F9', color: 'var(--primary-color)', border: '1px solid #E2E8F0' }}
                     >
                       {loading ? 'Loading...' : 'Load More Activity'}
                     </button>
@@ -1637,7 +1637,7 @@ const CategorySelection = ({ onBack, onSelect }) => (
         { id: 'general', labelMain: 'General', labelSub: 'Pangkalahatan', desc: 'Mga ideya o suhestiyon para sa ikabubuti ng lahat', icon: <Icons.Message /> }
       ].map(cat => (
         <button key={cat.id} style={styles.categoryCard} onClick={() => onSelect(cat.id)}>
-          <div style={{ ...styles.catIcon, color: '#1f2a56', backgroundColor: '#F1F5F9' }}>{cat.icon}</div>
+          <div style={{ ...styles.catIcon, color: 'var(--primary-color)', backgroundColor: '#F1F5F9' }}>{cat.icon}</div>
           <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'left', flex: 1 }}>
             <span style={{ ...styles.catLabel, fontSize: 'clamp(15px, 4vw, 17px)' }}>
               {cat.labelMain} <span style={{ fontSize: '11px', color: '#64748B', fontWeight: 'normal' }}> / {cat.labelSub}</span>
@@ -1654,9 +1654,9 @@ const CategorySelection = ({ onBack, onSelect }) => (
 const styles = {
   hubContainer: { height: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: 'transparent', fontFamily: '"Inter", -apple-system, sans-serif', fontSize: '14px' },
   header: { padding: '8px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#FFFFFF', borderBottom: '1px solid #F1F5F9', flexShrink: 0 },
-  headerTitle: { fontSize: '14px', fontWeight: '800', color: '#1f2a56', margin: 0 },
+  headerTitle: { fontSize: '14px', fontWeight: '800', color: '#1E293B', margin: 0 },
   iconBtn: { background: 'none', border: 'none', cursor: 'pointer', position: 'relative' },
-  notifDot: { position: 'absolute', top: '0px', right: '0px', width: '8px', height: '8px', backgroundColor: '#1f2a56', borderRadius: '50%', border: '2px solid white' },
+  notifDot: { position: 'absolute', top: '0px', right: '0px', width: '8px', height: '8px', backgroundColor: 'var(--primary-color)', borderRadius: '50%', border: '2px solid white' },
   mainScroll: { flex: 1, overflowY: 'auto', padding: '0 20px 20px 20px', display: 'flex', flexDirection: 'column', borderLeft: '1px solid #E2E8F0', borderRight: '1px solid #E2E8F0' },
   fadeIn: { animation: 'fadeIn 0.3s ease-in-out' },
   fabBtnHtml: `
@@ -1667,10 +1667,10 @@ const styles = {
   `,
   layoutCenter: { maxWidth: '700px', margin: '0 auto', width: '100%' },
   welcomeSection: { marginBottom: '12px', maxWidth: '700px', margin: '0 auto', width: '100%' },
-  greeting: { fontSize: '16px', fontWeight: '800', background: '-webkit-linear-gradient(45deg, #1f2a56, #3B82F6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' },
-  subGreeting: { fontSize: '12px', color: '#64748B' },
+  greeting: { fontSize: '16px', fontWeight: '800', background: '-webkit-linear-gradient(45deg, var(--primary-color), #3B82F6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' },
+  subGreeting: { fontSize: '12px', color: '#475569', fontWeight: '500' },
   actionGridSingle: { marginBottom: '12px', maxWidth: '700px', margin: '0 auto', width: '100%' },
-  primaryAction: { width: '100%', background: 'linear-gradient(135deg, #1f2a56 0%, #2563EB 100%)', color: 'white', border: 'none', borderRadius: '12px', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 6px rgba(37, 99, 235, 0.2)', cursor: 'pointer', transition: 'transform 0.2s', fontWeight: 'bold' },
+  primaryAction: { width: '100%', background: 'linear-gradient(135deg, var(--primary-color) 0%, #2563EB 100%)', color: 'white', border: 'none', borderRadius: '12px', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 6px rgba(37, 99, 235, 0.2)', cursor: 'pointer', transition: 'transform 0.2s', fontWeight: 'bold' },
   actionIconBg: { width: '28px', height: '28px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.2)' },
   actionText: { fontSize: '14px', fontWeight: 'bold' },
   sectionTitle: { fontSize: '13px', fontWeight: 'bold' },
@@ -1688,21 +1688,21 @@ const styles = {
   },
   feedList: { display: 'flex', flexDirection: 'column', gap: '6px', padding: '6px 0', maxWidth: '700px', margin: '0 auto', width: '100%' },
   feedScroll: { flex: 1, overflowY: 'auto', padding: '6px', display: 'flex', flexDirection: 'column', gap: '6px' },
-  feedCard: { backgroundColor: '#FFFFFF', borderRadius: '8px', padding: '8px 12px', border: '1px solid #1f2a56', cursor: 'pointer', transition: 'all 0.2s ease', position: 'relative', marginBottom: '0px' },
+  feedCard: { backgroundColor: '#FFFFFF', borderRadius: '12px', padding: '12px 16px', border: '1px solid #F1F5F9', borderLeft: '4px solid var(--primary-color)', cursor: 'pointer', transition: 'all 0.2s ease', position: 'relative', marginBottom: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' },
 
   cardHeader: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' },
-  cardAvatar: { width: '32px', height: '32px', borderRadius: '50%', backgroundColor: '#1f2a56', color: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 'bold' },
+  cardAvatar: { width: '32px', height: '32px', borderRadius: '50%', backgroundColor: 'var(--primary-color)', color: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 'bold' },
   cardInfo: { flex: 1 },
-  cardSender: { fontSize: '13px', fontWeight: '700', color: '#1f2a56' },
-  cardMeta: { fontSize: '11px', color: '#1f2a56' },
-  statusBadge: { padding: '2px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', color: 'white', backgroundColor: '#1f2a56' },
+  cardSender: { fontSize: '13px', fontWeight: '700', color: '#000000' },
+  cardMeta: { fontSize: '11px', color: '#64748B' },
+  statusBadge: { padding: '2px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', color: 'white', backgroundColor: 'var(--primary-color)' },
 
   cardSubjectRow: { display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '2px' },
-  cardSubject: { fontSize: '13px', fontWeight: '800', color: '#1f2a56' },
-  cardDept: { fontSize: '10px', color: '#FFFFFF', backgroundColor: '#1f2a56', padding: '2px 4px', borderRadius: '4px' },
+  cardSubject: { fontSize: '13px', fontWeight: '800', color: '#000000' },
+  cardDept: { fontSize: '10px', color: '#FFFFFF', backgroundColor: 'var(--primary-color)', padding: '2px 4px', borderRadius: '4px' },
   cardRatingRow: { display: 'flex', gap: '2px', marginBottom: '4px', alignItems: 'center' },
 
-  cardText: { fontSize: '13px', color: '#1f2a56', lineHeight: '1.4', margin: '2px 0 4px 0' },
+  cardText: { fontSize: '14px', color: '#000000', lineHeight: '1.5', margin: '4px 0 6px 0' },
 
   fbSenderRow: { fontSize: '13px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '4px', marginBottom: '2px' },
   fbActionRow: { display: 'flex', justifyContent: 'space-around', alignItems: 'center', borderTop: '1px solid #F0F2F5', padding: '0', marginTop: '0' },
@@ -1758,12 +1758,12 @@ const styles = {
     width: '56px',
     height: '56px',
     borderRadius: '28px',
-    backgroundColor: '#1f2a56',
+    backgroundColor: 'var(--primary-color)',
     color: 'white',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    boxShadow: '0 8px 16px rgba(31, 42, 86, 0.3)',
+    boxShadow: '0 8px 16px rgba(var(--primary-rgb), 0.3)',
     border: 'none',
     cursor: 'pointer',
     zIndex: 900,
@@ -1782,16 +1782,16 @@ const styles = {
   pulseDot: { width: '8px', height: '8px', backgroundColor: '#10B981', borderRadius: '50%' },
   emptyState: { padding: '40px 20px', textAlign: 'center', border: '2px dashed #E2E8F0', borderRadius: '20px' },
   emptyText: { color: '#94A3B8', fontSize: '14px' },
-  backBtn: { background: 'none', border: 'none', color: '#1f2a56', fontWeight: 'bold', marginBottom: '16px' },
+  backBtn: { background: 'none', border: 'none', color: 'var(--primary-color)', fontWeight: 'bold', marginBottom: '16px' },
   pageTitle: { fontSize: '22px', fontWeight: 'bold', marginBottom: '20px' },
   categoryStack: { display: 'flex', flexDirection: 'column', gap: '12px' },
   categoryCard: { display: 'flex', alignItems: 'center', backgroundColor: 'white', padding: '16px', borderRadius: '20px', border: '1px solid #E2E8F0' },
   catIcon: { width: '48px', height: '48px', borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: '16px' },
   catLabel: { flex: 1, fontWeight: '600', textAlign: 'left' },
   menuOverlay: { position: 'fixed', inset: 0, backgroundColor: 'rgba(15, 23, 42, 0.6)', zIndex: 1000, backdropFilter: 'blur(8px)', animation: 'fadeIn 0.3s ease-in-out' },
-  menuContent: { width: '280px', height: '100%', background: 'linear-gradient(180deg, #0F172A 0%, #1E293B 100%)', color: 'white', display: 'flex', flexDirection: 'column', boxShadow: '4px 0 24px rgba(0,0,0,0.3)', animation: 'slideRight 0.3s cubic-bezier(0.16, 1, 0.3, 1)' },
+  menuContent: { width: '280px', height: '100%', background: 'linear-gradient(180deg, var(--primary-color) 0%, #0F172A 100%)', color: 'white', display: 'flex', flexDirection: 'column', boxShadow: '4px 0 24px rgba(0,0,0,0.3)', animation: 'slideRight 0.3s cubic-bezier(0.16, 1, 0.3, 1)' },
   menuHeader: { padding: '50px 24px 30px', borderBottom: '1px solid rgba(255,255,255,0.08)' },
-  avatarLarge: { width: '64px', height: '64px', borderRadius: '22px', backgroundColor: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', border: '2px solid rgba(255,255,255,0.2)', marginBottom: '16px', color: 'white' },
+  avatarLarge: { width: '64px', height: '64px', borderRadius: '22px', backgroundColor: 'rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', border: '2px solid rgba(255,255,255,0.3)', marginBottom: '16px', color: 'white' },
   userName: { margin: 0, color: 'white', fontWeight: 'bold' },
   userRole: { margin: 0, color: '#94A3B8', fontSize: '13px', marginTop: '4px' },
   menuLinks: { padding: '24px', display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, overflowY: 'auto' },
@@ -1809,18 +1809,18 @@ const styles = {
   modalOverlay: { position: 'fixed', inset: 0, backgroundColor: 'rgba(15, 23, 42, 0.7)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(8px)', padding: '20px' },
   commentModalContent: { backgroundColor: 'white', width: '100%', maxWidth: '500px', maxHeight: '85vh', borderRadius: '28px', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' },
   commentModalHeader: { padding: '16px 24px', borderBottom: '1px solid #F1F5F9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'white' },
-  modalTitle: { fontSize: '18px', fontWeight: '800', color: '#1f2a56', margin: 0 },
+  modalTitle: { fontSize: '18px', fontWeight: '800', color: 'var(--primary-color)', margin: 0 },
   closeBtn: { background: '#F1F5F9', border: 'none', width: '32px', height: '32px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#64748B' },
   commentModalBody: { flex: 1, overflowY: 'auto', padding: '20px', backgroundColor: '#F8FAFC' },
   originalPostSnippet: { backgroundColor: 'white', padding: '16px', borderRadius: '16px', border: '1px solid #E2E8F0', marginBottom: '24px' },
-  snippetUser: { fontSize: '12px', fontWeight: 'bold', color: '#1f2a56', textTransform: 'uppercase', marginBottom: '6px', display: 'block' },
-  snippetText: { fontSize: '13px', margin: 0, color: '#475569', lineHeight: '1.4' },
+  snippetUser: { fontSize: '12px', fontWeight: 'bold', color: 'var(--primary-color)', textTransform: 'uppercase', marginBottom: '6px', display: 'block' },
+  snippetText: { fontSize: '13px', margin: 0, color: '#1E293B', lineHeight: '1.4' },
   modalCommentsList: { display: 'flex', flexDirection: 'column', gap: '8px' },
   modalCommentItem: { display: 'flex', gap: '8px' },
-  commentAvatarSmall: { width: '32px', height: '32px', borderRadius: '10px', backgroundColor: '#1f2a56', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontWeight: 'bold', flexShrink: 0 },
+  commentAvatarSmall: { width: '32px', height: '32px', borderRadius: '10px', backgroundColor: 'var(--primary-color)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontWeight: 'bold', flexShrink: 0 },
   commentBubble: { backgroundColor: 'white', padding: '8px 12px', borderRadius: '16px', border: '1px solid #E2E8F0', flex: 1, boxShadow: '0 2px 4px rgba(0,0,0,0.02)' },
-  commentUserName: { fontSize: '12px', fontWeight: '800', color: '#1f2a56' },
-  commentText: { fontSize: '13px', margin: '4px 0 8px', color: '#334155', lineHeight: '1.4' },
+  commentUserName: { fontSize: '12px', fontWeight: '800', color: 'var(--primary-color)' },
+  commentText: { fontSize: '13px', margin: '4px 0 8px', color: '#1E293B', lineHeight: '1.4' },
   commentActionsRow: { display: 'flex', alignItems: 'center', gap: '12px' },
   commentActionLink: { background: 'none', border: 'none', padding: 0, fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', transition: 'color 0.2s' },
   commentDate: { fontSize: '10px', color: '#94A3B8', marginLeft: 'auto' },
@@ -1835,16 +1835,16 @@ const styles = {
     fontSize: '13px', 
     outline: 'none',
     transition: 'border-color 0.2s',
-    '&:focus': { borderColor: '#3B82F6' }
+    '&:focus': { borderColor: 'var(--primary-color)' }
   },
-  modalSendBtn: { background: '#1f2a56', border: 'none', color: 'white', width: '36px', height: '36px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'transform 0.2s' },
-  modalEditInput: { width: '100%', border: '2px solid #3B82F6', borderRadius: '12px', padding: '8px', fontSize: '13px', outline: 'none', marginBottom: '6px', boxSizing: 'border-box' },
+  modalSendBtn: { background: 'var(--primary-color)', border: 'none', color: 'white', width: '36px', height: '36px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'transform 0.2s' },
+  modalEditInput: { width: '100%', border: '2px solid var(--primary-color)', borderRadius: '12px', padding: '8px', fontSize: '13px', outline: 'none', marginBottom: '6px', boxSizing: 'border-box' },
   modalMiniBtn: { background: '#F1F5F9', border: 'none', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', color: '#64748B', padding: '4px 10px', borderRadius: '8px' },
   btnIconTiny: { background: 'none', border: 'none', padding: '3px', cursor: 'pointer', color: '#94A3B8', transition: 'color 0.2s' },
   modalSubtitle: { fontSize: '11px', color: '#64748B', fontWeight: '600' },
   originalPostSnippetExtended: { backgroundColor: 'white', padding: '16px', borderRadius: '20px', border: '1px solid #E2E8F0', marginBottom: '16px', boxShadow: '0 4px 6px rgba(0,0,0,0.02)' },
   snippetUserRow: { display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' },
-  snippetAvatar: { width: '36px', height: '36px', borderRadius: '12px', backgroundColor: '#F1F5F9', color: '#1f2a56', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '16px' },
+  snippetAvatar: { width: '36px', height: '36px', borderRadius: '12px', backgroundColor: '#F1F5F9', color: 'var(--primary-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '16px' },
   snippetMeta: { fontSize: '11px', color: '#94A3B8' },
   ratingBadge: { backgroundColor: '#FFF7ED', color: '#C2410C', padding: '3px 6px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: 'bold' },
   snippetTextFull: { fontSize: '14px', color: '#1E293B', lineHeight: '1.5', margin: 0 },
@@ -1853,13 +1853,13 @@ const styles = {
   commentOptions: { display: 'flex', gap: '6px' },
   commentReactions: { display: 'flex', alignItems: 'center', gap: '10px' },
   commentReactBtn: { background: 'none', border: 'none', padding: 0, display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', color: '#64748B' },
-  commentReplyLink: { background: 'none', border: 'none', padding: 0, fontSize: '11px', fontWeight: 'bold', color: '#1f2a56', cursor: 'pointer', marginLeft: '6px' },
+  commentReplyLink: { background: 'none', border: 'none', padding: 0, fontSize: '11px', fontWeight: 'bold', color: 'var(--primary-color)', cursor: 'pointer', marginLeft: '6px' },
   nestedCommentItem: { display: 'flex', gap: '8px', marginLeft: '40px', marginTop: '2px' },
   nestedAvatarSmall: { width: '24px', height: '24px', borderRadius: '8px', backgroundColor: '#F1F5F9', color: '#64748B', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 'bold' },
   viewMoreBtn: { background: 'none', border: 'none', color: '#3B82F6', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', padding: '4px 0', marginTop: '4px', textAlign: 'left' },
   replyingToNotice: { fontSize: '11px', color: '#64748B', backgroundColor: '#F1F5F9', padding: '6px 10px', borderRadius: '10px', marginBottom: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
   cancelReplyBtn: { background: 'none', border: 'none', color: '#EF4444', fontWeight: 'bold', cursor: 'pointer', marginLeft: '6px' },
-  translateBtn: { background: 'none', border: 'none', color: '#1f2a56', fontSize: '12px', textAlign: 'left', padding: '0 0 8px 0', cursor: 'pointer', fontWeight: 'bold', textDecoration: 'underline' },
+  translateBtn: { background: 'none', border: 'none', color: 'var(--primary-color)', fontSize: '12px', textAlign: 'left', padding: '0 0 8px 0', cursor: 'pointer', fontWeight: 'bold', textDecoration: 'underline' },
   reactionBtn: { border: 'none', display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', borderRadius: '16px', fontSize: '11px', cursor: 'pointer', transition: 'background-color 0.2s', fontWeight: 'bold' },
   toastModal: { position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', padding: '16px 24px', color: 'white', fontWeight: 'bold', fontSize: '15px', borderRadius: '30px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)', zIndex: 9999, animation: 'fadeIn 0.2s ease-out', pointerEvents: 'none' },
   feedList: { display: 'flex', flexDirection: 'column', gap: '6px', padding: '6px' },
@@ -1890,7 +1890,7 @@ const BroadcastViewModal = ({ notif, onClose }) => {
           <div style={{ marginTop: '24px', paddingTop: '16px', borderTop: '1px dotted #E2E8F0', display: 'flex', justifyContent: 'flex-end' }}>
             <button
               onClick={onClose}
-              style={{ ...styles.modalSendBtn, backgroundColor: '#1f2a56', width: 'auto', padding: '10px 24px' }}
+              style={{ ...styles.modalSendBtn, backgroundColor: 'var(--primary-color)', width: 'auto', padding: '10px 24px' }}
             >Confirm</button>
           </div>
         </div>

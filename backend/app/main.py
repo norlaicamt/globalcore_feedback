@@ -47,8 +47,11 @@ def home():
 def get_system_info(db: Session = Depends(get_db)):
     """Public endpoint to get system branding and configuration information."""
     org_name = db.query(models.SystemSetting).filter(models.SystemSetting.key == "primary_organization_name").first()
+    primary_color = db.query(models.SystemSetting).filter(models.SystemSetting.key == "primary_color").first()
+
     return {
         "organization_name": org_name.value if org_name else "GlobalCore Feedback System",
+        "primary_color": primary_color.value if primary_color else "#1f2a56",
         "version": "1.0.0",
         "environment": os.getenv("ENV", "production")
     }

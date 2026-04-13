@@ -27,7 +27,7 @@ const ForgotPassword = () => {
             <div style={styles.card}>
                 <div style={styles.header}>
                     <div style={styles.logoCircle}>
-                        <Link to="/" style={{textDecoration: 'none', color: '#1f2a56'}}>
+                        <Link to="/" style={{textDecoration: 'none', color: 'var(--primary-color)'}}>
                             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
                         </Link>
                     </div>
@@ -109,18 +109,18 @@ const styles = {
     logoCircle: {
         width: '56px',
         height: '56px',
-        background: 'rgba(31, 42, 86, 0.05)',
+        background: 'rgba(var(--primary-rgb), 0.05)',
         borderRadius: '18px',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         margin: '0 auto 24px',
-        color: '#1f2a56'
+        color: 'var(--primary-color)'
     },
     title: {
         fontSize: '28px',
         fontWeight: '900',
-        color: '#1f2a56',
+        color: 'var(--primary-color)',
         margin: '0 0 12px 0',
         letterSpacing: '-1px'
     },
@@ -143,7 +143,7 @@ const styles = {
     label: {
         fontSize: '13px',
         fontWeight: '800',
-        color: '#1f2a56',
+        color: 'var(--primary-color)',
         textTransform: 'uppercase',
         letterSpacing: '0.05em',
         paddingLeft: '4px'
@@ -162,14 +162,14 @@ const styles = {
     button: {
         width: '100%',
         padding: '18px',
-        background: '#1f2a56',
+        background: 'var(--primary-color)',
         color: 'white',
         border: 'none',
         borderRadius: '18px',
         fontSize: '16px',
         fontWeight: '800',
         cursor: 'pointer',
-        boxShadow: '0 10px 25px rgba(31, 42, 86, 0.15)',
+        boxShadow: '0 10px 25px rgba(var(--primary-rgb), 0.15)',
         transition: 'transform 0.2s'
     },
     error: {

@@ -8,7 +8,7 @@ import {
   XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line
 } from "recharts";
 
-const CHART_COLORS = ["#1f2a56", "#2563EB", "#3B82F6", "#60A5FA", "#93C5FD", "#BFDBFE"];
+const CHART_COLORS = ["var(--primary-color)", "#2563EB", "#3B82F6", "#60A5FA", "#93C5FD", "#BFDBFE"];
 
 const KpiCard = ({ label, value, sub, onClick, theme }) => (
   <div 
@@ -103,21 +103,30 @@ const AdminDashboard = ({ onNavigate, theme, darkMode, adminUser }) => {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+      
+      {/* 🧭 Orientation / Breadcrumb Bar */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', fontWeight: '700', color: theme.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+        <span>Admin Hub</span>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="9 18 15 12 9 6"/></svg>
+        <span style={{ color: 'var(--primary-color)' }}>{hasGlobalAdminAccess ? "System Overview" : (adminUser?.department || "Program Portal")}</span>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="9 18 15 12 9 6"/></svg>
+        <span style={{ color: theme.text }}>Insights Dashboard</span>
+      </div>
 
       {/* Header controls for Super Admins */}
       {hasGlobalAdminAccess ? (
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: theme.surface, padding: "12px 20px", borderRadius: "12px", border: `1px solid ${theme.border}`, boxShadow: "0 1px 4px rgba(0,0,0,0.03)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: theme.surface, padding: "16px 20px", borderRadius: "12px", border: `1px solid ${theme.border}`, boxShadow: "0 1px 4px rgba(0,0,0,0.03)" }}>
           <div>
-            <h3 style={{ margin: 0, fontSize: "14px", fontWeight: "800", color: theme.text }}>{getLabel("entity_label", "Department")} Scope Tracker</h3>
+            <h3 style={{ margin: 0, fontSize: "16px", fontWeight: "800", color: theme.text }}>{getLabel("entity_label", "Department")} Scope Tracker</h3>
             {selectedDept ? (
               <p style={{ margin: "4px 0 0", fontSize: "12px", color: "#3B82F6", fontWeight: "700", display: "flex", alignItems: "center", gap: "6px" }}>
                 <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#3B82F6" }} />
-                Viewing: {selectedDept} ({getLabel("entity_label", "Department")} View)
+                📍 Viewing Component: <strong>{selectedDept}</strong>
               </p>
             ) : (
               <p style={{ margin: "4px 0 0", fontSize: "12px", color: theme.textMuted, fontWeight: "600", display: "flex", alignItems: "center", gap: "6px" }}>
                 <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#10B981" }} />
-                Viewing: Global System Aggregate
+                📍 Viewing Global System Aggregate
               </p>
             )}
           </div>
@@ -133,12 +142,12 @@ const AdminDashboard = ({ onNavigate, theme, darkMode, adminUser }) => {
           </select>
         </div>
       ) : (
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: theme.surface, padding: "12px 20px", borderRadius: "12px", border: `1px solid ${theme.border}` }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: theme.surface, padding: "16px 20px", borderRadius: "12px", border: `1px solid ${theme.border}` }}>
            <div>
-            <h3 style={{ margin: 0, fontSize: "14px", fontWeight: "800", color: theme.text }}>{getLabel("category_label", "Entity")} Dashboard</h3>
+            <h3 style={{ margin: 0, fontSize: "16px", fontWeight: "800", color: theme.text }}>{adminUser?.department || getLabel("category_label", "Entity")} Dashboard</h3>
             <p style={{ margin: "4px 0 0", fontSize: "12px", color: "#3B82F6", fontWeight: "700", display: "flex", alignItems: "center", gap: "6px" }}>
               <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#3B82F6" }} />
-              Viewing your assigned {getLabel("category_label", "Entity").toLowerCase()} data
+              📍 Viewing: <strong>{adminUser?.department?.toUpperCase()} SERVICE</strong>
             </p>
           </div>
         </div>
@@ -208,14 +217,14 @@ const AdminDashboard = ({ onNavigate, theme, darkMode, adminUser }) => {
             <AreaChart data={volume}>
               <defs>
                 <linearGradient id="volGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#1f2a56" stopOpacity={darkMode ? 0.4 : 0.15}/>
-                  <stop offset="95%" stopColor="#1f2a56" stopOpacity={0}/>
+                  <stop offset="5%" stopColor="var(--primary-color)" stopOpacity={darkMode ? 0.4 : 0.15}/>
+                  <stop offset="95%" stopColor="var(--primary-color)" stopOpacity={0}/>
                 </linearGradient>
               </defs>
               <XAxis dataKey="day" tick={{ fontSize: 10, fill: theme.textMuted }} tickLine={false} axisLine={false} />
               <YAxis tick={{ fontSize: 10, fill: theme.textMuted }} tickLine={false} axisLine={false} />
               <Tooltip contentStyle={tooltipStyle} />
-              <Area type="monotone" dataKey="count" stroke="#1f2a56" fill="url(#volGrad)" strokeWidth={2} dot={false} name={getLabel("feedback_label", "Feedback")} />
+              <Area type="monotone" dataKey="count" stroke="var(--primary-color)" fill="url(#volGrad)" strokeWidth={2} dot={false} name={getLabel("feedback_label", "Feedback")} />
             </AreaChart>
           </ResponsiveContainer>
         </Section>
@@ -282,7 +291,7 @@ const AdminDashboard = ({ onNavigate, theme, darkMode, adminUser }) => {
             <XAxis type="number" tick={{ fontSize: 10, fill: theme.textMuted }} tickLine={false} axisLine={false} />
             <YAxis dataKey="name" type="category" tick={{ fontSize: 10, fill: theme.textMuted }} tickLine={false} axisLine={false} width={120} />
             <Tooltip contentStyle={tooltipStyle} />
-            <Bar dataKey="count" fill="#1f2a56" radius={[0, 6, 6, 0]} name={getLabel("feedback_label_plural", "Posts")}>
+            <Bar dataKey="count" fill="var(--primary-color)" radius={[0, 6, 6, 0]} name={getLabel("feedback_label_plural", "Posts")}>
               {byEntity.map((entry, index) => (
                 <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
               ))}
@@ -310,7 +319,7 @@ const AdminDashboard = ({ onNavigate, theme, darkMode, adminUser }) => {
               <XAxis dataKey="rating" tick={{ fontSize: 10, fill: theme.textMuted }} tickLine={false} axisLine={false} tickFormatter={v => `${v}★`} />
               <YAxis tick={{ fontSize: 10, fill: theme.textMuted }} tickLine={false} axisLine={false} />
               <Tooltip contentStyle={tooltipStyle} />
-              <Bar dataKey="count" fill="#1f2a56" radius={[4, 4, 0, 0]} name="Count" />
+              <Bar dataKey="count" fill="var(--primary-color)" radius={[4, 4, 0, 0]} name="Count" />
             </BarChart>
           </ResponsiveContainer>
         </Section>

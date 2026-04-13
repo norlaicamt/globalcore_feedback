@@ -159,7 +159,7 @@ export const getEntities = async () => {
 };
 
 export const getSystemInfo = async () => {
-  const response = await axios.get(`${API_BASE}/system/info`);
+  const response = await axios.get(`${API_BASE}/api/system/info`);
   return response.data;
 };
 

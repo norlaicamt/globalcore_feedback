@@ -815,12 +815,18 @@ def update_system_label(db: Session, key: str, value: str, organization_id: int 
     return db_label
 
 # Broadcast History
-def create_broadcast_log(db: Session, subject: str, message: str, count: int):
-    log = models.BroadcastLog(subject=subject, message=message, sent_to_count=count)
+def create_broadcast_log(db: Session, subject: str, message: str, count: int, entity_id: Optional[int] = None):
+    log = models.BroadcastLog(subject=subject, message=message, sent_to_count=count, entity_id=entity_id)
     db.add(log)
     db.commit()
     db.refresh(log)
     return log
+
+def get_broadcast_logs(db: Session, entity_id: Optional[int] = None):
+    query = db.query(models.BroadcastLog)
+    if entity_id:
+        query = query.filter(models.BroadcastLog.entity_id == entity_id)
+    return query.order_by(models.BroadcastLog.created_at.desc()).all()
 
 # Moderation Operations
 def get_pending_feedbacks(db: Session, skip: int = 0, limit: int = 100):

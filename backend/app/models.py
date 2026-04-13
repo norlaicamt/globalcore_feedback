@@ -48,6 +48,7 @@ class User(Base):
     birthplace = Column(String, nullable=True)
     onboarding_completed = Column(Boolean, default=False)
     show_activity_status = Column(Boolean, default=True)
+    is_global_user = Column(Boolean, default=False)
     avatar_url = Column(Text, nullable=True)  # base64 data URI or URL
     id_photo_url = Column(Text, nullable=True)
     
@@ -255,7 +256,10 @@ class BroadcastLog(Base):
     message = Column(String)
     broadcast_type = Column(String, default="announcement")
     sent_to_count = Column(Integer)
+    entity_id = Column(Integer, ForeignKey("entities.id"), nullable=True) # Scoping for program admins
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    entity = relationship("Entity")
 
 class PasswordResetToken(Base):
     __tablename__ = "password_reset_tokens"

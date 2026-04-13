@@ -135,7 +135,7 @@ const AdminPendingSuggestions = ({ theme, darkMode, refreshCount }) => {
                   <td style={{ ...tdStyle, textAlign: "right" }}>
                     <button 
                       onClick={() => openReview(item)}
-                      style={{ padding: "6px 14px", borderRadius: "8px", border: "none", background: "#1f2a56", color: "white", fontSize: "12px", fontWeight: "700", cursor: "pointer", transition: "transform 0.1s" }}
+                      style={{ padding: "6px 14px", borderRadius: "8px", border: "none", background: "var(--primary-color)", color: "white", fontSize: "12px", fontWeight: "700", cursor: "pointer", transition: "transform 0.1s" }}
                       onMouseEnter={e => e.currentTarget.style.transform = "scale(1.03)"}
                       onMouseLeave={e => e.currentTarget.style.transform = "scale(1)"}
                     >
@@ -184,7 +184,7 @@ const AdminPendingSuggestions = ({ theme, darkMode, refreshCount }) => {
               <button onClick={handleReject} style={{ flex: 1, padding: "12px", borderRadius: "12px", border: "1px solid #FECACA", background: "#FEF2F2", color: "#B91C1C", fontSize: "13px", fontWeight: "700", cursor: "pointer" }}>Reject</button>
               <button 
                 onClick={handleApprove}
-                style={{ flex: 2, padding: "12px", borderRadius: "12px", border: "none", background: "linear-gradient(135deg, #1f2a56 0%, #1a2347 100%)", color: "white", fontSize: "13px", fontWeight: "700", cursor: "pointer" }}
+                style={{ flex: 2, padding: "12px", borderRadius: "12px", border: "none", background: "linear-gradient(135deg, var(--primary-color) 0%, #1a2347 100%)", color: "white", fontSize: "13px", fontWeight: "700", cursor: "pointer" }}
               >
                 Approve & Publish
               </button>

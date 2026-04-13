@@ -570,7 +570,7 @@ const AdminFeedbackTypes = ({ theme, darkMode, adminUser }) => {
             
             <div style={{ padding: '16px 24px', background: darkMode ? 'rgba(255,255,255,0.02)' : '#F8FAFC', borderTop: `1px solid ${theme.border}`, display: 'flex', gap: '12px' }}>
               <button onClick={() => { setShowPresetModal(false); setNewPresetName(""); }} style={{ flex: 1, padding: '12px', borderRadius: '12px', border: `1px solid ${theme.border}`, background: theme.bg, color: theme.text, fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
-              <button onClick={handleAddPreset} disabled={!newPresetName.trim()} style={{ flex: 1, padding: '12px', borderRadius: '12px', border: 'none', background: 'linear-gradient(135deg, #1f2a56 0%, #2563EB 100%)', color: 'white', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit', opacity: !newPresetName.trim() ? 0.6 : 1 }}>Create</button>
+              <button onClick={handleAddPreset} disabled={!newPresetName.trim()} style={{ flex: 1, padding: '12px', borderRadius: '12px', border: 'none', background: 'linear-gradient(135deg, var(--primary-color) 0%, #2563EB 100%)', color: 'white', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit', opacity: !newPresetName.trim() ? 0.6 : 1 }}>Create</button>
             </div>
           </div>
         </div>
@@ -580,7 +580,7 @@ const AdminFeedbackTypes = ({ theme, darkMode, adminUser }) => {
       {showChoiceView && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.7)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(8px)', padding: '20px' }}>
           <div style={{ background: theme.surface, width: '100%', maxWidth: '450px', borderRadius: '24px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', overflow: 'hidden', animation: 'fadeIn 0.3s ease-out' }}>
-            <div style={{ padding: '24px', background: 'linear-gradient(135deg, #1f2a56 0%, #2563EB 100%)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ padding: '24px', background: 'linear-gradient(135deg, var(--primary-color) 0%, #2563EB 100%)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
                 <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: 'white' }}>{viewTitle}</h3>
                 <p style={{ margin: 0, fontSize: '12px', color: 'rgba(255,255,255,0.7)' }}>{viewChoices.length} Registered {getLabel("entity_label_plural", "Establishments/Services")}</p>
@@ -623,7 +623,7 @@ const labelStyle = { fontSize: "11px", fontWeight: "700", color: "#64748B", text
 const inputStyle = { padding: "8px 12px", border: "1.5px solid #E2E8F0", borderRadius: "8px", fontSize: "13px", outline: "none", fontFamily: "inherit", color: "#1E293B", boxSizing: "border-box", width: "100%" };
 const thStyle = { padding: "11px 14px", textAlign: "left", fontSize: "10px", fontWeight: "700", color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.06em" };
 const tdStyle = { padding: "11px 14px", color: "#374151", verticalAlign: "middle" };
-const primaryBtn = { padding: "8px 18px", background: "#1f2a56", color: "white", border: "none", borderRadius: "8px", fontSize: "13px", fontWeight: "600", cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" };
+const primaryBtn = { padding: "8px 18px", background: "var(--primary-color)", color: "white", border: "none", borderRadius: "8px", fontSize: "13px", fontWeight: "600", cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" };
 const saveBtn = { padding: "5px 12px", background: "#F0FDF4", color: "#15803D", border: "1px solid #BBF7D0", borderRadius: "6px", fontSize: "12px", fontWeight: "600", cursor: "pointer", fontFamily: "inherit" };
 const cancelBtn = { padding: "5px 12px", background: "#F8FAFC", color: "#64748B", border: "1px solid #E2E8F0", borderRadius: "6px", fontSize: "12px", fontWeight: "600", cursor: "pointer", fontFamily: "inherit" };
 const editBtn = { padding: "5px 12px", background: "#EFF6FF", color: "#1D4ED8", border: "1px solid #BFDBFE", borderRadius: "6px", fontSize: "12px", fontWeight: "600", cursor: "pointer", fontFamily: "inherit" };

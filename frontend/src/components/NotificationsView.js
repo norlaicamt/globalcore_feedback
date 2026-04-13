@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { getUserNotifications, markNotificationsAsRead } from "../services/api";
 
 const Icons = {
-  Back: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1f2a56" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>,
+  Back: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--primary-color)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>,
   Message: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>,
   HeartFill: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>,
   ThumbsDown: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3H10z"></path><path d="M17 2h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"></path></svg>,
@@ -85,7 +85,7 @@ const NotificationsView = ({ currentUser, onBack, onOpenComment, onRead }) => {
           transition: background 0.3s ease;
         }
         .notif-card-wow:hover::before {
-          background: linear-gradient(180deg, #3B82F6 0%, #8B5CF6 100%);
+          background: linear-gradient(180deg, var(--primary-color) 0%, #8B5CF6 100%);
         }
         .notif-avatar-cont {
           width: 48px; height: 48px; border-radius: 14px; display: flex; align-items: center; justify-content: center;
@@ -160,14 +160,14 @@ const NotificationsView = ({ currentUser, onBack, onOpenComment, onRead }) => {
                   className="notif-card-wow" 
                   onClick={() => onOpenComment && onOpenComment(notif)}
                   style={{
-                    backgroundColor: notif.is_read ? '#FFFFFF' : '#EBF5FF',
-                    borderLeft: notif.is_read ? 'none' : '4px solid #3B82F6',
+                    backgroundColor: notif.is_read ? '#FFFFFF' : 'rgba(var(--primary-rgb), 0.05)',
+                    borderLeft: notif.is_read ? 'none' : '4px solid var(--primary-color)',
                     position: 'relative'
                   }}
                 >
                   {/* UNREAD BLUE DOT indicator */}
                   {!notif.is_read && (
-                    <div style={{ position: 'absolute', top: '10px', left: '10px', width: '8px', height: '8px', backgroundColor: '#3B82F6', borderRadius: '50%' }}></div>
+                    <div style={{ position: 'absolute', top: '10px', left: '10px', width: '8px', height: '8px', backgroundColor: 'var(--primary-color)', borderRadius: '50%' }}></div>
                   )}
                   <div className="notif-avatar-cont" style={{ background: viz.bg, color: viz.color }}>
                     {viz.icon}
@@ -188,7 +188,7 @@ const NotificationsView = ({ currentUser, onBack, onOpenComment, onRead }) => {
                           <>
                             <span style={{ color: '#0F172A', fontWeight: notif.is_read ? 600 : 800 }}>{notif.actor_name || "Someone"}</span> 
                             <span style={{ fontWeight: notif.is_read ? 400 : 600, color: notif.is_read ? '#64748B' : '#1E293B' }}> {getNotifText()} </span>
-                            <span style={{ color: '#3B82F6', fontWeight: notif.is_read ? 600 : 800 }}>{getTargetText()}</span>
+                            <span style={{ color: 'var(--primary-color)', fontWeight: notif.is_read ? 600 : 800 }}>{getTargetText()}</span>
                           </>
                         )}
                       </p>
@@ -220,8 +220,8 @@ const spinKeyframes = `
 const styles = {
   container: { height: '100vh', display: 'flex', flexDirection: 'column', background: 'linear-gradient(135deg, #F8FAFC 0%, #EEF2F6 100%)', overflow: 'hidden', fontFamily: '"Inter", -apple-system, sans-serif' },
   header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 24px', flexShrink: 0, maxWidth: '800px', width: '100%', margin: '0 auto', zIndex: 10 },
-  headerTitle: { fontSize: '16px', fontWeight: '800', background: 'linear-gradient(45deg, #1f2a56, #3B82F6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', margin: 0 },
-  iconBtn: { width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '12px', cursor: 'pointer', color: '#1f2a56', boxShadow: '0 2px 4px rgba(0,0,0,0.02)', transition: 'transform 0.2s' },
+  headerTitle: { fontSize: '16px', fontWeight: '800', color: 'var(--primary-color)', margin: 0 },
+  iconBtn: { width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '12px', cursor: 'pointer', color: 'var(--primary-color)', boxShadow: '0 2px 4px rgba(0,0,0,0.02)', transition: 'transform 0.2s' },
   headerWrapper: { position: 'sticky', top: 0, zIndex: 10, background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(255,255,255,0.5)', flexShrink: 0 },
   mainContainer: { flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center' },
   listContainer: { width: '100%', maxWidth: '800px', display: 'flex', flexDirection: 'column', gap: '12px', paddingBottom: '40px' },
@@ -229,10 +229,10 @@ const styles = {
   cardFooter: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '2px' },
   typeBadge: { padding: '4px 8px', borderRadius: '6px', fontSize: '10px', fontWeight: '800', letterSpacing: '0.05em' },
   timeLabel: { fontSize: '11px', color: '#94A3B8', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '600' },
-  viewBtn: { padding: '6px 14px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', backgroundColor: '#F8FAFC', color: '#3B82F6', border: '1px solid #E2E8F0', cursor: 'pointer', flexShrink: 0, transition: 'all 0.2s', ':hover': { backgroundColor: '#EFF6FF', borderColor: '#BFDBFE' } },
+  viewBtn: { padding: '6px 14px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', backgroundColor: '#F8FAFC', color: 'var(--primary-color)', border: '1px solid #E2E8F0', cursor: 'pointer', flexShrink: 0, transition: 'all 0.2s', ':hover': { backgroundColor: 'rgba(var(--primary-rgb), 0.05)', borderColor: 'rgba(var(--primary-rgb), 0.2)' } },
   emptyState: { padding: '60px 20px', backgroundColor: 'transparent', borderRadius: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', marginTop: '40px' },
   loadingState: { padding: '60px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', color: '#94A3B8', gap: '16px', fontWeight: 'bold' },
-  spinner: { width: '30px', height: '30px', border: '3px solid #E2E8F0', borderTop: '3px solid #3B82F6', borderRadius: '50%', animation: 'spin 1s linear infinite' }
+  spinner: { width: '30px', height: '30px', border: '3px solid #E2E8F0', borderTop: '3px solid var(--primary-color)', borderRadius: '50%', animation: 'spin 1s linear infinite' }
 };
 
 // Inject keyframes to document gracefully, outside of React scope to prevent duplicate injections on hot-reload:

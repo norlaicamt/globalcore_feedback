@@ -89,7 +89,7 @@ const DraftsView = ({ currentUser, onBack }) => {
       <style>{`
         .bulk-btn:hover { background-color: #F1F5F9; border-color: #E2E8F0; }
         .danger-btn:hover { background-color: #FEE2E2 !important; border-color: #EF4444 !important; }
-        .draft-card-hover:hover { border-color: #3B82F6 !important; background-color: #F8FAFC; }
+        .draft-card-hover:hover { border-color: var(--primary-color) !important; background-color: #F8FAFC; }
       `}</style>
 
       <header style={styles.header}>
@@ -102,7 +102,7 @@ const DraftsView = ({ currentUser, onBack }) => {
 
         {drafts.length > 0 && (
           <button
-            style={{ ...styles.selectModeBtn, color: isSelectMode ? '#3B82F6' : '#1D4ED8' }}
+            style={{ ...styles.selectModeBtn, color: isSelectMode ? 'var(--primary-color)' : '#1D4ED8' }}
             onClick={() => { setIsSelectMode(!isSelectMode); setSelectedIds([]); }}
           >
             {isSelectMode ? 'Cancel' : 'Select'}
@@ -112,7 +112,7 @@ const DraftsView = ({ currentUser, onBack }) => {
 
       {isSelectMode && drafts.length > 0 && (
         <div style={styles.bulkBar}>
-          <button style={{ ...styles.bulkActionBtn, color: '#1f2a56' }} onClick={selectAll}>
+          <button style={{ ...styles.bulkActionBtn, color: 'var(--primary-color)' }} onClick={selectAll}>
             {selectedIds.length === drafts.length ? 'Deselect All' : 'Select All'}
           </button>
 
@@ -150,8 +150,8 @@ const DraftsView = ({ currentUser, onBack }) => {
                   className={!isSelectMode ? "draft-card-hover" : ""}
                   style={{
                     ...styles.draftCard,
-                    border: isSelected ? '2px solid #3B82F6' : '1px solid #E2E8F0',
-                    backgroundColor: isSelected ? '#EFF6FF' : 'white',
+                    border: isSelected ? '2px solid var(--primary-color)' : '1px solid #E2E8F0',
+                    backgroundColor: isSelected ? 'rgba(var(--primary-rgb), 0.05)' : 'white',
                   }}
                   onClick={(e) => isSelectMode ? toggleSelect(e, draft.id) : setEditingDraft(draft)}
                 >
@@ -159,7 +159,7 @@ const DraftsView = ({ currentUser, onBack }) => {
                   {isSelectMode && (
                     <div style={{
                       width: '24px', height: '24px', borderRadius: '50%', border: isSelected ? 'none' : '2px solid #CBD5E1',
-                      backgroundColor: isSelected ? '#3B82F6' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      backgroundColor: isSelected ? 'var(--primary-color)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center',
                       flexShrink: 0
                     }}>
                       {isSelected && <Icons.Check />}
@@ -169,9 +169,9 @@ const DraftsView = ({ currentUser, onBack }) => {
                   {/* Main Content */}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={styles.cardHeader}>
-                      <span style={{ ...styles.itemDate, color: isSelected ? '#3B82F6' : '#94A3B8' }}>{formatDateTime(draft.created_at).date}</span>
+                      <span style={{ ...styles.itemDate, color: isSelected ? 'var(--primary-color)' : '#94A3B8' }}>{formatDateTime(draft.created_at).date}</span>
                     </div>
-                    <h3 style={{ ...styles.itemTitle, color: isSelected ? '#2563EB' : '#1E293B' }}>{draft.title || draft.subject || "Untitled Draft"}</h3>
+                    <h3 style={{ ...styles.itemTitle, color: isSelected ? 'var(--primary-color)' : '#1E293B' }}>{draft.title || draft.subject || "Untitled Draft"}</h3>
                     <p style={styles.itemDesc}>{draft.description || draft.message || "No content..."}</p>
                     <div style={styles.cardFooter}>
                       <div style={styles.draftBadge}>DRAFT</div>
@@ -202,18 +202,18 @@ const DraftsView = ({ currentUser, onBack }) => {
 const styles = {
   container: { height: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: '#F8FAFC', overflow: 'hidden' },
   header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 20px', flexShrink: 0, borderBottom: '1px solid #F1F5F9', backgroundColor: 'white' },
-  headerTitle: { fontSize: '18px', fontWeight: '900', color: '#1f2a56', margin: 0 },
+  headerTitle: { fontSize: '18px', fontWeight: '900', color: 'var(--primary-color)', margin: 0 },
   selectModeBtn: { background: 'none', border: 'none', cursor: 'pointer', fontSize: '14px', fontWeight: '800' },
   bulkBar: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 20px', backgroundColor: 'white', borderBottom: '1px solid #E2E8F0', width: '100%' },
   bulkActionBtn: { background: 'none', border: 'none', fontSize: '13px', fontWeight: '900', cursor: 'pointer', padding: '6px 8px', textTransform: 'uppercase', letterSpacing: '0.05em' },
-  iconBtn: { background: 'none', border: 'none', cursor: 'pointer', color: '#1f2a56', padding: '4px', display: 'flex' },
+  iconBtn: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--primary-color)', padding: '4px', display: 'flex' },
   mainContainer: { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: '16px', maxWidth: '800px', margin: '0 auto', width: '100%' },
   listContainer: { flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px', paddingBottom: '40px' },
   draftCard: { backgroundColor: 'white', borderRadius: '16px', padding: '16px', border: '1px solid #E2E8F0', cursor: 'pointer', transition: 'all 0.2s ease', display: 'flex', gap: '16px', alignItems: 'center' },
   cardHeader: { display: 'flex', justifyContent: 'space-between', marginBottom: '4px', alignItems: 'center' },
   itemDate: { fontSize: '11px', color: '#94A3B8', fontWeight: 'bold' },
   itemTitle: { margin: '0 0 6px 0', fontSize: '15px', fontWeight: '800', color: '#1E293B', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
-  itemDesc: { fontSize: '13px', color: '#64748B', margin: '0 0 12px 0', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: '1.4' },
+  itemDesc: { fontSize: '13px', color: '#334155', margin: '0 0 12px 0', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: '1.4' },
   cardFooter: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
   draftBadge: { backgroundColor: '#F1F5F9', color: '#475569', padding: '3px 8px', borderRadius: '6px', fontSize: '10px', fontWeight: '900' },
   timeLabel: { fontSize: '11px', color: '#94A3B8', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: '600' },

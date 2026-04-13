@@ -35,6 +35,7 @@ const AdminBroadcast = ({ theme, darkMode, adminUser }) => {
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
   const [broadcastType, setBroadcastType] = useState("announcement"); // announcement, alert, reminder
+  const [targetGroup, setTargetGroup] = useState("all"); // all, staff, global
   const [sending, setSending] = useState(false);
   const [history, setHistory] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
@@ -60,7 +61,7 @@ const AdminBroadcast = ({ theme, darkMode, adminUser }) => {
     if (!message.trim() || !subject.trim()) return;
     setSending(true);
     try {
-      const res = await adminBroadcast(subject.trim(), message.trim(), broadcastType);
+      const res = await adminBroadcast(subject.trim(), message.trim(), broadcastType, targetGroup);
       setDialog({
         isOpen: true, type: "alert", title: "Broadcast Sent",
         message: `Your announcement was delivered to ${res.sent_to} user(s).`,
@@ -97,17 +98,42 @@ const AdminBroadcast = ({ theme, darkMode, adminUser }) => {
       
       {/* Left Column: Form */}
       <div style={{ flex: '0 0 450px', background: theme.surface, borderRadius: "12px", padding: "28px", border: `1px solid ${theme.border}`, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-        <p style={{ margin: "0 0 6px 0", fontSize: "18px", fontWeight: "800", color: theme.text }}>System Announcement</p>
+        <p style={{ margin: "0 0 6px 0", fontSize: "18px", fontWeight: "800", color: theme.text }}>Program Announcement</p>
         <p style={{ margin: "0 0 24px 0", fontSize: "14px", color: theme.textMuted, lineHeight: '1.6' }}>
-          Send a notification to all registered users. Use this for important system-wide alerts.
+          {!!adminUser?.entity_id 
+            ? "Reach your program staff and beneficiaries with targeted notifications."
+            : "Send a system-wide announcement to all organizations and users."}
         </p>
 
         <form onSubmit={handleSend} style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
           
           <div>
-            <label style={{ display: "block", fontSize: "11px", fontWeight: "700", color: theme.textMuted, marginBottom: "10px", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-              Broadcast Type
-            </label>
+            <label style={labelStyle(theme)}>Target Audience</label>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              {[
+                { id: 'all', label: 'All' },
+                { id: 'staff', label: 'Staff' },
+                { id: 'global', label: 'Beneficiaries' }
+              ].map(g => (
+                <button
+                  key={g.id}
+                  type="button"
+                  onClick={() => setTargetGroup(g.id)}
+                  style={{
+                    flex: 1, padding: '10px', borderRadius: '8px', border: `1.5px solid ${targetGroup === g.id ? 'var(--primary-color)' : theme.border}`,
+                    background: targetGroup === g.id ? 'var(--primary-color)10' : theme.bg, 
+                    color: targetGroup === g.id ? 'var(--primary-color)' : theme.textMuted,
+                    fontSize: '11px', fontWeight: '800', cursor: 'pointer', transition: 'all 0.15s'
+                  }}
+                >
+                  {g.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label style={labelStyle(theme)}>Broadcast Type</label>
             <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
               {[
                 { id: 'announcement', label: 'Announcement', color: '#3B82F6', icon: <BellIcon /> },
@@ -181,7 +207,7 @@ const AdminBroadcast = ({ theme, darkMode, adminUser }) => {
                 fontFamily: "inherit", color: theme.text, boxSizing: "border-box",
                 transition: 'border-color 0.2s', backgroundColor: theme.bg
               }}
-              onFocus={(e) => e.target.style.borderColor = '#1f2a56'}
+              onFocus={(e) => e.target.style.borderColor = 'var(--primary-color)'}
               onBlur={(e) => e.target.style.borderColor = '#E2E8F0'}
             />
           </div>
@@ -201,7 +227,7 @@ const AdminBroadcast = ({ theme, darkMode, adminUser }) => {
                 fontFamily: "inherit", color: theme.text, boxSizing: "border-box", lineHeight: "1.6",
                 backgroundColor: theme.bg
               }}
-              onFocus={(e) => e.target.style.borderColor = '#1f2a56'}
+              onFocus={(e) => e.target.style.borderColor = 'var(--primary-color)'}
               onBlur={(e) => e.target.style.borderColor = '#E2E8F0'}
             />
             <p style={{ fontSize: "11px", color: "#94A3B8", margin: "6px 0 0 0", textAlign: 'right' }}>{message.length} characters</p>
@@ -219,11 +245,11 @@ const AdminBroadcast = ({ theme, darkMode, adminUser }) => {
             type="submit"
             disabled={sending || !message.trim() || !subject.trim()}
             style={{
-              padding: "14px", background: sending || !message.trim() || !subject.trim() ? "#F1F5F9" : "#1f2a56",
+              padding: "14px", background: sending || !message.trim() || !subject.trim() ? "#F1F5F9" : "var(--primary-color)",
               color: sending || !message.trim() || !subject.trim() ? "#94A3B8" : "white",
               border: "none", borderRadius: "10px", fontSize: "13px", fontWeight: "700",
               cursor: sending || !message.trim() || !subject.trim() ? "not-allowed" : "pointer",
-              fontFamily: "inherit", transition: "all 0.2s", boxShadow: sending ? 'none' : '0 4px 12px rgba(31, 42, 86, 0.15)'
+              fontFamily: "inherit", transition: "all 0.2s", boxShadow: sending ? 'none' : '0 4px 12px rgba(var(--primary-rgb), 0.15)'
             }}
           >
             {sending ? "Sending announcement..." : "Post Announcement"}
@@ -273,6 +299,11 @@ const AdminBroadcast = ({ theme, darkMode, adminUser }) => {
     </div>
   );
 };
+
+const labelStyle = (theme) => ({
+  display: "block", fontSize: "11px", fontWeight: "700", color: theme.textMuted, 
+  marginBottom: "10px", textTransform: "uppercase", letterSpacing: "0.05em"
+});
 
 function BellIcon() { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>; }
 function AlertIcon() { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>; }

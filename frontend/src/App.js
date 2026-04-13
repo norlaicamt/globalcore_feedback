@@ -41,8 +41,8 @@ function App() {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: '#F8FAFC', fontFamily: '"Inter", sans-serif', color: '#64748B' }}>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ width: '48px', height: '48px', border: '3.5px solid #E2E8F0', borderTopColor: '#1f2a56', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 16px' }} />
-          <p style={{ fontSize: '13px', fontWeight: '700', color: '#1f2a56', letterSpacing: '0.05em' }}>VERIFYING SESSION</p>
+          <div style={{ width: '48px', height: '48px', border: '3.5px solid #E2E8F0', borderTopColor: 'var(--primary-color)', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 16px' }} />
+          <p style={{ fontSize: '13px', fontWeight: '700', color: 'var(--primary-color)', letterSpacing: '0.05em' }}>VERIFYING SESSION</p>
           <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </div>
       </div>

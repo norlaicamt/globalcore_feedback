@@ -120,7 +120,7 @@ const ActivityView = ({ currentUser, onBack, onViewPost }) => {
 const styles = {
   container: { height: '100%', display: 'flex', flexDirection: 'column', backgroundColor: '#F8FAFC', fontFamily: '"Inter", sans-serif' },
   header: { padding: '12px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'white', borderBottom: '1px solid #F1F5F9', position: 'sticky', top: 0, zIndex: 10 },
-  title: { margin: 0, fontSize: '15px', fontWeight: '800', color: '#1f2a56', letterSpacing: '-0.2px' },
+  title: { margin: 0, fontSize: '15px', fontWeight: '800', color: 'var(--primary-color)', letterSpacing: '-0.2px' },
   main: { flex: 1, overflowY: 'auto', padding: '24px 20px' },
   list: { display: 'flex', flexDirection: 'column', gap: '12px', maxWidth: '800px', margin: '0 auto', width: '100%' },
   card: { backgroundColor: 'white', borderRadius: '16px', padding: '16px', border: '1px solid #F1F5F9', boxShadow: '0 2px 4px rgba(0,0,0,0.02)', cursor: 'pointer', transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)', position: 'relative' },
@@ -129,13 +129,13 @@ const styles = {
   meta: { flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' },
   actionText: { fontSize: '13px', color: '#64748B', lineHeight: '1.5' },
   actor: { fontWeight: '600', color: '#1E293B' },
-  targetTitle: { fontWeight: '700', color: '#1f2a56' },
+  targetTitle: { fontWeight: '700', color: 'var(--primary-color)' },
   date: { fontSize: '11px', color: '#94A3B8', fontWeight: '500' },
   mentionsList: { marginTop: '8px', fontSize: '10px', color: '#3B82F6', fontWeight: '600', backgroundColor: '#F0F7FF', padding: '4px 8px', borderRadius: '6px', width: 'fit-content' },
   mentionsLabel: { color: '#1E40AF', letterSpacing: '0.5px' },
   emptyContainer: { textAlign: 'center', padding: '80px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center' },
   emptyIcon: { fontSize: '32px', marginBottom: '16px' },
-  emptyText: { color: '#1f2a56', fontSize: '16px', fontWeight: '800', marginBottom: '8px' },
+  emptyText: { color: 'var(--primary-color)', fontSize: '16px', fontWeight: '800', marginBottom: '8px' },
   emptySubText: { color: '#64748B', fontSize: '13px', maxWidth: '240px', lineHeight: '1.6' },
   chevron: { marginLeft: '8px' }
 };

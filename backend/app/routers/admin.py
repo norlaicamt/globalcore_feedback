@@ -72,11 +72,17 @@ def apply_data_scope(query, model, admin_user: models.User):
     # Then filter by entity_id if restricted
     if admin_user.entity_id:
         if model == models.User:
-            query = query.filter(models.User.entity_id == admin_user.entity_id)
+            # Scoped admins can see their own staff OR anyone explicitly marked as a "global user" (beneficiaries)
+            query = query.filter(
+                (models.User.entity_id == admin_user.entity_id) |
+                (models.User.is_global_user == True)
+            )
         elif model == models.Feedback:
             query = query.filter(models.Feedback.entity_id == admin_user.entity_id)
         elif model == models.Department:
             query = query.filter(models.Department.entity_id == admin_user.entity_id)
+        elif model == models.BroadcastLog:
+            query = query.filter(models.BroadcastLog.entity_id == admin_user.entity_id)
         elif hasattr(model, "entity_id"):
             query = query.filter(model.entity_id == admin_user.entity_id)
             
@@ -396,10 +402,10 @@ def admin_toggle_user_status(user_id: int, is_active: bool, db: Session = Depend
     
     # Authority Check
     if not has_global_admin_access(admin):
-        if user.department != admin.department:
-            raise HTTPException(status_code=403, detail="Cannot manage users outside your department")
+        if user.entity_id != admin.entity_id:
+            raise HTTPException(status_code=403, detail="Cannot manage users outside your program")
         if user.role in ["admin", "superadmin"]:
-            raise HTTPException(status_code=403, detail="Departmental admins cannot manage other admins")
+            raise HTTPException(status_code=403, detail="Program admins cannot manage other admins")
 
     user.is_active = is_active
     
@@ -487,17 +493,33 @@ def admin_update_user_details(
         updates_made["program"] = {"old": user.program, "new": program}
         user.program = program if program else None
     if entity_id is not None and entity_id != user.entity_id:
+        # Restriction: Scoped admins cannot assign users to entities outside their own
+        if not has_global_admin_access(admin) and entity_id != admin.entity_id:
+             raise HTTPException(status_code=403, detail="You can only assign users to your own program")
+             
         updates_made["entity_id"] = {"old": user.entity_id, "new": entity_id}
         user.entity_id = entity_id
+        
     if position_title is not None and position_title != user.position_title:
         updates_made["position_title"] = {"old": user.position_title, "new": position_title}
         user.position_title = position_title if position_title else None
+
+    # NEW: is_global_user update
+    is_global_user = payload.get("is_global_user")
+    if is_global_user is not None and is_global_user != user.is_global_user:
+        updates_made["is_global_user"] = {"old": user.is_global_user, "new": is_global_user}
+        user.is_global_user = is_global_user
         
     if updates_made:
+        # Determine specific action tag for higher visibility
+        action_tag = "update_user_details"
+        if "entity_id" in updates_made: action_tag = "entity_assigned"
+        if "role" in updates_made: action_tag = "role_changed"
+
         # Audit Log
         crud.create_audit_log(
             db, 
-            action_type="update_user_details",
+            action_type=action_tag,
             performed_by_id=admin.id,
             target_id=str(user_id),
             details={"user_email": user.email, "updates": updates_made}
@@ -588,9 +610,8 @@ def admin_update_feedback_status(feedback_id: int, status: str, db: Session = De
 
     # Scoping check
     if not has_global_admin_access(admin):
-        dept = db.query(models.Department).filter(models.Department.id == feedback.recipient_dept_id).first()
-        if not dept or dept.name != admin.department:
-            raise HTTPException(status_code=403, detail="Cannot manage feedback for other departments")
+        if feedback.entity_id != admin.entity_id:
+            raise HTTPException(status_code=403, detail="Cannot manage feedback for other programs")
 
     status_map = {
         "OPEN": models.FeedbackStatus.OPEN,
@@ -856,26 +877,47 @@ def admin_broadcast(
     subject: str, 
     message: str, 
     broadcast_type: str = "announcement",
+    target_group: str = "all", # all, staff, global
     db: Session = Depends(get_db), 
     admin: models.User = Depends(get_current_admin)
 ):
-    # Enforce departmental scoping
-    dept_name = None if has_global_admin_access(admin) else admin.department
+    source_tag = "SYSTEM"
+    if not has_global_admin_access(admin):
+        entity = db.query(models.Entity).filter(models.Entity.id == admin.entity_id).first()
+        source_tag = entity.name.upper() if entity else "OFFICIAL"
+        
+    official_subject = f"[OFFICIAL] {source_tag} - {subject}"
     
+    # Selection logic: Scoped staff + ALL non-employees
     query = db.query(models.User)
-    if dept_name:
-        query = query.filter(models.User.department == dept_name)
+    if not has_global_admin_access(admin):
+        staff_filter = (models.User.entity_id == admin.entity_id)
+        global_filter = (models.User.is_global_user == True)
+        
+        if target_group == "staff":
+            query = query.filter(staff_filter)
+        elif target_group == "global":
+            query = query.filter(global_filter)
+        else:
+            query = query.filter(staff_filter | global_filter)
+    elif target_group == "global":
+        query = query.filter(models.User.is_global_user == True)
+    elif target_group == "staff":
+        query = query.filter(models.User.role == "admin")
     
     users = query.all()
     any_feedback = db.query(models.Feedback).first()
     if not any_feedback:
         raise HTTPException(status_code=400, detail="No feedback in system to broadcast against.")
     
-    # Prepend department tag if not superadmin
-    official_subject = f"[OFFICIAL] {dept_name.upper()} - {subject}" if dept_name else subject
-    
     # Log the broadcast FIRST to get the ID
-    broadcast_log = crud.create_broadcast_log(db, subject=official_subject, message=message, count=len(users))
+    broadcast_log = crud.create_broadcast_log(
+        db, 
+        subject=official_subject, 
+        message=message, 
+        count=len(users),
+        entity_id=admin.entity_id if not has_global_admin_access(admin) else None
+    )
     
     for user in users:
         crud.create_notification(
@@ -899,6 +941,13 @@ def admin_broadcast(
     
     db.commit()
     return {"sent_to": len(users), "subject": official_subject, "message": message, "broadcast_id": broadcast_log.id}
+
+
+@router.get("/broadcasts", response_model=List[schemas.BroadcastLog])
+def admin_get_broadcast_logs(db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
+    # Use centralized scoping
+    q = apply_data_scope(db.query(models.BroadcastLog), models.BroadcastLog, admin)
+    return q.order_by(models.BroadcastLog.created_at.desc()).all()
 
 
 @router.get("/audit-logs", response_model=List[schemas.AuditLog])

@@ -4,7 +4,7 @@ import { getFeedbacks, getDepartments } from "../services/api";
 import CustomModal from './CustomModal';
 
 const Icons = {
-  Back: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1f2a56" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>,
+  Back: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--primary-color)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>,
   Search: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>,
   Close: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#64748B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>,
   Clock: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>,
@@ -253,8 +253,8 @@ const styles = {
   container: { height: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: '#F8FAFC', position: 'relative', fontFamily: 'inherit' },
   minimalContainer: { height: '100%', display: 'flex', flexDirection: 'column', backgroundColor: '#F8FAFC', position: 'relative', fontFamily: 'inherit' },
   header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 20px', flexShrink: 0, maxWidth: '800px', margin: '0 auto', width: '100%', borderBottom: '1px solid #F1F5F9' },
-  headerTitle: { fontSize: '16px', fontWeight: '800', color: '#1f2a56' },
-  iconBtn: { background: 'none', border: 'none', cursor: 'pointer', color: '#1f2a56' },
+  headerTitle: { fontSize: '16px', fontWeight: '800', color: 'var(--primary-color)' },
+  iconBtn: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--primary-color)' },
   mainContainer: { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: '16px', maxWidth: '800px', margin: '0 auto', width: '100%' },
   minimalMainScroll: { flex: 1, overflowY: 'auto', padding: '16px', maxWidth: '800px', margin: '0 auto', width: '100%' },
   searchContainer: { display: 'flex', alignItems: 'center', backgroundColor: 'white', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '0 12px', marginBottom: '16px', height: '42px', flexShrink: 0 },
@@ -277,18 +277,18 @@ const styles = {
   cardHeader: { display: 'flex', justifyContent: 'space-between', marginBottom: '6px', alignItems: 'center' },
   senderText: { fontSize: '11px', fontWeight: '600', color: '#475569' },
   itemDate: { fontSize: '10px', color: '#94A3B8' },
-  itemTitle: { margin: '0 0 12px 0', fontSize: '14px', fontWeight: '600', color: '#1E293B' },
+  itemTitle: { margin: '0 0 12px 0', fontSize: '14px', fontWeight: '600', color: '#000000' },
   cardFooter: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
   timeLabel: { fontSize: '10px', color: '#94A3B8', display: 'flex', alignItems: 'center', gap: '4px' },
   praiseBadge: { display: 'flex', alignItems: 'center', fontSize: '11px', fontWeight: '700', color: '#D97706', gap: '4px', backgroundColor: '#FEF3C7', padding: '3px 8px', borderRadius: '6px' },
-  regularBadge: { display: 'flex', alignItems: 'center', fontSize: '11px', fontWeight: '700', color: '#1f2a56', gap: '4px', backgroundColor: '#E2E8F0', padding: '3px 8px', borderRadius: '6px' },
+  regularBadge: { display: 'flex', alignItems: 'center', fontSize: '11px', fontWeight: '700', color: 'var(--primary-color)', gap: '4px', backgroundColor: '#E2E8F0', padding: '3px 8px', borderRadius: '6px' },
   emptyState: { padding: '30px 16px', border: '2px dashed #E2E8F0', borderRadius: '16px' },
   modalOverlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 },
   modalContent: { backgroundColor: 'white', width: '100%', maxWidth: '440px', borderRadius: '20px', padding: '24px', position: 'relative' },
   closeBtn: { position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', cursor: 'pointer' },
   modalHeader: { marginBottom: '16px' },
   modalTag: { fontSize: '11px', fontWeight: 'bold', color: '#64748B', textTransform: 'uppercase', marginBottom: '6px', display: 'block' },
-  modalTitle: { fontSize: '18px', fontWeight: '800', color: '#1f2a56', margin: '0 0 6px 0' },
+  modalTitle: { fontSize: '18px', fontWeight: '800', color: '#000000', margin: '0 0 6px 0' },
   modalMeta: { display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#94A3B8', flexWrap: 'wrap' },
   bullet: { color: '#CBD5E1' },
   divider: { height: '1px', backgroundColor: '#F1F5F9', margin: '16px 0' },
@@ -301,7 +301,7 @@ const styles = {
   statusBadge: { fontSize: '10px', fontWeight: '900', padding: '4px 12px', borderRadius: '20px', letterSpacing: '0.5px' },
   
   jurisdictionPill: { display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', backgroundColor: '#F0F9FF', color: '#0369A1', borderRadius: '12px', fontSize: '13px', fontWeight: '700', border: '1px solid #E0F2FE' },
-  messageBox: { padding: '16px', background: '#F8FAFC', border: '1px solid #F1F5F9', borderRadius: '16px', fontSize: '14px', color: '#475569', lineHeight: '1.6', whiteSpace: 'pre-wrap' },
+  messageBox: { padding: '16px', background: '#F8FAFC', border: '1px solid #F1F5F9', borderRadius: '16px', fontSize: '14px', color: '#000000', lineHeight: '1.6', whiteSpace: 'pre-wrap' },
   
   mentionsGrid: { display: 'flex', flexWrap: 'wrap', gap: '8px' },
   mentionPill: { display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', backgroundColor: '#F1F5F9', color: '#475569', borderRadius: '8px', fontSize: '12px', fontWeight: '600' },
@@ -310,7 +310,7 @@ const styles = {
   attachmentItem: { display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'white', border: '1px solid #E2E8F0', borderRadius: '10px', color: '#64748B', cursor: 'pointer' },
   fileName: { fontSize: '11px', fontWeight: '600', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
 
-  primaryActionPremium: { width: '100%', padding: '16px', borderRadius: '16px', border: 'none', backgroundColor: '#1f2a56', color: 'white', fontSize: '15px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 4px 12px rgba(31, 42, 86, 0.2)', transition: 'transform 0.2s' }
+  primaryActionPremium: { width: '100%', padding: '16px', borderRadius: '16px', border: 'none', backgroundColor: 'var(--primary-color)', color: 'white', fontSize: '15px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 4px 12px rgba(var(--primary-rgb), 0.2)', transition: 'transform 0.2s' }
 };
 
 export default HistoryView;

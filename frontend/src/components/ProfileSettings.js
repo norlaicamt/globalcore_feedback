@@ -71,7 +71,7 @@ const ToggleCard = ({ title, desc, isOn, onToggle, icon, isDisabled }) => (
         <button 
             disabled={isDisabled}
             onClick={onToggle} 
-            style={{...styles.toggleBtn, backgroundColor: isOn && !isDisabled ? '#1f2a56' : '#F1F5F9', border: isOn && !isDisabled ? 'none' : '1px solid #E2E8F0'}}
+            style={{...styles.toggleBtn, backgroundColor: isOn && !isDisabled ? 'var(--primary-color)' : '#F1F5F9', border: isOn && !isDisabled ? 'none' : '1px solid #E2E8F0'}}
         >
             <div style={{...styles.toggleCircle, transform: isOn && !isDisabled ? 'translateX(24px)' : 'translateX(2px)', background: isOn && !isDisabled ? 'white' : '#94A3B8'}} />
         </button>
@@ -247,7 +247,7 @@ const NotificationsView = ({ currentUser, notifs, handleToggle }) => {
                     <div style={styles.scopeIcon}><Icons.Info /></div>
                     <div style={styles.scopeText}>
                         <strong>Administrative Scope Active</strong>
-                        <p>You will receive organizational alerts strictly isolated to your assigned Entity: <span style={{color: '#1f2a56', fontWeight: '800'}}>{currentUser.program || currentUser.entity_name || 'Global Scope'}</span>.</p>
+                        <p>You will receive organizational alerts strictly isolated to your assigned Entity: <span style={{color: 'var(--primary-color)', fontWeight: '800'}}>{currentUser.program || currentUser.entity_name || 'Global Scope'}</span>.</p>
                     </div>
                 </div>
             )}
@@ -261,7 +261,7 @@ const NotificationsView = ({ currentUser, notifs, handleToggle }) => {
                                 title="New Feedback Submitted" 
                                 desc="Alert when any new feedback is created within your entity." 
                                 isOn={notifs.new_feedback} 
-                                icon={<Icons.AlertCircle color="#3B82F6" />}
+                                icon={<Icons.AlertCircle color="var(--primary-color)" />}
                                 onToggle={() => handleToggle("notify_new_feedback", "New Feedback alert")} 
                             />
                         )}
@@ -370,7 +370,7 @@ const NotificationsView = ({ currentUser, notifs, handleToggle }) => {
                             title="Professional Email" 
                             desc="Formal notifications sent to your registered address." 
                             isOn={notifs.email} 
-                            icon={<Icons.Mail color="#3B82F6" />}
+                            icon={<Icons.Mail color="var(--primary-color)" />}
                             onToggle={() => handleToggle("email_notifications", "Email")} 
                         />
                     </div>
@@ -430,7 +430,7 @@ const PrivacyView = ({ currentUser, onUserUpdate, showToast, onLogout }) => {
     return (
         <div style={styles.viewContainer}>
             <div style={{...styles.sectionHeader, display: 'flex', alignItems: 'center', gap: '20px'}}>
-                <div style={{width: '64px', height: '64px', background: 'rgba(31, 42, 86, 0.05)', borderRadius: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#1f2a56'}}>
+                <div style={{width: '64px', height: '64px', background: 'rgba(var(--primary-rgb), 0.05)', borderRadius: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--primary-color)'}}>
                     <Icons.Shield />
                 </div>
                 <div>
@@ -441,7 +441,7 @@ const PrivacyView = ({ currentUser, onUserUpdate, showToast, onLogout }) => {
 
             <div style={styles.sectionCardPremium}>
                 <div style={{display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px', paddingBottom: '16px', borderBottom: '1px solid #F1F5F9'}}>
-                    <div style={{color: '#1f2a56'}}><Icons.Key /></div>
+                    <div style={{color: 'var(--primary-color)'}}><Icons.Key /></div>
                     <h4 style={styles.cardTitle}>Identity Access Management</h4>
                 </div>
                 <p style={{fontSize: '14px', color: '#64748B', lineHeight: '1.6', marginBottom: '24px', maxWidth: '600px'}}>
@@ -452,7 +452,7 @@ const PrivacyView = ({ currentUser, onUserUpdate, showToast, onLogout }) => {
                     <div style={{display: 'flex', flexDirection: 'column', gap: '8px'}}>
                         <InputGroup type="password" label="Current Access Key" value={pOld} onChange={setPOld} placeholder="••••••••" />
                         <div style={{textAlign: 'right'}}>
-                            <a href="/forgot-password" style={{fontSize: '12px', color: '#3B82F6', fontWeight: '800', textDecoration: 'none'}}>Forgot Current Key?</a>
+                            <a href="/forgot-password" style={{fontSize: '12px', color: 'var(--primary-color)', fontWeight: '800', textDecoration: 'none'}}>Forgot Current Key?</a>
                         </div>
                     </div>
                     
@@ -473,17 +473,17 @@ const PrivacyView = ({ currentUser, onUserUpdate, showToast, onLogout }) => {
                 </div>
             </div>
 
-            <div style={{...styles.sectionCardPremium, borderLeft: '6px solid #3B82F6'}}>
+            <div style={{...styles.sectionCardPremium, borderLeft: '6px solid var(--primary-color)'}}>
                 <div style={{display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px'}}>
-                    <div style={{color: '#3B82F6'}}><Icons.Power /></div>
-                    <h4 style={{...styles.cardTitle, color: '#1E40AF'}}>Temporary Hiatus</h4>
+                    <div style={{color: 'var(--primary-color)'}}><Icons.Power /></div>
+                    <h4 style={{...styles.cardTitle, color: 'var(--primary-color)'}}>Temporary Hiatus</h4>
                 </div>
                 <p style={{fontSize: '14px', color: '#64748B', lineHeight: '1.6', marginBottom: '24px'}}>
                     Stepping away from stewardship? Temporarily hide your presence. Your activity remains intact but hidden until your next secure login.
                 </p>
-                <div style={{display: 'flex', alignItems: 'flex-end', gap: '16px', flexWrap: 'wrap', background: '#F0F7FF', padding: '24px', borderRadius: '24px'}}>
+                <div style={{display: 'flex', alignItems: 'flex-end', gap: '16px', flexWrap: 'wrap', background: 'rgba(var(--primary-rgb), 0.05)', padding: '24px', borderRadius: '24px'}}>
                     <div style={{...styles.inputWrap, flex: '1', minWidth: '200px'}}>
-                        <label style={{...styles.fieldLabel, color: '#1E40AF'}}>Planned Reactivation</label>
+                        <label style={{...styles.fieldLabel, color: 'var(--primary-color)'}}>Planned Reactivation</label>
                         <select 
                             style={styles.selectFieldPremium} 
                             value={deactivateDays} 
@@ -497,7 +497,7 @@ const PrivacyView = ({ currentUser, onUserUpdate, showToast, onLogout }) => {
                         </select>
                     </div>
                     <button 
-                        style={{...styles.primaryBtnPremium, background: '#3B82F6'}}
+                        style={{...styles.primaryBtnPremium, background: 'var(--primary-color)'}}
                         onClick={() => setShowDeactivate(true)}
                     >
                         Initiate Hiatus
@@ -595,33 +595,33 @@ const styles = {
     scrollWrapper: { padding: '20px' },
     viewContainer: { maxWidth: '840px', margin: '0 auto' },
     sectionHeader: { marginBottom: '48px' },
-    viewTitle: { fontSize: '32px', fontWeight: '900', color: '#1f2a56', margin: '0 0 10px 0', letterSpacing: '-1.5px' },
+    viewTitle: { fontSize: '32px', fontWeight: '900', color: 'var(--primary-color)', margin: '0 0 10px 0', letterSpacing: '-1.5px' },
     viewSubtitle: { fontSize: '16px', color: '#64748B', margin: 0, fontWeight: '500' },
 
     heroCard: { background: 'white', borderRadius: '32px', padding: '40px', border: '1.5px solid #E2E8F0', boxShadow: '0 15px 40px rgba(0,0,0,0.03)', marginBottom: '32px' },
     heroContent: { display: 'flex', alignItems: 'center', gap: '32px', marginBottom: '40px' },
     avatarLargeContainer: { position: 'relative' },
     avatarLarge: { width: '110px', height: '110px', borderRadius: '35px', objectFit: 'cover', border: '4px solid white', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' },
-    avatarLargePlaceholder: { width: '110px', height: '110px', borderRadius: '35px', background: '#F1F5F9', color: '#1f2a56', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '40px', fontWeight: '900' },
-    heroEditBadge: { position: 'absolute', bottom: '-4px', right: '-4px', width: '32px', height: '32px', borderRadius: '10px', background: '#1f2a56', color: 'white', border: '2px solid white', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' },
+    avatarLargePlaceholder: { width: '110px', height: '110px', borderRadius: '35px', background: '#F1F5F9', color: 'var(--primary-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '40px', fontWeight: '900' },
+    heroEditBadge: { position: 'absolute', bottom: '-4px', right: '-4px', width: '32px', height: '32px', borderRadius: '10px', background: 'var(--primary-color)', color: 'white', border: '2px solid white', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' },
     heroText: { flex: 1 },
-    heroName: { fontSize: '26px', fontWeight: '900', color: '#1f2a56', margin: '0 0 4px 0', letterSpacing: '-0.5px' },
-    heroUsername: { fontSize: '13px', fontWeight: '800', color: '#3B82F6', margin: '0 0 6px 0', letterSpacing: '0.5px' },
+    heroName: { fontSize: '26px', fontWeight: '900', color: 'var(--primary-color)', margin: '0 0 4px 0', letterSpacing: '-0.5px' },
+    heroUsername: { fontSize: '13px', fontWeight: '800', color: 'var(--primary-color)', margin: '0 0 6px 0', letterSpacing: '0.5px' },
     heroEmail: { fontSize: '14px', color: '#64748B', fontWeight: '500', marginBottom: '16px' },
     badgeRow: { display: 'flex', gap: '8px' },
     roleBadge: { padding: '4px 12px', background: '#F0F9FF', color: '#0369A1', borderRadius: '20px', fontSize: '10px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.5px' },
     statusBadge: { padding: '4px 12px', background: '#F0FDF4', color: '#166534', borderRadius: '20px', fontSize: '10px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.5px' },
-    premiumEditBtn: { padding: '10px 20px', background: 'rgba(31,42,86,0.04)', color: '#1f2a56', border: '1.5px solid rgba(31,42,86,0.1)', borderRadius: '12px', fontSize: '13px', fontWeight: '800', cursor: 'pointer' },
+    premiumEditBtn: { padding: '10px 20px', background: 'rgba(var(--primary-rgb), 0.04)', color: 'var(--primary-color)', border: '1.5px solid rgba(var(--primary-rgb), 0.1)', borderRadius: '12px', fontSize: '13px', fontWeight: '800', cursor: 'pointer' },
 
     statsBar: { display: 'flex', padding: '24px 0', borderTop: '1px solid #F1F5F9' },
     statBox: { flex: 1, textAlign: 'center' },
-    statVal: { fontSize: '24px', fontWeight: '900', color: '#1f2a56', display: 'block' },
+    statVal: { fontSize: '24px', fontWeight: '900', color: 'var(--primary-color)', display: 'block' },
     statLab: { fontSize: '10px', color: '#94A3B8', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1px', marginTop: '4px' },
     statDivider: { width: '1.5px', background: '#F1F5F9' },
 
     sectionCardPremium: { background: 'white', borderRadius: '32px', padding: '40px', border: '1.5px solid #E2E8F0', marginBottom: '32px', boxShadow: '0 10px 40px rgba(0,0,0,0.02)' },
     sectionCardPremiumProfile: { background: 'white', borderRadius: '32px', padding: '40px', border: '1.5px solid #E2E8F0', marginBottom: '32px' },
-    cardTitlePremium: { fontSize: '20px', fontWeight: '900', color: '#1f2a56', letterSpacing: '-0.5px' },
+    cardTitlePremium: { fontSize: '20px', fontWeight: '900', color: 'var(--primary-color)', letterSpacing: '-0.5px' },
     cardHeader: { marginBottom: '32px' },
     dataGridPremium: { display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '20px' },
     dataTile: { padding: '20px', borderRadius: '20px', background: '#F8FAFC', border: '1px solid #F1F5F9', display: 'flex', gap: '16px' },
@@ -631,10 +631,10 @@ const styles = {
 
     formGridPremium: { display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '20px' },
     inputWrap: { display: 'flex', flexDirection: 'column', gap: '8px' },
-    fieldLabel: { fontSize: '12px', fontWeight: '800', color: '#1f2a56', textTransform: 'uppercase', letterSpacing: '0.5px' },
+    fieldLabel: { fontSize: '12px', fontWeight: '800', color: 'var(--primary-color)', textTransform: 'uppercase', letterSpacing: '0.5px' },
     inputField: { padding: '16px', background: '#F8FAFC', border: '1.5px solid #E2E8F0', borderRadius: '16px', fontSize: '15px', color: '#1E293B' },
     selectFieldPremium: { padding: '16px', background: '#F8FAFC', border: '1.5px solid #E2E8F0', borderRadius: '16px', fontSize: '15px', outline: 'none' },
-    primaryBtnPremium: { padding: '16px 28px', background: '#1f2a56', color: 'white', border: 'none', borderRadius: '18px', fontSize: '15px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px' },
+    primaryBtnPremium: { padding: '16px 28px', background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '18px', fontSize: '15px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px' },
     secondaryBtnPremium: { padding: '16px 28px', background: 'transparent', color: '#64748B', border: '1.5px solid #E2E8F0', borderRadius: '18px', fontSize: '15px', fontWeight: '700' },
 
     scopeAwarenessBanner: { display: 'flex', gap: '20px', background: '#F0F9FF', border: '1px solid #BAE6FD', padding: '24px', borderRadius: '24px', marginBottom: '40px' },
@@ -646,12 +646,12 @@ const styles = {
     groupStack: { display: 'flex', flexDirection: 'column', gap: '12px' },
     toggleCard: { display: 'flex', alignItems: 'center', padding: '24px', background: 'white', borderRadius: '24px', border: '1.5px solid #F1F5F9', transition: 'all 0.2s ease', boxShadow: '0 4px 15px rgba(0,0,0,0.01)' },
     toggleIconContainer: { width: '52px', height: '52px', background: '#F8FAFC', borderRadius: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748B', marginRight: '24px' },
-    toggleTitle: { fontSize: '16px', fontWeight: '800', color: '#1f2a56', margin: '0 0 4px 0' },
+    toggleTitle: { fontSize: '16px', fontWeight: '800', color: 'var(--primary-color)', margin: '0 0 4px 0' },
     toggleDesc: { fontSize: '13px', color: '#64748B', margin: 0, lineHeight: '1.5', paddingRight: '20px' },
     toggleBtn: { width: '52px', height: '28px', borderRadius: '14px', position: 'relative', cursor: 'pointer', transition: 'all 0.3s' },
     toggleCircle: { width: '22px', height: '22px', borderRadius: '50%', position: 'absolute', top: '2px', left: '0', transition: 'all 0.3s' },
     
-    toast: { position: 'fixed', bottom: '40px', right: '40px', background: '#1f2a56', color: 'white', padding: '20px 32px', borderRadius: '24px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '12px', boxShadow: '0 20px 50px rgba(0,0,0,0.3)', animation: 'slideUp 0.4s ease-out', zIndex: 99999 },
+    toast: { position: 'fixed', bottom: '40px', right: '40px', background: 'var(--primary-color)', color: 'white', padding: '20px 32px', borderRadius: '24px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '12px', boxShadow: '0 20px 50px rgba(0,0,0,0.3)', animation: 'slideUp 0.4s ease-out', zIndex: 99999 },
 };
 
 export default ProfileSettings;

@@ -60,7 +60,7 @@ const styles = {
   },
   sidebar: {
     width: '240px',
-    backgroundColor: '#1f2a56',
+    backgroundColor: 'var(--primary-color)',
     borderRight: '1px solid rgba(255, 255, 255, 0.1)',
     padding: '24px 20px',
     display: 'flex',

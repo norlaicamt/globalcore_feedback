@@ -4,7 +4,7 @@ import axios from "axios";
 import CustomModal from './CustomModal';
 
 const Icons = {
-  Back: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1f2a56" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>,
+  Back: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--primary-color)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>,
   Search: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>,
   Close: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#64748B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>,
   Clock: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>,
@@ -210,8 +210,8 @@ const styles = {
   container: { height: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: '#F8FAFC', position: 'relative', fontFamily: 'inherit' },
   minimalContainer: { height: '100%', display: 'flex', flexDirection: 'column', backgroundColor: '#F8FAFC', position: 'relative', fontFamily: 'inherit' },
   header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 20px', flexShrink: 0, maxWidth: '800px', margin: '0 auto', width: '100%', borderBottom: '1px solid #F1F5F9' },
-  headerTitle: { fontSize: '16px', fontWeight: '800', color: '#1f2a56' },
-  iconBtn: { background: 'none', border: 'none', cursor: 'pointer', color: '#1f2a56' },
+  headerTitle: { fontSize: '16px', fontWeight: '800', color: 'var(--primary-color)' },
+  iconBtn: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--primary-color)' },
   mainContainer: { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: '16px', maxWidth: '800px', margin: '0 auto', width: '100%' },
   minimalMainScroll: { flex: 1, overflowY: 'auto', padding: '16px', maxWidth: '800px', margin: '0 auto', width: '100%' },
   searchContainer: { display: 'flex', alignItems: 'center', backgroundColor: 'white', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '0 12px', marginBottom: '16px', height: '42px', flexShrink: 0 },
@@ -238,23 +238,23 @@ const styles = {
   cardFooter: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
   timeLabel: { fontSize: '10px', color: '#94A3B8', display: 'flex', alignItems: 'center', gap: '4px' },
   praiseBadge: { display: 'flex', alignItems: 'center', fontSize: '11px', fontWeight: '700', color: '#D97706', gap: '4px', backgroundColor: '#FEF3C7', padding: '3px 8px', borderRadius: '6px' },
-  regularBadge: { display: 'flex', alignItems: 'center', fontSize: '11px', fontWeight: '700', color: '#1f2a56', gap: '4px', backgroundColor: '#E2E8F0', padding: '3px 8px', borderRadius: '6px' },
+  regularBadge: { display: 'flex', alignItems: 'center', fontSize: '11px', fontWeight: '700', color: 'var(--primary-color)', gap: '4px', backgroundColor: '#E2E8F0', padding: '3px 8px', borderRadius: '6px' },
   emptyState: { padding: '30px 16px', border: '2px dashed #E2E8F0', borderRadius: '16px' },
   modalOverlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 },
   modalContent: { backgroundColor: 'white', width: '100%', maxWidth: '440px', borderRadius: '20px', padding: '24px', position: 'relative' },
   closeBtn: { position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', cursor: 'pointer' },
   modalHeader: { marginBottom: '16px' },
   modalTag: { fontSize: '11px', fontWeight: 'bold', color: '#64748B', textTransform: 'uppercase', marginBottom: '6px', display: 'block' },
-  modalTitle: { fontSize: '18px', fontWeight: '800', color: '#1f2a56', margin: '0 0 6px 0' },
+  modalTitle: { fontSize: '18px', fontWeight: '800', color: 'var(--primary-color)', margin: '0 0 6px 0' },
   modalMeta: { display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#94A3B8', flexWrap: 'wrap' },
   bullet: { color: '#CBD5E1' },
   divider: { height: '1px', backgroundColor: '#F1F5F9', margin: '16px 0' },
   modalBody: { marginBottom: '24px' },
   infoSection: { marginBottom: '16px' },
   sectionLabel: { fontSize: '10px', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px', fontWeight: '700', display: 'block' },
-  infoValue: { fontSize: '14px', color: '#1f2a56', fontWeight: '600', margin: 0 },
+  infoValue: { fontSize: '14px', color: 'var(--primary-color)', fontWeight: '600', margin: 0 },
   messageText: { fontSize: '14px', color: '#475569', lineHeight: '1.5', margin: 0, backgroundColor: '#F8FAFC', padding: '10px', borderRadius: '10px' },
-  primaryAction: { width: '100%', padding: '14px', borderRadius: '12px', border: 'none', backgroundColor: '#1f2a56', color: 'white', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer' }
+  primaryAction: { width: '100%', padding: '14px', borderRadius: '12px', border: 'none', backgroundColor: 'var(--primary-color)', color: 'white', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer' }
 };
 
 export default InboxView;

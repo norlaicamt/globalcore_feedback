@@ -1,6 +1,12 @@
 @import "tailwindcss";
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
+/* ── Brand CSS Variables (overridden at runtime by TerminologyContext) ── */
+:root {
+  --primary-color: #1f2a56;
+  --primary-rgb: 31, 42, 86;
+}
+
 * {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif !important;
   transition: background-color 0.25s ease, color 0.2s ease, border-color 0.2s ease;
