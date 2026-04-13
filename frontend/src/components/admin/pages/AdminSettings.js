@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { getAdminSettings, updateAdminSetting } from "../../../services/api";
-import { adminGetProfile, adminUpdateProfile, getSystemLabels, updateSystemLabelsBulk, adminGetProfileActivity } from "../../../services/adminApi";
+import { adminGetProfile, adminUpdateProfile, getSystemLabels, updateSystemLabelsBulk, adminGetProfileActivity, getAdminSettings, updateAdminSetting } from "../../../services/adminApi";
 import { useTerminology } from "../../../context/TerminologyContext";
 
 const ToggleRow = ({ title, description, checked, onChange, loading, theme, darkMode }) => (
@@ -32,7 +31,7 @@ const SectionCard = ({ title, subtitle, children, theme }) => (
 );
 
 const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, onAdminUpdate }) => {
-  const { labels, refreshLabels, getLabel } = useTerminology();
+  const { labels, refreshLabels, getLabel, systemName } = useTerminology();
   const isGlobalCoreAdmin = (adminUser?.email || "").toLowerCase() === "admin@globalcore.com";
   const [activeTab, setActiveTab] = useState("profile");
   const [settings, setSettings] = useState({ allow_voice: true, public_feed: true, email_notifications: false, status_notifications: true });
@@ -83,7 +82,10 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
         ]);
         if (sysSettings?.length) {
           const mapped = {};
-          sysSettings.forEach(s => mapped[s.key] = s.value === "true");
+          sysSettings.forEach(s => {
+            // Check if it looks like a boolean, otherwise store as string
+            mapped[s.key] = (s.value === "true" || s.value === "false") ? (s.value === "true") : s.value;
+          });
           setSettings(prev => ({ ...prev, ...mapped }));
         }
         setProfile(profileData);
@@ -137,6 +139,25 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
     try {
       await updateAdminSetting(key, String(newValue));
       setSettings(prev => ({ ...prev, [key]: newValue }));
+      setSuccessMsg(`System setting "${key.replace(/_/g, " ")}" updated.`);
+      setTimeout(() => setSuccessMsg(""), 2000);
+    } catch (e) {
+      console.error(e);
+      alert("Failed to update system setting.");
+    } finally {
+      setUpdatingKey(null);
+    }
+  };
+
+  const handleBrandingUpdate = async () => {
+    setUpdatingKey("branding");
+    try {
+      await updateAdminSetting("primary_organization_name", settings.primary_organization_name);
+      setSuccessMsg("System branding updated successfully.");
+      setTimeout(() => setSuccessMsg(""), 2500);
+    } catch (e) {
+      console.error(e);
+      alert("Failed to update branding.");
     } finally {
       setUpdatingKey(null);
     }
@@ -284,7 +305,7 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
                       </div>
                       <div>
                         <label style={labelStyle}>Organization</label>
-                        <p style={{ margin: 0, fontSize: "14px", fontWeight: "600", color: theme.text }}>GlobalCore Feedback Net</p>
+                        <p style={{ margin: 0, fontSize: "14px", fontWeight: "600", color: theme.text }}>{systemName}</p>
                       </div>
                       <div>
                         <label style={labelStyle}>Contact Number</label>
@@ -317,7 +338,7 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: '24px' }}>
                     <div>
                       <label style={labelStyle}>Organization Name (Read-only)</label>
-                      <input value="GlobalCore Feedback Net" disabled style={{ ...inputStyle, opacity: 0.7, cursor: 'not-allowed' }} />
+                      <input value={settings.primary_organization_name || systemName} disabled style={{ ...inputStyle, opacity: 0.7, cursor: 'not-allowed' }} />
                     </div>
                     <div>
                       <label style={labelStyle}>{getLabel("category_label", "Unit/Program")}</label>
@@ -462,13 +483,34 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
       )}
 
       {activeTab === "system" && isGlobalCoreAdmin && (
-        <SectionCard theme={theme} title="Global Config" subtitle="System-wide configuration for GlobalCore Admin only.">
+        <SectionCard theme={theme} title="Global Config" subtitle={`System-wide configuration for ${systemName} Admin only.`}>
           {loading ? <div style={{ fontSize: 13, color: theme.textMuted }}>Loading global config...</div> : (
             <>
               <ToggleRow theme={theme} darkMode={darkMode} title="Voice Note Submissions" description="Allow voice notes in feedback form." checked={settings.allow_voice} onChange={() => handleToggle("allow_voice")} loading={updatingKey === "allow_voice"} />
               <ToggleRow theme={theme} darkMode={darkMode} title="Community Feed" description="Enable public feed visibility." checked={settings.public_feed} onChange={() => handleToggle("public_feed")} loading={updatingKey === "public_feed"} />
               <ToggleRow theme={theme} darkMode={darkMode} title="Email Notifications" description="Send email on new replies." checked={settings.email_notifications} onChange={() => handleToggle("email_notifications")} loading={updatingKey === "email_notifications"} />
               <ToggleRow theme={theme} darkMode={darkMode} title="Status Notifications" description="Notify on status updates." checked={settings.status_notifications} onChange={() => handleToggle("status_notifications")} loading={updatingKey === "status_notifications"} />
+              
+              <div style={{ marginTop: 24, borderTop: `1px solid ${theme.border}`, paddingTop: 20 }}>
+                <p style={{ margin: '0 0 12px 0', fontSize: 13, fontWeight: 700, color: '#3B82F6' }}>SYSTEM BRANDING</p>
+                <label style={labelStyle}>Primary Organization Name</label>
+                <div style={{ display: 'flex', gap: 10 }}>
+                   <input 
+                     value={settings.primary_organization_name || ""} 
+                     onChange={e => setSettings(p => ({ ...p, primary_organization_name: e.target.value }))}
+                     style={inputStyle} 
+                     placeholder="e.g. DSWD"
+                   />
+                   <button 
+                     onClick={handleBrandingUpdate}
+                     disabled={updatingKey === "branding"}
+                     style={{ padding: '0 20px', background: '#3B82F6', color: 'white', border: 'none', borderRadius: 8, fontWeight: 700, cursor: 'pointer', fontSize: 12, opacity: updatingKey === "branding" ? 0.6 : 1 }}
+                   >
+                     {updatingKey === "branding" ? "Updating..." : "Update"}
+                   </button>
+                </div>
+                <p style={{ margin: "6px 0 0 0", fontSize: "11px", color: theme.textMuted }}>This name will be auto-filled for new employees during onboarding.</p>
+              </div>
             </>
           )}
         </SectionCard>

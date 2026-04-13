@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { getAdminSettings, updateAdminSetting, getFormFields, saveFormFields } from "../../../services/api";
+import { adminGetProfile, getSystemLabels, updateSystemLabelsBulk, getAdminSettings, updateAdminSetting, getFormFields, saveFormFields } from "../../../services/adminApi";
 
 // ─── SVG icon set (no emojis) ─────────────────────────────────────────────────
 const Ico = {

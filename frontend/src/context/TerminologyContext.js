@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { getSystemLabels } from '../services/adminApi';
+import { getAdminSettings } from '../services/api';
 
 const TerminologyContext = createContext();
 
@@ -13,18 +14,29 @@ export const useTerminology = () => {
 
 export const TerminologyProvider = ({ children }) => {
   const [labels, setLabels] = useState({});
+  const [systemSettings, setSystemSettings] = useState({});
   const [loading, setLoading] = useState(true);
 
   const refreshLabels = useCallback(async () => {
     try {
-      const data = await getSystemLabels();
-      const mapped = {};
-      data.forEach(l => {
-        mapped[l.key] = l.value;
+      const [labelsData, settingsData] = await Promise.all([
+        getSystemLabels(),
+        getAdminSettings()
+      ]);
+      
+      const mappedLabels = {};
+      labelsData.forEach(l => {
+        mappedLabels[l.key] = l.value;
       });
-      setLabels(mapped);
+      setLabels(mappedLabels);
+
+      const mappedSettings = {};
+      (settingsData || []).forEach(s => {
+        mappedSettings[s.key] = s.value;
+      });
+      setSystemSettings(mappedSettings);
     } catch (error) {
-      console.error("Failed to fetch terminology labels:", error);
+      console.error("Failed to fetch terminology/settings:", error);
     } finally {
       setLoading(false);
     }
@@ -39,8 +51,10 @@ export const TerminologyProvider = ({ children }) => {
     return labels[key] || fallback;
   };
 
+  const systemName = systemSettings.primary_organization_name || "GlobalCore Feedback";
+
   return (
-    <TerminologyContext.Provider value={{ labels, getLabel, refreshLabels, loading }}>
+    <TerminologyContext.Provider value={{ labels, getLabel, refreshLabels, loading, systemName, systemSettings }}>
       {children}
     </TerminologyContext.Provider>
   );

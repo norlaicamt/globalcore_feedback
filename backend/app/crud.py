@@ -13,6 +13,16 @@ def get_user_by_email(db: Session, email: str):
     if not email: return None
     return db.query(models.User).filter(models.User.email.ilike(email)).first()
 
+def get_user_by_login_id(db: Session, login_id: str):
+    if not login_id: return None
+    from sqlalchemy import or_
+    return db.query(models.User).filter(
+        or_(
+            models.User.email.ilike(login_id),
+            models.User.username.ilike(login_id)
+        )
+    ).first()
+
 def get_users(db: Session, skip: int = 0, limit: int = 100):
     return db.query(models.User).offset(skip).limit(limit).all()
 
@@ -278,6 +288,34 @@ def create_feedback(db: Session, feedback: schemas.FeedbackCreate):
             
     db.commit()
     db.refresh(db_feedback)
+    
+    # Notify Entity Admins about New Feedback
+    entity_admins = db.query(models.User).filter(
+        models.User.entity_id == db_feedback.entity_id,
+        models.User.role.in_(["admin", "superadmin"]),
+        models.User.notify_new_feedback == True
+    ).all()
+    
+    for admin in entity_admins:
+        if admin.id != db_feedback.sender_id:
+            create_notification(
+                db,
+                user_id=admin.id,
+                actor_id=db_feedback.sender_id,
+                notif_type=models.NotificationType.NEW_FEEDBACK,
+                feedback_id=db_feedback.id
+            )
+    
+    # Notify Assigned User
+    if db_feedback.recipient_user_id:
+        create_notification(
+            db,
+            user_id=db_feedback.recipient_user_id,
+            actor_id=db_feedback.sender_id,
+            notif_type=models.NotificationType.ASSIGNED,
+            feedback_id=db_feedback.id
+        )
+
     return db_feedback
 
 def get_feedback(db: Session, feedback_id: int):
@@ -368,6 +406,33 @@ def create_reply(db: Session, reply: schemas.ReplyCreate):
                 feedback_id=reply.feedback_id,
                 reply_id=db_reply.id
             )
+            
+    # High Activity Alert Check
+    reply_count = db.query(models.Reply).filter(models.Reply.feedback_id == db_reply.feedback_id).count()
+    if reply_count >= 10: # Threshold for "High Activity"
+        # Notify Admin/Recipient user
+        target_ids = []
+        if feedback.recipient_user_id: target_ids.append(feedback.recipient_user_id)
+        
+        # Also notify entity admins who want high activity alerts
+        admins = db.query(models.User).filter(
+            models.User.entity_id == feedback.entity_id,
+            models.User.role.in_(["admin", "superadmin"]),
+            models.User.notify_high_activity == True
+        ).all()
+        for a in admins:
+            if a.id not in target_ids: target_ids.append(a.id)
+            
+        for uid in target_ids:
+            if uid != db_reply.user_id:
+                create_notification(
+                    db,
+                    user_id=uid,
+                    actor_id=db_reply.user_id,
+                    notif_type=models.NotificationType.COMMENT, # Reuse comment type but maybe add a "high activity" meta
+                    feedback_id=feedback.id,
+                    message=f"🔥 High Activity: {feedback.title} now has {reply_count} comments."
+                )
         
     return db_reply
 
@@ -536,7 +601,9 @@ def deliver_notification(db: Session, notif: models.Notification):
         models.NotificationType.COMMENT: user.notify_comments,
         models.NotificationType.MENTION: user.notify_mentions,
         models.NotificationType.LIKE: user.notify_likes,
-        models.NotificationType.ANNOUNCEMENT: user.notify_announcements
+        models.NotificationType.ANNOUNCEMENT: user.notify_announcements,
+        models.NotificationType.NEW_FEEDBACK: user.notify_new_feedback, # New
+        models.NotificationType.ASSIGNED: user.notify_assigned       # New
     }
     
     should_deliver = pref_map.get(notif.type, True)
@@ -818,6 +885,45 @@ def approve_feedback_choice(db: Session, feedback_id: int, approved_name: str):
     db.commit()
     db.refresh(db_fb)
     return db_fb
+        
+def create_reset_token(db: Session, email: str):
+    import uuid
+    from datetime import datetime, timedelta, timezone
+    user = db.query(models.User).filter(models.User.email.ilike(email)).first()
+    if not user:
+        return None
+    
+    # Invalidate previous tokens
+    db.query(models.PasswordResetToken).filter(models.PasswordResetToken.user_id == user.id).update({"is_used": True})
+    
+    token = str(uuid.uuid4())
+    db_token = models.PasswordResetToken(
+        user_id=user.id,
+        token=token,
+        expires_at=datetime.now(timezone.utc) + timedelta(minutes=30)
+    )
+    db.add(db_token)
+    db.commit()
+    return token
+
+def reset_password_with_token(db: Session, token: str, new_password: str):
+    from datetime import datetime, timezone
+    db_token = db.query(models.PasswordResetToken).filter(
+        models.PasswordResetToken.token == token,
+        models.PasswordResetToken.is_used == False,
+        models.PasswordResetToken.expires_at > datetime.now(timezone.utc)
+    ).first()
+    
+    if not db_token:
+        return False
+    
+    user = db.query(models.User).filter(models.User.id == db_token.user_id).first()
+    if user:
+        user.password = new_password
+        db_token.is_used = True
+        db.commit()
+        return True
+    return False
 
 def get_broadcast_logs(db: Session):
     logs = db.query(models.BroadcastLog).order_by(models.BroadcastLog.created_at.desc()).all()
@@ -944,3 +1050,44 @@ def get_audit_logs(db: Session, skip: int = 0, limit: int = 200, dept_name: Opti
                      .filter(models.User.department == dept_name)
     
     return query.order_by(models.AuditLog.timestamp.desc()).offset(skip).limit(limit).all()
+
+def create_reset_token(db: Session, email: str):
+    import uuid
+    from datetime import datetime, timedelta, timezone
+    user = db.query(models.User).filter(models.User.email.ilike(email)).first()
+    if not user:
+        return None
+    
+    # Invalidate previous tokens
+    db.query(models.PasswordResetToken).filter(models.PasswordResetToken.user_id == user.id).update({"is_used": True})
+    
+    token = str(uuid.uuid4())
+    db_token = models.PasswordResetToken(
+        user_id=user.id,
+        token=token,
+        expires_at=datetime.now(timezone.utc) + timedelta(minutes=30)
+    )
+    db.add(db_token)
+    db.commit()
+    return token
+
+def reset_password_with_token(db: Session, token: str, new_password: str):
+    from datetime import datetime, timezone
+    db_token = db.query(models.PasswordResetToken).filter(
+        models.PasswordResetToken.token == token,
+        models.PasswordResetToken.is_used == False,
+        models.PasswordResetToken.expires_at > datetime.now(timezone.utc)
+    ).first()
+    
+    if not db_token:
+        return False
+    
+    user = db.query(models.User).filter(models.User.id == db_token.user_id).first()
+    if user:
+        user.password = new_password
+        db_token.is_used = True
+        # Invalidate all other tokens for this user
+        db.query(models.PasswordResetToken).filter(models.PasswordResetToken.user_id == user.id).update({"is_used": True})
+        db.commit()
+        return True
+    return False

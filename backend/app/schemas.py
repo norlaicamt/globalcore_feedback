@@ -7,8 +7,6 @@ from app.models import FeedbackStatus, NotificationType
 class UserBase(BaseModel):
     name: str
     email: str
-    name: str
-    email: str
     entity_id: Optional[int] = None
     organization_id: Optional[int] = None
     session_token: Optional[str] = None
@@ -44,6 +42,11 @@ class UserBase(BaseModel):
     notify_likes: Optional[bool] = True
     notify_announcements: Optional[bool] = True
     weekly_digest: Optional[bool] = False
+    daily_summary: Optional[bool] = False
+    notify_new_feedback: Optional[bool] = True
+    notify_assigned: Optional[bool] = True
+    notify_high_activity: Optional[bool] = False
+    notify_system_announcements: Optional[bool] = True
     biometrics_enabled: Optional[bool] = True
     avatar_url: Optional[str] = None
     id_photo_url: Optional[str] = None
@@ -87,6 +90,11 @@ class UserUpdate(BaseModel):
     notify_likes: Optional[bool] = None
     notify_announcements: Optional[bool] = None
     weekly_digest: Optional[bool] = None
+    daily_summary: Optional[bool] = None
+    notify_new_feedback: Optional[bool] = None
+    notify_assigned: Optional[bool] = None
+    notify_high_activity: Optional[bool] = None
+    notify_system_announcements: Optional[bool] = None
     biometrics_enabled: Optional[bool] = True
     avatar_url: Optional[str] = None
     id_photo_url: Optional[str] = None
@@ -94,6 +102,13 @@ class UserUpdate(BaseModel):
 
 class UserPasswordUpdate(BaseModel):
     old_password: str
+    new_password: str
+
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+class PasswordResetConfirm(BaseModel):
+    token: str
     new_password: str
 
 class User(UserBase):

@@ -1,5 +1,5 @@
 """
-Verify that a 4Ps admin (user@lyka.com) can now retrieve their scoped feedback.
+Verify that a KALAHI admin (admin@kalahi.com) can now retrieve their scoped feedback.
 """
 from app.database import SessionLocal
 from app import models
@@ -9,8 +9,8 @@ from sqlalchemy import func
 db = SessionLocal()
 
 try:
-    # Simulate the 4Ps admin user
-    admin = db.query(models.User).filter(models.User.email.ilike("user@lyka.com")).first()
+    # Simulate the KALAHI admin user
+    admin = db.query(models.User).filter(models.User.email.ilike("admin@kalahi.com")).first()
     print(f"Admin: {admin.email}, Role: {admin.role}, Program ID: {admin.program_id}")
     print(f"Has global access: {has_global_admin_access(admin)}")
 
@@ -29,7 +29,7 @@ try:
     q = apply_data_scope(q, models.Feedback, admin)
 
     rows = q.all()
-    print(f"\nFeedbacks visible to 4Ps admin: {len(rows)}")
+    print(f"\nFeedbacks visible to KALAHI admin: {len(rows)}")
     for r in rows:
         print(f"  ID: {r.id}, Title: {r.title}, Category: {r.category_name}")
 

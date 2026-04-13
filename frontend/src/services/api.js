@@ -4,6 +4,25 @@ import axios from "axios";
 // Base URL for your FastAPI backend
 const API_BASE = process.env.REACT_APP_API_URL || `http://${window.location.hostname}:8000`;
 
+/* -------------------- AUTH -------------------- */
+export const login = async (email, password) => {
+  const response = await axios.post(`${API_BASE}/login?email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`);
+  return response.data;
+};
+
+export const forgotPassword = async (email) => {
+  const response = await axios.post(`${API_BASE}/users/auth/forgot-password`, { email });
+  return response.data;
+};
+
+export const resetPassword = async (token, newPassword) => {
+  const response = await axios.post(`${API_BASE}/users/auth/reset-password`, { 
+    token, 
+    new_password: newPassword 
+  });
+  return response.data;
+};
+
 /* -------------------- USERS -------------------- */
 export const getUsers = async () => {
   const response = await axios.get(`${API_BASE}/users/`);
@@ -139,6 +158,11 @@ export const getEntities = async () => {
   return response.data;
 };
 
+export const getSystemInfo = async () => {
+  const response = await axios.get(`${API_BASE}/system/info`);
+  return response.data;
+};
+
 export const createEntity = async (entity) => {
   const response = await axios.post(`${API_BASE}/entities/`, entity);
   return response.data;
@@ -161,24 +185,15 @@ export const getAnalyticsSummary = async () => {
   return response.data;
 };
 
-/* -------------------- ADMIN SETTINGS -------------------- */
+/* -------------------- THEME & SYSTEM -------------------- */
 export const getAdminSettings = async () => {
   const response = await axios.get(`${API_BASE}/admin/settings`);
   return response.data;
 };
 
-export const updateAdminSetting = async (key, value) => {
-  const response = await axios.patch(`${API_BASE}/admin/settings/${key}?value=${value}`);
-  return response.data;
-};
-
-/* -------------------- FORM FIELDS -------------------- */
 export const getFormFields = async () => {
   const response = await axios.get(`${API_BASE}/admin/form-fields`);
   return response.data;
 };
 
-export const saveFormFields = async (fields) => {
-  const response = await axios.post(`${API_BASE}/admin/form-fields/save`, fields);
-  return response.data;
-};
+// (Update functions migrated to adminApi.js for authentication)

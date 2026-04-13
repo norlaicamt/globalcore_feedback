@@ -1,12 +1,17 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { updateUser, getEntities } from "../services/api";
+import { useTerminology } from "../context/TerminologyContext";
 
 const ROLE_OPTIONS = ["Student", "Visitor", "Employee", "Parent", "Staff", "Others"];
+const DRAFT_VERSION = 1;
+const DRAFT_EXPIRY = 24 * 60 * 60 * 1000; // 24 hours
 
-const UserOnboarding = ({ currentUser, onComplete }) => {
+const UserOnboarding = ({ currentUser, onBack, onComplete }) => {
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
+  const [restored, setRestored] = useState(false);
   const [form, setForm] = useState({
+    username: currentUser?.username || "",
     role_identity: currentUser?.role_identity || "",
     name: currentUser?.name || "",
     phone: currentUser?.phone || "",
@@ -31,6 +36,7 @@ const UserOnboarding = ({ currentUser, onComplete }) => {
   const [cityList, setCityList] = useState([]);
   const [barangayList, setBarangayList] = useState([]);
   const [agencyList, setAgencyList] = useState([]);
+  const { systemName } = useTerminology();
   const [isLoadingLocations, setIsLoadingLocations] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
 
@@ -40,6 +46,7 @@ const UserOnboarding = ({ currentUser, onComplete }) => {
       if (!form.role_identity) missing.push("Role Selection");
       if (!form.id_photo_url) missing.push("ID Photo");
     } else if (step === 2) {
+      if (!form.username) missing.push("Username");
       if (!form.name) missing.push("Full Name");
       if (!form.phone) missing.push("Contact Number");
       if (!form.avatar_url) missing.push("Profile Photo");
@@ -65,6 +72,27 @@ const UserOnboarding = ({ currentUser, onComplete }) => {
   }, [step, form]);
 
   useEffect(() => {
+    // 1. Check for draft on mount
+    const draftKey = `onboarding_draft_${currentUser?.id}`;
+    const rawDraft = localStorage.getItem(draftKey);
+    if (rawDraft) {
+      try {
+        const draft = JSON.parse(rawDraft);
+        const isNotExpired = Date.now() - (draft.savedAt || 0) < DRAFT_EXPIRY;
+        
+        if (draft.version === DRAFT_VERSION && isNotExpired) {
+          if (draft.form) setForm(prev => ({ ...prev, ...draft.form }));
+          if (draft.step) setStep(draft.step);
+          setRestored(true);
+          setTimeout(() => setRestored(false), 5000); // Hide after 5 sec
+        } else {
+          localStorage.removeItem(draftKey);
+        }
+      } catch (err) {
+        console.error("Failed to restore onboarding draft", err);
+      }
+    }
+
     const loadBaseLocations = async () => {
       try {
         const [regRes, provRes, cityRes] = await Promise.all([
@@ -81,7 +109,32 @@ const UserOnboarding = ({ currentUser, onComplete }) => {
     };
     loadBaseLocations();
     getEntities().then(cats => setAgencyList((cats || []).map(c => c.name).filter(Boolean)));
-  }, []);
+  }, [currentUser?.id]);
+
+  // Sync company_name with systemName (from TerminologyContext)
+  useEffect(() => {
+    if (form.role_identity === "Employee" && systemName && form.company_name !== systemName) {
+      setForm(prev => ({ ...prev, company_name: systemName }));
+    }
+  }, [systemName, form.role_identity]);
+
+  // 2. Auto-save with debounce
+  useEffect(() => {
+    if (saving) return; // Don't save while finalizing
+    const draftKey = `onboarding_draft_${currentUser?.id}`;
+    
+    const timer = setTimeout(() => {
+      const draft = {
+        version: DRAFT_VERSION,
+        savedAt: Date.now(),
+        step,
+        form
+      };
+      localStorage.setItem(draftKey, JSON.stringify(draft));
+    }, 1000); // 1s debounce for stability
+
+    return () => clearTimeout(timer);
+  }, [form, step, currentUser?.id, saving]);
 
   useEffect(() => {
     if (form.region && allProvinces[form.region]) {
@@ -137,6 +190,7 @@ const UserOnboarding = ({ currentUser, onComplete }) => {
       };
       localStorage.setItem("userView", "home");
       localStorage.setItem("currentUser", JSON.stringify(updated));
+      localStorage.removeItem(`onboarding_draft_${currentUser.id}`);
       onComplete(updated);
     } catch (err) {
       // Keep UX unblocked: if backend response shape/version is behind,
@@ -176,6 +230,14 @@ const UserOnboarding = ({ currentUser, onComplete }) => {
         </div>
 
         <div style={styles.body}>
+        {restored && (
+          <div style={styles.restoredDraft}>
+             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ marginRight: 8 }}>
+               <path d="M23 12a11 11 0 1 1-2.9-7.3L20 6V1h-5" />
+             </svg>
+             Your previous progress has been restored.
+          </div>
+        )}
         <div style={styles.progress}>
           <div style={{ ...styles.progressFill, width: `${(step / 3) * 100}%` }} />
         </div>
@@ -191,7 +253,7 @@ const UserOnboarding = ({ currentUser, onComplete }) => {
                     ...p,
                     role_identity: role,
                     school: role === "Student" ? p.school : "",
-                    company_name: role === "Employee" ? p.company_name : "",
+                    company_name: role === "Employee" ? systemName : "",
                     position_title: role === "Employee" ? p.position_title : "",
                   }))}
                   style={{
@@ -241,7 +303,10 @@ const UserOnboarding = ({ currentUser, onComplete }) => {
                 </div>
             </div>
 
-            <input style={{ ...styles.input, opacity: 0.7, background: "#f8fafc" }} value={currentUser?.email || ""} disabled />
+            <div style={styles.inputGroup}>
+                <input style={styles.input} placeholder="Username" value={form.username} onChange={(e) => setForm((p) => ({ ...p, username: e.target.value }))} />
+                <input style={{ ...styles.input, opacity: 0.7, background: "#f8fafc" }} value={currentUser?.email || ""} disabled />
+            </div>
             
             <div style={{ marginTop: 14 }}>
               <p style={styles.fieldLabel}>Profile Picture (required)</p>
@@ -259,7 +324,13 @@ const UserOnboarding = ({ currentUser, onComplete }) => {
             {form.role_identity === "Employee" && (
               <>
                 <div style={styles.inputGroup}>
-                    <input style={styles.input} placeholder="Company Name" value={form.company_name} onChange={(e) => setForm((p) => ({ ...p, company_name: e.target.value }))} />
+                    <input 
+                      style={{ ...styles.input, ...(form.role_identity === "Employee" ? { background: "#F1F5F9", cursor: "not-allowed", opacity: 0.8 } : {}) }} 
+                      placeholder="Company Name" 
+                      value={form.company_name} 
+                      onChange={(e) => setForm((p) => ({ ...p, company_name: e.target.value }))}
+                      readOnly={form.role_identity === "Employee"}
+                    />
                     <input style={styles.input} placeholder="Position Title" value={form.position_title} onChange={(e) => setForm((p) => ({ ...p, position_title: e.target.value }))} />
                 </div>
                 <select
@@ -347,17 +418,23 @@ const UserOnboarding = ({ currentUser, onComplete }) => {
             )}
             <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
               <button 
+                type="button"
                 onClick={() => {
-                   setStep((s) => Math.max(1, s - 1));
+                   if (step === 1) {
+                     onBack();
+                   } else {
+                     setStep((s) => Math.max(1, s - 1));
+                   }
                    setShowErrors(false);
                 }} 
-                disabled={step === 1 || saving} 
+                disabled={saving} 
                 style={styles.secondaryBtn}
               >
                 Back
               </button>
               {step < 3 ? (
                 <button 
+                  type="button"
                   onClick={() => {
                     if (canNext) {
                       setStep((s) => Math.min(3, s + 1));
@@ -372,6 +449,7 @@ const UserOnboarding = ({ currentUser, onComplete }) => {
                 </button>
               ) : (
                 <button 
+                  type="button"
                   onClick={() => {
                     if (canNext) {
                       saveOnboarding();
@@ -415,6 +493,11 @@ const styles = {
   warning: { 
     background: "#FFF1F2", color: "#E11D48", padding: "10px 16px", borderRadius: "12px", 
     fontSize: "12px", fontWeight: "600", border: "1px solid #FECDD3", margin: "10px 0 0" 
+  },
+  restoredDraft: {
+    display: 'flex', alignItems: 'center', background: "#F1F5F9", color: "#475569", 
+    padding: "10px 16px", borderRadius: "12px", fontSize: "12px", fontWeight: "600", 
+    border: "1px solid #E2E8F0", marginBottom: 15, animation: 'fadeIn 0.3s ease-out'
   },
   progress: { height: 6, background: "#E2E8F0", borderRadius: 99, overflow: "hidden", margin: "20px 0 24px" },
   progressFill: { height: "100%", background: "linear-gradient(90deg, #2563EB, #3B82F6)", transition: "width 0.4s ease" },

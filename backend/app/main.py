@@ -43,6 +43,16 @@ app = FastAPI(title="Global Core - Feedback Module")
 def home():
     return {"status": "online", "message": "Global Core Backend is Running Successfully"}
 
+@app.get("/api/system/info")
+def get_system_info(db: Session = Depends(get_db)):
+    """Public endpoint to get system branding and configuration information."""
+    org_name = db.query(models.SystemSetting).filter(models.SystemSetting.key == "primary_organization_name").first()
+    return {
+        "organization_name": org_name.value if org_name else "GlobalCore Feedback System",
+        "version": "1.0.0",
+        "environment": os.getenv("ENV", "production")
+    }
+
 # Middleware
 frontend_origins_env = os.getenv("FRONTEND_ORIGINS", "")
 default_origins = ["http://localhost:3000", "http://127.0.0.1:3000"]
@@ -68,10 +78,20 @@ async def check_blacklist(token: str = Depends(oauth2_scheme)):
 
 # --- AUTH ---
 @app.post("/login", response_model=schemas.User)
-def login(email: str, db: Session = Depends(get_db)):
-    user = crud.get_user_by_email(db, email=email)
+def login(email: str, password: str, db: Session = Depends(get_db)):
+    user = crud.get_user_by_login_id(db, login_id=email)
     if not user:
         raise HTTPException(status_code=404, detail="User not found in Global Core system")
+    
+    if user.password != password:
+        raise HTTPException(status_code=401, detail="Incorrect password")
+    
+    # Restrict administrative accounts from using the regular user login
+    if user.role in ["admin", "superadmin"]:
+        raise HTTPException(
+            status_code=403, 
+            detail="Administrative accounts must log in through the Administrator Portal (/admin)."
+        )
     
     # Auto-reactivation: Logging in automatically reactivates the account
     if not user.is_active or user.deactivated_until:

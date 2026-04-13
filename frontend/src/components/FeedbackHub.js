@@ -1257,7 +1257,7 @@ const FeedCard = ({ item: initialItem, currentUser, onShowToast, onOpenComments,
 
 const DashboardView = ({ feed, loading, hasMore, onLoadMore, onAction, currentUser, onShowToast, onOpenComments, onRefresh, publicFeedEnabled, entities, setFullscreenImg }) => {
   const [isHotTopicsExpanded, setIsHotTopicsExpanded] = useState(false);
-  const { getLabel } = useTerminology();
+  const { getLabel, systemName } = useTerminology();
   const [activeTab, setActiveTab] = useState('All');
   const [searchDash, setSearchDash] = useState("");
 
@@ -1867,6 +1867,7 @@ const styles = {
 };
 
 const BroadcastViewModal = ({ notif, onClose }) => {
+  const { systemName } = useTerminology();
   return (
     <div style={styles.modalOverlay} onClick={onClose}>
       <div style={{ ...styles.commentModalContent, maxWidth: '500px', height: 'auto', maxHeight: '90vh' }} onClick={e => e.stopPropagation()}>
@@ -1877,7 +1878,7 @@ const BroadcastViewModal = ({ notif, onClose }) => {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#0F172A' }}>{notif.subject || 'System Announcement'}</h3>
-              <span style={{ fontSize: '11px', color: '#64748B' }}>Posted by GlobalCore Admin</span>
+              <span style={{ fontSize: '11px', color: '#64748B' }}>Posted by {systemName} Admin</span>
             </div>
           </div>
           <button onClick={onClose} style={{ ...styles.closeBtn, backgroundColor: '#F1F5F9', color: '#64748B' }}>✕</button>

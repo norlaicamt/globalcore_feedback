@@ -87,3 +87,25 @@ def change_password(user_id: int, passwords: schemas.UserPasswordUpdate, db: Ses
 @router.get("/{user_id}/activity", response_model=List[schemas.ActivityEntry])
 def get_user_activity(user_id: int, db: Session = Depends(get_db)):
     return crud.get_user_activity(db, user_id=user_id)
+
+@router.post("/auth/forgot-password")
+def forgot_password(request: schemas.ForgotPasswordRequest, db: Session = Depends(get_db)):
+    """Generates a reset link and 'sends' it (via server console log)."""
+    token = crud.create_reset_token(db, email=request.email)
+    if not token:
+        # Success message regardless to prevent enumeration
+        return {"message": "If this email is registered, a reset link has been sent."}
+    
+    # Simulation: Log the reset link for manual testing/development
+    reset_link = f"http://localhost:3000/reset-password?token={token}"
+    print(f"\n[SECURITY] Password Reset Link for {request.email}: {reset_link}\n")
+    
+    return {"message": "Reset link sent successfully (Simulated)"}
+
+@router.post("/auth/reset-password")
+def reset_password(request: schemas.PasswordResetConfirm, db: Session = Depends(get_db)):
+    """Verifies the reset token and updates the user's password."""
+    success = crud.reset_password_with_token(db, token=request.token, new_password=request.new_password)
+    if not success:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset token")
+    return {"message": "Password reset successfully. You can now log in with your new credentials."}

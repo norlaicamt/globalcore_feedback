@@ -125,3 +125,11 @@ export const adminApproveSuggestion = (id, approvedName) =>
 export const getSystemLabels = () => adminApi.get("/labels").then(r => r.data);
 export const updateSystemLabel = (key, value) => adminApi.post(`/labels?key=${encodeURIComponent(key)}&value=${encodeURIComponent(value)}`).then(r => r.data);
 export const updateSystemLabelsBulk = (payload) => adminApi.post("/labels/bulk", payload).then(r => r.data);
+
+// Settings
+export const getAdminSettings = () => adminApi.get("/settings").then(r => r.data);
+export const updateAdminSetting = (key, value) => adminApi.patch(`/settings/${key}?value=${encodeURIComponent(value)}`).then(r => r.data);
+
+// Form Fields
+export const getFormFields = () => adminApi.get("/form-fields").then(r => r.data);
+export const saveFormFields = (fields) => adminApi.post("/form-fields/save", fields).then(r => r.data);

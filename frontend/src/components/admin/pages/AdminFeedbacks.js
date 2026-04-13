@@ -179,11 +179,10 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
   };
 
   const handleExport = (format) => {
-    const headers = ["ID", getLabel("category_label", "Entity"), getLabel("entity_label", "Service/Instance"), getLabel("dept_label", "Department"), "Author", "Rating", "Comments", "Date"];
+    const headers = ["ID", "Entity / Service \& Feedback", getLabel("dept_label", "Department"), "Author", "Rating", "Comments", "Date"];
     const data = filtered.map((f, idx) => [
       idx + 1,
-      f.entity_name || "General",
-      f.title?.split(": ")[1] || f.title || "—",
+      `${f.entity_name || "General"} | ${f.title?.split(": ")[1] || f.title || ""} - ${f.description || ""}`,
       f.dept_name || "—",
       f.user_name || "Anonymous",
       f.rating ? `${f.rating}/5` : "—",
@@ -303,8 +302,7 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
             <thead>
               <tr style={{ background: darkMode ? "rgba(255,255,255,0.02)" : "#F8FAFC", borderBottom: `1px solid ${theme.border}` }}>
                 <th style={{ ...thStyle, color: theme.textMuted }}>#</th>
-                <HeaderFilter theme={theme} darkMode={darkMode} label={getLabel("category_label", "Entity")} value={filters.entity} onChange={v => setFilters({...filters, entity: v})} />
-                <HeaderFilter theme={theme} darkMode={darkMode} label={getLabel("entity_label", "Service/Instance")} value={filters.service} onChange={v => setFilters({...filters, service: v})} />
+                <HeaderFilter theme={theme} darkMode={darkMode} label="Entity / Service" value={filters.entity} onChange={v => setFilters({...filters, entity: v})} />
                 {hasGlobalAdminAccess && <HeaderFilter theme={theme} darkMode={darkMode} label={getLabel("dept_label", "Department")} value={filters.dept_name || ""} onChange={v => setFilters({...filters, dept_name: v})} />}
                 <HeaderFilter theme={theme} darkMode={darkMode} label="Author" value={filters.author} onChange={v => setFilters({...filters, author: v})} />
                 {["Rating", "Comments", "Date", ""].map(h => (
@@ -318,18 +316,14 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
                   onMouseEnter={e => e.currentTarget.style.background = darkMode ? "rgba(255,255,255,0.02)" : "#FAFAFA"}
                   onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
                   <td style={{ ...tdStyle, color: theme.text }}>{i + 1}</td>
-                  <td style={tdStyle}>
-                    <p style={{ margin: 0, fontWeight: "600", color: theme.textMuted }}>
+                  <td style={{ ...tdStyle, maxWidth: "280px" }}>
+                    <p style={{ margin: 0, fontWeight: "700", color: theme.text }}>
                       {f.entity_name || "General"}
-                    </p>
-                  </td>
-                  <td style={{ ...tdStyle, maxWidth: "220px" }}>
-                    <p style={{ margin: 0, fontWeight: "700", color: theme.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {f.title?.split(": ")[1] || f.title || "—"}
+                      {f.title && f.title !== f.entity_name && ` - ${f.title.split(": ")[1] || f.title}`}
                     </p>
                     {f.description && (
-                      <p style={{ margin: "2px 0 0 0", fontSize: "11px", color: theme.textMuted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {f.description.substring(0, 70)}{f.description.length > 70 ? "..." : ""}
+                      <p style={{ margin: "4px 0 0 0", fontSize: "11px", color: theme.textMuted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {f.description.substring(0, 100)}{f.description.length > 100 ? "..." : ""}
                       </p>
                     )}
                     {f.custom_data && Object.keys(f.custom_data).length > 0 && (

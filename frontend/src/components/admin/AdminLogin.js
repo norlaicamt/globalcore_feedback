@@ -61,9 +61,23 @@ const AdminLogin = ({ onLoginSuccess }) => {
             </div>
             <div style={styles.inputGroup}>
               <label style={styles.label}>Password</label>
-              <input className="adm-input" type="password" placeholder="Enter admin password"
-                style={styles.input} value={password} onChange={e => setPassword(e.target.value)} required />
+              <input 
+                className="adm-input" 
+                type="password" 
+                placeholder="Enter admin key"
+                style={styles.input} 
+                value={password} 
+                onChange={e => setPassword(e.target.value)} 
+                required 
+              />
             </div>
+
+            <div style={{ textAlign: 'right', marginTop: '-10px', marginBottom: '8px' }}>
+              <a href="/forgot-password" style={{ fontSize: '12px', color: '#3B82F6', textDecoration: 'none', fontWeight: '700' }}>
+                Forgot access key?
+              </a>
+            </div>
+
             <button type="submit" className="adm-btn" disabled={isLoading} style={{
               ...styles.loginBtn, opacity: isLoading ? 0.75 : 1, cursor: isLoading ? "not-allowed" : "pointer"
             }}>

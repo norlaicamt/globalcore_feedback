@@ -17,6 +17,8 @@ class NotificationType(str, enum.Enum):
     MENTION = "mention"
     LIKE = "like"
     ANNOUNCEMENT = "announcement"
+    NEW_FEEDBACK = "new_feedback"
+    ASSIGNED = "assigned"
 
 class User(Base):
     __tablename__ = "global_user"
@@ -60,6 +62,14 @@ class User(Base):
     push_notifications = Column(Boolean, default=True)
     email_notifications = Column(Boolean, default=False)
     weekly_digest = Column(Boolean, default=False)
+    daily_summary = Column(Boolean, default=False) # New
+    
+    # Granular Settings
+    notify_new_feedback = Column(Boolean, default=True) # Admin Only
+    notify_assigned = Column(Boolean, default=True)     # Admin Only
+    notify_high_activity = Column(Boolean, default=False) 
+    notify_system_announcements = Column(Boolean, default=True)
+    
     biometrics_enabled = Column(Boolean, default=True)
     avatar_url = Column(Text, nullable=True)
     session_token = Column(String, nullable=True, index=True)
@@ -246,6 +256,18 @@ class BroadcastLog(Base):
     broadcast_type = Column(String, default="announcement")
     sent_to_count = Column(Integer)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+class PasswordResetToken(Base):
+    __tablename__ = "password_reset_tokens"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("global_user.id"))
+    token = Column(String, unique=True, index=True)
+    expires_at = Column(DateTime)
+    is_used = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    user = relationship("User")
+
 class AuditLog(Base):
     __tablename__ = "audit_logs"
     id = Column(Integer, primary_key=True, index=True)

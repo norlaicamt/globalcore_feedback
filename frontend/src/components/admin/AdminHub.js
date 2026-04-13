@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useTerminology } from "../../context/TerminologyContext";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminUsers from "./pages/AdminUsers";
 import AdminFeedbacks from "./pages/AdminFeedbacks";
@@ -12,20 +13,21 @@ import CustomModal from "../CustomModal";
 import { adminGetPendingSuggestions } from "../../services/adminApi";
 
 const NAV_ITEMS = [
-  { id: "dashboard",      label: "Dashboard",           icon: <ChartIcon /> },
-  { id: "users",          label: "User Oversight",      icon: <UsersIcon /> },
-  { id: "feedbacks",      label: "Feedback Management",  icon: <FeedIcon /> },
-  { id: "broadcast",      label: "Broadcast",            icon: <BellIcon /> },
-  { id: "auditlogs",      label: "Admin Activity",       icon: <ClockIcon />,  superOnly: true },
-  { type: "label",        label: "CONFIGURATION" },
-  { id: "feedbacktypes",  label: "Departments",       icon: <TagIcon />,    superOnly: true },
-  { id: "pendingsuggestions", label: "Pending Suggestions", icon: <ClockIcon />, isSub: true, superOnly: true },
-  { id: "feedbacksetup",  label: "Feedback Setup",       icon: <TypeIcon />,   superOnly: true },
-  { type: "label",        label: "SYSTEM" },
-  { id: "settings",       label: "Settings",             icon: <SettingsIcon />, superOnly: true },
+  { id: "dashboard",      label: "Insights Hub",        icon: <ChartIcon /> },
+  { id: "users",          label: "Account Management",  icon: <UsersIcon /> },
+  { id: "feedbacks",      label: "Submissions",         icon: <FeedIcon /> },
+  { id: "broadcast",      label: "Announcements",       icon: <BellIcon /> },
+  { id: "auditlogs",      label: "Audit Trail",         icon: <ClockIcon />,  superOnly: true },
+  { type: "label",        label: "ORGANIZATION" },
+  { id: "feedbacktypes",  label: "Entities",            icon: <TagIcon />,    superOnly: true },
+  { id: "pendingsuggestions", label: "Approval Queue",   icon: <ClockIcon />, isSub: true, superOnly: true },
+  { id: "feedbacksetup",  label: "Interface Designer",  icon: <TypeIcon />,   superOnly: true },
+  { type: "label",        label: "PREFERENCES" },
+  { id: "settings",       label: "Global Settings",     icon: <SettingsIcon />, superOnly: true },
 ];
 
 const AdminHub = ({ adminUser, onLogout }) => {
+  const { systemName } = useTerminology();
   const [localAdminUser, setLocalAdminUser] = useState(adminUser);
   const hasGlobalAdminAccess = ["admin", "superadmin"].includes(localAdminUser?.role) && !localAdminUser?.department;
   const getViewFromUrl = () => {
@@ -150,8 +152,8 @@ const AdminHub = ({ adminUser, onLogout }) => {
             </svg>
           </div>
           <div>
-            <p style={styles.logoText}>GlobalCore</p>
-            <p style={styles.logoSub}>Feedback</p>
+            <p style={styles.logoText}>{systemName.split(' ')[0]}</p>
+            <p style={styles.logoSub}>{systemName.split(' ').slice(1).join(' ') || "Feedback"}</p>
           </div>
         </div>
 

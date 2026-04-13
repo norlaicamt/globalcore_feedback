@@ -377,7 +377,7 @@ def admin_get_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_d
         result.append({
             "id": u.id, "name": u.name, "email": u.email, "department": u.department, 
             "program": u.program, "entity_id": u.entity_id,
-            "entity_name": u.entity.name if u.entity else None,
+            "entity_name": (u.entity.name if u.entity else None) or u.program or u.department or None,
             "position_title": u.position_title, "role_identity": u.role_identity,
             "role": "user" if u.role == "maker" else u.role,
             "is_active": u.is_active, "avatar_url": u.avatar_url,
@@ -823,6 +823,30 @@ def update_system_labels_bulk(data: dict = Body(...), db: Session = Depends(get_
     return {"status": "success", "updated_count": len(updated_keys)}
 
 
+@router.get("/settings", response_model=List[schemas.SystemSetting])
+def get_admin_settings(db: Session = Depends(get_db)):
+    return crud.get_system_settings(db)
+
+
+@router.patch("/settings/{key}")
+def update_admin_setting(key: str, value: str, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
+    if not has_global_admin_access(admin):
+        raise HTTPException(status_code=403, detail="Only global admins can change system settings")
+    
+    setting = crud.update_system_setting(db, key, value)
+    
+    # Audit Log
+    crud.create_audit_log(
+        db,
+        action_type="update_system_setting",
+        performed_by_id=admin.id,
+        target_id=key,
+        details={"key": key, "new_value": value}
+    )
+    
+    return setting
+
+
 # ?????????????????????????????????????????????
 # BROADCAST NOTIFICATION
 # ?????????????????????????????????????????????
@@ -967,6 +991,12 @@ def get_admin_profile_activity(limit: int = 20, db: Session = Depends(get_db), a
     return rows
 
 
+@router.get("/pending-suggestions")
+def admin_get_pending_suggestions(skip: int = 0, limit: int = 20, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
+    """Get all user feedbacks that haven't been approved yet (moderation queue)."""
+    return crud.get_pending_feedbacks(db, skip=skip, limit=limit)
+
+
 @router.post("/approve-suggestion")
 def admin_approve_suggestion(feedback_id: int, approved_name: str, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
     """Approve a suggested name, edit it if needed, and update category choices."""
@@ -1023,7 +1053,7 @@ def save_form_sections(sections: List[schemas.FormSectionUpdate], db: Session = 
 
 
 @router.get("/form-fields", response_model=List[schemas.FormField])
-def get_form_fields(db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
+def get_form_fields(db: Session = Depends(get_db)):
     """Flat list of all active fields for simple user form rendering."""
     return db.query(models.FormField).filter(models.FormField.is_active == True).order_by(models.FormField.order).all()
 
