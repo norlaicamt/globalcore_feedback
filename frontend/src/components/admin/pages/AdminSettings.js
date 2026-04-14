@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { adminGetProfile, adminUpdateProfile, getSystemLabels, updateSystemLabelsBulk, adminGetProfileActivity, getAdminSettings, updateAdminSetting } from "../../../services/adminApi";
 import { useTerminology } from "../../../context/TerminologyContext";
+import { STORAGE_KEYS } from "../../../utils/storage";
 
 const ToggleRow = ({ title, description, checked, onChange, loading, theme, darkMode }) => (
   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 0", borderBottom: `1px solid ${theme.border}`, opacity: loading ? 0.6 : 1 }}>
@@ -40,8 +41,8 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
   const [profile, setProfile] = useState(null);
   const [profileSaving, setProfileSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
-  const [language, setLanguage] = useState(localStorage.getItem("adminLanguage") || "English");
-  const [defaultView, setDefaultView] = useState(localStorage.getItem("adminDefaultView") || "dashboard");
+  const [language, setLanguage] = useState(localStorage.getItem(STORAGE_KEYS.ADMIN_LANGUAGE) || "English");
+  const [defaultView, setDefaultView] = useState(localStorage.getItem(STORAGE_KEYS.ADMIN_DEFAULT_VIEW) || "dashboard");
   const [isEditingProfile, setIsEditingProfile] = useState(false);
 
   const [form, setForm] = useState({
@@ -225,9 +226,9 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
   };
 
   const saveDisplayPrefs = () => {
-    localStorage.setItem("adminLanguage", language);
-    localStorage.setItem("adminDefaultView", defaultView);
-    localStorage.setItem("adminView", defaultView);
+    localStorage.setItem(STORAGE_KEYS.ADMIN_LANGUAGE, language);
+    localStorage.setItem(STORAGE_KEYS.ADMIN_DEFAULT_VIEW, defaultView);
+    localStorage.setItem(STORAGE_KEYS.ADMIN_VIEW, defaultView);
     setSuccessMsg("Display preferences saved.");
     setTimeout(() => setSuccessMsg(""), 2500);
   };

@@ -51,6 +51,8 @@ const AdminDashboard = ({ onNavigate, theme, darkMode, adminUser }) => {
   const [engagement, setEngagement] = useState([]);
   const [sentiment, setSentiment] = useState({ positive: 0, neutral: 0, frustrated: 0 });
   const [userDistribution, setUserDistribution] = useState({ by_entity: [], by_role: [] });
+  const [topBranches, setTopBranches] = useState([]);
+  const [feedbackTypeDist, setFeedbackTypeDist] = useState({});
   const [loading, setLoading] = useState(true);
   
   const [scopeCategories, setScopeCategories] = useState([]);
@@ -81,6 +83,8 @@ const AdminDashboard = ({ onNavigate, theme, darkMode, adminUser }) => {
         setEngagement(data.engagement);
         setSentiment(data.sentiment);
         setUserDistribution(data.user_distribution || { by_entity: [], by_role: [] });
+        setTopBranches(data.top_branches || []);
+        setFeedbackTypeDist(data.feedback_type_distribution || {});
       } catch (err) {
         console.error(err);
       } finally {
@@ -325,6 +329,53 @@ const AdminDashboard = ({ onNavigate, theme, darkMode, adminUser }) => {
         </Section>
       </div>
 
+      {/* 📍 NEW: Branch & Type Insights */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+        <Section theme={theme} title="Feedback Type Breakdown (%)">
+          <ResponsiveContainer width="100%" height={250}>
+            <PieChart>
+              <Pie
+                data={Object.entries(feedbackTypeDist).map(([name, value]) => ({ name, value }))}
+                cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value"
+              >
+                {Object.entries(feedbackTypeDist).map((entry, index) => (
+                  <Cell key={`type-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                ))}
+              </Pie>
+              <Tooltip contentStyle={tooltipStyle} formatter={(v) => `${v}%`} />
+            </PieChart>
+          </ResponsiveContainer>
+          <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "10px", marginTop: "10px" }}>
+            {Object.keys(feedbackTypeDist).map((name, index) => (
+              <div key={index} style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                <div style={{ width: "8px", height: "8px", borderRadius: "2px", background: CHART_COLORS[index % CHART_COLORS.length] }} />
+                <span style={{ fontSize: "10px", color: theme.textMuted }}>{name} ({feedbackTypeDist[name]}%)</span>
+              </div>
+            ))}
+          </div>
+        </Section>
+
+        <Section theme={theme} title="Top Performing Offices / Branches">
+          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            {topBranches.length > 0 ? topBranches.map((b, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: "12px", padding: "10px", borderRadius: "8px", background: darkMode ? "rgba(255,255,255,0.02)" : "#F8FAFC", border: `1px solid ${theme.border}` }}>
+                <div style={{ width: "24px", height: "24px", borderRadius: "6px", backgroundColor: "var(--primary-color)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px", fontWeight: "900" }}>{i+1}</div>
+                <div style={{ flex: 1 }}>
+                  <p style={{ margin: 0, fontSize: "13px", fontWeight: "700", color: theme.text }}>{b.name}</p>
+                  <p style={{ margin: 0, fontSize: "11px", color: theme.textMuted }}>{b.count} reports recieved</p>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <p style={{ margin: 0, fontSize: "13px", fontWeight: "800", color: b.avg_rating >= 4 ? "#10B981" : "#F59E0B" }}>{b.avg_rating}★</p>
+                  <p style={{ margin: 0, fontSize: "10px", color: theme.textMuted }}>Avg. Performance</p>
+                </div>
+              </div>
+            )) : (
+              <p style={{ fontSize: "12px", color: theme.textMuted, textAlign: "center", padding: "20px" }}>No branch activity yet.</p>
+            )}
+          </div>
+        </Section>
+      </div>
+
       {/* Top Users */}
       <Section theme={theme} title="Most Active Users">
         <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
@@ -335,7 +386,10 @@ const AdminDashboard = ({ onNavigate, theme, darkMode, adminUser }) => {
                 <p style={{ margin: 0, fontSize: "13px", fontWeight: "700", color: theme.text }}>{u.name}</p>
                 <p style={{ margin: 0, fontSize: "11px", color: theme.textMuted }}>{u.email}</p>
               </div>
-              <span style={{ fontSize: "13px", fontWeight: "700", color: theme.text }}>{u.total_posts} {getLabel("feedback_label_plural", "posts")}</span>
+              <div style={{ textAlign: 'right' }}>
+                <p style={{ margin: 0, fontSize: "13px", fontWeight: "800", color: "#10B981" }}>{u.impact_points || 0} pts</p>
+                <p style={{ margin: 0, fontSize: "11px", color: theme.textMuted }}>{u.total_posts} {getLabel("feedback_label_plural", "posts")}</p>
+              </div>
             </div>
           ))}
         </div>

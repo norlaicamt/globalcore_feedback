@@ -11,8 +11,10 @@ router = APIRouter(prefix="/feedbacks", tags=["feedbacks"])
 
 @router.post("/", response_model=schemas.Feedback)
 def create_feedback(feedback: schemas.FeedbackCreate, db: Session = Depends(get_db)):
-    # General feedback (no specific recipient) is allowed
-    return crud.create_feedback(db=db, feedback=feedback)
+    try:
+        return crud.create_feedback(db=db, feedback=feedback)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/", response_model=List[schemas.Feedback])
 def read_feedbacks(

@@ -1,4 +1,5 @@
 import axios from "axios";
+import { STORAGE_KEYS } from "../utils/storage";
 
 // Base URL for your FastAPI backend
 const API_BASE = process.env.REACT_APP_API_URL || `http://${window.location.hostname}:8000`;
@@ -8,7 +9,7 @@ const adminApi = axios.create({ baseURL: BASE });
  
 // Request interceptor to add admin context headers
 adminApi.interceptors.request.use((config) => {
-  const adminUser = JSON.parse(localStorage.getItem("adminUser") || "null");
+  const adminUser = JSON.parse(localStorage.getItem(STORAGE_KEYS.ADMIN_CURRENT) || "null");
   if (adminUser?.session_token) {
     config.headers["X-Session-Token"] = adminUser.session_token;
   }
@@ -28,8 +29,9 @@ adminApi.interceptors.response.use(
       console.warn("Session expired or unauthorized. Logging out...");
       
       // Clear all potential admin-related session storage
-      localStorage.removeItem("adminUser");
-      localStorage.removeItem("adminView");
+      Object.keys(localStorage)
+        .filter(k => k.startsWith("admin."))
+        .forEach(k => localStorage.removeItem(k));
       
       // Direct redirect to the admin login page
       // Using window.location.href ensures we break out of current React state
@@ -102,6 +104,17 @@ export const adminCreateEntity = (name, description = "", fields = [], icon = "d
 export const adminUpdateEntity = (id, name, description = "", fields = [], icon = "default") => 
   adminApi.put(`/entities/${id}`, { name, description, fields, icon }).then(r => r.data);
 export const adminDeleteEntity = (id) => adminApi.delete(`/entities/${id}`);
+
+// Branches (Locations)
+export const adminGetBranches = (entity_id = null, only_active = false) => {
+  const q = new URLSearchParams();
+  if (entity_id) q.set("entity_id", entity_id);
+  q.set("only_active", only_active);
+  return adminApi.get(`/branches?${q.toString()}`).then(r => r.data);
+};
+export const adminCreateBranch = (data) => adminApi.post("/branches", data).then(r => r.data);
+export const adminUpdateBranch = (id, data) => adminApi.put(`/branches/${id}`, data).then(r => r.data);
+export const adminDeleteBranch = (id) => adminApi.delete(`/branches/${id}`);
 
 // Broadcast
 export const adminBroadcast = (subject, message, broadcast_type = "announcement", target_group = "all") => 

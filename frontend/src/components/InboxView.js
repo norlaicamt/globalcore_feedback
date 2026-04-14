@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { getDepartments, getUserNotifications } from "../services/api"; 
+import { renderFeedbackAction, formatFeedbackDate } from "../utils/feedback";
 import axios from "axios";
 import CustomModal from './CustomModal';
 
@@ -126,20 +127,14 @@ const InboxView = ({ currentUser, onBack, initialTab = "All", minimalist = false
                   onClick={() => setSelectedItem(item)}
                 >
                   <div style={styles.cardHeader}>
-                    <span style={styles.itemDate}>{formatDateTime(item.created_at).date}</span>
-                    <span style={styles.senderText}>
-                      From: {item.user_name || 'Anonymous'}
-                    </span>
+                    <span style={styles.itemDate}>{formatFeedbackDate(item.created_at)}</span>
                   </div>
                   
-                  {renderStars(item.rating)}
-                  <h3 style={styles.itemTitle}>
-                    {item.title || item.subject || 'Feedback Received'}
-                  </h3>
+                  {renderFeedbackAction(item, currentUser)}
 
-                  <div style={styles.cardFooter}>
+                  <div style={styles.cardFooter} style={{marginTop: '12px'}}>
                     <div style={styles.regularBadge}>Feedback</div>
-                    <div style={styles.timeLabel}><Icons.Clock /> {formatDateTime(item.created_at).time}</div>
+                    <div style={styles.timeLabel}>REF-{item.id}</div>
                   </div>
                 </div>
               ))

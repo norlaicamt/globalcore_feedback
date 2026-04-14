@@ -19,7 +19,7 @@ const DraftsView = ({ currentUser, onBack }) => {
   const [editingDraft, setEditingDraft] = useState(null);
 
   const refreshDrafts = () => {
-    const savedDrafts = JSON.parse(localStorage.getItem(`drafts_${currentUser?.id}`) || "[]");
+    const savedDrafts = JSON.parse(localStorage.getItem(`user.drafts_${currentUser?.id}`) || "[]");
     setDrafts(savedDrafts);
   };
 
@@ -50,7 +50,7 @@ const DraftsView = ({ currentUser, onBack }) => {
       onConfirm: () => {
         setDrafts(prev => {
           const updated = prev.filter(d => !selectedIds.includes(d.id));
-          localStorage.setItem(`drafts_${currentUser?.id}`, JSON.stringify(updated));
+          localStorage.setItem(`user.drafts_${currentUser?.id}`, JSON.stringify(updated));
           return updated;
         });
         setSelectedIds([]);

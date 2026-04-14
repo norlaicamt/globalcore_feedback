@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from "react";
+import { STORAGE_KEYS } from "../../utils/storage";
+import { logoutAdmin } from "../../utils/auth";
 import { useTerminology } from "../../context/TerminologyContext";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminUsers from "./pages/AdminUsers";
@@ -9,6 +11,7 @@ import AdminBroadcast from "./pages/AdminBroadcast";
 import AdminSettings from "./pages/AdminSettings";
 import AdminUIText from "./pages/AdminUIText";
 import AdminAuditLogs from "./pages/AdminAuditLogs";
+import AdminBranches from "./pages/AdminBranches";
 import CustomModal from "../CustomModal";
 import { adminGetPendingSuggestions } from "../../services/adminApi";
 
@@ -20,6 +23,7 @@ const NAV_ITEMS = [
   { id: "auditlogs",      label: "Audit Trail",         icon: <ClockIcon />,  superOnly: true },
   { type: "label",        label: "ORGANIZATION" },
   { id: "feedbacktypes",  label: "Entities",            icon: <TagIcon />,    superOnly: true },
+  { id: "branches",       label: "Branch (Location)",   icon: <MapPinIcon /> },
   { id: "pendingsuggestions", label: "Approval Queue",   icon: <ClockIcon />, isSub: true, superOnly: true },
   { id: "feedbacksetup",  label: "Interface Designer",  icon: <TypeIcon />,   superOnly: true },
   { type: "label",        label: "PREFERENCES" },
@@ -32,13 +36,12 @@ const AdminHub = ({ adminUser, onLogout }) => {
   const hasGlobalAdminAccess = ["admin", "superadmin"].includes(localAdminUser?.role) && !localAdminUser?.department;
   const getViewFromUrl = () => {
     const p = window.location.pathname;
-    // Check for /admin/view/ (trailing slash) or /admin/view
     const match = p.match(/^\/admin\/([^/]+)/);
-    return match ? match[1] : (localStorage.getItem("adminView") || "dashboard");
+    return match ? match[1] : (localStorage.getItem(STORAGE_KEYS.ADMIN_VIEW) || "dashboard");
   };
 
   const [view, setView] = useState(getViewFromUrl);
-  const [darkMode, setDarkMode] = useState(localStorage.getItem("adminDarkMode") === "true");
+  const [darkMode, setDarkMode] = useState(localStorage.getItem(STORAGE_KEYS.ADMIN_DARK_MODE) === "true");
   const [logoutDialog, setLogoutDialog] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
 
@@ -72,7 +75,7 @@ const AdminHub = ({ adminUser, onLogout }) => {
   }, [hasGlobalAdminAccess, view]);
 
   useEffect(() => {
-    localStorage.setItem("adminDarkMode", darkMode);
+    localStorage.setItem(STORAGE_KEYS.ADMIN_DARK_MODE, darkMode);
   }, [darkMode]);
 
   const toggleTheme = () => setDarkMode(!darkMode);
@@ -91,7 +94,7 @@ const AdminHub = ({ adminUser, onLogout }) => {
 
   const handleSetView = (newView) => {
     setView(newView);
-    localStorage.setItem("adminView", newView);
+    localStorage.setItem(STORAGE_KEYS.ADMIN_VIEW, newView);
     // Push new state to browser history
     if (window.location.pathname !== `/admin/${newView}`) {
       window.history.pushState(null, "", `/admin/${newView}`);
@@ -99,14 +102,13 @@ const AdminHub = ({ adminUser, onLogout }) => {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("adminUser");
-    localStorage.removeItem("adminView"); // cleanup view on logout
-    onLogout();
+    if (onLogout) onLogout();
+    else logoutAdmin();
   };
 
   const handleAdminUpdate = (updated) => {
     setLocalAdminUser(updated);
-    localStorage.setItem("adminUser", JSON.stringify(updated));
+    localStorage.setItem(STORAGE_KEYS.ADMIN_CURRENT, JSON.stringify(updated));
   };
 
   const renderView = () => {
@@ -128,6 +130,7 @@ const AdminHub = ({ adminUser, onLogout }) => {
       case "broadcast":     return <AdminBroadcast {...props} />;
       case "settings":      return <AdminSettings {...props} />;
       case "auditlogs":     return <AdminAuditLogs {...props} />;
+      case "branches":      return <AdminBranches {...props} />;
       default:              return <AdminDashboard {...props} />;
     }
   };
@@ -298,6 +301,7 @@ function SettingsIcon() { return <svg width="15" height="15" viewBox="0 0 24 24"
 function SunIcon()      { return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>; }
 function MoonIcon()     { return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>; }
 function ClockIcon()    { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>; }
+function MapPinIcon()   { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>; }
 function TypeIcon()     { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="4 7 4 4 20 4 20 7"></polyline><line x1="9" y1="20" x2="15" y2="20"></line><line x1="12" y1="4" x2="12" y2="20"></line></svg>; }
 function OrgIcon()      { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>; }
 

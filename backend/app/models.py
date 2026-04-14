@@ -121,6 +121,21 @@ class Entity(Base):
     organization = relationship("Organization", back_populates="entities")
     departments = relationship("Department", back_populates="entity", cascade="all, delete-orphan")
     feedbacks = relationship("Feedback", back_populates="entity")
+    branches = relationship("Branch", back_populates="entity", cascade="all, delete-orphan")
+
+class Branch(Base):
+    __tablename__ = "branches"
+    id = Column(Integer, primary_key=True, index=True)
+    entity_id = Column(Integer, ForeignKey("entities.id"))
+    name = Column(String, index=True)
+    region = Column(String, nullable=True)
+    province = Column(String, nullable=True)
+    city = Column(String, nullable=True)
+    barangay = Column(String, nullable=True)
+    is_active = Column(Boolean, default=True)
+    
+    entity = relationship("Entity", back_populates="branches")
+    feedbacks = relationship("Feedback", back_populates="branch")
 
 class Feedback(Base):
     __tablename__ = "feedbacks"
@@ -143,6 +158,11 @@ class Feedback(Base):
     attachments = Column(Text, nullable=True) # JSON-encoded list of Base64 strings or URLs
     custom_data = Column(JSONB, nullable=True) # stores dict of field values
     
+    branch_id = Column(Integer, ForeignKey("branches.id"), nullable=True)
+    branch_name_snapshot = Column(String, nullable=True)
+    manual_location_text = Column(String, nullable=True)
+    feedback_type = Column(String, nullable=True) # Complaint, Suggestion, Appreciation, Inquiry
+    
     status = Column(Enum(FeedbackStatus), default=FeedbackStatus.OPEN)
     allow_comments = Column(Boolean, default=True)
     is_anonymous = Column(Boolean, default=False)
@@ -154,6 +174,7 @@ class Feedback(Base):
     recipient_user = relationship("User", foreign_keys=[recipient_user_id])
     recipient_dept = relationship("Department")
     entity = relationship("Entity", back_populates="feedbacks")
+    branch = relationship("Branch", back_populates="feedbacks")
     replies = relationship("Reply", back_populates="feedback")
     reactions = relationship("Reaction", back_populates="feedback", cascade="all, delete-orphan")
     mentions = relationship("FeedbackMention", back_populates="feedback", cascade="all, delete-orphan")
@@ -220,9 +241,10 @@ class Notification(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("global_user.id"))  # Recipient
-    actor_id = Column(Integer, ForeignKey("global_user.id")) # Who did it
+    actor_id = Column(Integer, ForeignKey("global_user.id")) # Who did it (REQUIRED)
     type = Column(Enum(NotificationType)) # Interaction type
-    feedback_id = Column(Integer, ForeignKey("feedbacks.id"))
+    feedback_id = Column(Integer, ForeignKey("feedbacks.id"), nullable=True) # Now Nullable
+    entity_id = Column(Integer, ForeignKey("entities.id"), nullable=True) # New: for scoping
     reply_id = Column(Integer, ForeignKey("replies.id"), nullable=True)
     message = Column(String, nullable=True)  # Legacy/Custom message
     subject = Column(String, nullable=True)  # Legacy/Custom subject
@@ -230,11 +252,13 @@ class Notification(Base):
     broadcast_type = Column(String, default="announcement")
     meta = Column(JSONB, nullable=True)     # For smart grouping (e.g. {actor_count: 5, actor_names: [...]})
     is_read = Column(Boolean, default=False)
+    is_acknowledged = Column(Boolean, default=False) # New: track broadcast engagement
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     user = relationship("User", foreign_keys=[user_id])
     actor = relationship("User", foreign_keys=[actor_id])
     feedback = relationship("Feedback")
+    entity = relationship("Entity") # Relationship for entity
     broadcast = relationship("BroadcastLog", backref="notifications")
 
 class SystemSetting(Base):
@@ -256,6 +280,7 @@ class BroadcastLog(Base):
     message = Column(String)
     broadcast_type = Column(String, default="announcement")
     sent_to_count = Column(Integer)
+    read_count = Column(Integer, default=0) # New: tracks acknowledgments
     entity_id = Column(Integer, ForeignKey("entities.id"), nullable=True) # Scoping for program admins
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 

@@ -8,7 +8,7 @@ from typing import Dict
 
 from app.database import engine, get_db
 from app import models, crud, schemas
-from app.routers import users, departments, categories, entities, feedback, analytics, admin
+from app.routers import users, departments, categories, entities, branches, feedback, analytics, admin
 from dotenv import load_dotenv
 import os
 
@@ -131,6 +131,7 @@ app.include_router(users.router)
 app.include_router(departments.router)
 app.include_router(categories.router)
 app.include_router(entities.router)
+app.include_router(branches.router)
 app.include_router(feedback.router)
 app.include_router(analytics.router)
 app.include_router(admin.router)

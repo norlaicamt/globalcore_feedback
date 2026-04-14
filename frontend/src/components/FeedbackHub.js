@@ -1,4 +1,13 @@
 import React, { useState, useEffect, useRef } from "react";
+import { STORAGE_KEYS } from "../utils/storage";
+import { logoutUser } from "../utils/auth";
+import {
+  getEmotion,
+  formatLocation,
+  formatFeedbackDate,
+  renderFeedbackAction,
+  formatMentions
+} from "../utils/feedback";
 import ProfileSettings from './ProfileSettings';
 import HistoryView from './HistoryView';
 import DraftsView from './DraftsView';
@@ -6,7 +15,7 @@ import NotificationsView from './NotificationsView';
 import CustomModal from './CustomModal';
 import GeneralFeedback from './GeneralFeedback';
 import ActivityView from './ActivityView';
-import { getFeedbacks, getUserById, getUserNotifications, getFeedbackReplies, createFeedbackReply, updateFeedbackReply, deleteFeedbackReply, toggleReaction, toggleReplyReaction, getReactionsSummary, markNotificationsAsRead, updateFeedback, deleteFeedback, getAdminSettings, getEntities } from "../services/api";
+import { getFeedbacks, getUserById, getUserNotifications, getFeedbackReplies, createFeedbackReply, updateFeedbackReply, deleteFeedbackReply, toggleReaction, toggleReplyReaction, getReactionsSummary, markNotificationsAsRead, updateFeedback, deleteFeedback, getAdminSettings, getEntities, acknowledgeBroadcast } from "../services/api";
 import { useTerminology } from "../context/TerminologyContext";
 import { IconRegistry } from "./IconRegistry";
 import { QRCodeCanvas } from "qrcode.react";
@@ -43,7 +52,7 @@ const Icons = {
   Alert: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>,
   TrendingUp: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>,
   TrendingDownGood: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"></polyline><polyline points="17 18 23 18 23 12"></polyline></svg>,
-  Lock: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>,
+  Lock: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>,
   Tag: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>,
 };
 
@@ -211,7 +220,9 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
 
   const handleSecureLogout = async () => {
     try {
-      const token = localStorage.getItem("token");
+      const saved = localStorage.getItem(STORAGE_KEYS.USER_CURRENT);
+      const userObj = saved ? JSON.parse(saved) : null;
+      const token = userObj?.token;
       if (token) {
         await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/logout`, {
           method: "POST",
@@ -220,9 +231,8 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
       }
     } catch (e) { console.error(e); }
     finally {
-      localStorage.clear();
       if (onLogout) onLogout();
-      window.location.reload();
+      else logoutUser();
     }
   };
 
@@ -265,14 +275,16 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
         { id: 'drafts', label: 'Drafts', icon: <Icons.Message /> }
       ]
     },
-    { id: 'settings_group', label: 'Settings', icon: <Icons.Gear />, subItems: [
+    {
+      id: 'settings_group', label: 'Settings', icon: <Icons.Gear />, subItems: [
         { id: 'profile', label: 'Personal Details', icon: <Icons.User /> },
         { id: 'notifs_settings', label: 'Notification Preferences', icon: <Icons.Bell /> },
         { id: 'privacy', label: 'Security', icon: <Icons.Lock /> },
         { id: 'activity', label: 'Activity Feed', icon: <Icons.Bell /> }
-    ]},
+      ]
+    },
     { id: 'logout', label: 'Logout', icon: <Icons.Logout />, color: '#EF4444', action: triggerLogout },
-];
+  ];
 
   return (
     <div style={{ ...styles.hubContainer, backgroundColor: '#F8FAFC', color: '#1E293B' }}>
@@ -328,7 +340,7 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
             entities={entities}
           />
         ) : (view === "history" || view === "mentioned") ? (
-          <HistoryView 
+          <HistoryView
             currentUser={localUser}
             mode={view}
             onBack={() => { setView("home"); setIsMenuOpen(true); }}
@@ -359,7 +371,7 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
             onBack={() => setView("home")}
             onRead={() => setUnreadNotifCount(0)}
             onOpenComment={async (n) => {
-              if (n.type === 'broadcast') {
+              if (n.type === 'announcement') {
                 setSelectedBroadcast(n);
                 return;
               }
@@ -563,6 +575,7 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
       {selectedBroadcast && (
         <BroadcastViewModal
           notif={selectedBroadcast}
+          currentUser={localUser}
           onClose={() => setSelectedBroadcast(null)}
         />
       )}
@@ -884,14 +897,14 @@ const CommentModal = ({ item, currentUser, onClose, onShowToast, onRefreshProfil
             {/* Post-level Actions */}
             <div style={{ display: 'flex', gap: '10px', paddingTop: '16px', borderTop: '1px solid #F1F5F9' }}>
               <div style={{ display: 'flex', gap: '8px' }}>
-                <button 
-                  style={{ ...styles.reactionBtn, backgroundColor: itemMeta.user_reaction === true ? '#DBEAFE' : '#F8FAFC', color: itemMeta.user_reaction === true ? '#1D4ED8' : '#64748B', borderRadius: '10px', padding: '8px 16px' }} 
+                <button
+                  style={{ ...styles.reactionBtn, backgroundColor: itemMeta.user_reaction === true ? '#DBEAFE' : '#F8FAFC', color: itemMeta.user_reaction === true ? '#1D4ED8' : '#64748B', borderRadius: '10px', padding: '8px 16px' }}
                   onClick={(e) => { e.stopPropagation(); handlePostReaction(true); }}
                 >
                   <Icons.ThumbUp size={16} /> <span style={{ fontWeight: 'bold' }}>{itemMeta.likes_count ?? itemMeta.likes ?? 0}</span>
                 </button>
-                <button 
-                  style={{ ...styles.reactionBtn, backgroundColor: itemMeta.user_reaction === false ? '#FEF2F2' : '#F8FAFC', color: itemMeta.user_reaction === false ? '#EF4444' : '#64748B', borderRadius: '10px', padding: '8px 16px' }} 
+                <button
+                  style={{ ...styles.reactionBtn, backgroundColor: itemMeta.user_reaction === false ? '#FEF2F2' : '#F8FAFC', color: itemMeta.user_reaction === false ? '#EF4444' : '#64748B', borderRadius: '10px', padding: '8px 16px' }}
                   onClick={(e) => { e.stopPropagation(); handlePostReaction(false); }}
                 >
                   <Icons.ThumbDown size={16} /> <span style={{ fontWeight: 'bold' }}>{itemMeta.dislikes_count ?? itemMeta.dislikes ?? 0}</span>
@@ -1050,14 +1063,19 @@ const FeedCard = ({ item: initialItem, currentUser, onShowToast, onOpenComments,
   };
 
   const getEstablishmentName = () => {
+    // Priority 1: Use the computed branch_name from backend (includes waterfall & inactive suffix)
+    if (item.branch_name) return item.branch_name;
+
+    // Fallback for legacy items or unexpected data
     if (item.title && item.title.includes(":")) {
       return item.title.split(":")[1].trim();
     }
-    return item.entity_name || item.recipient_dept_name || 'General';
+    return item.entity_name || item.recipient_dept_name || 'General Office';
   };
 
   const emotion = getEmotion(item.rating);
   const establishmentName = getEstablishmentName();
+  const locationHeader = establishmentName;
   const locationText = (item.region || item.province || item.city || item.barangay) ? `${[item.barangay, item.city, item.province, item.region].filter(Boolean).join(', ')}` : '';
   const senderName = item.is_anonymous ? 'Anonymous' : (item.user_name || 'Anonymous');
   const isOwner = currentUser && item.sender_id === currentUser.id;
@@ -1092,18 +1110,18 @@ const FeedCard = ({ item: initialItem, currentUser, onShowToast, onOpenComments,
   };
 
   return (
-    <div 
+    <div
       onClick={() => { if (!isEditing) onOpenComments(item); }}
-      style={{ 
-        ...styles.feedCard, 
-        backgroundColor: '#FFFFFF', 
-        borderColor: '#E2E8F0', 
-        borderLeft: `5px solid ${markerColor}`,
+      style={{
+        ...styles.feedCard,
+        backgroundColor: '#FFFFFF',
+        border: '1px solid var(--primary-color)',
+        borderRadius: '12px',
         cursor: 'pointer',
         transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)'
       }}
-      onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary-color)'; e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(var(--primary-rgb), 0.08)'; }}
-      onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#E2E8F0'; e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none'; }}
+      onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(var(--primary-rgb), 0.08)'; }}
+      onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none'; }}
     >
       <CustomModal
         isOpen={dialogState.isOpen}
@@ -1122,20 +1140,15 @@ const FeedCard = ({ item: initialItem, currentUser, onShowToast, onOpenComments,
           <img
             src={item.sender_avatar_url}
             alt={item.user_name}
-            style={{ ...styles.cardAvatar, objectFit: 'cover', border: '2px solid var(--primary-color)' }}
+            style={{ ...styles.cardAvatar, objectFit: 'cover', border: '1px solid #E2E8F0', backgroundColor: '#FFFFFF' }}
           />
         )}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
           <div style={styles.fbSenderRow}>
-            <span style={{ ...styles.cardSender, color: '#000000', fontWeight: 'bold' }}>{senderName}</span>
-            {emotion ? (
-              <span style={{ color: '#000000' }}> is feeling {emotion} at <span style={{ fontWeight: '700', color: '#000000' }}>{establishmentName}</span></span>
-            ) : (
-              <span style={{ color: '#000000' }}> reported about <span style={{ fontWeight: '700', color: '#000000' }}>{establishmentName}</span></span>
-            )}
+            {renderFeedbackAction(item, currentUser)}
             {(item.mentions && item.mentions.length > 0) ? (
               <span style={{ marginLeft: '4px', fontSize: '11px', backgroundColor: '#EFF6FF', color: '#1D4ED8', padding: '2px 8px', borderRadius: '12px', fontWeight: '600', border: '1px solid #DBEAFE' }}>
-                Mentioned: {item.mentions.map(m => `${m.employee_prefix} ${m.employee_name}`.trim()).join(", ")}
+                Mentioned: {formatMentions(item.mentions)}
               </span>
             ) : item.employee_name && (
               <span style={{ marginLeft: '4px', fontSize: '11px', backgroundColor: '#EFF6FF', color: '#1D4ED8', padding: '2px 8px', borderRadius: '12px', fontWeight: '600', border: '1px solid #DBEAFE' }}>
@@ -1143,7 +1156,12 @@ const FeedCard = ({ item: initialItem, currentUser, onShowToast, onOpenComments,
               </span>
             )}
           </div>
-          <div style={{ ...styles.cardMeta, color: '#000000', fontWeight: '600' }}>{timeAgo(item.created_at)} {locationText && ` • ${locationText}`}</div>
+          <div style={{ ...styles.cardMeta, color: '#64748B', fontWeight: '500', fontSize: '12px' }}>
+            {formatFeedbackDate(item.created_at)}
+            {item.type !== 'comment' && (
+              <span style={{ color: '#94A3B8' }}> • {formatLocation(item)}</span>
+            )}
+          </div>
         </div>
         {item.status && item.status !== 'Open' && item.status !== 'OPEN' && (
           <div style={{ ...styles.statusBadge, backgroundColor: getStatusColor(item.status), marginLeft: 'auto' }}>
@@ -1242,8 +1260,8 @@ const FeedCard = ({ item: initialItem, currentUser, onShowToast, onOpenComments,
           <Icons.ThumbDown />{dislikes > 0 ? <span style={styles.actionCount}>{dislikes}</span> : null}
         </button>
 
-        <button 
-          style={styles.fbActionBtn} 
+        <button
+          style={styles.fbActionBtn}
           onClick={(e) => { e.stopPropagation(); onOpenComments(item); }}
         >
           <Icons.Message />
@@ -1263,7 +1281,7 @@ const DashboardView = ({ feed, loading, hasMore, onLoadMore, onAction, currentUs
 
   const getTabIcon = (cat) => {
     if (!cat) return Icons.Message;
-    
+
     // 1. Try to use the icon key directly from the category object
     if (cat.icon && IconRegistry[cat.icon]) {
       return IconRegistry[cat.icon];
@@ -1271,14 +1289,14 @@ const DashboardView = ({ feed, loading, hasMore, onLoadMore, onAction, currentUs
 
     // 2. Fallback to name-based heuristic if icon is missing or invalid
     const name = (cat.name || "").toLowerCase();
-    
+
     if (name.includes('dept') || name.includes('department') || name.includes('office')) return IconRegistry.building;
     if (name.includes('food') || name.includes('eat') || name.includes('rest')) return IconRegistry.food;
     if (name.includes('beauty') || name.includes('cosmetic')) return IconRegistry.beauty;
     if (name.includes('car') || name.includes('transport') || name.includes('bus')) return IconRegistry.car;
     if (name.includes('bank') || name.includes('finance') || name.includes('money')) return IconRegistry.bank;
     if (name.includes('edu') || name.includes('school')) return IconRegistry.edu;
-    
+
     return IconRegistry.default;
   };
 
@@ -1326,8 +1344,8 @@ const DashboardView = ({ feed, loading, hasMore, onLoadMore, onAction, currentUs
       const scoreB = (b.replies_count || 0) * 2 + (b.likes_count || 0) + (b.dislikes_count || 0);
       return scoreB - scoreA;
     });
-  
-  const trendingItems = isHotTopicsExpanded ? allTrendingItems : allTrendingItems.slice(0, 3);
+
+  const trendingItems = allTrendingItems.slice(0, 3);
 
 
   const level = calculateLevel(currentUser?.impact_points || 0);
@@ -1403,15 +1421,15 @@ const DashboardView = ({ feed, loading, hasMore, onLoadMore, onAction, currentUs
 
           {/* PREMIUM TRENDING WIDGET */}
           <section style={{ marginBottom: '16px', padding: '0 8px' }}>
-            <div style={{ 
-              background: 'linear-gradient(135deg, #FFFFFF 0%, #F8FAFC 100%)', 
-              borderRadius: '20px', 
-              padding: '16px', 
-              border: '1px solid #E2E8F0', 
-              display: 'flex', 
-              flexDirection: 'column', 
-              gap: '12px', 
-              boxShadow: '0 10px 25px -5px rgba(var(--primary-rgb), 0.05)' 
+            <div style={{
+              background: 'linear-gradient(135deg, #FFFFFF 0%, #F8FAFC 100%)',
+              borderRadius: '20px',
+              padding: '16px',
+              border: '1px solid #E2E8F0',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px',
+              boxShadow: '0 10px 25px -5px rgba(var(--primary-rgb), 0.05)'
             }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #F1F5F9', paddingBottom: '10px' }}>
                 <h3 style={{ fontSize: '11px', color: 'var(--primary-color)', fontWeight: '800', margin: 0, display: 'flex', alignItems: 'center', gap: '8px', letterSpacing: '0.08em' }}>
@@ -1424,30 +1442,55 @@ const DashboardView = ({ feed, loading, hasMore, onLoadMore, onAction, currentUs
               </div>
 
               {trendingItems.length > 0 ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div
+                  className="no-scrollbar"
+                  ref={el => {
+                    if (!el) return;
+                    let isDown = false, startX = 0, scrollLeft = 0;
+                    el.onmousedown = (e) => { isDown = true; el.style.cursor = 'grabbing'; startX = e.pageX - el.offsetLeft; scrollLeft = el.scrollLeft; };
+                    el.onmouseleave = () => { isDown = false; el.style.cursor = 'grab'; };
+                    el.onmouseup = () => { isDown = false; el.style.cursor = 'grab'; };
+                    el.onmousemove = (e) => { if (!isDown) return; e.preventDefault(); const x = e.pageX - el.offsetLeft; el.scrollLeft = scrollLeft - (x - startX) * 1.5; };
+                  }}
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'row',
+                    gap: '12px',
+                    overflowX: 'auto',
+                    padding: '4px 2px',
+                    scrollbarWidth: 'none',
+                    msOverflowStyle: 'none',
+                    scrollBehavior: 'smooth',
+                    cursor: 'grab',
+                    userSelect: 'none'
+                  }}
+                >
                   {trendingItems.map((item, index) => (
-                    <div 
-                      key={item.id} 
+                    <div
+                      key={item.id}
                       onClick={() => onOpenComments(item)}
-                      style={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        backgroundColor: index === 0 ? '#FFFFFF' : 'transparent', 
-                        padding: '12px', 
-                        borderRadius: '16px', 
-                        border: index === 0 ? '1px solid #DBEAFE' : '1px solid transparent',
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        backgroundColor: index === 0 ? '#FFFFFF' : 'transparent',
+                        padding: '12px',
+                        borderRadius: '16px',
+                        border: index === 0 ? '1px solid #DBEAFE' : '1px solid #F1F5F9',
                         cursor: 'pointer',
                         transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                         position: 'relative',
-                        overflow: 'hidden'
+                        overflow: 'hidden',
+                        width: '260px',
+                        minWidth: '260px',
+                        flexShrink: 0
                       }}
-                      onMouseEnter={(e) => { 
+                      onMouseEnter={(e) => {
                         e.currentTarget.style.backgroundColor = '#FFFFFF';
                         e.currentTarget.style.borderColor = 'var(--primary-color)';
                         e.currentTarget.style.transform = 'translateY(-2px) scale(1.01)';
                         e.currentTarget.style.boxShadow = '0 8px 20px rgba(var(--primary-rgb), 0.08)';
                       }}
-                      onMouseLeave={(e) => { 
+                      onMouseLeave={(e) => {
                         e.currentTarget.style.backgroundColor = index === 0 ? '#FFFFFF' : 'transparent';
                         e.currentTarget.style.borderColor = index === 0 ? '#DBEAFE' : 'transparent';
                         e.currentTarget.style.transform = 'translateY(0) scale(1)';
@@ -1455,19 +1498,19 @@ const DashboardView = ({ feed, loading, hasMore, onLoadMore, onAction, currentUs
                       }}
                     >
                       {index === 0 && <div style={{ position: 'absolute', top: 0, right: 0, padding: '2px 8px', backgroundColor: 'var(--primary-color)', color: 'white', fontSize: '8px', fontWeight: '900', borderBottomLeftRadius: '8px' }}>TOP STORY</div>}
-                      
-                      <div style={{ 
-                        width: '28px', 
-                        height: '28px', 
-                        backgroundColor: index === 0 ? 'var(--primary-color)' : '#F1F5F9', 
-                        color: index === 0 ? 'white' : '#64748B', 
-                        borderRadius: '10px', 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        justifyContent: 'center', 
-                        fontWeight: '900', 
-                        fontSize: '12px', 
-                        marginRight: '14px', 
+
+                      <div style={{
+                        width: '28px',
+                        height: '28px',
+                        backgroundColor: index === 0 ? 'var(--primary-color)' : '#F1F5F9',
+                        color: index === 0 ? 'white' : '#64748B',
+                        borderRadius: '10px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontWeight: '900',
+                        fontSize: '12px',
+                        marginRight: '14px',
                         flexShrink: 0,
                         boxShadow: index === 0 ? '0 4px 8px rgba(var(--primary-rgb), 0.2)' : 'none'
                       }}>
@@ -1475,32 +1518,38 @@ const DashboardView = ({ feed, loading, hasMore, onLoadMore, onAction, currentUs
                       </div>
 
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <p style={{ 
-                          margin: 0, 
-                          fontSize: '14px', 
-                          fontWeight: '700', 
-                          color: '#1E293B', 
-                          whiteSpace: 'nowrap', 
-                          overflow: 'hidden', 
+                        <p style={{
+                          margin: 0,
+                          fontSize: '14px',
+                          fontWeight: '700',
+                          color: '#1E293B',
+                          whiteSpace: 'normal',
+                          overflow: 'hidden',
+                          display: '-webkit-box',
+                          WebkitLineClamp: '2',
+                          WebkitBoxOrient: 'vertical',
                           textOverflow: 'ellipsis',
-                          letterSpacing: '-0.01em'
+                          letterSpacing: '-0.01em',
+                          lineHeight: '1.4'
                         }}>
                           {item.title}
                         </p>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '4px' }}>
-                           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                             <div style={{ backgroundColor: '#DBEAFE', padding: '2px', borderRadius: '4px', display: 'flex' }}><Icons.Message size={8} color="#1D4ED8" /></div>
-                             <span style={{ fontSize: '10px', color: '#1D4ED8', fontWeight: 'bold' }}>{item.replies_count || 0}</span>
-                           </div>
-                           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                             <div style={{ backgroundColor: '#F0FDF4', padding: '2px', borderRadius: '4px', display: 'flex' }}><Icons.ThumbUp size={8} color="#166534" /></div>
-                             <span style={{ fontSize: '10px', color: '#166534', fontWeight: 'bold' }}>{item.likes_count || 0}</span>
-                           </div>
-                           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                             <div style={{ backgroundColor: '#FEF2F2', padding: '2px', borderRadius: '4px', display: 'flex' }}><Icons.ThumbDown size={8} color="#991B1B" /></div>
-                             <span style={{ fontSize: '10px', color: '#991B1B', fontWeight: 'bold' }}>{item.dislikes_count || 0}</span>
-                           </div>
-                           <span style={{ fontSize: '9px', color: '#94A3B8', fontWeight: '600', marginLeft: 'auto' }}>{item.entity_name}</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <div style={{ backgroundColor: '#DBEAFE', padding: '2px', borderRadius: '4px', display: 'flex' }}><Icons.Message size={8} color="#1D4ED8" /></div>
+                            <span style={{ fontSize: '10px', color: '#1D4ED8', fontWeight: 'bold' }}>{item.replies_count || 0}</span>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <div style={{ backgroundColor: '#F0FDF4', padding: '2px', borderRadius: '4px', display: 'flex' }}><Icons.ThumbUp size={8} color="#166534" /></div>
+                            <span style={{ fontSize: '10px', color: '#166534', fontWeight: 'bold' }}>{item.likes_count || 0}</span>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <div style={{ backgroundColor: '#FEF2F2', padding: '2px', borderRadius: '4px', display: 'flex' }}><Icons.ThumbDown size={8} color="#991B1B" /></div>
+                            <span style={{ fontSize: '10px', color: '#991B1B', fontWeight: 'bold' }}>{item.dislikes_count || 0}</span>
+                          </div>
+                          <span style={{ fontSize: '9px', color: '#94A3B8', fontWeight: '600', marginLeft: 'auto' }}>
+                            {[item.barangay, item.city].filter(Boolean).join(', ')}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -1510,45 +1559,6 @@ const DashboardView = ({ feed, loading, hasMore, onLoadMore, onAction, currentUs
                 <p style={{ fontSize: '10px', color: '#94A3B8', margin: 0, textAlign: 'center', padding: '10px' }}>No trending topics yet.</p>
               )}
 
-              {allTrendingItems.length > 3 && (
-                <button
-                  onClick={() => setIsHotTopicsExpanded(!isHotTopicsExpanded)}
-                  style={{
-                    marginTop: '8px',
-                    padding: '10px',
-                    width: '100%',
-                    background: 'none',
-                    border: '1.5px solid #F1F5F9',
-                    borderRadius: '12px',
-                    color: 'var(--primary-color)',
-                    fontSize: '11px',
-                    fontWeight: '800',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '6px',
-                    letterSpacing: '0.05em'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = 'var(--primary-color)';
-                    e.currentTarget.style.backgroundColor = '#F8FAFC';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = '#F1F5F9';
-                    e.currentTarget.style.backgroundColor = 'transparent';
-                  }}
-                >
-                  {isHotTopicsExpanded ? 'SHOW LESS' : `SEE ALL TRENDING (${allTrendingItems.length})`}
-                  <svg 
-                    width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"
-                    style={{ transform: isHotTopicsExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)' }}
-                  >
-                    <polyline points="6 9 12 15 18 9"></polyline>
-                  </svg>
-                </button>
-              )}
             </div>
           </section>
 
@@ -1580,12 +1590,12 @@ const DashboardView = ({ feed, loading, hasMore, onLoadMore, onAction, currentUs
                         Be the first to submit feedback
                       </p>
                     </div>
-                    <button 
+                    <button
                       onClick={() => onAction()}
-                      style={{ 
-                        ...styles.primaryAction, 
-                        width: 'auto', 
-                        padding: '10px 24px', 
+                      style={{
+                        ...styles.primaryAction,
+                        width: 'auto',
+                        padding: '10px 24px',
                         fontSize: '13px',
                         background: 'var(--primary-color)',
                         marginTop: '8px'
@@ -1613,9 +1623,9 @@ const DashboardView = ({ feed, loading, hasMore, onLoadMore, onAction, currentUs
       </div>
 
       {/* FLOATING ACTION BUTTON (FAB) */}
-      <button 
+      <button
         className="fab-btn"
-        style={styles.fab} 
+        style={styles.fab}
         onClick={(e) => { e.stopPropagation(); onAction(); }}
         title={`New ${getLabel("feedback_label", "Report")}`}
       >
@@ -1702,12 +1712,12 @@ const styles = {
   cardDept: { fontSize: '10px', color: '#FFFFFF', backgroundColor: 'var(--primary-color)', padding: '2px 4px', borderRadius: '4px' },
   cardRatingRow: { display: 'flex', gap: '2px', marginBottom: '4px', alignItems: 'center' },
 
-  cardText: { fontSize: '14px', color: '#000000', lineHeight: '1.5', margin: '4px 0 6px 0' },
+  cardText: { fontSize: '14px', color: '#1E293B', lineHeight: '1.5', margin: '8px 0 12px 0' },
 
-  fbSenderRow: { fontSize: '13px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '4px', marginBottom: '2px' },
-  fbActionRow: { display: 'flex', justifyContent: 'space-around', alignItems: 'center', borderTop: '1px solid #F0F2F5', padding: '0', marginTop: '0' },
-  fbActionBtn: { display: 'flex', alignItems: 'center', gap: '8px', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 0', flex: 1, justifyContent: 'center', borderRadius: '4px', transition: 'background-color 0.2s', fontSize: '12px', color: '#65676B' },
-  actionCount: { fontSize: '12px', fontWeight: '600', marginLeft: '2px' },
+  fbSenderRow: { fontSize: '14.5px', color: '#1E293B', lineHeight: '1.4', marginBottom: '2px' },
+  fbActionRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #E2E8F0', paddingTop: '8px', marginTop: '12px' },
+  fbActionBtn: { display: 'flex', alignItems: 'center', gap: '8px', background: 'none', border: 'none', cursor: 'pointer', padding: '6px 12px', flex: 1, justifyContent: 'center', borderRadius: '8px', transition: 'background-color 0.2s', fontSize: '13px', color: '#64748B', fontWeight: '600' },
+  actionCount: { fontSize: '13px', fontWeight: '700', marginLeft: '4px' },
 
   feedImages: { display: 'flex', flexDirection: 'row', gap: '8px', overflowX: 'auto', padding: '4px 0', marginBottom: '8px', scrollbarWidth: 'none' },
   feedImg: { height: '80px', minWidth: '80px', maxWidth: '160px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #E2E8F0', cursor: 'zoom-in' },
@@ -1729,16 +1739,16 @@ const styles = {
     minWidth: 0,
     width: '100%',
   },
-  feedTabBtn: { 
-    display: 'flex', 
-    alignItems: 'center', 
-    gap: '6px', 
-    padding: '8px 14px', 
-    border: 'none', 
-    borderRadius: '20px', 
-    cursor: 'pointer', 
-    whiteSpace: 'nowrap', 
-    transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)', 
+  feedTabBtn: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    padding: '8px 14px',
+    border: 'none',
+    borderRadius: '20px',
+    cursor: 'pointer',
+    whiteSpace: 'nowrap',
+    transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
     flexShrink: 0,
     fontSize: '11.5px',
     boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
@@ -1826,13 +1836,13 @@ const styles = {
   commentDate: { fontSize: '10px', color: '#94A3B8', marginLeft: 'auto' },
   commentModalFooter: { padding: '12px 16px', borderTop: '1px solid #F1F5F9', borderBottomLeftRadius: '28px', borderBottomRightRadius: '28px', backgroundColor: 'white' },
   modalInputWrapper: { display: 'flex', alignItems: 'center', gap: '8px' },
-  modalCommentInput: { 
-    flex: 1, 
-    backgroundColor: '#F1F5F9', 
-    border: '1px solid #E2E8F0', 
-    borderRadius: '20px', 
-    padding: '10px 16px', 
-    fontSize: '13px', 
+  modalCommentInput: {
+    flex: 1,
+    backgroundColor: '#F1F5F9',
+    border: '1px solid #E2E8F0',
+    borderRadius: '20px',
+    padding: '10px 16px',
+    fontSize: '13px',
     outline: 'none',
     transition: 'border-color 0.2s',
     '&:focus': { borderColor: 'var(--primary-color)' }
@@ -1866,7 +1876,7 @@ const styles = {
   emptyText: { textAlign: 'center', color: '#94A3B8', fontSize: '14px', width: '100%', margin: '40px 0' }
 };
 
-const BroadcastViewModal = ({ notif, onClose }) => {
+const BroadcastViewModal = ({ notif, currentUser, onClose }) => {
   const { systemName } = useTerminology();
   return (
     <div style={styles.modalOverlay} onClick={onClose}>
@@ -1889,7 +1899,14 @@ const BroadcastViewModal = ({ notif, onClose }) => {
           </p>
           <div style={{ marginTop: '24px', paddingTop: '16px', borderTop: '1px dotted #E2E8F0', display: 'flex', justifyContent: 'flex-end' }}>
             <button
-              onClick={onClose}
+              onClick={async () => {
+                if (currentUser && notif.broadcast_id) {
+                  try {
+                    await acknowledgeBroadcast(currentUser.id, notif.broadcast_id);
+                  } catch (e) { console.error("Could not acknowledge broadcast", e); }
+                }
+                onClose();
+              }}
               style={{ ...styles.modalSendBtn, backgroundColor: 'var(--primary-color)', width: 'auto', padding: '10px 24px' }}
             >Confirm</button>
           </div>

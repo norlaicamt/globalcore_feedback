@@ -16,9 +16,9 @@ export const forgotPassword = async (email) => {
 };
 
 export const resetPassword = async (token, newPassword) => {
-  const response = await axios.post(`${API_BASE}/users/auth/reset-password`, { 
-    token, 
-    new_password: newPassword 
+  const response = await axios.post(`${API_BASE}/users/auth/reset-password`, {
+    token,
+    new_password: newPassword
   });
   return response.data;
 };
@@ -77,8 +77,20 @@ export const markNotificationsAsRead = async (id) => {
   return response.data;
 };
 
+export const acknowledgeBroadcast = async (userId, broadcastId) => {
+  const response = await axios.post(`${API_BASE}/users/${userId}/notifications/broadcast/${broadcastId}/acknowledge`);
+  return response.data;
+};
+
 export const getUserProfiles = async () => {
   const response = await axios.get(`${API_BASE}/users/profiles`);
+  return response.data;
+};
+
+export const searchUsers = async (query, roles = "") => {
+  const response = await axios.get(`${API_BASE}/users/search`, {
+    params: { q: query, roles: roles }
+  });
   return response.data;
 };
 
@@ -155,6 +167,12 @@ export const getReactionsSummary = async (feedbackId, userId) => {
 /* -------------------- ENTITIES -------------------- */
 export const getEntities = async () => {
   const response = await axios.get(`${API_BASE}/entities/`);
+  return response.data;
+};
+
+export const getBranches = async (entity_id = null) => {
+  const params = entity_id ? { entity_id } : {};
+  const response = await axios.get(`${API_BASE}/branches/`, { params });
   return response.data;
 };
 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 // 1. IMPORT getDepartments
 import { getFeedbacks, getDepartments } from "../services/api"; 
+import { renderFeedbackAction, formatFeedbackDate } from "../utils/feedback";
 import CustomModal from './CustomModal';
 
 const Icons = {
@@ -128,12 +129,11 @@ const HistoryView = ({ currentUser, onBack, mode = "sent", minimalist = false })
             return (
               <div key={item.id} style={styles.historyCard} onClick={() => setSelectedItem(item)}>
                 <div style={styles.cardHeader}>
-                  <span style={styles.itemDate}>{dt.date}</span>
+                  <span style={styles.itemDate}>{formatFeedbackDate(item.created_at)}</span>
                 </div>
-                {renderStars(item.rating)}
-                <h3 style={styles.itemTitle}>{item.title}</h3>
-                <div style={styles.cardFooter}>
-                  <div style={styles.timeLabel}><Icons.Clock /> {dt.time}</div>
+                {renderFeedbackAction(item, currentUser)}
+                <div style={styles.cardFooter} style={{marginTop: '12px'}}>
+                  <div style={styles.timeLabel}>REF-{item.id}</div>
                 </div>
               </div>
             );

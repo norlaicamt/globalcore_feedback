@@ -1,1015 +1,660 @@
 import React, { useState, useEffect, useRef } from "react";
-import { createFeedback, getEntities, getDepartments, getAdminSettings, getUserProfiles, getFormFields } from "../services/api";
+import { createFeedback, getEntities, getBranches, getAdminSettings, getUserProfiles, getFormFields } from "../services/api";
 import { useTerminology } from "../context/TerminologyContext";
 import CustomModal from "./CustomModal";
 import { IconRegistry } from "./IconRegistry";
 
 const Icons = {
-  Back: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary-color)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>,
-  Search: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
-  Building: () => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/></svg>,
-  Food: () => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 18 0H3z"/><path d="M3 12h18"/><path d="M8 12v-2a4 4 0 0 1 8 0v2"/></svg>,
-  Cosmetics: () => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M7 11h10v10H7z"/><path d="M9 11V7a3 3 0 0 1 6 0v4"/><line x1="12" y1="2" x2="12" y2="4"/></svg>,
-  Furniture: () => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="10" width="20" height="6" rx="2"/><path d="M4 16v4"/><path d="M20 16v4"/><path d="M6 10V6a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v4"/></svg>,
-  Car: () => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="8" rx="2"/><path d="M4 11l1.5-4h13L20 11"/><circle cx="7" cy="19" r="2"/><circle cx="17" cy="19" r="2"/></svg>,
-  Resort: () => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
-  Hotel: () => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>,
-  Translate: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary-color)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>,
-  Paperclip: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>,
-  X: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
+  Back: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>,
+  Search: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
+  Check: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>,
+  MapPin: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>,
   Star: ({ filled }) => (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill={filled ? "#FFB800" : "none"} stroke={filled ? "#FFB800" : "#CBD5E1"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill={filled ? "#FFB800" : "none"} stroke={filled ? "#FFB800" : "#CBD5E1"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
     </svg>
   ),
-  Mic: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>,
-  Stop: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="6" y="6" width="12" height="12" rx="2" ry="2"/></svg>,
-  Trash: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>,
+  History: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>,
+  TrendingUp: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>
 };
 
-// Legacy hardcoded lists removed in favor of dynamic backend categories
+const STEPS = {
+  TYPE: "type",
+  ENTITY: "entity",
+  BRANCH: "branch",
+  DETAILS: "details"
+};
 
-// Dynamic locations will be loaded from /assets/locations/ JSON files
+const FEEDBACK_TYPES = [
+  { id: "Complaint", label: "Complaint", color: "#EF4444", icon: "⚠️" },
+  { id: "Suggestion", label: "Suggestion", color: "#3B82F6", icon: "💡" },
+  { id: "Appreciation", label: "Appreciation", color: "#10B981", icon: "❤️" },
+];
 
-const PRODUCT_TYPES = ['furniture', 'cosmetics'];
-const PACKAGE_TYPES = ['resort', 'hotel'];
-
-const GeneralFeedback = ({ currentUser, onBack, onSuccess, onSaveDraft, initialDraft }) => {
+const GeneralFeedback = ({ currentUser, onBack, onSuccess }) => {
   const { getLabel } = useTerminology();
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedBusiness, setSelectedBusiness] = useState(null);
-  const [isFilipino, setIsFilipino] = useState(false);
-
-  const [selectedType, setSelectedType] = useState("");
+  const [step, setStep] = useState(STEPS.TYPE);
+  const [feedbackType, setFeedbackType] = useState("");
   const [selectedEntity, setSelectedEntity] = useState(null);
-  const [specificName, setSpecificName] = useState(initialDraft?.specificName || "");
-  const [otherSpecificName, setOtherSpecificName] = useState(initialDraft?.otherSpecificName || "");
-
-  const [region, setRegion] = useState(initialDraft?.region || "");
-  const [province, setProvince] = useState(initialDraft?.province || "");
-  const [city, setCity] = useState(initialDraft?.city || "");
-  const [barangay, setBarangay] = useState(initialDraft?.barangay || "");
+  const [selectedBranch, setSelectedBranch] = useState(null);
   
-  const [regionList, setRegionList] = useState([]);
-  const [allProvinces, setAllProvinces] = useState({});
-  const [provinceList, setProvinceList] = useState([]);
-  const [allCities, setAllCities] = useState({});
-  const [cityList, setCityList] = useState([]);
-  const [barangayList, setBarangayList] = useState([]);
-  const [isLoadingLocations, setIsLoadingLocations] = useState(false);
-
-  const [productName, setProductName] = useState(initialDraft?.productName || "");
-  const [idea, setIdea] = useState(initialDraft?.description || "");
-  const [rating, setRating] = useState(initialDraft?.rating || 0);
-  const [isAnonymous, setIsAnonymous] = useState(initialDraft?.isAnonymous ?? false);
-  const [allowComments, setAllowComments] = useState(initialDraft?.allowComments ?? true);
-
-  const [attachedFiles, setAttachedFiles] = useState([]);
-  const fileInputRef = useRef(null);
-
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [generalEntityId, setGeneralEntityId] = useState(null);
+  // Locations Data
   const [dbEntities, setDbEntities] = useState([]);
-  const [dbDepartments, setDbDepartments] = useState([]);
-  const [userProfiles, setUserProfiles] = useState([]);
-  const [showUserSuggestions, setShowUserSuggestions] = useState(false);
-  const [focusedMentionIndex, setFocusedMentionIndex] = useState(null);
-  const [mentions, setMentions] = useState(initialDraft?.mentions || [{ prefix: 'Mr.', name: '', userId: null }]);
-  const [showDraftModal, setShowDraftModal] = useState(false);
-  const [modalConfig, setModalConfig] = useState({ isOpen: false, title: "", message: "", type: "alert" });
+  const [branches, setBranches] = useState([]);
+  const [branchSearch, setBranchSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [isManualLocation, setIsManualLocation] = useState(false);
+  const [manualLocationText, setManualLocationText] = useState("");
   
-  const isResuming = useRef(!!initialDraft);
+  // Personalized Suggestions
+  const [recentBranches, setRecentBranches] = useState([]);
+  const [suggestedBranches, setSuggestedBranches] = useState([]);
 
-  const [isSavingDraft, setIsSavingDraft] = useState(false);
-  const [saveTimer, setSaveTimer] = useState(10);
-  const [isRecording, setIsRecording] = useState(false);
-  const [audioURL, setAudioURL] = useState(null);
-  const [audioBase64, setAudioBase64] = useState(null);
-  const mediaRecorderRef = useRef(null);
-  const audioChunksRef = useRef([]);
-  const recognitionRef = useRef(null);
-  const [transcriptionLanguage, setTranscriptionLanguage] = useState('en-US');
-  const suggestionsRef = useRef(null);
+  // Details Form
+  const [idea, setIdea] = useState("");
+  const [rating, setRating] = useState(0);
+  const [isAnonymous, setIsAnonymous] = useState(false);
+  const [attachmentBase64, setAttachmentBase64] = useState(null);
+  
+  const [loading, setLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [modal, setModal] = useState({ isOpen: false, title: "", message: "", type: "info" });
+  
+  // Tagging State
+  const [mentionSearch, setMentionSearch] = useState("");
+  const [mentionSuggestions, setMentionSuggestions] = useState([]);
+  const [selectedMentions, setSelectedMentions] = useState([]);
+  const [isSearchingUsers, setIsSearchingUsers] = useState(false);
 
-  // Dynamic values for category-specific fields
-  const [localDraftId, setLocalDraftId] = useState(initialDraft?.id);
-  const [dynamicValues, setDynamicValues] = useState({});
-  const [formFields, setFormFields] = useState([]);
+  // Search Debounce
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(branchSearch), 300);
+    return () => clearTimeout(timer);
+  }, [branchSearch]);
 
-  const handleCancelClick = () => {
-    if (idea.trim() || specificName || region) setShowDraftModal(true);
+  // Mentions Search Debounce
+  useEffect(() => {
+    const search = async () => {
+      if (mentionSearch.trim().length < 2) {
+        setMentionSuggestions([]);
+        return;
+      }
+      setIsSearchingUsers(true);
+      try {
+        const { searchUsers } = await import("../services/api");
+        const results = await searchUsers(mentionSearch, "staff,employee,admin");
+        // Filter out already selected
+        setMentionSuggestions(results.filter(u => !selectedMentions.some(m => m.id === u.id)));
+      } catch (e) {
+        console.error("Error searching users", e);
+      } finally {
+        setIsSearchingUsers(false);
+      }
+    };
+    const timer = setTimeout(search, 300);
+    return () => clearTimeout(timer);
+  }, [mentionSearch, selectedMentions]);
+
+  useEffect(() => {
+    Promise.all([getEntities()])
+      .then(([entities]) => {
+        setDbEntities(entities);
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    if (selectedEntity) {
+      setLoading(true);
+      getBranches(selectedEntity.id)
+        .then(data => {
+            const activeOnly = data.filter(b => b.is_active);
+            setBranches(activeOnly);
+            
+            // Generate Suggested Branches (Global Top)
+            // In a real app, this might come from a dedicated API
+            const top = [...activeOnly].sort((a, b) => (b.feedback_count || 0) - (a.feedback_count || 0)).slice(0, 3);
+            setSuggestedBranches(top);
+
+            // Load Recent Branches from LocalStorage
+            try {
+                const stored = JSON.parse(localStorage.getItem(`recent_branches_${selectedEntity.id}`) || "[]");
+                // Filter to ensure they are still active
+                const validRecent = stored.filter(id => activeOnly.some(b => b.id === id))
+                                        .map(id => activeOnly.find(b => b.id === id))
+                                        .slice(0, 3);
+                setRecentBranches(validRecent);
+            } catch (e) {
+                console.error("Error loading recent branches", e);
+            }
+
+            // Auto-guide to manual if no branches exist
+            if (activeOnly.length === 0) {
+                setIsManualLocation(true);
+            } else {
+                setIsManualLocation(false);
+            }
+        })
+        .catch(console.error)
+        .finally(() => setLoading(false));
+    }
+  }, [selectedEntity]);
+
+  const saveToRecent = (branchId) => {
+    if (!selectedEntity || !branchId) return;
+    try {
+        const key = `recent_branches_${selectedEntity.id}`;
+        let recent = JSON.parse(localStorage.getItem(key) || "[]");
+        recent = [branchId, ...recent.filter(id => id !== branchId)].slice(0, 5);
+        localStorage.setItem(key, JSON.stringify(recent));
+    } catch (e) {
+        console.error("Error saving recent branch", e);
+    }
+  };
+
+  const handleNext = () => {
+    if (step === STEPS.TYPE && feedbackType) setStep(STEPS.ENTITY);
+    else if (step === STEPS.ENTITY && selectedEntity) setStep(STEPS.BRANCH);
+    else if (step === STEPS.BRANCH && (selectedBranch || isManualLocation)) setStep(STEPS.DETAILS);
+  };
+
+  const handleBack = () => {
+    if (step === STEPS.DETAILS) setStep(STEPS.BRANCH);
+    else if (step === STEPS.BRANCH) setStep(STEPS.ENTITY);
+    else if (step === STEPS.ENTITY) setStep(STEPS.TYPE);
     else onBack();
   };
 
-  const performSilentSave = () => {
-    const finalName = specificName === "Other" ? otherSpecificName : specificName;
-    const titleStr = finalName ? `${selectedBusiness?.name || 'General'}: ${finalName}` : "Untitled Draft";
+  const generateTitle = () => {
+    const type = feedbackType || "Feedback";
+    const entity = selectedEntity?.name || "Service";
+    const location = isManualLocation 
+        ? manualLocationText 
+        : (selectedBranch?.name || "");
     
-    // Generate an ID if we don't have one yet (either from initialDraft or previous silent save)
-    const draftIdToUse = localDraftId || String(Date.now());
-    if (!localDraftId) setLocalDraftId(draftIdToUse);
-
-    const newDraft = {
-      id: draftIdToUse,
-      title: titleStr, description: idea, created_at: new Date().toISOString(),
-      business_id: selectedBusiness?.id, specificName, otherSpecificName,
-      region, province, city, barangay, productName, mentions, rating, isAnonymous, allowComments
-    };
-    
-    const existing = JSON.parse(localStorage.getItem(`drafts_${currentUser?.id}`) || "[]");
-    
-    // Check if this draft already exists in the list (by localDraftId)
-    const exists = existing.some(d => d.id === draftIdToUse);
-    
-    const updated = exists
-      ? existing.map(d => d.id === draftIdToUse ? newDraft : d)
-      : [newDraft, ...existing];
-      
-    localStorage.setItem(`drafts_${currentUser?.id}`, JSON.stringify(updated));
+    if (location) {
+        return `${type} – ${entity} (${location})`;
+    }
+    return `${type} – ${entity}`;
   };
-
-  const handleSaveDraft = () => {
-    performSilentSave();
-    setShowDraftModal(false);
-    if (onSaveDraft) onSaveDraft(); else onBack();
-  };
-
-  const deleteCurrentDraft = () => {
-    if (!initialDraft?.id) return;
-    const existing = JSON.parse(localStorage.getItem(`drafts_${currentUser?.id}`) || "[]");
-    const updated = existing.filter(d => d.id !== initialDraft.id);
-    localStorage.setItem(`drafts_${currentUser?.id}`, JSON.stringify(updated));
-  };
-
-  const [allowVoiceSetting, setAllowVoiceSetting] = useState(true);
-  const [uiText, setUiText] = useState({
-    en_title: `Submit Your ${getLabel("feedback_label", "Feedback")}`,
-    en_desc: `Share your thoughts, concerns, or suggestions about any service, office, or establishment. Please select the appropriate ${getLabel("category_label", "category")} to proceed.`,
-    fil_title: `Submit Your ${getLabel("feedback_label", "Feedback")}`,
-    fil_desc: `Ang ${getLabel("feedback_label", "feedback")} ay para sa pagbabahagi ng inyong opinyon, reklamo, o mungkahi tungkol sa anumang serbisyo o opisina. Mangyaring piliin ang naaangkop na kategorya sa ibaba.`
-  });
-  const [formLayout, setFormLayout] = useState({
-    show_staff: true,
-    show_rating: true,
-    show_attachments: true,
-    show_voice: true,
-    show_product: false,
-  });
-
-  useEffect(() => {
-    const loadBaseLocations = async () => {
-      try {
-        const [regRes, provRes, cityRes] = await Promise.all([
-          fetch("/assets/locations/regions.json"),
-          fetch("/assets/locations/provinces.json"),
-          fetch("/assets/locations/cities.json")
-        ]);
-        setRegionList(await regRes.json());
-        setAllProvinces(await provRes.json());
-        setAllCities(await cityRes.json());
-      } catch (err) {
-        console.error("Failed to load locations", err);
-      }
-    };
-    loadBaseLocations();
-  }, []);
-
-  useEffect(() => {
-    if (region && allProvinces[region]) {
-      setProvinceList(allProvinces[region]);
-    } else {
-      setProvinceList([]);
-    }
-    if (!isResuming.current) {
-      setProvince(""); setCity(""); setBarangay(""); setCityList([]); setBarangayList([]);
-    }
-  }, [region, allProvinces]);
-
-  useEffect(() => {
-    if (province && allCities[province]) {
-      setCityList(allCities[province]);
-    } else {
-      setCityList([]);
-    }
-    if (!isResuming.current) {
-      setCity(""); setBarangay(""); setBarangayList([]);
-    }
-  }, [province, allCities]);
-
-  useEffect(() => {
-    const loadBarangays = async () => {
-      if (city) {
-        setIsLoadingLocations(true);
-        try {
-          const safeCity = city.replace(/[^a-z0-9]/gi, x => " -_".includes(x) ? x : "").trim();
-          const res = await fetch(`/assets/locations/barangays/${safeCity}.json`);
-          if (res.ok) setBarangayList(await res.json());
-          else setBarangayList([]);
-        } catch (err) {
-          console.error("Failed to load barangays", err);
-          setBarangayList([]);
-        } finally {
-          setIsLoadingLocations(false);
-        }
-      } else {
-        setBarangayList([]);
-      }
-    };
-    loadBarangays();
-    if (!isResuming.current) setBarangay("");
-  }, [city]);
-
-  useEffect(() => {
-    const fetchEverything = async () => {
-      try {
-        const [settings, entities, departments, allProfiles, fields] = await Promise.allSettled([
-          getAdminSettings(),
-          getEntities(),
-          getDepartments(),
-          getUserProfiles(),
-          getFormFields()
-        ]);
-
-        if (settings.status === 'fulfilled' && settings.value) {
-          const dict = {};
-          settings.value.forEach(s => { dict[s.key] = s.value; });
-          setAllowVoiceSetting(dict['allow_voice'] !== 'false');
-          setUiText({
-            en_title: dict['general_report_title'] || `Submit Your ${getLabel("feedback_label", "Feedback")}`,
-            en_desc: dict['general_report_instruction'] || `Share your thoughts, concerns, or suggestions about any service, office, or establishment. Please select the appropriate ${getLabel("category_label", "category")} to proceed.`,
-            fil_title: dict['general_report_title'] || `Submit Your ${getLabel("feedback_label", "Feedback")}`,
-            fil_desc: dict['general_report_instruction_fil'] || `Ang ${getLabel("feedback_label", "feedback")} ay para sa pagbabahagi ng inyong opinyon, reklamo, o mungkahi tungkol sa anumang serbisyo o opisina. Mangyaring piliin ang naaangkop na kategorya sa ibaba.`,
-          });
-          setFormLayout({
-            show_staff: dict['form_show_staff'] !== 'false',
-            show_rating: dict['form_show_rating'] !== 'false',
-            show_attachments: dict['form_show_attachments'] !== 'false',
-            show_voice: dict['form_show_voice'] !== 'false',
-            show_product: dict['form_show_product'] === 'true',
-          });
-        }
-
-        if (entities.status === 'fulfilled') {
-          setDbEntities(entities.value);
-          const genEnt = entities.value.find(c => c.name.toLowerCase() === 'general') || entities.value[0];
-          if (genEnt) setGeneralEntityId(genEnt.id);
-          
-          // Restore selected business from draft if exists
-          if (initialDraft?.business_id) {
-            const found = entities.value.find(c => c.id === initialDraft.business_id);
-            if (found) setSelectedBusiness(found);
-          }
-        }
-
-        if (departments.status === 'fulfilled') {
-          setDbDepartments(departments.value);
-        }
-
-        if (allProfiles.status === 'fulfilled') {
-          setUserProfiles(allProfiles.value);
-        }
-
-        if (fields?.status === 'fulfilled' && fields.value) {
-          setFormFields(fields.value);
-        }
-      } catch (err) {
-        console.error("Failed to fetch initial data", err);
-      }
-    };
-    fetchEverything();
-    
-    const handleClickOutside = (event) => {
-      if (suggestionsRef.current && !suggestionsRef.current.contains(event.target)) {
-        setShowUserSuggestions(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  useEffect(() => {
-    if (!selectedBusiness || (!idea.trim() && !specificName && !region)) {
-      setSaveTimer(10);
-      return;
-    }
-    const interval = setInterval(() => {
-      setSaveTimer(prev => {
-        if (prev <= 1) {
-          setIsSavingDraft(true);
-          performSilentSave();
-          setTimeout(() => setIsSavingDraft(false), 2000);
-          return 10;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [idea, specificName, region, province, city, barangay, selectedBusiness, rating, allowComments, isAnonymous, mentions, productName]);
-
-  const startRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mediaRecorderRef.current = new MediaRecorder(stream, { mimeType: 'audio/webm', audioBitsPerSecond: 16000 });
-      mediaRecorderRef.current.ondataavailable = (event) => {
-        if (event.data.size > 0) audioChunksRef.current.push(event.data);
-      };
-      mediaRecorderRef.current.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        setAudioURL(URL.createObjectURL(audioBlob));
-        audioChunksRef.current = [];
-        const reader = new FileReader();
-        reader.readAsDataURL(audioBlob);
-        reader.onloadend = () => setAudioBase64(reader.result);
-      };
-      mediaRecorderRef.current.start();
-
-      // --- Start Transcription ---
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (SpeechRecognition) {
-        recognitionRef.current = new SpeechRecognition();
-        recognitionRef.current.continuous = true;
-        recognitionRef.current.interimResults = true;
-        recognitionRef.current.lang = transcriptionLanguage;
-        
-        recognitionRef.current.onresult = (event) => {
-          let finalTranscript = '';
-          for (let i = event.resultIndex; i < event.results.length; ++i) {
-            if (event.results[i].isFinal) finalTranscript += event.results[i][0].transcript;
-          }
-          if (finalTranscript) {
-            setIdea(prev => prev.trim() ? prev + ' ' + finalTranscript : finalTranscript);
-          }
-        };
-        
-        recognitionRef.current.onerror = (event) => {
-          if (event.error === 'not-allowed') {
-            setModalConfig({ isOpen: true, title: "Permission Denied", message: "Microphone access blocked. Please enable it in your browser settings.", type: "alert" });
-          }
-        };
-        
-        recognitionRef.current.start();
-      }
-
-      setIsRecording(true);
-      setTimeout(() => {
-        if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") stopRecording();
-      }, 30000);
-    } catch (err) {
-      if (err.name === 'NotAllowedError') {
-        setModalConfig({ isOpen: true, title: "Permission Denied", message: "Could not access microphone. Please allow permissions to use voice notes.", type: "alert" });
-      } else {
-        setModalConfig({ isOpen: true, title: "Microphone Error", message: "Could not access microphone or transcription service.", type: "alert" });
-      }
-    }
-  };
-
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
-      mediaRecorderRef.current.stop();
-      mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
-    }
-    if (recognitionRef.current) {
-        recognitionRef.current.stop();
-        // Check for silence (if idea hasn't changed much during recording)
-        // This is a simple heuristic: if idea is still empty after recording
-        setTimeout(() => {
-            if (!idea.trim() && !isRecording) {
-                setModalConfig({ isOpen: true, title: "No Speech Detected", message: "We couldn't hear anything. Please try speaking clearly or check your mic.", type: "alert" });
-            }
-        }, 500);
-    }
-    setIsRecording(false);
-  };
-
-  useEffect(() => {
-    if (isResuming.current) {
-      // Release the resume lock after a short delay to allow location cascades to finish
-      const timer = setTimeout(() => { isResuming.current = false; }, 1000);
-      return () => clearTimeout(timer);
-    }
-  }, []);
-
-  const handleDiscard = () => { setShowDraftModal(false); onBack(); };
-
-  // Location cascading is managed by specific useEffects in the location section
-
-  const allBusinessTypes = dbEntities.map(cat => ({
-    id: cat.id,
-    name: cat.name,
-    label: cat.name, // Keep label for filtering compatibility
-    fields: cat.fields || [],
-    description: cat.description,
-    icon: cat.icon || 'default'
-  }));
-
-  const filteredBusinesses = allBusinessTypes.filter(b =>
-    b.label.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const filteredEntities = selectedBusiness ? dbDepartments.filter(d => 
-    d.entity_id === selectedBusiness.id
-  ) : [];
-  
-  const searchTerm = focusedMentionIndex !== null ? mentions[focusedMentionIndex]?.name || '' : '';
-  const filteredUserSuggestions = searchTerm.trim().length >= 1 ? userProfiles.filter(u => {
-    const isSelf = u.id == currentUser?.id;
-    const matches = u.name?.toLowerCase().includes(searchTerm.toLowerCase());
-    return matches && !isSelf;
-  }).sort((a, b) => {
-    if (selectedEntity) {
-      const aInDept = (a.department || '').toLowerCase() === selectedEntity.name.toLowerCase();
-      const bInDept = (b.department || '').toLowerCase() === selectedEntity.name.toLowerCase();
-      if (aInDept && !bInDept) return -1;
-      if (!aInDept && bInDept) return 1;
-    }
-    return 0;
-  }).slice(0, 10) : [];
-
-  const handleUpdateMention = (index, field, value) => {
-    const newMentions = [...mentions];
-    newMentions[index][field] = value;
-    if (field === 'name') newMentions[index].userId = null; // Clear ID if typed
-    setMentions(newMentions);
-  };
-
-  const handleAddMention = () => setMentions([...mentions, { prefix: 'Mr.', name: '', userId: null }]);
-  const handleRemoveMention = (index) => {
-    if (mentions.length > 1) {
-      setMentions(mentions.filter((_, i) => i !== index));
-    } else {
-      setMentions([{ prefix: 'Mr.', name: '', userId: null }]);
-    }
-  };
-
-  const handleFileChange = (e) => {
-    const files = Array.from(e.target.files);
-    const newFiles = files.map(f => ({ file: f, name: f.name, url: URL.createObjectURL(f), isImage: f.type.startsWith('image/') }));
-    setAttachedFiles(prev => [...prev, ...newFiles].slice(0, 5));
-  };
-  const removeFile = (index) => setAttachedFiles(prev => prev.filter((_, i) => i !== index));
-  const fileToBase64 = (file) => new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = (error) => reject(error);
-  });
 
   const handleSubmit = async () => {
-    if (!region) { setModalConfig({ isOpen: true, title: "Missing Region", message: "Please select a Region.", type: "alert" }); return; }
-    if (!province) { setModalConfig({ isOpen: true, title: "Missing Province", message: "Please select a Province.", type: "alert" }); return; }
-    if (!city) { setModalConfig({ isOpen: true, title: "Missing City", message: "Please select a City.", type: "alert" }); return; }
-    if (!barangay) { setModalConfig({ isOpen: true, title: "Missing Barangay", message: "Please select a Barangay.", type: "alert" }); return; }
-    if (!idea.trim()) { setModalConfig({ isOpen: true, title: "Empty Message", message: "Please enter your feedback message.", type: "alert" }); return; }
-    
-    // Check dynamic fields
-    if (selectedBusiness?.fields) {
-      for (const field of selectedBusiness.fields) {
-        if (field.required && (!dynamicValues[field.label] || !dynamicValues[field.label].trim())) {
-          setModalConfig({ isOpen: true, title: "Field Required", message: `Please fill out the "${field.label}" field.`, type: "alert" });
-          return;
-        }
-      }
+    // 1. Validation
+    if (!feedbackType || !selectedEntity || (!selectedBranch && !isManualLocation)) {
+        setModal({
+            isOpen: true,
+            title: "Incomplete Details",
+            message: "Please ensure you have selected a feedback type, program, and location before submitting.",
+            type: "info"
+        });
+        return;
+    }
+
+    if (!idea.trim()) {
+        setModal({
+            isOpen: true,
+            title: "Reference Required",
+            message: "Please provide a description or message for your report.",
+            type: "info"
+        });
+        return;
     }
 
     setIsSubmitting(true);
     try {
-      const bizLabel = selectedBusiness?.label || "General";
-      let matchedDeptId = null;
-      if (selectedBusiness?.id === 'department' || bizLabel.toLowerCase().includes('department')) {
-        const matched = dbDepartments.find(d => d.name.toLowerCase() === bizLabel.toLowerCase());
-        if (matched) matchedDeptId = matched.id;
-      }
-      const base64Files = await Promise.all(attachedFiles.map(af => fileToBase64(af.file)));
-      if (audioBase64) base64Files.push(audioBase64);
-      await createFeedback({
-        title: bizLabel,
+      const payload = {
+        title: generateTitle(),
+        feedback_type: feedbackType,
+        entity_id: selectedEntity.id,
+        branch_id: selectedBranch?.id || null,
+        manual_location_text: isManualLocation ? manualLocationText : null,
         description: idea,
+        rating: rating,
         is_anonymous: isAnonymous,
-        allow_comments: allowComments,
-        is_approved: true, // No longer flagging "Other" string since it's removed
         sender_id: currentUser.id,
-        entity_id: selectedBusiness?.id || generalEntityId || 1,
-        recipient_dept_id: selectedEntity?.id || matchedDeptId || null,
-        region, province, city, barangay,
-        mentions: mentions.filter(m => m.name.trim() !== '').map(m => ({
-          employee_name: m.name,
-          employee_prefix: m.prefix,
-          user_id: m.userId
-        })),
-        product_name: productName || null,
-        rating: rating || 0,
-        attachments: base64Files.length > 0 ? JSON.stringify(base64Files) : null,
-        custom_data: dynamicValues
+        is_approved: true,
+        attachments: attachmentBase64 ? JSON.stringify([attachmentBase64]) : null,
+        mentions: selectedMentions.map(u => ({
+            user_id: u.id,
+            employee_name: u.name,
+            employee_prefix: u.role_identity || u.position_title || "Staff"
+        }))
+      };
+
+      await createFeedback(payload);
+      
+      if (selectedBranch) saveToRecent(selectedBranch.id);
+      
+      setModal({
+        isOpen: true,
+        title: "Success",
+        message: "Your feedback has been submitted successfully. Thank you for helping us improve!",
+        type: "success",
+        onConfirm: () => onSuccess()
       });
-      deleteCurrentDraft();
-      onSuccess();
-    } catch (error) {
-      if (error.message === "Network Error" || !navigator.onLine) {
-        performSilentSave(); // Save as draft immediately
-        setModalConfig({ 
-            isOpen: true, 
-            title: "Offline / Network Error", 
-            message: "You are currently offline or having connection issues. Your progress has been saved as a draft. Please retry when back online.", 
-            type: "alert" 
-        });
-      } else {
-        const statusCode = error.response ? error.response.status : 'Network';
-        const exactDetail = error.response?.data?.detail || error.message;
-        setModalConfig({ isOpen: true, title: `Submission Error (${statusCode})`, message: `Failed: ${JSON.stringify(exactDetail)}`, type: "alert" });
-      }
-    } finally { setIsSubmitting(false); }
+    } catch (err) {
+      console.error("Submission error details:", err.response?.data || err.message);
+      setModal({
+        isOpen: true,
+        title: "Submission Failed",
+        message: "We encountered an error while sending your feedback. Please try again.",
+        type: "error"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const productLabel = PACKAGE_TYPES.includes(selectedBusiness?.id) ? 'Room Type / Package (Optional)' : 'Thing / Item / Product (Optional)';
-  const productPlaceholder = PACKAGE_TYPES.includes(selectedBusiness?.id) ? 'e.g. Deluxe Room, Day Tour Package' : 'e.g. Matte Lipstick or Study Table';
+  const filteredBranches = branches.filter(b => 
+    b.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+    (b.city && b.city.toLowerCase().includes(debouncedSearch.toLowerCase()))
+  );
+
+  // Render Helpers
+  const renderStepIndicator = () => {
+    const steps = [
+        { id: STEPS.TYPE, label: "Type" },
+        { id: STEPS.ENTITY, label: getLabel("entity_label", "Program") },
+        { id: STEPS.BRANCH, label: "Location" },
+        { id: STEPS.DETAILS, label: "Details" }
+    ];
+    const currentIndex = steps.findIndex(s => s.id === step);
+
+    return (
+      <div style={styles.stepperContainer}>
+        {steps.map((s, i) => (
+          <div key={s.id} style={{ display: 'flex', alignItems: 'center' }}>
+            <div style={{
+              ...styles.stepCircle,
+              backgroundColor: i <= currentIndex ? 'var(--primary-color)' : '#CBD5E1',
+              color: 'white'
+            }}>
+              {i < currentIndex ? <Icons.Check /> : i + 1}
+            </div>
+            {i < steps.length - 1 && (
+              <div style={{
+                ...styles.stepLine,
+                backgroundColor: i < currentIndex ? 'var(--primary-color)' : '#CBD5E1'
+              }} />
+            )}
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  if (loading && step === STEPS.TYPE) return <div style={styles.loader}>Initializing...</div>;
 
   return (
     <div style={styles.container}>
+      {/* Header */}
       <header style={styles.header}>
-        <button onClick={() => { 
-          if (selectedEntity) setSelectedEntity(null);
-          else if (selectedBusiness) setSelectedBusiness(null); 
-          else onBack(); 
-        }} style={styles.iconBtn} aria-label="Go back">
-          <Icons.Back />
-        </button>
-        <h1 style={styles.headerTitle}>
-          {initialDraft ? "Resume Draft" : 
-           selectedEntity ? `Report: ${selectedEntity.name}` :
-           selectedBusiness ? `Choose ${selectedBusiness.name}` :
-           `New ${getLabel("feedback_label", "Report")}`}
-        </h1>
-        <div style={{ minWidth: 80, textAlign: 'right', fontSize: '11px', color: '#64748B' }}>
-          {(selectedBusiness || selectedEntity) && (isSavingDraft ? (
-            <span style={{ color: '#10B981', fontWeight: 'bold' }}>Saved! ✅</span>
-          ) : (
-            saveTimer <= 3 && <span>Saving in {saveTimer}s...</span>
-          ))}
+        <button onClick={handleBack} style={styles.backBtn}><Icons.Back /></button>
+        <div style={{ flex: 1, textAlign: 'center' }}>
+            <p style={styles.headerSubtitle}>Step {Object.values(STEPS).indexOf(step) + 1} of 4</p>
+            <h1 style={styles.headerTitle}>
+                {step === STEPS.TYPE && "How can we help?"}
+                {step === STEPS.ENTITY && `Select ${getLabel("entity_label", "Program")}`}
+                {step === STEPS.BRANCH && "Which Office?"}
+                {step === STEPS.DETAILS && "Report Details"}
+            </h1>
         </div>
+        <div style={{ width: 40 }} />
       </header>
 
-      <main style={styles.mainScroll}>
-        {!selectedBusiness ? (
-          <>
-            <div style={styles.explainBox}>
-              <div style={styles.explainTopRow}>
-                <span style={styles.explainTitle}>{isFilipino ? uiText.fil_title : uiText.en_title}</span>
-                <button style={styles.translateBtn} onClick={() => setIsFilipino(!isFilipino)} title="Translate">
-                  <Icons.Translate /> <span style={{ fontSize: '11px', marginLeft: '4px' }}>{isFilipino ? 'EN' : 'FIL'}</span>
-                </button>
-              </div>
-              <p style={styles.explainDesc}>
-                {isFilipino ? uiText.fil_desc : uiText.en_desc}
-              </p>
-            </div>
+      {renderStepIndicator()}
 
-            <div style={styles.searchContainer}>
-              <Icons.Search />
-              <input type="text" placeholder={`Search ${getLabel("category_label", "category")} type...`} style={styles.searchInput}
-                value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
-            </div>
+      <main style={styles.content}>
+        {/* STEP 1: TYPE */}
+        {step === STEPS.TYPE && (
+          <div style={styles.grid}>
+            {FEEDBACK_TYPES.map(t => (
+              <button 
+                key={t.id} 
+                onClick={() => { setFeedbackType(t.id); handleNext(); }}
+                style={{
+                  ...styles.typeCard,
+                  borderColor: feedbackType === t.id ? t.color : '#E2E8F0',
+                  background: feedbackType === t.id ? `${t.color}10` : 'white'
+                }}
+              >
+                <span style={{ fontSize: '32px', marginBottom: '10px' }}>{t.icon}</span>
+                <span style={styles.typeLabel}>{t.label}</span>
+              </button>
+            ))}
+          </div>
+        )}
 
-            <div style={styles.grid}>
-              {filteredBusinesses.map(biz => {
-                const IconComp = IconRegistry[biz.icon] || IconRegistry.default;
+        {/* STEP 2: ENTITY */}
+        {step === STEPS.ENTITY && (
+          <div style={styles.list}>
+            {dbEntities.map(ent => {
+                if (!ent || !ent.id) return null;
+                const IconComp = IconRegistry[ent.icon] || IconRegistry.default;
+                const displayName = ent.name || "Unnamed Service";
+                
                 return (
-                  <div key={biz.id} style={{ ...styles.card, flexDirection: 'column', gap: '12px', padding: '20px', minHeight: '120px' }} 
-                    onClick={() => { 
-                      setSelectedBusiness(biz); 
-                      // Check if this category has entities
-                      const hasEntities = dbDepartments.some(d => d.entity_id === biz.id);
-                      if (!hasEntities) {
-                        setSelectedEntity(null); // Direct to form
-                      }
-                      setSpecificName(""); setOtherSpecificName(""); setSelectedType(""); 
-                    }}>
-                    <div style={{ padding: '12px', background: 'rgba(var(--primary-rgb), 0.08)', borderRadius: '12px', color: '#1D6C8A' }}>
-                      <IconComp width="28" height="28" />
-                    </div>
-                    <span style={{ ...styles.cardLabel, fontSize: '14px', fontWeight: '800', textAlign: 'center' }}>{biz.name}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </>
-        ) : !selectedEntity && dbDepartments.some(d => d.entity_id === selectedBusiness.id) ? (
-          <>
-            <div style={styles.explainBox}>
-              <span style={styles.explainTitle}>Select {selectedBusiness.name}</span>
-              <p style={styles.explainDesc}>
-                Which specific {selectedBusiness.name.toLowerCase()} would you like to provide feedback for?
-              </p>
-            </div>
-            
-            <div style={styles.grid}>
-              {filteredEntities.map(entity => (
-                <div key={entity.id} style={{ ...styles.card, flexDirection: 'column', gap: '10px', padding: '16px' }} 
-                  onClick={() => setSelectedEntity(entity)}>
-                  <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: 'rgba(var(--primary-rgb), 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--primary-color)' }}>
-                    <Icons.Building />
-                  </div>
-                  <span style={{ ...styles.cardLabel, fontSize: '13px' }}>{entity.name}</span>
-                </div>
-              ))}
-            </div>
-          </>
-        ) : (
-          <div style={styles.formContainer}>
-            <div style={{ ...styles.selectedHeader, display: 'flex', alignItems: 'center', gap: '12px', padding: '16px 20px', background: 'white', borderRadius: '16px', border: '1px solid #f1f5f9', marginBottom: '24px' }}>
-              <div style={{ padding: '10px', background: 'rgba(var(--primary-rgb), 0.08)', borderRadius: '12px', color: '#1D6C8A' }}>
-                {(() => {
-                  const IconComp = IconRegistry[selectedBusiness.icon] || IconRegistry.default;
-                  return <IconComp width="24" height="24" />;
-                })()}
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <h2 style={{ ...styles.selectedTitle, margin: 0, fontSize: '16px' }}>{selectedEntity ? selectedEntity.name : selectedBusiness.name}</h2>
-                {selectedEntity && <span style={{ fontSize: '12px', color: '#64748B' }}>{selectedBusiness.name}</span>}
-              </div>
-            </div>
-
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Region <span style={{ color: '#EF4444' }}>*</span></label>
-              <select style={styles.nativeSelect} value={region} onChange={(e) => setRegion(e.target.value)}>
-                <option value="">Select Region...</option>
-                {regionList.map(r => <option key={r} value={r}>{r}</option>)}
-              </select>
-            </div>
-
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Province <span style={{ color: '#EF4444' }}>*</span></label>
-              <select style={styles.nativeSelect} value={province} onChange={(e) => setProvince(e.target.value)} disabled={!region}>
-                <option value="">{region ? "Select Province..." : "Select Region First"}</option>
-                {provinceList.map(p => <option key={p} value={p}>{p}</option>)}
-              </select>
-            </div>
-
-            <div style={styles.row}>
-              <div style={{ ...styles.formGroup, flex: 1 }}>
-                <label style={styles.label}>City / Municipality <span style={{ color: '#EF4444' }}>*</span></label>
-                <select style={styles.nativeSelect} value={city} onChange={(e) => setCity(e.target.value)} disabled={!province}>
-                  <option value="">{province ? "Select City..." : "Select Province First"}</option>
-                  {cityList.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </div>
-              <div style={{ ...styles.formGroup, flex: 1 }}>
-                <label style={styles.label}>Barangay <span style={{ color: '#EF4444' }}>*</span></label>
-                <select style={styles.nativeSelect} value={barangay} onChange={(e) => setBarangay(e.target.value)} disabled={!city || isLoadingLocations}>
-                  <option value="">{isLoadingLocations ? "Loading..." : city ? "Select Barangay..." : "Select City First"}</option>
-                  {barangayList.map(b => <option key={b} value={b}>{b}</option>)}
-                </select>
-              </div>
-            </div>
-
-            {(PRODUCT_TYPES.includes(selectedBusiness.id) || PACKAGE_TYPES.includes(selectedBusiness.id)) && (
-              <div style={styles.formGroup}>
-                <label style={styles.label}>{productLabel}</label>
-                <input type="text" placeholder={productPlaceholder} style={styles.inputBox}
-                  value={productName} onChange={(e) => setProductName(e.target.value)} />
-              </div>
-            )}
-
-            {formLayout.show_staff && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <label style={styles.label}>👤 Staff Involved (Optional)</label>
-                  <button 
-                    type="button" 
-                    onClick={handleAddMention}
-                    style={{ background: 'none', border: 'none', color: 'var(--primary-color)', fontSize: '12px', fontWeight: '700', cursor: 'pointer', outline: 'none' }}
-                  >
-                    + Add another employee
-                  </button>
-                </div>
-
-                {mentions.map((mention, index) => (
-                  <div key={index} style={{ position: 'relative' }}>
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                      <select 
-                        style={{ ...styles.nativeSelect, width: '90px' }}
-                        value={mention.prefix} 
-                        onChange={(e) => handleUpdateMention(index, 'prefix', e.target.value)}
-                      >
-                        <option value="Mr.">Mr.</option>
-                        <option value="Ms.">Ms.</option>
-                        <option value="Mrs.">Mrs.</option>
-                      </select>
-                      
-                      <div style={{ position: 'relative', flex: 1 }}>
-                        <input 
-                          type="text" 
-                          placeholder="Search name or type manually..." 
-                          style={{ ...styles.inputBox, width: '100%' }}
-                          value={mention.name} 
-                          onChange={(e) => {
-                            handleUpdateMention(index, 'name', e.target.value);
-                            setFocusedMentionIndex(index);
-                            setShowUserSuggestions(true);
-                          }}
-                          onFocus={() => {
-                            setFocusedMentionIndex(index);
-                            setShowUserSuggestions(true);
-                          }}
-                        />
-                        
-                        {showUserSuggestions && focusedMentionIndex === index && filteredUserSuggestions.length > 0 && (
-                          <div ref={suggestionsRef} style={{ ...styles.suggestionsDropdown, left: 0 }}>
-                            {filteredUserSuggestions.map(u => (
-                              <div 
-                                key={u.id} 
-                                style={styles.suggestionItem}
-                                onClick={() => {
-                                  const newMentions = [...mentions];
-                                  newMentions[index].name = u.name;
-                                  newMentions[index].userId = u.id;
-                                  setMentions(newMentions);
-                                  setShowUserSuggestions(false);
-                                  setFocusedMentionIndex(null);
-                                }}
-                              >
-                                {u.avatar_url 
-                                  ? <img src={u.avatar_url} alt="" style={styles.suggestionAvatar} />
-                                  : <div style={styles.suggestionAvatarPlaceholder}>{u.name.charAt(0)}</div>}
-                                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                    <span style={styles.suggestionName}>{u.name}</span>
-                                    {u.role_identity && (
-                                      <span style={{ fontSize: '9px', backgroundColor: '#F1F5F9', color: '#64748B', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold' }}>
-                                        {u.role_identity.toUpperCase()}
-                                      </span>
-                                    )}
-                                  </div>
-                                  <span style={styles.suggestionMeta}>{u.department || 'General'}</span>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-
-                      {mentions.length > 1 && (
-                        <button 
-                          type="button" 
-                          onClick={() => handleRemoveMention(index)}
-                          style={{ background: 'none', border: 'none', color: '#EF4444', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer', padding: '0 4px' }}
-                        >
-                          ✕
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* (Custom Form Fields section removed as requested) */}
-
-            {/* — Dynamic Custom Fields (📦 Additional Info) — */}
-            {formFields.length > 0 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '4px' }}>
-                <p style={{ margin: 0, fontSize: '11px', fontWeight: '800', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>📦 Additional Info</p>
-                {formFields.map((field) => {
-                  const val = dynamicValues[field.label] || '';
-                  const setVal = (v) => setDynamicValues(prev => ({ ...prev, [field.label]: v }));
-                  const labelEl = (
-                    <label style={{ ...styles.label }}>
-                      {field.label} {field.is_required && <span style={{ color: '#EF4444' }}>*</span>}
-                    </label>
-                  );
-                  if (field.field_type === 'dropdown') {
-                    return (
-                      <div key={field.label} style={styles.formGroup}>
-                        {labelEl}
-                        <select style={styles.nativeSelect} value={val} onChange={e => setVal(e.target.value)}>
-                          <option value="">{field.placeholder || `-- Select ${field.label} --`}</option>
-                          {(field.options || []).map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                        </select>
-                      </div>
-                    );
-                  }
-                  if (field.field_type === 'rating') {
-                    return (
-                      <div key={field.label} style={styles.formGroup}>
-                        {labelEl}
-                        <div style={styles.starRow}>
-                          {[1,2,3,4,5].map(s => (
-                            <button key={s} type="button" style={styles.starBtn} onClick={() => setVal(s)}>
-                              <Icons.Star filled={s <= (val || 0)} />
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  }
-                  return (
-                    <div key={field.label} style={styles.formGroup}>
-                      {labelEl}
-                      <input
-                        type={field.field_type === 'date' ? 'date' : field.field_type === 'number' ? 'number' : 'text'}
-                        placeholder={field.placeholder || `Enter ${field.label}...`}
-                        style={styles.inputBox}
-                        value={val}
-                        onChange={e => setVal(e.target.value)}
-                      />
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-            <div style={styles.formGroup}>
-              <label style={styles.label}>📝 Your Message <span style={{ color: '#EF4444' }}>*</span></label>
-              <textarea placeholder="Describe your experience or concern..." style={styles.textArea}
-                value={idea} onChange={(e) => setIdea(e.target.value)} />
-              <div style={{ marginTop: '8px' }}>
-                {formLayout.show_voice && allowVoiceSetting && !audioURL && !isRecording && (
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <button type="button" style={{ ...styles.attachBtn, width: 'auto' }} onClick={startRecording}>
-                      <Icons.Mic /> <span style={{ marginLeft: '6px' }}>Record & Transcribe (max 30s)</span>
-                    </button>
-                    <select 
-                      style={{ ...styles.nativeSelect, width: 'auto', padding: '4px 8px', fontSize: '11px' }}
-                      value={transcriptionLanguage}
-                      onChange={(e) => setTranscriptionLanguage(e.target.value)}
+                    <button 
+                        key={ent.id} 
+                        onClick={() => { setSelectedEntity(ent); handleNext(); }}
+                        style={{
+                            ...styles.listItem,
+                            background: selectedEntity?.id === ent.id ? 'rgba(var(--primary-rgb), 0.05)' : 'white'
+                        }}
                     >
-                      <option value="en-US">English</option>
-                      <option value="fil-PH">Filipino</option>
-                    </select>
-                  </div>
-                )}
-                {isRecording && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#EF4444', animation: 'pulse 1.5s infinite' }} />
-                    <span style={{ fontSize: '13px', color: '#EF4444', fontWeight: '600' }}>Transcribing...</span>
-                    <button type="button" style={{ ...styles.attachBtn, width: 'auto', backgroundColor: '#FEE2E2', color: '#EF4444', borderColor: '#FCA5A5' }} onClick={stopRecording}>
-                      <Icons.Stop /> <span style={{ marginLeft: '6px' }}>Stop</span>
+                        <div style={styles.itemIcon}><IconComp width="24" height="24" /></div>
+                        <div style={{ textAlign: 'left', flex: 1 }}>
+                            <div style={styles.itemName}>{displayName}</div>
+                            <div style={styles.itemSub}>{(ent.description && ent.description !== "[]") ? ent.description : "Official Service / Program"}</div>
+                        </div>
+                        {selectedEntity?.id === ent.id && <Icons.Check />}
                     </button>
-                  </div>
-                )}
-                {audioURL && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: '#F0F2F5', padding: '8px 12px', borderRadius: '8px', border: '1px solid #E4E6EB' }}>
-                    <audio src={audioURL} controls style={{ height: '32px', flex: 1 }} />
-                    <button type="button" style={styles.removeFileBtn} onClick={() => { setAudioURL(null); setAudioBase64(null); }}>
-                      <Icons.Trash />
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
+                );
+            })}
+          </div>
+        )}
 
-            {formLayout.show_attachments && (
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Attach Photos (Optional, max 5)</label>
-              <input ref={fileInputRef} type="file" accept="image/*,application/pdf" multiple style={{ display: 'none' }} onChange={handleFileChange} />
-              <button type="button" style={styles.attachBtn} onClick={() => fileInputRef.current.click()}>
-                <Icons.Paperclip /> <span style={{ marginLeft: '6px' }}>Attach File / Photo</span>
-              </button>
-              {attachedFiles.length > 0 && (
-                <div style={styles.fileList}>
-                  {attachedFiles.map((f, i) => (
-                    <div key={i} style={styles.fileItem}>
-                      {f.isImage ? <img src={f.url} alt={f.name} style={styles.fileThumb} /> : <div style={styles.fileIcon}><Icons.Paperclip /></div>}
-                      <span style={styles.fileName}>{f.name.substring(0, 20)}{f.name.length > 20 ? '...' : ''}</span>
-                      <button style={styles.removeFileBtn} onClick={() => removeFile(i)}><Icons.X /></button>
-                    </div>
-                  ))}
+        {/* STEP 3: BRANCH */}
+        {step === STEPS.BRANCH && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {branches.length === 0 ? (
+                <div style={styles.emptyBranchBox}>
+                    <p style={{ margin: 0, fontWeight: '800', color: 'var(--primary-color)', fontSize: '14px' }}>No direct locations registered yet.</p>
+                    <p style={{ margin: '5px 0 0 0', fontSize: '12px', color: '#64748B' }}>You can still submit your report by manually entering the location below.</p>
                 </div>
-              )}
-            </div>
+            ) : (
+                <>
+                    <div style={styles.searchBox}>
+                        <Icons.Search />
+                        <input 
+                            placeholder="Search city, office, or branch..." 
+                            style={styles.searchInput}
+                            value={branchSearch}
+                            onChange={e => setBranchSearch(e.target.value)}
+                        />
+                    </div>
 
+                    {!branchSearch && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                            {recentBranches.length > 0 && (
+                                <div>
+                                    <p style={styles.sectionTitle}><Icons.History /> RECENTLY USED</p>
+                                    <div style={styles.suggestionGrid}>
+                                        {recentBranches.map(b => (
+                                            <button key={`rec-${b.id}`} onClick={() => { setSelectedBranch(b); setIsManualLocation(false); handleNext(); }} style={styles.suggestionItem}>
+                                                {b.name}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {suggestedBranches.length > 0 && (
+                                <div>
+                                    <p style={styles.sectionTitle}><Icons.TrendingUp /> SUGGESTED</p>
+                                    <div style={styles.suggestionGrid}>
+                                        {suggestedBranches.map(b => (
+                                            <button key={`sug-${b.id}`} onClick={() => { setSelectedBranch(b); setIsManualLocation(false); handleNext(); }} style={styles.suggestionItem}>
+                                                {b.name}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    <div style={styles.branchList}>
+                        {filteredBranches.map(b => (
+                            <button 
+                                key={b.id} 
+                                onClick={() => { setSelectedBranch(b); setIsManualLocation(false); handleNext(); }}
+                                style={{
+                                    ...styles.branchItem,
+                                    background: selectedBranch?.id === b.id ? 'rgba(var(--primary-rgb), 0.05)' : 'white'
+                                }}
+                            >
+                                <Icons.MapPin />
+                                <div style={{ textAlign: 'left', flex: 1 }}>
+                                    <div style={styles.branchName}>{b.name}</div>
+                                    <div style={styles.branchLoc}>{b.city}, {b.province}</div>
+                                </div>
+                            </button>
+                        ))}
+                    </div>
+
+                    <div style={styles.divider}>OR</div>
+                </>
             )}
 
-            {formLayout.show_rating && (
-              <div style={styles.formGroup}>
+            <button 
+                onClick={() => { setIsManualLocation(true); setSelectedBranch(null); }}
+                style={{
+                  ...styles.manualBtn,
+                  borderColor: isManualLocation ? 'var(--primary-color)' : '#E2E8F0',
+                  background: isManualLocation ? 'rgba(var(--primary-rgb), 0.05)' : 'white'
+                }}
+            >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: isManualLocation ? '10px' : 0 }}>
+                    <span style={{ fontSize: '18px' }}>📍</span>
+                    <p style={{ margin: 0, fontWeight: '800', fontSize: '13px' }}>Manual Location Input</p>
+                </div>
+                {isManualLocation && (
+                    <input 
+                        autoFocus
+                        placeholder="e.g. Near Barangay Hall, Bangon, Marawi"
+                        style={styles.manualInput}
+                        value={manualLocationText}
+                        onChange={e => setManualLocationText(e.target.value)}
+                    />
+                )}
+            </button>
+            <div style={{ height: '20px' }} />
+            {isManualLocation && <button onClick={handleNext} disabled={!manualLocationText.trim()} style={styles.nextBtn}>Continue with Manual Location</button>}
+          </div>
+        )}
+
+        {/* STEP 4: DETAILS */}
+        {step === STEPS.DETAILS && (
+          <div style={styles.form}>
+             <div style={styles.summaryBox}>
+                <p style={{ margin: '0 0 5px 0', fontSize: '11px', color: '#64748B', fontWeight: '700', textTransform: 'uppercase' }}>Report Summary</p>
+                <p style={{ margin: 0, fontWeight: '700' }}>{feedbackType} for {selectedEntity?.name}</p>
+                <p style={{ margin: 0, fontSize: '12px', color: '#64748B' }}>
+                    {isManualLocation ? `📍 Manual: ${manualLocationText}` : `@ ${selectedBranch?.name}`}
+                </p>
+                {selectedMentions.length > 0 && (
+                    <p style={{ margin: '5px 0 0 0', fontSize: '11px', color: '#3B82F6', fontWeight: '700' }}>
+                        👤 MENTIONED: {selectedMentions.map(m => m.name).join(", ")}
+                    </p>
+                )}
+             </div>
+
+             <div style={styles.formGroup}>
                 <label style={styles.label}>Rate your experience</label>
-              <div style={styles.starRow}>
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <button key={star} style={styles.starBtn} onClick={() => setRating(star)}>
-                    <Icons.Star filled={star <= rating} />
-                  </button>
-                ))}
-              </div>
-              </div>
-            )}
+                <div style={styles.starRow}>
+                    {[1,2,3,4,5].map(s => (
+                        <button key={s} onClick={() => setRating(s)} style={styles.starBtn}>
+                            <Icons.Star filled={s <= rating} />
+                        </button>
+                    ))}
+                </div>
+             </div>
 
-            <div style={styles.toggleRowContainer}>
-              <div style={styles.itemText}>
-                <p style={{ ...styles.itemTitle, color: isAnonymous ? '#10B981' : '#1E293B' }}>Anonymously</p>
-                {isAnonymous && <p style={{ fontSize: '11px', color: '#65676B', margin: '4px 0 0 0' }}>Assurance: No one will know your identity except the admin.</p>}
+             <div style={styles.formGroup}>
+                 <label style={styles.label}>Mention Staff / Employees (Optional - Max 5)</label>
+                 <div style={{ position: 'relative' }}>
+                    <div style={styles.mentionInputContainer}>
+                        {selectedMentions.map(user => (
+                            <span key={user.id} style={styles.mentionPill}>
+                                {user.name}
+                                <button onClick={() => setSelectedMentions(prev => prev.filter(u => u.id !== user.id))} style={styles.removeTag}>✕</button>
+                            </span>
+                        ))}
+                        {selectedMentions.length < 5 && (
+                            <input 
+                                placeholder={selectedMentions.length === 0 ? "Type staff name to tag..." : "Add another..."}
+                                style={styles.mentionInput}
+                                value={mentionSearch}
+                                onChange={e => setMentionSearch(e.target.value)}
+                            />
+                        )}
+                    </div>
+                    
+                    {mentionSuggestions.length > 0 && (
+                        <div style={styles.suggestionsDropdown}>
+                            {mentionSuggestions.map(user => (
+                                <button 
+                                    key={user.id} 
+                                    onClick={() => {
+                                        setSelectedMentions(prev => [...prev, user]);
+                                        setMentionSearch("");
+                                        setMentionSuggestions([]);
+                                    }}
+                                    style={styles.suggestionRow}
+                                >
+                                    <div style={styles.suggestionAvatar}>
+                                        {user.avatar_url ? <img src={user.avatar_url} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%' }} /> : user.name[0]}
+                                    </div>
+                                    <div style={{ textAlign: 'left' }}>
+                                        <div style={{ fontWeight: '700', fontSize: '13px' }}>{user.name}</div>
+                                        <div style={{ fontSize: '11px', color: '#64748B' }}>{user.role_identity || user.department}</div>
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                 </div>
               </div>
-              <div style={{ ...styles.toggleBg, backgroundColor: isAnonymous ? '#10B981' : '#E2E8F0' }} onClick={() => setIsAnonymous(!isAnonymous)}>
-                <div style={{ ...styles.toggleCircle, transform: isAnonymous ? 'translateX(18px)' : 'translateX(2px)' }} />
-              </div>
-            </div>
 
-            <div style={styles.toggleRowContainer}>
-              <div style={styles.itemText}><p style={{ ...styles.itemTitle, color: allowComments ? '#10B981' : '#1E293B' }}>Comments</p></div>
-              <div style={{ ...styles.toggleBg, backgroundColor: allowComments ? '#10B981' : '#E2E8F0' }} onClick={() => setAllowComments(!allowComments)}>
-                <div style={{ ...styles.toggleCircle, transform: allowComments ? 'translateX(18px)' : 'translateX(2px)' }} />
-              </div>
-            </div>
+              <div style={styles.formGroup}>
+                 <label style={styles.label}>Your Message</label>
+                 <textarea 
+                    placeholder="Describe what happened or share your suggestion here..."
+                    style={styles.textarea}
+                    value={idea}
+                    onChange={e => setIdea(e.target.value)}
+                 />
+             </div>
 
-            <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-              <button style={{ ...styles.cancelBtn, flex: 1 }} onClick={handleCancelClick} disabled={isSubmitting}>Cancel</button>
-              <button style={{ ...styles.submitBtn, flex: 1, marginTop: 0 }} onClick={handleSubmit} disabled={isSubmitting}>
-                {isSubmitting ? "Submitting..." : "Submit Feedback"}
-              </button>
-            </div>
+             <div style={styles.formGroup}>
+                 <label style={styles.label}>Add a Photo (Optional)</label>
+                 <input 
+                     type="file" 
+                     accept="image/*" 
+                     onChange={(e) => {
+                         const file = e.target.files[0];
+                         if (file) {
+                             const reader = new FileReader();
+                             reader.onloadend = () => setAttachmentBase64(reader.result);
+                             reader.readAsDataURL(file);
+                         }
+                     }}
+                     style={{
+                         padding: '10px',
+                         border: '1px dashed #94A3B8',
+                         borderRadius: '12px',
+                         backgroundColor: '#F8FAFC',
+                         cursor: 'pointer',
+                         width: '100%',
+                         boxSizing: 'border-box',
+                         fontSize: '13px',
+                         color: '#64748B'
+                     }}
+                 />
+                 {attachmentBase64 && (
+                     <div style={{ marginTop: '12px', position: 'relative', display: 'inline-block' }}>
+                         <img src={attachmentBase64} alt="Preview" style={{ height: '80px', borderRadius: '8px', objectFit: 'cover', border: '1px solid #E2E8F0' }} />
+                         <button 
+                             onClick={() => setAttachmentBase64(null)} 
+                             style={{ position: 'absolute', top: '-8px', right: '-8px', background: '#EF4444', color: 'white', borderRadius: '50%', border: 'none', width: '24px', height: '24px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }}
+                         >✕</button>
+                     </div>
+                 )}
+             </div>
+
+             <div style={{ ...styles.formGroup, flexDirection: 'row', alignItems: 'center', gap: '10px' }}>
+                <input type="checkbox" checked={isAnonymous} onChange={e => setIsAnonymous(e.target.checked)} />
+                <label style={{ ...styles.label, margin: 0 }}>Submit as Anonymous</label>
+             </div>
+
+             <button 
+                onClick={handleSubmit} 
+                disabled={isSubmitting || !idea.trim()}
+                style={{...styles.submitBtn, opacity: (isSubmitting || !idea.trim()) ? 0.6 : 1}}
+             >
+                {isSubmitting ? "Submitting..." : `Submit ${feedbackType}`}
+             </button>
           </div>
         )}
       </main>
 
-      {showDraftModal && (
-        <div style={styles.draftOverlay}>
-          <div style={styles.draftModal}>
-            <h3 style={{ margin: '0 0 10px 0', color: 'var(--primary-color)' }}>Save to draft?</h3>
-            <p style={{ margin: '0 0 20px 0', color: '#64748B', fontSize: '13px' }}>Would you like to save your progress?</p>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button style={styles.draftDiscardBtn} onClick={handleDiscard}>Cancel</button>
-              <button style={styles.draftSaveBtn} onClick={handleSaveDraft}>Save to Draft</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <CustomModal isOpen={modalConfig.isOpen} title={modalConfig.title} message={modalConfig.message}
-        type={modalConfig.type} onConfirm={() => setModalConfig({ ...modalConfig, isOpen: false })} />
+      <CustomModal 
+        isOpen={modal.isOpen}
+        title={modal.title}
+        message={modal.message}
+        type={modal.type}
+        onConfirm={() => {
+            if (modal.onConfirm) modal.onConfirm();
+            setModal({ ...modal, isOpen: false });
+        }}
+        confirmText={modal.type === "error" ? "Try Again" : "OK"}
+      />
     </div>
   );
 };
 
 const styles = {
-  container: { height: '100%', display: 'flex', flexDirection: 'column', backgroundColor: '#F0F2F5', fontFamily: 'Segoe UI, Helvetica, Arial, sans-serif' },
-  header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', backgroundColor: 'white', borderBottom: '1px solid #E2E8F0' },
-  headerTitle: { fontSize: '15px', fontWeight: 'bold', color: '#1C1E21', margin: 0 },
-  iconBtn: { background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' },
-  mainScroll: { flex: 1, overflowY: 'auto', padding: '16px', paddingBottom: 'calc(env(safe-area-inset-bottom) + 100px)' },
-  explainBox: { backgroundColor: 'white', padding: '12px 16px', borderRadius: '8px', marginBottom: '16px', border: '1px solid #E4E6EB' },
-  explainTopRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' },
-  explainTitle: { fontSize: '20px', fontWeight: '800', color: '#1C1E21' },
-  explainDesc: { fontSize: '12px', color: '#65676B', lineHeight: '1.4', margin: 0 },
-  translateBtn: { background: 'none', border: '1px solid #E4E6EB', borderRadius: '4px', padding: '4px 8px', display: 'flex', alignItems: 'center', cursor: 'pointer', color: '#1C1E21' },
-  searchContainer: { display: 'flex', alignItems: 'center', backgroundColor: 'white', padding: '10px 14px', borderRadius: '8px', border: '1px solid #E4E6EB', marginBottom: '16px', gap: '8px' },
-  searchInput: { border: 'none', outline: 'none', fontSize: '13px', width: '100%', color: '#1C1E21', backgroundColor: 'transparent' },
-  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '10px' },
-  card: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '14px 10px', backgroundColor: 'white', borderRadius: '8px', border: '1px solid #E4E6EB', cursor: 'pointer', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' },
-  iconBox: { width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#E4E6EB', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#1C1E21', marginBottom: '8px' },
-  iconBoxSmall: { width: '30px', height: '30px', borderRadius: '50%', backgroundColor: '#E4E6EB', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#1C1E21' },
-  cardLabel: { fontSize: '12px', fontWeight: '600', color: '#1C1E21', textAlign: 'center' },
-  formContainer: { backgroundColor: 'white', padding: '16px', borderRadius: '8px', border: '1px solid #E4E6EB', marginBottom: '20px' },
-  selectedHeader: { display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px', paddingBottom: '12px', borderBottom: '1px solid #E4E6EB' },
-  selectedTitle: { margin: 0, fontSize: '15px', fontWeight: 'bold', color: '#1C1E21' },
-  row: { display: 'flex', gap: '8px' },
-  formGroup: { marginBottom: '14px' },
-  label: { display: 'block', fontSize: '12px', fontWeight: '600', color: '#65676B', marginBottom: '5px' },
-  inputBox: { width: '100%', padding: '9px 12px', backgroundColor: '#F0F2F5', border: '1px solid #E4E6EB', borderRadius: '6px', fontSize: '13px', color: '#1C1E21', outline: 'none', boxSizing: 'border-box' },
-  textArea: { width: '100%', padding: '9px 12px', backgroundColor: '#F0F2F5', border: '1px solid #E4E6EB', borderRadius: '6px', fontSize: '13px', color: '#1C1E21', minHeight: '120px', resize: 'vertical', boxSizing: 'border-box', outline: 'none' },
-  nativeSelect: { width: '100%', padding: '12px 14px', backgroundColor: '#FFFFFF', border: '1px solid #D1D5DB', borderRadius: '12px', fontSize: '14px', color: '#111827', outline: 'none', boxSizing: 'border-box', appearance: 'none', backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236B7280'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center', backgroundSize: '16px', cursor: 'pointer', transition: 'all 0.2s ease' },
-  attachBtn: { display: 'flex', alignItems: 'center', padding: '8px 14px', backgroundColor: '#F0F2F5', border: '1px dashed #C7C9CC', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', color: '#65676B', fontWeight: '600' },
-  fileList: { display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '8px' },
-  fileItem: { display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#F0F2F5', borderRadius: '6px', padding: '4px 8px', border: '1px solid #E4E6EB' },
-  fileThumb: { width: '36px', height: '36px', objectFit: 'cover', borderRadius: '4px' },
-  fileIcon: { width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#65676B' },
-  fileName: { fontSize: '11px', color: '#1C1E21', maxWidth: '100px' },
-  removeFileBtn: { background: 'none', border: 'none', cursor: 'pointer', color: '#EF4444', padding: '2px', display: 'flex', alignItems: 'center' },
-  toggleRowContainer: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', padding: '10px 0', borderBottom: '1px solid #F0F2F5' },
-  itemText: { flex: 1, paddingRight: '12px' },
-  itemTitle: { fontSize: '13px', fontWeight: '600', margin: 0, color: '#1C1E21' },
-  toggleBg: { width: '40px', height: '22px', borderRadius: '11px', display: 'flex', alignItems: 'center', cursor: 'pointer', transition: 'background-color 0.2s', padding: '2px', boxSizing: 'border-box' },
-  toggleCircle: { width: '18px', height: '18px', backgroundColor: 'white', borderRadius: '50%', boxShadow: '0 1px 2px rgba(0,0,0,0.2)', transition: 'transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)' },
-  submitBtn: { width: '100%', padding: '12px', backgroundColor: '#1877F2', color: 'white', border: 'none', borderRadius: '6px', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer', marginTop: '8px' },
-  cancelBtn: { width: '100%', padding: '12px', backgroundColor: '#F1F5F9', color: '#64748B', border: 'none', borderRadius: '6px', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer' },
-  starRow: { display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 0' },
-  starBtn: { background: 'none', border: 'none', cursor: 'pointer', padding: 0 },
-  suggestionsDropdown: {
-    position: 'absolute', top: '100%', left: '98px', right: 0,
-    backgroundColor: 'white', border: '1px solid #E2E8F0',
-    borderRadius: '12px', marginTop: '4px', zIndex: 1000,
-    boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05)',
-    maxHeight: '240px', overflowY: 'auto'
-  },
-  suggestionItem: {
-    display: 'flex', alignItems: 'center', gap: '12px',
-    padding: '10px 12px', cursor: 'pointer', transition: 'background-color 0.2s',
-    borderBottom: '1px solid #F1F5F9'
-  },
-  suggestionAvatar: { width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', border: '1px solid #E2E8F0' },
-  suggestionAvatarPlaceholder: { width: '32px', height: '32px', borderRadius: '50%', backgroundColor: 'var(--primary-color)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 'bold' },
-  suggestionName: { fontSize: '13px', fontWeight: '700', color: '#1E293B' },
-  suggestionMeta: { fontSize: '11px', color: '#64748B' },
-  draftOverlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(15, 23, 42, 0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 },
-  draftModal: { backgroundColor: 'white', padding: '24px', borderRadius: '16px', maxWidth: '300px', width: '100%', textAlign: 'center' },
-  draftDiscardBtn: { flex: 1, padding: '10px', backgroundColor: '#F1F5F9', border: 'none', borderRadius: '8px', color: '#64748B', fontWeight: 'bold', cursor: 'pointer' },
-  draftSaveBtn: { flex: 1, padding: '10px', backgroundColor: '#10B981', border: 'none', borderRadius: '8px', color: 'white', fontWeight: 'bold', cursor: 'pointer' },
+  container: { height: '100%', display: 'flex', flexDirection: 'column', background: '#F8FAFC' },
+  header: { padding: '20px', background: 'white', display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 },
+  backBtn: { border: 'none', background: 'none', cursor: 'pointer', color: '#64748B' },
+  headerTitle: { fontSize: '16px', fontWeight: '800', margin: 0, color: '#1E293B' },
+  headerSubtitle: { fontSize: '10px', fontWeight: '700', color: '#94A3B8', textTransform: 'uppercase', margin: 0, letterSpacing: '0.05em' },
+  stepperContainer: { display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '10px 0', background: 'white', borderBottom: '1px solid #F1F5F9' },
+  stepCircle: { width: '28px', height: '28px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: '800' },
+  stepLine: { width: '40px', height: '2px', margin: '0 4px' },
+  content: { flex: 1, padding: '24px', overflowY: 'auto' },
+  grid: { display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '15px' },
+  typeCard: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px', borderRadius: '20px', border: '2px solid transparent', cursor: 'pointer', transition: 'all 0.2s', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' },
+  typeLabel: { fontSize: '13px', fontWeight: '800', color: '#334155' },
+  list: { display: 'flex', flexDirection: 'column', gap: '12px' },
+  listItem: { display: 'flex', alignItems: 'center', gap: '15px', padding: '16px', borderRadius: '16px', border: '1px solid #E2E8F0', cursor: 'pointer', width: '100%' },
+  itemIcon: { width: '44px', height: '44px', borderRadius: '12px', background: 'white', border: '1px solid #F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--primary-color)' },
+  itemName: { fontWeight: '800', fontSize: '14px', color: '#1E293B' },
+  itemSub: { fontSize: '11px', color: '#64748B' },
+  searchBox: { display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 16px', background: 'white', borderRadius: '12px', border: '1px solid #E2E8F0', marginBottom: '10px' },
+  searchInput: { border: 'none', outline: 'none', fontSize: '14px', flex: 1, color: '#1E293B', background: 'transparent' },
+  sectionTitle: { fontSize: '10px', fontWeight: '800', color: '#94A3B8', margin: '0 0 10px 0', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '6px' },
+  suggestionGrid: { display: 'flex', gap: '8px', flexWrap: 'wrap' },
+  suggestionItem: { padding: '8px 14px', borderRadius: '10px', border: '1px solid #E2E8F0', background: 'white', fontSize: '11px', fontWeight: '700', color: '#475569', cursor: 'pointer' },
+  branchList: { display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '300px', overflowY: 'auto' },
+  branchItem: { display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', borderRadius: '12px', border: '1px solid #F1F5F9', cursor: 'pointer', width: '100%', color: '#64748B' },
+  branchName: { fontWeight: '700', fontSize: '13px', color: '#1E293B' },
+  branchLoc: { fontSize: '10px' },
+  divider: { textAlign: 'center', fontSize: '11px', color: '#94A3B8', fontWeight: '800', margin: '10px 0' },
+  manualBtn: { padding: '16px', borderRadius: '16px', border: '2px dashed #E2E8F0', width: '100%', cursor: 'pointer', textAlign: 'left' },
+  manualInput: { width: '100%', padding: '12px', borderRadius: '10px', border: `1px solid var(--primary-color)`, fontSize: '13px', outline: 'none', background: 'white' },
+  emptyBranchBox: { padding: '24px', borderRadius: '16px', background: 'rgba(var(--primary-rgb), 0.03)', border: '1px solid rgba(var(--primary-rgb), 0.1)', textAlign: 'center' },
+  form: { display: 'flex', flexDirection: 'column', gap: '20px' },
+  summaryBox: { padding: '16px', borderRadius: '16px', border: '1px solid #E2E8F0', background: 'white' },
+  formGroup: { display: 'flex', flexDirection: 'column', gap: '8px' },
+  label: { fontSize: '13px', fontWeight: '700', color: '#334155' },
+  starRow: { display: 'flex', gap: '5px' },
+  starBtn: { border: 'none', background: 'none', cursor: 'pointer', padding: 0 },
+  textarea: { height: '120px', padding: '14px', borderRadius: '12px', border: '1px solid #E2E8F0', outline: 'none', fontSize: '14px', fontFamily: 'inherit' },
+  submitBtn: { padding: '16px', background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '12px', fontSize: '14px', fontWeight: '800', cursor: 'pointer', marginTop: '10px' },
+  nextBtn: { padding: '14px', background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '12px', fontWeight: '700', cursor: 'pointer' },
+  loader: { padding: '100px', textAlign: 'center', color: '#64748B' },
+  
+  // Mention Styles
+  mentionInputContainer: { display: 'flex', flexWrap: 'wrap', gap: '8px', padding: '10px', minHeight: '48px', backgroundColor: 'white', border: '1px solid #E2E8F0', borderRadius: '12px', alignItems: 'center' },
+  mentionPill: { display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 10px', backgroundColor: '#EFF6FF', color: '#1D4ED8', borderRadius: '8px', fontSize: '12px', fontWeight: '700', border: '1px solid #DBEAFE' },
+  removeTag: { border: 'none', background: 'none', color: '#3B82F6', cursor: 'pointer', fontSize: '12px', padding: '2px' },
+  mentionInput: { border: 'none', outline: 'none', flex: 1, minWidth: '120px', fontSize: '13px' },
+  suggestionsDropdown: { position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: 'white', border: '1px solid #E2E8F0', borderRadius: '12px', marginTop: '4px', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', zIndex: 100, maxHeight: '200px', overflowY: 'auto' },
+  suggestionRow: { width: '100%', display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 15px', border: 'none', background: 'none', cursor: 'pointer', borderBottom: '1px solid #F1F5F9', transition: 'background 0.2s' },
+  suggestionAvatar: { width: '32px', height: '32px', borderRadius: '50%', backgroundColor: '#F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: '700', color: 'var(--primary-color)', overflow: 'hidden' }
 };
-
-if (typeof document !== 'undefined') {
-  const style = document.createElement('style');
-  style.innerHTML = `
-    input:focus, textarea:focus, select:focus { border-color: #1877F2 !important; }
-    @keyframes pulse { 0% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.5); opacity: 0.5; } 100% { transform: scale(1); opacity: 1; } }
-  `;
-  document.head.appendChild(style);
-}
 
 export default GeneralFeedback;

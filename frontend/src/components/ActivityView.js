@@ -1,5 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { getUserActivity } from "../services/api";
+import { 
+  getEmotion, 
+  formatLocation, 
+  formatFeedbackDate, 
+  renderFeedbackAction,
+  formatMentions
+} from "../utils/feedback";
 
 const Icons = {
   Back: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>,
@@ -9,6 +16,7 @@ const Icons = {
   Post: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
 };
 
+// Legacy helper replaced by utils/feedback.js
 const formatDateTime = (dateStr) => {
   if (!dateStr) return { date: "N/A", time: "N/A" };
   const dateObj = new Date(dateStr);
@@ -96,14 +104,25 @@ const ActivityView = ({ currentUser, onBack, onViewPost }) => {
                     <div style={{...styles.iconWrapper, backgroundColor: iconBg, color: iconColor}}><Icon /></div>
                     <div style={styles.meta}>
                       <span style={styles.actionText}>
-                        <span style={styles.actor}>You</span> {actionText} <span style={styles.targetTitle}>"{act.title || "a post"}"</span>
+                        {act.type === 'post' ? (
+                          renderFeedbackAction(act, currentUser)
+                        ) : (
+                          <>
+                            <span style={styles.actor}>You</span> {actionText} <span style={styles.targetTitle}>"{act.title || "a post"}"</span>
+                          </>
+                        )}
                         {act.type === 'post' && act.mentions && act.mentions.length > 0 && (
                           <div style={styles.mentionsList}>
-                            <span style={styles.mentionsLabel}>MENTIONED:</span> {act.mentions.map(m => `${m.employee_prefix} ${m.employee_name}`.trim()).join(", ")}
+                            <span style={styles.mentionsLabel}>MENTIONED:</span> {formatMentions(act.mentions)}
                           </div>
                         )}
                       </span>
-                      <span style={styles.date}>{date} • {time}</span>
+                      <span style={styles.date}>
+                        {formatFeedbackDate(act.created_at)}
+                        {act.type === 'post' && (
+                          <> • {formatLocation(act)}</>
+                        )}
+                      </span>
                     </div>
                     <div style={styles.chevron}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg></div>
                   </div>

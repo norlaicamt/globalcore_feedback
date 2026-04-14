@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { updateUser, getEntities } from "../services/api";
 import { useTerminology } from "../context/TerminologyContext";
+import { STORAGE_KEYS } from "../utils/storage";
 
 const ROLE_OPTIONS = ["Student", "Visitor", "Employee", "Parent", "Staff", "Others"];
 const DRAFT_VERSION = 1;
@@ -73,7 +74,7 @@ const UserOnboarding = ({ currentUser, onBack, onComplete }) => {
 
   useEffect(() => {
     // 1. Check for draft on mount
-    const draftKey = `onboarding_draft_${currentUser?.id}`;
+    const draftKey = `user.onboarding_draft_${currentUser?.id}`;
     const rawDraft = localStorage.getItem(draftKey);
     if (rawDraft) {
       try {
@@ -121,7 +122,7 @@ const UserOnboarding = ({ currentUser, onBack, onComplete }) => {
   // 2. Auto-save with debounce
   useEffect(() => {
     if (saving) return; // Don't save while finalizing
-    const draftKey = `onboarding_draft_${currentUser?.id}`;
+    const draftKey = `user.onboarding_draft_${currentUser?.id}`;
     
     const timer = setTimeout(() => {
       const draft = {
@@ -188,9 +189,9 @@ const UserOnboarding = ({ currentUser, onBack, onComplete }) => {
         ...(updatedFromApi || {}),
         onboarding_completed: true,
       };
-      localStorage.setItem("userView", "home");
-      localStorage.setItem("currentUser", JSON.stringify(updated));
-      localStorage.removeItem(`onboarding_draft_${currentUser.id}`);
+      localStorage.setItem(STORAGE_KEYS.USER_VIEW, "home");
+      localStorage.setItem(STORAGE_KEYS.USER_CURRENT, JSON.stringify(updated));
+      localStorage.removeItem(`user.onboarding_draft_${currentUser.id}`);
       onComplete(updated);
     } catch (err) {
       // Keep UX unblocked: if backend response shape/version is behind,
@@ -200,8 +201,8 @@ const UserOnboarding = ({ currentUser, onBack, onComplete }) => {
         ...form,
         onboarding_completed: true,
       };
-      localStorage.setItem("userView", "home");
-      localStorage.setItem("currentUser", JSON.stringify(fallbackUser));
+      localStorage.setItem(STORAGE_KEYS.USER_VIEW, "home");
+      localStorage.setItem(STORAGE_KEYS.USER_CURRENT, JSON.stringify(fallbackUser));
       onComplete(fallbackUser);
     } finally {
       setSaving(false);

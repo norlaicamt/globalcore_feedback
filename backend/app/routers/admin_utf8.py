@@ -1,4 +1,4 @@
-﻿from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func, cast, Date
 from typing import List, Optional
@@ -172,21 +172,47 @@ def analytics_ratings(dept_name: Optional[str] = None, db: Session = Depends(get
 def analytics_top_users(limit: int = 10, db: Session = Depends(get_db), admin: dict = Depends(get_admin_context)):
     effective_dept = admin["department"] if admin["role"] != "superadmin" else None
     
+    from sqlalchemy import select
+    # Subqueries for point factors
+    post_count_sq = (select(func.count(models.Feedback.id)).where((models.Feedback.sender_id == models.User.id) & (models.Feedback.is_approved == True)).scalar_subquery())
+    recv_likes_sq = (select(func.count(models.Reaction.id)).join(models.Feedback, models.Reaction.feedback_id == models.Feedback.id).where((models.Feedback.sender_id == models.User.id) & (models.Reaction.is_like == True) & (models.Feedback.is_approved == True)).scalar_subquery())
+    give_likes_sq = (select(func.count(models.Reaction.id)).where((models.Reaction.user_id == models.User.id) & (models.Reaction.is_like == True)).scalar_subquery())
+    give_rlikes_sq = (select(func.count(models.ReplyReaction.id)).where((models.ReplyReaction.user_id == models.User.id) & (models.ReplyReaction.is_like == True)).scalar_subquery())
+    give_comm_sq = (select(func.count(models.Reply.id)).where((models.Reply.user_id == models.User.id) & (models.Reply.parent_id == None)).scalar_subquery())
+
     query = db.query(
         models.User.id,
         models.User.name,
         models.User.email,
         models.User.department,
-        func.count(models.Feedback.id).label("total_posts")
-    ).outerjoin(models.Feedback, models.Feedback.sender_id == models.User.id)
+        post_count_sq.label("p_cnt"),
+        recv_likes_sq.label("r_likes"),
+        give_likes_sq.label("r_give"),
+        give_rlikes_sq.label("rr_give"),
+        give_comm_sq.label("c_give")
+    )
     
     if effective_dept:
         query = query.filter(models.User.department == effective_dept)
         
-    rows = query.group_by(models.User.id, models.User.name, models.User.email, models.User.department)\
-                .order_by(func.count(models.Feedback.id).desc())\
-                .limit(limit).all()
-    return [{"id": r.id, "name": r.name, "email": r.email, "department": r.department, "total_posts": r.total_posts} for r in rows]
+    rows = query.all()
+    
+    # Calculate points and sort
+    results = []
+    for r in rows:
+        p_cnt = r.p_cnt or 0
+        r_lks = r.r_likes or 0
+        g_lks = (r.r_give or 0) + (r.rr_give or 0)
+        g_cms = r.c_give or 0
+        
+        pts = (p_cnt * 3) + (r_lks * 0.5) + (g_lks * 0.5) + (g_cms * 0.3)
+        results.append({
+            "id": r.id, "name": r.name, "email": r.email, "department": r.department, 
+            "total_posts": p_cnt, "impact_points": round(float(pts), 1)
+        })
+    
+    results.sort(key=lambda x: x["impact_points"], reverse=True)
+    return results[:limit]
 
 
 @router.get("/analytics/engagement")
@@ -242,39 +268,29 @@ def admin_get_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_d
         .label("posts_count")
     )
     
-    # 2. Received Reactions (where User is the author of the feedback)
-    recv_reac_sq = (
+    # 2. Received Likes (where User is the author of the feedback)
+    recv_likes_sq = (
         select(func.count(models.Reaction.id))
         .join(models.Feedback, models.Reaction.feedback_id == models.Feedback.id)
-        .where((models.Feedback.sender_id == models.User.id) & (models.Feedback.is_approved == True))
+        .where((models.Feedback.sender_id == models.User.id) & (models.Reaction.is_like == True) & (models.Feedback.is_approved == True))
         .scalar_subquery()
-        .label("recv_reac")
+        .label("recv_likes")
     )
 
-    # 3. Received Comments (Top-level replies to user's approved feedback)
-    recv_comm_sq = (
-        select(func.count(models.Reply.id))
-        .join(models.Feedback, models.Reply.feedback_id == models.Feedback.id)
-        .where((models.Feedback.sender_id == models.User.id) & (models.Reply.parent_id == None) & (models.Feedback.is_approved == True))
-        .scalar_subquery()
-        .label("recv_comm")
-    )
-
-    # 4. Given Actions (Reactions + ReplyReactions given by this user)
-    give_reac_sq = (select(func.count(models.Reaction.id)).where(models.Reaction.user_id == models.User.id).scalar_subquery())
-    give_rreac_sq = (select(func.count(models.ReplyReaction.id)).where(models.ReplyReaction.user_id == models.User.id).scalar_subquery())
+    # 3. Given Likes (Reactions + ReplyReactions given by this user)
+    give_likes_sq = (select(func.count(models.Reaction.id)).where((models.Reaction.user_id == models.User.id) & (models.Reaction.is_like == True)).scalar_subquery())
+    give_rlikes_sq = (select(func.count(models.ReplyReaction.id)).where((models.ReplyReaction.user_id == models.User.id) & (models.ReplyReaction.is_like == True)).scalar_subquery())
     
-    # 5. Given Comments
-    give_comm_sq = (select(func.count(models.Reply.id)).where(models.Reply.user_id == models.User.id).scalar_subquery())
+    # 4. Given Comments (Top-level only)
+    give_comm_sq = (select(func.count(models.Reply.id)).where((models.Reply.user_id == models.User.id) & (models.Reply.parent_id == None)).scalar_subquery())
 
     # Query with all factors
     query = db.query(
         models.User,
         post_count_sq,
-        recv_reac_sq,
-        recv_comm_sq,
-        give_reac_sq,
-        give_rreac_sq,
+        recv_likes_sq,
+        give_likes_sq,
+        give_rlikes_sq,
         give_comm_sq
     )
     
@@ -284,15 +300,15 @@ def admin_get_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_d
     users_with_stats = query.order_by(models.User.id).offset(skip).limit(limit).all()
 
     result = []
-    for u, p_cnt, r_recv, c_recv, r_give, rr_give, c_give in users_with_stats:
+    for u, p_cnt, r_likes, r_give, rr_give, c_give in users_with_stats:
         p_cnt = p_cnt or 0
-        r_recv = r_recv or 0
-        c_recv = c_recv or 0
-        actions_given = (r_give or 0) + (rr_give or 0)
+        r_likes = r_likes or 0
+        r_give = r_give or 0
+        rr_give = rr_give or 0
         c_give = c_give or 0
         
         # Calculate points using the same weights as CRUD
-        pts = (p_cnt * 3) + (r_recv * 1.5) + (c_recv * 1) + (actions_given * 0.5) + (c_give * 0.5)
+        pts = (p_cnt * 3) + (r_likes * 0.5) + ((r_give + rr_give) * 0.5) + (c_give * 0.3)
         
         result.append({
             "id": u.id, "name": u.name, "email": u.email, "department": u.department,

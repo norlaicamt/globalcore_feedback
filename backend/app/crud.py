@@ -3,7 +3,7 @@ from sqlalchemy import func, select, case
 from app import models
 from app import schemas
 import asyncio
-from typing import Optional
+from typing import Optional, List
 
 # User operations
 def get_user(db: Session, user_id: int):
@@ -37,6 +37,29 @@ def get_user_profiles(db: Session):
         models.User.show_activity_status,
         models.User.created_at
     ).filter(models.User.is_active == True).all()
+
+def search_users(db: Session, query: str = None, roles: List[str] = None, limit: int = 10):
+    q = db.query(
+        models.User.id,
+        models.User.name,
+        models.User.username,
+        func.coalesce(models.User.unit_name, models.User.program, models.User.department).label("department"),
+        models.User.role_identity,
+        models.User.avatar_url,
+        models.User.role
+    ).filter(models.User.is_active == True)
+    
+    if roles:
+        q = q.filter(models.User.role.in_(roles))
+        
+    if query:
+        from sqlalchemy import or_
+        q = q.filter(or_(
+            models.User.name.ilike(f"%{query}%"),
+            models.User.username.ilike(f"%{query}%")
+        ))
+        
+    return q.limit(limit).all()
 
 def create_user(db: Session, user: schemas.UserCreate):
     data = user.model_dump()
@@ -136,6 +159,58 @@ def create_entity(db: Session, entity: schemas.EntityCreate):
     db.refresh(db_ent)
     return db_ent
 
+# Branch operations
+def get_branches(db: Session, skip: int = 0, limit: int = 100, entity_id: int = None, only_active: bool = True):
+    fb_count_sub = db.query(
+        models.Feedback.branch_id,
+        func.count(models.Feedback.id).label("cnt")
+    ).group_by(models.Feedback.branch_id).subquery()
+
+    query = db.query(
+        models.Branch,
+        func.coalesce(fb_count_sub.c.cnt, 0).label("feedback_count")
+    ).outerjoin(fb_count_sub, models.Branch.id == fb_count_sub.c.branch_id)
+    
+    if entity_id:
+        query = query.filter(models.Branch.entity_id == entity_id)
+    if only_active:
+        query = query.filter(models.Branch.is_active == True)
+        
+    results = query.offset(skip).limit(limit).all()
+    
+    # Map back to objects with dynamic attributes
+    branches = []
+    for row in results:
+        b = row[0]
+        b.feedback_count = row.feedback_count
+        branches.append(b)
+    return branches
+
+def create_branch(db: Session, branch: schemas.BranchCreate):
+    db_branch = models.Branch(**branch.model_dump())
+    db.add(db_branch)
+    db.commit()
+    db.refresh(db_branch)
+    return db_branch
+
+def update_branch(db: Session, branch_id: int, updates: schemas.BranchUpdate):
+    db_branch = db.query(models.Branch).filter(models.Branch.id == branch_id).first()
+    if db_branch:
+        update_data = updates.model_dump(exclude_unset=True)
+        for key, value in update_data.items():
+            setattr(db_branch, key, value)
+        db.commit()
+        db.refresh(db_branch)
+    return db_branch
+
+def delete_branch(db: Session, branch_id: int):
+    db_branch = db.query(models.Branch).filter(models.Branch.id == branch_id).first()
+    if db_branch:
+        # User refinement: instead of hard deleting, we deactivate.
+        db_branch.is_active = False
+        db.commit()
+    return db_branch
+
 # Organization operations
 def get_organizations(db: Session, skip: int = 0, limit: int = 100):
     return db.query(models.Organization).offset(skip).limit(limit).all()
@@ -191,7 +266,8 @@ def get_feedbacks(
         joinedload(models.Feedback.sender),
         joinedload(models.Feedback.recipient_user),
         joinedload(models.Feedback.recipient_dept),
-        joinedload(models.Feedback.entity)
+        joinedload(models.Feedback.entity),
+        joinedload(models.Feedback.branch)
     )
 
     # If mentioned_user_id provided, join with FeedbackMention
@@ -252,6 +328,19 @@ def get_feedbacks(
         fb.recipient_user_name = fb.recipient_user.name if fb.recipient_user else None
         fb.entity_name = fb.entity.name if fb.entity else None
         
+        # Refined Waterfall Logic for Branch Name
+        fb.branch_name = fb.branch_name_snapshot
+        if not fb.branch_name and fb.branch:
+            fb.branch_name = fb.branch.name
+        if not fb.branch_name:
+            fb.branch_name = fb.manual_location_text
+        if not fb.branch_name:
+            fb.branch_name = "Unknown Location"
+            
+        # Append Inactive status if applicable
+        if fb.branch and not fb.branch.is_active:
+            fb.branch_name += " (Inactive)"
+        
         results.append(fb)
 
     return results
@@ -260,6 +349,23 @@ def get_feedbacks(
 def create_feedback(db: Session, feedback: schemas.FeedbackCreate):
     data = feedback.model_dump()
     mentions_data = data.pop("mentions", [])
+    
+    # 1. Branch Validation & Snapshot logic
+    branch_id = data.get("branch_id")
+    entity_id = data.get("entity_id")
+    
+    if branch_id:
+        branch = db.query(models.Branch).filter(models.Branch.id == branch_id).first()
+        if not branch:
+            # Raise ValueError so router can handle as 400
+            raise ValueError("Selected branch does not exist")
+        
+        # User Refinement: Strict entity-based scoping
+        if branch.entity_id != entity_id:
+            raise ValueError("Invalid branch for the selected program/entity")
+            
+        # User Refinement: Snapshot branch name for historical consistency
+        data["branch_name_snapshot"] = branch.name
     
     db_feedback = models.Feedback(**data)
     db.add(db_feedback)
@@ -542,7 +648,21 @@ def toggle_reply_reaction(db: Session, user_id: int, reply_id: int, is_like: boo
         return new_reaction
 
 # Notification operations
-def create_notification(db: Session, user_id: int, actor_id: int, notif_type: models.NotificationType, feedback_id: int, reply_id: int = None, message: str = None, subject: str = None, broadcast_id: int = None):
+def create_notifications_bulk(db: Session, notifications: List[models.Notification]):
+    """Optimized creation of multiple notifications (e.g. for broadcasts)."""
+    db.add_all(notifications)
+    db.commit()
+    # Pings SSE manager for each recipient (minimal impact if not subscribed)
+    from app.sse import sse_manager
+    import asyncio
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            for n in notifications:
+                asyncio.create_task(sse_manager.notify(n.user_id))
+    except (RuntimeError, Exception): pass
+
+def create_notification(db: Session, user_id: int, actor_id: int, notif_type: models.NotificationType, feedback_id: Optional[int] = None, reply_id: int = None, message: str = None, subject: str = None, broadcast_id: int = None, entity_id: int = None):
     # 1. Smart Grouping for Likes
     if notif_type == models.NotificationType.LIKE:
         existing = db.query(models.Notification).filter(
@@ -580,6 +700,7 @@ def create_notification(db: Session, user_id: int, actor_id: int, notif_type: mo
         message=message,
         subject=subject,
         broadcast_id=broadcast_id,
+        entity_id=entity_id,
         is_read=False,
         meta={"actor_ids": [actor_id], "actor_count": 1} if notif_type == models.NotificationType.LIKE else None
     )
@@ -668,29 +789,51 @@ def mark_notifications_as_read(db: Session, user_id: int):
     db.commit()
     return True
 
+def acknowledge_broadcast(db: Session, broadcast_id: int, user_id: int):
+    """Marks a broadcast notification as acknowledged and increments the read_count."""
+    notif = db.query(models.Notification).filter(
+        models.Notification.broadcast_id == broadcast_id,
+        models.Notification.user_id == user_id
+    ).first()
+    
+    if notif and not notif.is_acknowledged:
+        # Mark notification as acknowledged
+        notif.is_acknowledged = True
+        
+        # Increment read_count on the log itself
+        log = db.query(models.BroadcastLog).filter(models.BroadcastLog.id == broadcast_id).first()
+        if log:
+            log.read_count += 1
+            
+        db.commit()
+        return True
+    return False
+
 # Analytics & Performance
 def get_user_impact_stats(db: Session, user_id: int):
     posts_count = db.query(func.count(models.Feedback.id))\
         .filter(models.Feedback.sender_id == user_id, models.Feedback.is_approved == True).scalar() or 0
     
-    received_reactions = db.query(func.count(models.Reaction.id))\
-        .join(models.Feedback, models.Reaction.feedback_id == models.Feedback.id)\
-        .filter(models.Feedback.sender_id == user_id, models.Feedback.is_approved == True).scalar() or 0
-    
-    received_comments = db.query(func.count(models.Reply.id))\
-        .join(models.Feedback, models.Reply.feedback_id == models.Feedback.id)\
-        .filter(models.Feedback.sender_id == user_id, models.Reply.parent_id == None, models.Feedback.is_approved == True).scalar() or 0
-    
-    given_comments = db.query(func.count(models.Reply.id)).filter(models.Reply.user_id == user_id).scalar() or 0
-    given_reactions = db.query(func.count(models.Reaction.id)).filter(models.Reaction.user_id == user_id).scalar() or 0
-    given_reply_reactions = db.query(func.count(models.ReplyReaction.id)).filter(models.ReplyReaction.user_id == user_id).scalar() or 0
-    
     likes_received = db.query(func.count(models.Reaction.id))\
         .join(models.Feedback, models.Reaction.feedback_id == models.Feedback.id)\
         .filter(models.Feedback.sender_id == user_id, models.Reaction.is_like == True, models.Feedback.is_approved == True).scalar() or 0
 
-    total_points = (posts_count * 3) + (received_reactions * 1.5) + (received_comments * 1) + \
-                   ((given_reactions + given_reply_reactions) * 0.5) + (given_comments * 0.5)
+    likes_given = db.query(func.count(models.Reaction.id))\
+        .filter(models.Reaction.user_id == user_id, models.Reaction.is_like == True).scalar() or 0
+    
+    reply_likes_given = db.query(func.count(models.ReplyReaction.id))\
+        .filter(models.ReplyReaction.user_id == user_id, models.ReplyReaction.is_like == True).scalar() or 0
+    
+    major_comments_given = db.query(func.count(models.Reply.id))\
+        .filter(models.Reply.user_id == user_id, models.Reply.parent_id == None).scalar() or 0
+
+    # New Point System:
+    # 3 for feedback (posts)
+    # 0.5 for likes received
+    # 0.5 for likes given
+    # 0.3 for user comment (not reply)
+    total_points = (posts_count * 3) + (likes_received * 0.5) + \
+                   ((likes_given + reply_likes_given) * 0.5) + (major_comments_given * 0.3)
 
     return {
         'impact_points': round(float(total_points), 1),
@@ -748,6 +891,43 @@ def get_analytics_summary(db: Session, dept_name: Optional[str] = None, entity_i
         "total_reactions": total_reactions,
         "avg_rating": avg_rating,
         "anonymous_rate": anon_rate,
+    }
+
+def get_top_branches(db: Session, entity_id: Optional[int] = None, limit: int = 5):
+    """Returns top branches based on feedback count and average rating."""
+    query = db.query(
+        models.Branch.name,
+        func.count(models.Feedback.id).label("count"),
+        func.avg(models.Feedback.rating).label("avg_rating")
+    ).join(models.Feedback, models.Feedback.branch_id == models.Branch.id)
+    
+    if entity_id:
+        query = query.filter(models.Feedback.entity_id == entity_id)
+        
+    rows = query.group_by(models.Branch.name)\
+                .order_by(func.count(models.Feedback.id).desc())\
+                .limit(limit).all()
+                
+    return [{"name": r.name, "count": r.count, "avg_rating": round(float(r.avg_rating), 2) if r.avg_rating else 0.0} for r in rows]
+
+def get_feedback_type_distribution(db: Session, entity_id: Optional[int] = None):
+    """Calculates percentage breakdown of feedback types."""
+    query = db.query(
+        models.Feedback.feedback_type,
+        func.count(models.Feedback.id)
+    )
+    
+    if entity_id:
+        query = query.filter(models.Feedback.entity_id == entity_id)
+        
+    stats = query.group_by(models.Feedback.feedback_type).all()
+    total = sum(s[1] for s in stats)
+    
+    if total == 0:
+        return {t: 0 for t in ["Complaint", "Suggestion", "Appreciation", "Inquiry"]}
+        
+    return {
+        s[0]: round((s[1] / total) * 100, 1) if s[0] else 0 for s in stats
     }
 
 def get_sentiment_summary(db: Session, dept_name: Optional[str] = None, entity_id: Optional[int] = None):
@@ -944,7 +1124,12 @@ def get_user_activity(db: Session, user_id: int):
     results = []
     
     # 1. User's Posts
-    feedbacks = db.query(models.Feedback).options(joinedload(models.Feedback.mentions)).filter(models.Feedback.sender_id == user_id).all()
+    feedbacks = db.query(models.Feedback)\
+        .options(joinedload(models.Feedback.mentions))\
+        .outerjoin(models.Branch, models.Feedback.branch_id == models.Branch.id)\
+        .outerjoin(models.Entity, models.Feedback.entity_id == models.Entity.id)\
+        .filter(models.Feedback.sender_id == user_id).all()
+        
     for f in feedbacks:
         results.append({
             "id": f"post_{f.id}",
@@ -953,7 +1138,14 @@ def get_user_activity(db: Session, user_id: int):
             "title": f.title,
             "message": f.description[:100],
             "mentions": f.mentions,
-            "created_at": f.created_at
+            "created_at": f.created_at,
+            "rating": f.rating,
+            "branch_name": f.branch.name if f.branch else f.branch_name_snapshot,
+            "region": f.region,
+            "city": f.city,
+            "province": f.province,
+            "barangay": f.barangay,
+            "entity_name": f.entity.name if f.entity else None
         })
         
     # 2. User's Comments

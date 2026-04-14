@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { adminGetProfile, getSystemLabels, updateSystemLabelsBulk, getAdminSettings, updateAdminSetting, getFormFields, saveFormFields } from "../../../services/adminApi";
+import { useTerminology } from "../../../context/TerminologyContext";
 
 // ─── SVG icon set (no emojis) ─────────────────────────────────────────────────
 const Ico = {
@@ -185,8 +186,9 @@ const PreviewRow = ({ icon, label, badge, highlight, theme, darkMode }) => (
 
 // ─── Main Component ────────────────────────────────────────────────────────────
 const AdminUIText = ({ theme, darkMode }) => {
+  const { systemName } = useTerminology();
   const [settings, setSettings] = useState({
-    general_report_title: "Submit Your Feedback",
+    general_report_title: systemName,
     general_report_instruction: "Share your thoughts, concerns, or suggestions about any service, office, or establishment. Please select the appropriate category to proceed.",
     general_report_title_fil: "Ibahagi ang Iyong Feedback",
     general_report_instruction_fil: "Ang feedback ay para sa pagbabahagi ng inyong opinyon, reklamo, o mungkahi tungkol sa anumang serbisyo o opisina. Mangyaring piliin ang naaangkop na kategorya sa ibaba.",

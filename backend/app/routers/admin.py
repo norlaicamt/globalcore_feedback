@@ -150,7 +150,9 @@ def analytics_snapshot(dept_name: Optional[str] = None, db: Session = Depends(ge
         "top_users": analytics_top_users(8, dept_name=dept_name, db=db, admin=admin),
         "engagement": analytics_engagement(30, dept_name=dept_name, db=db, admin=admin),
         "sentiment": crud.get_sentiment_summary(db, entity_id=target_entity_id, dept_name=dept_name if has_global_admin_access(admin) else None),
-        "user_distribution": crud.get_user_distribution(db, entity_id=target_entity_id, dept_name=dept_name if has_global_admin_access(admin) else None)
+        "user_distribution": crud.get_user_distribution(db, entity_id=target_entity_id, dept_name=dept_name if has_global_admin_access(admin) else None),
+        "top_branches": crud.get_top_branches(db, entity_id=target_entity_id, limit=5),
+        "feedback_type_distribution": crud.get_feedback_type_distribution(db, entity_id=target_entity_id)
     }
 
 @router.get("/analytics/summary")
@@ -242,26 +244,53 @@ def analytics_top_users(
         else (None if has_global_admin_access(admin) else admin.department)
     )
     
+    from sqlalchemy import select
+    # Subqueries for point factors
+    post_count_sq = (select(func.count(models.Feedback.id)).where((models.Feedback.sender_id == models.User.id) & (models.Feedback.is_approved == True)).scalar_subquery())
+    recv_likes_sq = (select(func.count(models.Reaction.id)).join(models.Feedback, models.Reaction.feedback_id == models.Feedback.id).where((models.Feedback.sender_id == models.User.id) & (models.Reaction.is_like == True) & (models.Feedback.is_approved == True)).scalar_subquery())
+    give_likes_sq = (select(func.count(models.Reaction.id)).where((models.Reaction.user_id == models.User.id) & (models.Reaction.is_like == True)).scalar_subquery())
+    give_rlikes_sq = (select(func.count(models.ReplyReaction.id)).where((models.ReplyReaction.user_id == models.User.id) & (models.ReplyReaction.is_like == True)).scalar_subquery())
+    give_comm_sq = (select(func.count(models.Reply.id)).where((models.Reply.user_id == models.User.id) & (models.Reply.parent_id == None)).scalar_subquery())
+
+    # Calculate points in SQL or after fetch (SQL is better for sorting)
+    # But for simplicity and consistency with the main list, we'll fetch and calc
     query = db.query(
         models.User.id,
         models.User.name,
         models.User.email,
         models.User.department,
-        func.count(models.Feedback.id).label("total_posts")
-    ).outerjoin(models.Feedback, models.Feedback.sender_id == models.User.id)
+        post_count_sq.label("p_cnt"),
+        recv_likes_sq.label("r_likes"),
+        give_likes_sq.label("r_give"),
+        give_rlikes_sq.label("rr_give"),
+        give_comm_sq.label("c_give")
+    )
     
     if effective_dept:
-        # Users can store org info in multiple fields depending on how you mapped it.
         query = query.filter(
             (models.User.unit_name == effective_dept) |
             (models.User.program == effective_dept) |
             (models.User.department == effective_dept)
         )
         
-    rows = query.group_by(models.User.id, models.User.name, models.User.email, models.User.department)\
-                .order_by(func.count(models.Feedback.id).desc())\
-                .limit(limit).all()
-    return [{"id": r.id, "name": r.name, "email": r.email, "department": r.department, "total_posts": r.total_posts} for r in rows]
+    rows = query.all()
+    
+    # Calculate points and sort
+    results = []
+    for r in rows:
+        p_cnt = r.p_cnt or 0
+        r_lks = r.r_likes or 0
+        g_lks = (r.r_give or 0) + (r.rr_give or 0)
+        g_cms = r.c_give or 0
+        
+        pts = (p_cnt * 3) + (r_lks * 0.5) + (g_lks * 0.5) + (g_cms * 0.3)
+        results.append({
+            "id": r.id, "name": r.name, "email": r.email, "department": r.department, 
+            "total_posts": p_cnt, "impact_points": round(float(pts), 1)
+        })
+    
+    results.sort(key=lambda x: x["impact_points"], reverse=True)
+    return results[:limit]
 
 
 @router.get("/analytics/engagement")
@@ -328,39 +357,29 @@ def admin_get_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_d
         .label("posts_count")
     )
     
-    # 2. Received Reactions (where User is the author of the feedback)
-    recv_reac_sq = (
+    # 2. Received Likes (where User is the author of the feedback)
+    recv_likes_sq = (
         select(func.count(models.Reaction.id))
         .join(models.Feedback, models.Reaction.feedback_id == models.Feedback.id)
-        .where((models.Feedback.sender_id == models.User.id) & (models.Feedback.is_approved == True))
+        .where((models.Feedback.sender_id == models.User.id) & (models.Reaction.is_like == True) & (models.Feedback.is_approved == True))
         .scalar_subquery()
-        .label("recv_reac")
+        .label("recv_likes")
     )
 
-    # 3. Received Comments (Top-level replies to user's approved feedback)
-    recv_comm_sq = (
-        select(func.count(models.Reply.id))
-        .join(models.Feedback, models.Reply.feedback_id == models.Feedback.id)
-        .where((models.Feedback.sender_id == models.User.id) & (models.Reply.parent_id == None) & (models.Feedback.is_approved == True))
-        .scalar_subquery()
-        .label("recv_comm")
-    )
-
-    # 4. Given Actions (Reactions + ReplyReactions given by this user)
-    give_reac_sq = (select(func.count(models.Reaction.id)).where(models.Reaction.user_id == models.User.id).scalar_subquery())
-    give_rreac_sq = (select(func.count(models.ReplyReaction.id)).where(models.ReplyReaction.user_id == models.User.id).scalar_subquery())
+    # 3. Given Likes (Reactions + ReplyReactions given by this user)
+    give_likes_sq = (select(func.count(models.Reaction.id)).where((models.Reaction.user_id == models.User.id) & (models.Reaction.is_like == True)).scalar_subquery())
+    give_rlikes_sq = (select(func.count(models.ReplyReaction.id)).where((models.ReplyReaction.user_id == models.User.id) & (models.ReplyReaction.is_like == True)).scalar_subquery())
     
-    # 5. Given Comments
-    give_comm_sq = (select(func.count(models.Reply.id)).where(models.Reply.user_id == models.User.id).scalar_subquery())
+    # 4. Given Comments (Top-level only)
+    give_comm_sq = (select(func.count(models.Reply.id)).where((models.Reply.user_id == models.User.id) & (models.Reply.parent_id == None)).scalar_subquery())
 
     # Query with all factors
     query = db.query(
         models.User,
         post_count_sq,
-        recv_reac_sq,
-        recv_comm_sq,
-        give_reac_sq,
-        give_rreac_sq,
+        recv_likes_sq,
+        give_likes_sq,
+        give_rlikes_sq,
         give_comm_sq
     )
     
@@ -370,15 +389,15 @@ def admin_get_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_d
     users_with_stats = query.order_by(models.User.id).offset(skip).limit(limit).all()
 
     result = []
-    for u, p_cnt, r_recv, c_recv, r_give, rr_give, c_give in users_with_stats:
+    for u, p_cnt, r_likes, r_give, rr_give, c_give in users_with_stats:
         p_cnt = p_cnt or 0
-        r_recv = r_recv or 0
-        c_recv = c_recv or 0
-        actions_given = (r_give or 0) + (rr_give or 0)
+        r_likes = r_likes or 0
+        r_give = r_give or 0
+        rr_give = rr_give or 0
         c_give = c_give or 0
         
         # Calculate points using the same weights as CRUD
-        pts = (p_cnt * 3) + (r_recv * 1.5) + (c_recv * 1) + (actions_given * 0.5) + (c_give * 0.5)
+        pts = (p_cnt * 3) + (r_likes * 0.5) + ((r_give + rr_give) * 0.5) + (c_give * 0.3)
         
         result.append({
             "id": u.id, "name": u.name, "email": u.email, "department": u.department, 
@@ -782,6 +801,104 @@ def admin_delete_entity(ent_id: int, db: Session = Depends(get_db), admin: model
     db.commit()
 
 # ?????????????????????????????????????????????
+# BRANCHES (LOCATIONS)
+# ?????????????????????????????????????????????
+
+@router.get("/branches", response_model=List[schemas.Branch])
+def admin_get_branches(
+    entity_id: Optional[int] = None, 
+    only_active: bool = False,
+    db: Session = Depends(get_db), 
+    admin: models.User = Depends(get_current_admin)
+):
+    query = db.query(models.Branch)
+    if entity_id:
+        query = query.filter(models.Branch.entity_id == entity_id)
+    if only_active:
+        query = query.filter(models.Branch.is_active == True)
+        
+    query = apply_data_scope(query, models.Branch, admin)
+    return query.all()
+
+@router.post("/branches", response_model=schemas.Branch)
+def admin_create_branch(branch: schemas.BranchCreate, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
+    # Security: Scoped admins can only create branches for their own entity
+    if not has_global_admin_access(admin):
+        if branch.entity_id != admin.entity_id:
+             raise HTTPException(status_code=403, detail="You can only manage branches for your assigned program")
+             
+    db_branch = crud.create_branch(db, branch)
+    
+    # Audit Log
+    crud.create_audit_log(
+        db,
+        action_type="create_branch",
+        performed_by_id=admin.id,
+        target_id=str(db_branch.id),
+        details={
+            "description": f"Office/Branch '{db_branch.name}' was registered.",
+            "name": db_branch.name, 
+            "entity_id": db_branch.entity_id
+        }
+    )
+    
+    return db_branch
+
+@router.put("/branches/{branch_id}", response_model=schemas.Branch)
+def admin_update_branch(branch_id: int, updates: schemas.BranchUpdate, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
+    db_branch = db.query(models.Branch).filter(models.Branch.id == branch_id).first()
+    if not db_branch:
+        raise HTTPException(status_code=404, detail="Branch not found")
+        
+    # Security: Scoped admins can only update their own branches
+    if not has_global_admin_access(admin):
+        if db_branch.entity_id != admin.entity_id:
+             raise HTTPException(status_code=403, detail="Access denied")
+             
+    db_branch = crud.update_branch(db, branch_id, updates)
+    
+    # Audit Log
+    crud.create_audit_log(
+        db,
+        action_type="update_branch",
+        performed_by_id=admin.id,
+        target_id=str(branch_id),
+        details={
+            "description": f"Office/Branch '{db_branch.name}' settings were updated.",
+            "updates": updates.model_dump(exclude_unset=True)
+        }
+    )
+    
+    return db_branch
+
+@router.delete("/branches/{branch_id}")
+def admin_delete_branch(branch_id: int, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
+    db_branch = db.query(models.Branch).filter(models.Branch.id == branch_id).first()
+    if not db_branch:
+        raise HTTPException(status_code=404, detail="Branch not found")
+        
+    # Security: Scoped admins can only delete their own branches
+    if not has_global_admin_access(admin):
+        if db_branch.entity_id != admin.entity_id:
+             raise HTTPException(status_code=403, detail="Access denied")
+             
+    crud.delete_branch(db, branch_id)
+    
+    # Audit Log
+    crud.create_audit_log(
+        db,
+        action_type="deactivate_branch",
+        performed_by_id=admin.id,
+        target_id=str(branch_id),
+        details={
+            "description": f"Office/Branch '{db_branch.name}' was deactivated (soft-deleted).",
+            "branch_id": branch_id
+        }
+    )
+    
+    return {"status": "deactivated"}
+
+# ?????????????????????????????????????????????
 # SYSTEM LABELS
 # ?????????????????????????????????????????????
 
@@ -881,65 +998,80 @@ def admin_broadcast(
     db: Session = Depends(get_db), 
     admin: models.User = Depends(get_current_admin)
 ):
+    """
+    Broadcast system allows Superadmins to reach everyone,
+    and Program Admins to reach only their own staff and beneficiaries.
+    """
     source_tag = "SYSTEM"
-    if not has_global_admin_access(admin):
+    is_global = has_global_admin_access(admin)
+    
+    if not is_global:
         entity = db.query(models.Entity).filter(models.Entity.id == admin.entity_id).first()
         source_tag = entity.name.upper() if entity else "OFFICIAL"
-        
+    
     official_subject = f"[OFFICIAL] {source_tag} - {subject}"
     
-    # Selection logic: Scoped staff + ALL non-employees
+    # Selection Logic Refinement
     query = db.query(models.User)
-    if not has_global_admin_access(admin):
-        staff_filter = (models.User.entity_id == admin.entity_id)
-        global_filter = (models.User.is_global_user == True)
+    
+    if not is_global:
+        # Program Admin Scope: STRICTLY within their own entity_id
+        # Both staff AND beneficiaries in that program will have the same entity_id
+        query = query.filter(models.User.entity_id == admin.entity_id)
         
         if target_group == "staff":
-            query = query.filter(staff_filter)
+            query = query.filter(models.User.role.in_(["admin", "superadmin"]))
         elif target_group == "global":
-            query = query.filter(global_filter)
-        else:
-            query = query.filter(staff_filter | global_filter)
-    elif target_group == "global":
-        query = query.filter(models.User.is_global_user == True)
-    elif target_group == "staff":
-        query = query.filter(models.User.role == "admin")
-    
+            query = query.filter(models.User.is_global_user == True)
+    else:
+        # Superadmin Scope: Global access
+        if target_group == "global":
+            query = query.filter(models.User.is_global_user == True)
+        elif target_group == "staff":
+            query = query.filter(models.User.role.in_(["admin", "superadmin"]))
+
     users = query.all()
-    any_feedback = db.query(models.Feedback).first()
-    if not any_feedback:
-        raise HTTPException(status_code=400, detail="No feedback in system to broadcast against.")
     
-    # Log the broadcast FIRST to get the ID
+    # 1. Log the broadcast record
     broadcast_log = crud.create_broadcast_log(
         db, 
         subject=official_subject, 
         message=message, 
         count=len(users),
-        entity_id=admin.entity_id if not has_global_admin_access(admin) else None
+        entity_id=admin.entity_id if not is_global else None
     )
     
+    # 2. Prepare Bulk Notifications
+    notifications = []
     for user in users:
-        crud.create_notification(
-            db,
+        notifications.append(models.Notification(
             user_id=user.id,
-            actor_id=None,
-            notif_type=models.NotificationType.ANNOUNCEMENT,
-            feedback_id=any_feedback.id,
+            actor_id=admin.id, # Attributed to sending admin
+            type=models.NotificationType.ANNOUNCEMENT,
+            feedback_id=None, # Broadcasts are system-wide
+            entity_id=admin.entity_id if not is_global else None,
             subject=official_subject,
             message=message,
-            broadcast_id=broadcast_log.id
-        )
+            broadcast_id=broadcast_log.id,
+            broadcast_type=broadcast_type
+        ))
     
-    # Audit Log
+    if notifications:
+        crud.create_notifications_bulk(db, notifications)
+    
+    # 3. Audit Log
     crud.create_audit_log(
         db, 
         action_type="broadcast_created",
         performed_by_id=admin.id,
-        details={"subject": official_subject, "sent_to_count": len(users), "type": broadcast_type}
+        details={
+            "subject": official_subject, 
+            "sent_to_count": len(users), 
+            "type": broadcast_type,
+            "target_group": target_group
+        }
     )
     
-    db.commit()
     return {"sent_to": len(users), "subject": official_subject, "message": message, "broadcast_id": broadcast_log.id}
 
 

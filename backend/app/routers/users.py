@@ -24,6 +24,16 @@ def read_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
 def read_user_profiles(db: Session = Depends(get_db)):
     return crud.get_user_profiles(db)
 
+@router.get("/search", response_model=List[schemas.UserSearchEntry])
+def search_users(
+    q: str = None, 
+    roles: str = None, 
+    limit: int = 10, 
+    db: Session = Depends(get_db)
+):
+    role_list = roles.split(",") if roles else None
+    return crud.search_users(db, query=q, roles=role_list, limit=limit)
+
 @router.get("/{user_id}", response_model=schemas.User)
 def read_user(user_id: int, db: Session = Depends(get_db)):
     db_user = crud.get_user(db, user_id=user_id)
@@ -55,6 +65,14 @@ def get_user_notifications(user_id: int, db: Session = Depends(get_db)):
 @router.post("/{user_id}/notifications/read", status_code=204)
 def mark_user_notifications_as_read(user_id: int, db: Session = Depends(get_db)):
     crud.mark_notifications_as_read(db, user_id=user_id)
+    return None
+
+@router.post("/{user_id}/notifications/broadcast/{broadcast_id}/acknowledge", status_code=204)
+def acknowledge_broadcast(user_id: int, broadcast_id: int, db: Session = Depends(get_db)):
+    success = crud.acknowledge_broadcast(db, broadcast_id=broadcast_id, user_id=user_id)
+    if not success:
+        # We return 204 anyway to be idempotent, but we could 404 if not found
+        pass
     return None
 
 @router.delete("/{user_id}", status_code=204)

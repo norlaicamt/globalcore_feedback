@@ -9,14 +9,37 @@ import AdminHub from "./components/admin/AdminHub";
 import ForgotPassword from "./components/ForgotPassword";
 import ResetPassword from "./components/ResetPassword";
 
+import { STORAGE_KEYS } from "./utils/storage";
+import { logoutUser, logoutAdmin } from "./utils/auth";
+
 function App() {
   const [currentUser, setCurrentUser] = useState(() => {
-    const saved = localStorage.getItem("currentUser");
+    // 1. Migration Logic
+    const oldUser = localStorage.getItem("currentUser");
+    if (oldUser && !localStorage.getItem(STORAGE_KEYS.USER_CURRENT)) {
+      localStorage.setItem(STORAGE_KEYS.USER_CURRENT, oldUser);
+      localStorage.removeItem("currentUser");
+      const oldToken = localStorage.getItem("token");
+      if (oldToken) {
+        try {
+          const userObj = JSON.parse(oldUser);
+          userObj.token = oldToken;
+          localStorage.setItem(STORAGE_KEYS.USER_CURRENT, JSON.stringify(userObj));
+          localStorage.removeItem("token");
+        } catch (e) {}
+      }
+    }
+    const saved = localStorage.getItem(STORAGE_KEYS.USER_CURRENT);
     try { return saved ? JSON.parse(saved) : null; } catch { return null; }
   });
   
   const [adminUser, setAdminUser] = useState(() => {
-    const saved = localStorage.getItem("adminUser");
+    const oldAdmin = localStorage.getItem("adminUser");
+    if (oldAdmin && !localStorage.getItem(STORAGE_KEYS.ADMIN_CURRENT)) {
+      localStorage.setItem(STORAGE_KEYS.ADMIN_CURRENT, oldAdmin);
+      localStorage.removeItem("adminUser");
+    }
+    const saved = localStorage.getItem(STORAGE_KEYS.ADMIN_CURRENT);
     try { return saved ? JSON.parse(saved) : null; } catch { return null; }
   });
 
@@ -28,13 +51,13 @@ function App() {
   }, []);
 
   const handleLogout = () => {
-    localStorage.removeItem("currentUser");
     setCurrentUser(null);
+    logoutUser();
   };
 
   const handleAdminLogout = () => {
-    localStorage.removeItem("adminUser");
     setAdminUser(null);
+    logoutAdmin();
   };
 
   if (isInitializing) {
@@ -60,7 +83,7 @@ function App() {
                 <AdminHub adminUser={adminUser} onLogout={handleAdminLogout} />
               ) : (
                 <AdminLogin onLoginSuccess={(admin) => {
-                  localStorage.setItem("adminUser", JSON.stringify(admin));
+                  localStorage.setItem(STORAGE_KEYS.ADMIN_CURRENT, JSON.stringify(admin));
                   setAdminUser(admin);
                 }} />
               )
@@ -80,7 +103,7 @@ function App() {
                     currentUser={currentUser}
                     onBack={handleLogout}
                     onComplete={(updatedUser) => {
-                      localStorage.setItem("currentUser", JSON.stringify(updatedUser));
+                      localStorage.setItem(STORAGE_KEYS.USER_CURRENT, JSON.stringify(updatedUser));
                       setCurrentUser(updatedUser);
                     }}
                   />
@@ -88,7 +111,7 @@ function App() {
               ) : (
                 <LoginPage
                   onLoginSuccess={(user) => {
-                    localStorage.setItem("currentUser", JSON.stringify(user));
+                    localStorage.setItem(STORAGE_KEYS.USER_CURRENT, JSON.stringify(user));
                     setCurrentUser(user);
                   }}
                 />

@@ -121,6 +121,16 @@ class User(UserBase):
     created_at: datetime
     model_config = ConfigDict(from_attributes=True)
 
+class UserSearchEntry(BaseModel):
+    id: int
+    name: str
+    username: Optional[str] = None
+    department: Optional[str] = None
+    role_identity: Optional[str] = None
+    avatar_url: Optional[str] = None
+    role: Optional[str] = None
+    model_config = ConfigDict(from_attributes=True)
+
 class UserProfile(BaseModel):
     id: int
     name: str
@@ -175,6 +185,32 @@ class EntityCreate(EntityBase):
     pass
 
 class Entity(EntityBase):
+    id: int
+    model_config = ConfigDict(from_attributes=True)
+
+# --- BRANCH SCHEMAS ---
+class BranchBase(BaseModel):
+    name: str
+    entity_id: int
+    region: Optional[str] = None
+    province: Optional[str] = None
+    city: Optional[str] = None
+    barangay: Optional[str] = None
+    is_active: Optional[bool] = True
+
+class BranchCreate(BranchBase):
+    pass
+
+class BranchUpdate(BaseModel):
+    name: Optional[str] = None
+    entity_id: Optional[int] = None
+    region: Optional[str] = None
+    province: Optional[str] = None
+    city: Optional[str] = None
+    barangay: Optional[str] = None
+    is_active: Optional[bool] = None
+
+class Branch(BranchBase):
     id: int
     model_config = ConfigDict(from_attributes=True)
 
@@ -260,6 +296,10 @@ class FeedbackBase(BaseModel):
     product_name: Optional[str] = None
     attachments: Optional[str] = None
     custom_data: Optional[dict] = None # Stores key-value pairs of dynamic fields
+    branch_id: Optional[int] = None
+    branch_name_snapshot: Optional[str] = None
+    manual_location_text: Optional[str] = None
+    feedback_type: Optional[str] = None # Complaint, Suggestion, Appreciation, Inquiry
 
 class FeedbackCreate(FeedbackBase):
     sender_id: int
@@ -294,6 +334,7 @@ class Feedback(FeedbackBase):
     recipient_dept_name: Optional[str] = None
     recipient_user_name: Optional[str] = None
     entity_name: Optional[str] = None
+    branch_name: Optional[str] = None
     likes_count: Optional[int] = 0
     dislikes_count: Optional[int] = 0
     replies_count: Optional[int] = 0
@@ -303,12 +344,14 @@ class NotificationBase(BaseModel):
     user_id: int
     actor_id: Optional[int] = None
     type: NotificationType
-    feedback_id: int
+    feedback_id: Optional[int] = None  # Now Optional
+    entity_id: Optional[int] = None    # New
     reply_id: Optional[int] = None
     broadcast_id: Optional[int] = None
     broadcast_type: Optional[str] = "announcement"
     meta: Optional[dict] = None
     is_read: bool = False
+    is_acknowledged: bool = False
 
 class NotificationCreate(NotificationBase):
     pass
@@ -341,6 +384,13 @@ class ActivityEntry(BaseModel):
     message: Optional[str] = None
     created_at: datetime
     mentions: List[Mention] = []
+    rating: Optional[int] = None
+    branch_name: Optional[str] = None
+    region: Optional[str] = None
+    city: Optional[str] = None
+    province: Optional[str] = None
+    barangay: Optional[str] = None
+    entity_name: Optional[str] = None # Added for consistency
     model_config = ConfigDict(from_attributes=True)
 
 class SystemSettingBase(BaseModel):
