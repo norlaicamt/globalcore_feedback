@@ -9,6 +9,8 @@ from dotenv import load_dotenv
 
 from app import models, schemas, crud
 from app.database import get_db
+from app.form_defaults import DEFAULT_FORM_CONFIG, migrate_step_schema
+import copy
 
 load_dotenv()
 
@@ -479,6 +481,7 @@ def admin_update_user_details(
     program: Optional[str] = None,
     entity_id: Optional[int] = None,
     position_title: Optional[str] = None,
+    is_global_user: Optional[bool] = None,
     db: Session = Depends(get_db), 
     admin: models.User = Depends(get_current_admin)
 ):
@@ -523,8 +526,7 @@ def admin_update_user_details(
         updates_made["position_title"] = {"old": user.position_title, "new": position_title}
         user.position_title = position_title if position_title else None
 
-    # NEW: is_global_user update
-    is_global_user = payload.get("is_global_user")
+    # is_global_user update
     if is_global_user is not None and is_global_user != user.is_global_user:
         updates_made["is_global_user"] = {"old": user.is_global_user, "new": is_global_user}
         user.is_global_user = is_global_user
@@ -1267,3 +1269,61 @@ def delete_form_field(field_id: int, db: Session = Depends(get_db), admin: model
         raise HTTPException(status_code=404, detail="Field not found")
     db.delete(field)
     db.commit()
+
+
+# ---------------------------------------------
+#  Form Builder (Entity-Based)
+# ---------------------------------------------
+
+@router.get("/entities/{ent_id}/form-config", response_model=schemas.FormConfig)
+def get_entity_form_config(ent_id: int, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
+    """Fetch the custom form configuration for a specific entity."""
+    entity = db.query(models.Entity).filter(models.Entity.id == ent_id).first()
+    if not entity:
+        raise HTTPException(status_code=404, detail="Entity not found")
+    
+    # Authority Check
+    if not has_global_admin_access(admin) and admin.entity_id != ent_id:
+        raise HTTPException(status_code=403, detail="Access denied: Cannot view config for other entities")
+    
+    # Return the config if exists, otherwise migrate and return defaults
+    if entity.fields and isinstance(entity.fields, dict):
+        migrated = migrate_step_schema(copy.deepcopy(entity.fields))
+        return migrated
+    
+    # Return defaults
+    return copy.deepcopy(DEFAULT_FORM_CONFIG)
+
+
+@router.put("/entities/{ent_id}/form-config")
+def update_entity_form_config(ent_id: int, config: schemas.FormConfig, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
+    """Update the custom form configuration for a specific entity."""
+    entity = db.query(models.Entity).filter(models.Entity.id == ent_id).first()
+    if not entity:
+        raise HTTPException(status_code=404, detail="Entity not found")
+    
+    # Authority Check
+    if not has_global_admin_access(admin) and admin.entity_id != ent_id:
+        raise HTTPException(status_code=403, detail="Access denied: Cannot modify config for other entities")
+    
+    # Guardrails: Max 5 sections, 10 fields per section
+    if len(config.sections) > 5:
+        raise HTTPException(status_code=400, detail="Maximum 5 sections allowed")
+    for section in config.sections:
+        if len(section.fields) > 10:
+            raise HTTPException(status_code=400, detail=f"Maximum 10 fields allowed in section '{section.title}'")
+    
+    # Store the configuration in the JSONB fields column
+    entity.fields = config.model_dump()
+    
+    # Audit Log
+    crud.create_audit_log(
+        db,
+        action_type="update_entity_form_config",
+        performed_by_id=admin.id,
+        target_id=str(ent_id),
+        details={"entity_name": entity.name, "config_version": config.version}
+    )
+    
+    db.commit()
+    return {"message": "Form configuration updated successfully"}

@@ -146,3 +146,6 @@ export const updateAdminSetting = (key, value) => adminApi.patch(`/settings/${ke
 // Form Fields
 export const getFormFields = () => adminApi.get("/form-fields").then(r => r.data);
 export const saveFormFields = (fields) => adminApi.post("/form-fields/save", fields).then(r => r.data);
+// Form Builder (Entity-Based)
+export const getEntityFormConfig = (ent_id) => adminApi.get(`/entities/${ent_id}/form-config`).then(r => r.data);
+export const updateEntityFormConfig = (ent_id, config) => adminApi.put(`/entities/${ent_id}/form-config`, config).then(r => r.data);

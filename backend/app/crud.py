@@ -350,7 +350,36 @@ def create_feedback(db: Session, feedback: schemas.FeedbackCreate):
     data = feedback.model_dump()
     mentions_data = data.pop("mentions", [])
     
-    # 1. Branch Validation & Snapshot logic
+    # 1. Fetch Entity Config for Validation
+    entity_id = data.get("entity_id")
+    entity = db.query(models.Entity).filter(models.Entity.id == entity_id).first()
+    if not entity:
+        raise ValueError("Selected program/entity does not exist")
+    
+    # Dynamic Field Validation
+    form_config = entity.fields
+    if form_config and isinstance(form_config, dict) and "sections" in form_config:
+        custom_data = data.get("custom_data") or {}
+        for section in form_config.get("sections", []):
+            for field in section.get("fields", []):
+                field_id = field.get("id")
+                is_required = field.get("required", False)
+                
+                # Basic visibility check: if it depends on feedback_type, we can check it
+                visible = True
+                visible_if = field.get("visible_if")
+                if visible_if and isinstance(visible_if, dict):
+                    target_field = visible_if.get("field")
+                    target_value = visible_if.get("equals")
+                    if target_field == "feedback_type":
+                        visible = (data.get("feedback_type") == target_value)
+                
+                if is_required and visible:
+                    val = custom_data.get(field_id)
+                    if val is None or (isinstance(val, str) and not val.strip()):
+                        raise ValueError(f"Field '{field.get('label')}' is required")
+
+    # 2. Branch Validation & Snapshot logic
     branch_id = data.get("branch_id")
     entity_id = data.get("entity_id")
     

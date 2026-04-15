@@ -135,3 +135,5 @@ app.include_router(branches.router)
 app.include_router(feedback.router)
 app.include_router(analytics.router)
 app.include_router(admin.router)
+
+# trigger manual refresh

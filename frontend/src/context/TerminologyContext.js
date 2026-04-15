@@ -35,14 +35,44 @@ export const TerminologyProvider = ({ children }) => {
   const refreshLabels = useCallback(async () => {
     try {
       const { getSystemInfo } = require('../services/api');
+
+      // Fetch public endpoints unconditionally; admin labels only when a session exists.
+      // getSystemLabels() calls /admin/labels which requires X-Session-Token.
+      // If we call it without a token, the adminApi interceptor fires a 401 redirect
+      // (window.location.href = '/admin') which aborts ALL concurrent Axios requests,
+      // producing "AxiosError: Network Error" on the public login page.
+      const hasAdminSession = Boolean(
+        (() => {
+          try {
+            const raw = localStorage.getItem('admin.current');
+            return raw ? JSON.parse(raw)?.session_token : null;
+          } catch { return null; }
+        })()
+      );
+
+      const fetchWithRetry = async (fn, retries = 2, delay = 1000) => {
+        for (let i = 0; i <= retries; i++) {
+          try { return await fn(); } catch (e) {
+            if (i === retries) return {};
+            await new Promise(r => setTimeout(r, delay));
+          }
+        }
+      };
+
       const [labelsData, settingsData, publicInfo] = await Promise.all([
-        getSystemLabels(),
-        getAdminSettings().catch(() => []), // Admin settings may fail if unauthenticated
-        getSystemInfo().catch(() => ({}))  // Public info
+        // Only fetch admin labels when an admin session is present
+        hasAdminSession
+          ? getSystemLabels().catch(() => [])
+          : Promise.resolve([]),
+        // Admin settings also require auth — guard the same way
+        hasAdminSession
+          ? getAdminSettings().catch(() => [])
+          : Promise.resolve([]),
+        fetchWithRetry(getSystemInfo),
       ]);
-      
+
       const mappedLabels = {};
-      labelsData.forEach(l => {
+      (labelsData || []).forEach(l => {
         mappedLabels[l.key] = l.value;
       });
       setLabels(mappedLabels);
@@ -51,11 +81,11 @@ export const TerminologyProvider = ({ children }) => {
       (settingsData || []).forEach(s => {
         mappedSettings[s.key] = s.value;
       });
-      
+
       // Merge public branding settings
       if (publicInfo.organization_name) mappedSettings.primary_organization_name = publicInfo.organization_name;
       if (publicInfo.primary_color) mappedSettings.primary_color = publicInfo.primary_color;
-      
+
       setSystemSettings(mappedSettings);
 
       // Inject Dynamic Theme CSS Variables (primary color only — safe for dark mode)

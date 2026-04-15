@@ -132,7 +132,7 @@ const InboxView = ({ currentUser, onBack, initialTab = "All", minimalist = false
                   
                   {renderFeedbackAction(item, currentUser)}
 
-                  <div style={styles.cardFooter} style={{marginTop: '12px'}}>
+                  <div style={{...styles.cardFooter, marginTop: '12px'}}>
                     <div style={styles.regularBadge}>Feedback</div>
                     <div style={styles.timeLabel}>REF-{item.id}</div>
                   </div>

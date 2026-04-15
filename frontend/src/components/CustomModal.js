@@ -1,17 +1,17 @@
 import React, { useEffect } from 'react';
 
-const CustomModal = ({ 
-  isOpen, 
-  title, 
-  message, 
+const CustomModal = ({
+  isOpen,
+  title,
+  message,
   type = 'info', // 'success' | 'error' | 'info' | 'confirm'
-  onConfirm, 
-  onCancel, 
-  confirmText = "OK", 
-  cancelText = "Cancel", 
-  isDestructive = false 
+  onConfirm,
+  onCancel,
+  confirmText = "OK",
+  cancelText = "Cancel",
+  isDestructive = false
 }) => {
-  
+
   useEffect(() => {
     const handleEsc = (e) => {
       if (e.key === 'Escape' && isOpen) {
@@ -44,11 +44,11 @@ const CustomModal = ({
           {(type === 'confirm' || (type === 'error' && onCancel)) && (
             <button style={styles.cancelBtn} onClick={onCancel}>{cancelText}</button>
           )}
-          <button 
+          <button
             style={{
               ...styles.primaryBtn,
               backgroundColor: isDestructive ? '#EF4444' : currentStyle.title
-            }} 
+            }}
             onClick={onConfirm}
             autoFocus
           >
@@ -61,23 +61,23 @@ const CustomModal = ({
 };
 
 const styles = {
-  overlay: { 
-    position: 'fixed', 
-    inset: 0, 
-    backgroundColor: 'rgba(15, 23, 42, 0.6)', 
-    display: 'flex', 
-    alignItems: 'center', 
-    justifyContent: 'center', 
-    zIndex: 9999, 
-    backdropFilter: 'blur(4px)', 
-    padding: '20px' 
+  overlay: {
+    position: 'fixed',
+    inset: 0,
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 9999,
+    backdropFilter: 'blur(4px)',
+    padding: '20px'
   },
-  content: { 
-    backgroundColor: 'white', 
-    padding: '32px 24px', 
-    borderRadius: '24px', 
-    width: '100%', 
-    maxWidth: '340px', 
+  content: {
+    backgroundColor: 'white',
+    padding: '32px 24px',
+    borderRadius: '24px',
+    width: '100%',
+    maxWidth: '340px',
     boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
     display: 'flex',
     flexDirection: 'column',
@@ -94,44 +94,44 @@ const styles = {
     fontSize: '24px',
     marginBottom: '16px'
   },
-  title: { 
-    margin: '0 0 8px 0', 
-    fontSize: '20px', 
-    fontWeight: '800', 
+  title: {
+    margin: '0 0 8px 0',
+    fontSize: '20px',
+    fontWeight: '800',
     letterSpacing: '-0.02em'
   },
-  message: { 
-    margin: '0 0 28px 0', 
-    fontSize: '14px', 
-    color: '#64748B', 
+  message: {
+    margin: '0 0 28px 0',
+    fontSize: '14px',
+    color: '#64748B',
     lineHeight: '1.6',
     fontWeight: '500'
   },
-  actions: { 
-    display: 'flex', 
-    gap: '12px', 
+  actions: {
+    display: 'flex',
+    gap: '12px',
     width: '100%'
   },
-  cancelBtn: { 
-    padding: '12px 16px', 
-    borderRadius: '12px', 
-    backgroundColor: '#F1F5F9', 
-    color: '#64748B', 
-    border: 'none', 
+  cancelBtn: {
+    padding: '12px 16px',
+    borderRadius: '12px',
+    backgroundColor: '#F1F5F9',
+    color: '#64748B',
+    border: 'none',
     fontSize: '14px',
-    fontWeight: '700', 
-    cursor: 'pointer', 
+    fontWeight: '700',
+    cursor: 'pointer',
     flex: 1,
     transition: 'all 0.2s'
   },
-  primaryBtn: { 
-    padding: '12px 16px', 
-    borderRadius: '12px', 
-    color: 'white', 
-    border: 'none', 
+  primaryBtn: {
+    padding: '12px 16px',
+    borderRadius: '12px',
+    color: 'white',
+    border: 'none',
     fontSize: '14px',
-    fontWeight: '700', 
-    cursor: 'pointer', 
+    fontWeight: '700',
+    cursor: 'pointer',
     flex: 1,
     boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
     transition: 'all 0.2s'

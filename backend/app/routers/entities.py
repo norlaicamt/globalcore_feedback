@@ -1,12 +1,27 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
+import copy
 
 from app import crud
 from app import schemas
 from app.database import get_db
+from app.form_defaults import DEFAULT_FORM_CONFIG, migrate_step_schema
+from app import models
 
 router = APIRouter(prefix="/entities", tags=["entities"])
+
+@router.get("/{entity_id}/form-config", response_model=schemas.FormConfig)
+def get_entity_form_config(entity_id: int, db: Session = Depends(get_db)):
+    """Public endpoint to fetch form configuration for an entity."""
+    entity = db.query(models.Entity).filter(models.Entity.id == entity_id).first()
+    if not entity:
+        raise HTTPException(status_code=404, detail="Entity not found")
+    
+    if entity.fields and isinstance(entity.fields, dict) and "version" in entity.fields:
+        return migrate_step_schema(copy.deepcopy(entity.fields))
+    
+    return copy.deepcopy(DEFAULT_FORM_CONFIG)
 
 @router.post("/", response_model=schemas.Entity)
 def create_entity(entity: schemas.EntityCreate, db: Session = Depends(get_db)):

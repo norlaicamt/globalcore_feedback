@@ -8,6 +8,7 @@ import AdminLogin from "./components/admin/AdminLogin";
 import AdminHub from "./components/admin/AdminHub";
 import ForgotPassword from "./components/ForgotPassword";
 import ResetPassword from "./components/ResetPassword";
+import GeneralFeedback from "./components/GeneralFeedback";
 
 import { STORAGE_KEYS } from "./utils/storage";
 import { logoutUser, logoutAdmin } from "./utils/auth";
@@ -92,6 +93,22 @@ function App() {
             {/* AUTH ROUTES */}
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
+
+            {/* PREVIEW ROUTE — no auth required, used by Form Designer live preview */}
+            <Route path="/preview" element={
+              <div style={{ minHeight: '100vh', background: '#F1F5F9', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '40px 16px' }}>
+                <div style={{ width: '100%', maxWidth: '520px' }}>
+                  <div style={{ background: '#FEF3C7', borderRadius: '12px', padding: '10px 16px', marginBottom: '16px', fontSize: '13px', fontWeight: '600', color: '#92400E', textAlign: 'center' }}>
+                    🔍 Live Preview Mode — Changes from the Form Designer update automatically
+                  </div>
+                  <GeneralFeedback
+                    currentUser={{ id: 0, name: 'Preview User', email: 'preview@admin.com', role: 'user', is_anonymous: false }}
+                    onBack={() => window.close()}
+                    onSuccess={() => {}}
+                  />
+                </div>
+              </div>
+            } />
 
             {/* USER PORTAL */}
             <Route path="/" element={

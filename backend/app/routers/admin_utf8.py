@@ -437,7 +437,8 @@ def admin_get_feedbacks(
     status: Optional[str] = None,
     category_id: Optional[int] = None,
     dept_name: Optional[str] = None,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    admin: dict = Depends(get_admin_context)
 ):
     q = db.query(
         models.Feedback.id, models.Feedback.title, models.Feedback.description,
@@ -770,48 +771,6 @@ def save_form_fields(fields: List[schemas.FormFieldUpdate], db: Session = Depend
     for i, f in enumerate(fields):
         db_field = models.FormField(
             field_key=f.field_key or f.label.lower().replace(" ", "_"),
-            label=f.label,
-            field_type=f.field_type,
-            is_required=f.is_required,
-            placeholder=f.placeholder,
-            options=f.options,
-            order=i
-        )
-        db.add(db_field)
-    db.commit()
-    return {"saved": len(fields)}
-
-@router.delete("/form-fields/{field_id}", status_code=204)
-def delete_form_field(field_id: int, db: Session = Depends(get_db)):
-    """Delete a single form field by ID."""
-    field = db.query(models.FormField).filter(models.FormField.id == field_id).first()
-    if not field:
-        raise HTTPException(status_code=404, detail="Field not found")
-    db.delete(field)
-    db.commit()
-       performed_by_id=admin['id'],
-        target_id=str(user_id),
-        details={'user_email': user.email, **changes}
-    )
-    
-    db.commit()
-    return {'id': user_id, 'role': user.role, 'department': user.department}
-
-# ---------------------------------------------
-#  Form Fields (Dynamic Form Builder)
-# ---------------------------------------------
-
-@router.get("/form-fields", response_model=List[schemas.FormField])
-def get_form_fields(db: Session = Depends(get_db)):
-    """Get all dynamic form fields ordered by their defined order."""
-    return db.query(models.FormField).order_by(models.FormField.order).all()
-
-@router.post("/form-fields/save")
-def save_form_fields(fields: List[schemas.FormFieldUpdate], db: Session = Depends(get_db)):
-    """Bulk-save (replace) all dynamic form fields. Deletes existing and re-inserts."""
-    db.query(models.FormField).delete()
-    for i, f in enumerate(fields):
-        db_field = models.FormField(
             label=f.label,
             field_type=f.field_type,
             is_required=f.is_required,

@@ -9,9 +9,9 @@ import AdminFeedbackTypes from "./pages/AdminFeedbackTypes";
 import AdminPendingSuggestions from "./pages/AdminPendingSuggestions";
 import AdminBroadcast from "./pages/AdminBroadcast";
 import AdminSettings from "./pages/AdminSettings";
-import AdminUIText from "./pages/AdminUIText";
 import AdminAuditLogs from "./pages/AdminAuditLogs";
 import AdminBranches from "./pages/AdminBranches";
+import AdminFormDesigner from "./pages/AdminFormDesigner";
 import CustomModal from "../CustomModal";
 import { adminGetPendingSuggestions } from "../../services/adminApi";
 
@@ -25,7 +25,7 @@ const NAV_ITEMS = [
   { id: "feedbacktypes",  label: "Entities",            icon: <TagIcon />,    superOnly: true },
   { id: "branches",       label: "Branch (Location)",   icon: <MapPinIcon /> },
   { id: "pendingsuggestions", label: "Approval Queue",   icon: <ClockIcon />, isSub: true, superOnly: true },
-  { id: "feedbacksetup",  label: "Interface Designer",  icon: <TypeIcon />,   superOnly: true },
+  { id: "formdesigner",   label: "Form Layout",   icon: <OrgIcon /> },
   { type: "label",        label: "PREFERENCES" },
   { id: "settings",       label: "Global Settings",     icon: <SettingsIcon />, superOnly: true },
 ];
@@ -126,7 +126,7 @@ const AdminHub = ({ adminUser, onLogout }) => {
       case "feedbacks":     return <AdminFeedbacks {...props} />;
       case "feedbacktypes": return <AdminFeedbackTypes {...props} />;
       case "pendingsuggestions": return <AdminPendingSuggestions {...props} refreshCount={fetchPendingCount} />;
-      case "feedbacksetup":     return <AdminUIText {...props} />;
+      case "formdesigner":      return <AdminFormDesigner {...props} />;
       case "broadcast":     return <AdminBroadcast {...props} />;
       case "settings":      return <AdminSettings {...props} />;
       case "auditlogs":     return <AdminAuditLogs {...props} />;
@@ -173,7 +173,7 @@ const AdminHub = ({ adminUser, onLogout }) => {
               const isScopedAdmin = !!localAdminUser?.entity_id;
               if (isScopedAdmin) {
                 // Hide global configuration tools from program admins
-                const globalTools = ["feedbacktypes", "feedbacksetup", "settings", "auditlogs", "pendingsuggestions"];
+                const globalTools = ["feedbacktypes", "settings", "auditlogs", "pendingsuggestions"];
                 if (globalTools.includes(item.id)) return false;
                 
                 // Hide "ORGANIZATION" and "PREFERENCES" labels if all their sub-items are hidden

@@ -178,7 +178,7 @@ class EntityBase(BaseModel):
     name: str
     description: Optional[str] = None
     icon: Optional[str] = None
-    fields: Optional[List[dict]] = None # List of {label, type, placeholder, required}
+    fields: Optional[dict] = None # Stores the new FormConfig JSON
     organization_id: Optional[int] = None
 
 class EntityCreate(EntityBase):
@@ -475,3 +475,40 @@ class FormSection(FormSectionBase):
     created_at: datetime
     fields: List[FormField] = []
     model_config = ConfigDict(from_attributes=True)
+class FormFieldDesigner(BaseModel):
+    id: str
+    label: str
+    type: str
+    required: bool = False
+    placeholder: Optional[str] = None
+    options: Optional[List[str]] = None
+    visible_if: Optional[dict] = None # {field: str, equals: str}
+
+class FormSectionDesigner(BaseModel):
+    id: Optional[str] = None # Added for linking to steps
+    title: str
+    fields: List[FormFieldDesigner] = []
+
+class FormStepDesigner(BaseModel):
+    id: str
+    label: str
+    enabled: bool = True
+    order: int = 0
+    type: str = "core" # "core", "custom_section", or "module"
+    linked_section_id: Optional[str] = None
+    module_key: Optional[str] = None
+
+class FormTogglesDesigner(BaseModel):
+    enabled: bool = True
+    label: str
+
+class FormTerminologyDesigner(BaseModel):
+    entity_label: Optional[str] = "Program"
+    location_label: Optional[str] = "Office"
+
+class FormConfig(BaseModel):
+    version: int = 1
+    steps: List[FormStepDesigner] = []
+    toggles: dict[str, FormTogglesDesigner] = {}
+    sections: List[FormSectionDesigner] = []
+    terminology: FormTerminologyDesigner = FormTerminologyDesigner()

@@ -170,6 +170,11 @@ export const getEntities = async () => {
   return response.data;
 };
 
+export const getEntityFormConfig = async (id) => {
+  const response = await axios.get(`${API_BASE}/entities/${id}/form-config`);
+  return response.data;
+};
+
 export const getBranches = async (entity_id = null) => {
   const params = entity_id ? { entity_id } : {};
   const response = await axios.get(`${API_BASE}/branches/`, { params });

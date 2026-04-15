@@ -132,7 +132,7 @@ const HistoryView = ({ currentUser, onBack, mode = "sent", minimalist = false })
                   <span style={styles.itemDate}>{formatFeedbackDate(item.created_at)}</span>
                 </div>
                 {renderFeedbackAction(item, currentUser)}
-                <div style={styles.cardFooter} style={{marginTop: '12px'}}>
+                <div style={{...styles.cardFooter, marginTop: '12px'}}>
                   <div style={styles.timeLabel}>REF-{item.id}</div>
                 </div>
               </div>
