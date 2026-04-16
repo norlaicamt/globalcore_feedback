@@ -5,12 +5,11 @@ import { useTerminology } from "../../context/TerminologyContext";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminUsers from "./pages/AdminUsers";
 import AdminFeedbacks from "./pages/AdminFeedbacks";
-import AdminFeedbackTypes from "./pages/AdminFeedbackTypes";
 import AdminPendingSuggestions from "./pages/AdminPendingSuggestions";
 import AdminBroadcast from "./pages/AdminBroadcast";
 import AdminSettings from "./pages/AdminSettings";
 import AdminAuditLogs from "./pages/AdminAuditLogs";
-import AdminBranches from "./pages/AdminBranches";
+import AdminPrograms from "./pages/AdminPrograms";
 import AdminFormDesigner from "./pages/AdminFormDesigner";
 import CustomModal from "../CustomModal";
 import { adminGetPendingSuggestions } from "../../services/adminApi";
@@ -22,8 +21,7 @@ const NAV_ITEMS = [
   { id: "broadcast",      label: "Announcements",       icon: <BellIcon /> },
   { id: "auditlogs",      label: "Audit Trail",         icon: <ClockIcon />,  superOnly: true },
   { type: "label",        label: "ORGANIZATION" },
-  { id: "feedbacktypes",  label: "Entities",            icon: <TagIcon />,    superOnly: true },
-  { id: "branches",       label: "Branch (Location)",   icon: <MapPinIcon /> },
+  { id: "programs",       label: "Program Hub",         icon: <OrgIcon /> },
   { id: "pendingsuggestions", label: "Approval Queue",   icon: <ClockIcon />, isSub: true, superOnly: true },
   { id: "formdesigner",   label: "Form Layout",   icon: <OrgIcon /> },
   { type: "label",        label: "PREFERENCES" },
@@ -31,7 +29,8 @@ const NAV_ITEMS = [
 ];
 
 const AdminHub = ({ adminUser, onLogout }) => {
-  const { systemName } = useTerminology();
+  const { systemName, systemLogo, getLabel } = useTerminology();
+  const programsLabel = `${getLabel('category_label', 'Program')} Hub`;
   const [localAdminUser, setLocalAdminUser] = useState(adminUser);
   const hasGlobalAdminAccess = ["admin", "superadmin"].includes(localAdminUser?.role) && !localAdminUser?.department;
   const getViewFromUrl = () => {
@@ -124,13 +123,18 @@ const AdminHub = ({ adminUser, onLogout }) => {
       case "dashboard":     return <AdminDashboard {...props} />;
       case "users":         return <AdminUsers {...props} />;
       case "feedbacks":     return <AdminFeedbacks {...props} />;
-      case "feedbacktypes": return <AdminFeedbackTypes {...props} />;
+      case "programs":      return <AdminPrograms {...props} />;
       case "pendingsuggestions": return <AdminPendingSuggestions {...props} refreshCount={fetchPendingCount} />;
       case "formdesigner":      return <AdminFormDesigner {...props} />;
       case "broadcast":     return <AdminBroadcast {...props} />;
       case "settings":      return <AdminSettings {...props} />;
       case "auditlogs":     return <AdminAuditLogs {...props} />;
-      case "branches":      return <AdminBranches {...props} />;
+      case "feedbacktypes": // Redirect legacy
+      case "branches":      // Redirect legacy
+          console.warn(`Legacy Route Detected: /admin/${view}. Redirecting to Program Hub.`);
+          window.history.replaceState(null, "", "/admin/programs");
+          setView("programs");
+          return <AdminPrograms {...props} />;
       default:              return <AdminDashboard {...props} />;
     }
   };
@@ -149,14 +153,18 @@ const AdminHub = ({ adminUser, onLogout }) => {
       <aside style={styles.sidebar}>
         {/* Logo */}
         <div style={styles.sidebarLogo}>
-          <div style={styles.logoIcon}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2">
-              <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
-            </svg>
-          </div>
-          <div>
+          {systemLogo ? (
+            <img src={systemLogo} alt="Logo" style={{ height: '40px', maxWidth: '100px', objectFit: 'contain' }} />
+          ) : (
+            <div style={styles.logoIcon}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2">
+                <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
+              </svg>
+            </div>
+          )}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
             <p style={styles.logoText}>{systemName.split(' ')[0]}</p>
-            <p style={styles.logoSub}>{systemName.split(' ').slice(1).join(' ') || "Feedback"}</p>
+            <p style={styles.logoSub}>{systemName.split(' ').slice(1).join(' ') || "Feedback Portal"}</p>
           </div>
         </div>
 
@@ -202,7 +210,7 @@ const AdminHub = ({ adminUser, onLogout }) => {
                   }}
                 >
                   <span style={styles.navIcon}>{item.icon}</span>
-                  <span style={{ flex: 1 }}>{item.label}</span>
+                  <span style={{ flex: 1 }}>{item.id === 'programs' ? programsLabel : item.label}</span>
                   {item.id === "pendingsuggestions" && pendingCount > 0 && (
                     <div style={styles.badge}>{pendingCount}</div>
                   )}
@@ -267,7 +275,9 @@ const AdminHub = ({ adminUser, onLogout }) => {
         <header style={{ ...styles.topBar, backgroundColor: theme.headerBg, borderBottom: `1px solid ${theme.border}` }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
             <div>
-              <h1 style={{ ...styles.pageTitle, color: theme.text }}>{NAV_ITEMS.find(n => n.id === view)?.label || "Dashboard"}</h1>
+              <h1 style={{ ...styles.pageTitle, color: theme.text }}>
+                {view === 'programs' ? programsLabel : (NAV_ITEMS.find(n => n.id === view)?.label || "Dashboard")}
+              </h1>
               <p style={styles.pageTime}>{new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}</p>
             </div>
             <button 
@@ -310,10 +320,10 @@ const SIDEBAR_W = 280;
 const styles = {
   root: { display: "flex", height: "100vh", fontFamily: '"Inter", sans-serif', backgroundColor: "#F1F5F9" },
   sidebar: { width: SIDEBAR_W, minWidth: SIDEBAR_W, height: "100vh", background: "linear-gradient(180deg, var(--primary-color) 0%, #1a2347 100%)", display: "flex", flexDirection: "column", color: "white", flexShrink: 0, overflowY: "auto" },
-  sidebarLogo: { display: "flex", alignItems: "center", gap: "12px", padding: "20px 16px 16px" },
-  logoIcon: { width: "36px", height: "36px", borderRadius: "10px", background: "rgba(255,255,255,0.12)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 },
-  logoText: { fontSize: "14px", fontWeight: "800", margin: 0, color: "white" },
-  logoSub: { fontSize: "10px", color: "rgba(255,255,255,0.4)", margin: 0, fontWeight: "500", textTransform: "uppercase", letterSpacing: "0.08em" },
+  sidebarLogo: { display: "flex", alignItems: "center", gap: "14px", padding: "24px 20px 20px" },
+  logoIcon: { width: "40px", height: "40px", borderRadius: "10px", background: "rgba(255,255,255,0.12)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 },
+  logoText: { fontSize: "15px", fontWeight: "800", margin: 0, color: "white", lineHeight: 1.2 },
+  logoSub: { fontSize: "11px", color: "rgba(255,255,255,0.5)", margin: 0, fontWeight: "500", letterSpacing: "0.02em" },
   divider: { height: "1px", background: "rgba(255,255,255,0.07)", margin: "0 16px 10px" },
   nav: { flex: 1, display: "flex", flexDirection: "column", gap: "1px", padding: "0 10px" },
   navItem: { display: "flex", alignItems: "center", gap: "10px", padding: "10px 14px", borderRadius: "8px", fontSize: "14px", fontWeight: "600", color: "rgba(255,255,255,0.6)", cursor: "pointer", background: "none", border: "none", width: "100%", textAlign: "left", transition: "all 0.15s", fontFamily: "inherit" },

@@ -99,9 +99,9 @@ export const adminGetScopeOptions = () => adminApi.get("/scope-options").then(r 
 
 // Entities
 export const adminGetEntities = () => adminApi.get("/entities").then(r => r.data);
-export const adminCreateEntity = (name, description = "", fields = [], icon = "default", organization_id = null) => 
+export const adminCreateEntity = (name, description = "", fields = {}, icon = "default", organization_id = null) => 
   adminApi.post("/entities", { name, description, fields, icon, organization_id }).then(r => r.data);
-export const adminUpdateEntity = (id, name, description = "", fields = [], icon = "default") => 
+export const adminUpdateEntity = (id, name, description = "", fields = {}, icon = "default") => 
   adminApi.put(`/entities/${id}`, { name, description, fields, icon }).then(r => r.data);
 export const adminDeleteEntity = (id) => adminApi.delete(`/entities/${id}`);
 

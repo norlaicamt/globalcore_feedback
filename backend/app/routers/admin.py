@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Body, Header
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, cast, Date
 from typing import List, Optional
 from datetime import datetime, timedelta, timezone
@@ -749,28 +749,51 @@ def admin_delete_department(dept_id: int, db: Session = Depends(get_db), admin: 
 # ENTITIES
 # ?????????????????????????????????????????????
 
-@router.get("/entities")
-def admin_get_entities(db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
-    rows = db.query(
-        models.Entity.id,
-        models.Entity.name,
-        models.Entity.description,
-        models.Entity.icon,
-        models.Entity.fields,
-        func.count(models.Feedback.id).label("count")
-    ).outerjoin(models.Feedback, models.Feedback.entity_id == models.Entity.id)\
-     .group_by(models.Entity.id, models.Entity.name, models.Entity.description, models.Entity.icon, models.Entity.fields)\
-     .order_by(models.Entity.name).all()
-    return [{"id": r.id, "name": r.name, "description": r.description, "icon": r.icon, "fields": r.fields, "count": r.count} for r in rows]
+@router.get("/entities", response_model=List[schemas.Entity])
+def get_entities(db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
+    """
+    Returns all programs (entities) scoped to the admin's organization.
+    Uses joinedload to include creator information for transparency.
+    """
+    query = db.query(models.Entity).options(joinedload(models.Entity.created_by))
+    
+    if admin.organization_id:
+        query = query.filter(models.Entity.organization_id == admin.organization_id)
+    
+    return query.all()
 
-
-@router.post("/entities")
-def admin_create_entity(entity: schemas.EntityCreate, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
-    ent = models.Entity(name=entity.name, description=entity.description, icon=entity.icon, fields=entity.fields, organization_id=entity.organization_id)
-    db.add(ent)
-    db.commit()
-    db.refresh(ent)
-    return ent
+@router.post("/entities", response_model=schemas.Entity)
+def create_entity(entity: schemas.EntityCreate, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
+    """
+    Creates a new program. Restricts creation to global/org admins only.
+    Automatically assigns the creator ID and organization ID based on the session.
+    """
+    if admin.entity_id:
+        raise HTTPException(status_code=403, detail="You do not have permission to create programs")
+    
+    # Ensure org ID is assigned if admin belongs to one
+    if admin.organization_id and not entity.organization_id:
+        entity.organization_id = admin.organization_id
+        
+    try:
+        new_ent = crud.create_entity(db, entity, created_by_id=admin.id)
+        
+        crud.create_audit_log(
+            db,
+            action_type="create_program",
+            performed_by_id=admin.id,
+            target_id=str(new_ent.id),
+            details={
+                "description": f"Program '{new_ent.name}' was created.",
+                "name": new_ent.name
+            }
+        )
+        
+        return new_ent
+    except Exception as e:
+        if "UNIQUE constraint failed" in str(e) or "already exists" in str(e).lower():
+            raise HTTPException(status_code=400, detail="A program with this name already exists")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.put("/entities/{ent_id}")
@@ -778,6 +801,7 @@ def admin_update_entity(ent_id: int, entity: schemas.EntityCreate, db: Session =
     db_ent = db.query(models.Entity).filter(models.Entity.id == ent_id).first()
     if not db_ent:
         raise HTTPException(status_code=404, detail="Entity not found")
+    old_name = db_ent.name
     db_ent.name = entity.name
     if entity.description is not None:
         db_ent.description = entity.description
@@ -786,6 +810,19 @@ def admin_update_entity(ent_id: int, entity: schemas.EntityCreate, db: Session =
     if entity.fields is not None:
         db_ent.fields = entity.fields
     db.commit()
+    
+    crud.create_audit_log(
+        db,
+        action_type="update_program",
+        performed_by_id=admin.id,
+        target_id=str(db_ent.id),
+        details={
+            "description": f"Program '{old_name}' settings were updated.",
+            "new_name": db_ent.name,
+            "icon_updated": entity.icon is not None
+        }
+    )
+    
     return db_ent
 
 
@@ -799,8 +836,20 @@ def admin_delete_entity(ent_id: int, db: Session = Depends(get_db), admin: model
     if usage_count > 0:
         raise HTTPException(status_code=400, detail=f"Cannot delete entity '{ent.name}' because it is in use by {usage_count} feedback(s).")
 
+    ent_name = ent.name
     db.delete(ent)
     db.commit()
+    
+    crud.create_audit_log(
+        db,
+        action_type="delete_program",
+        performed_by_id=admin.id,
+        target_id=str(ent_id),
+        details={
+            "description": f"Program '{ent_name}' was permanently deleted.",
+            "name": ent_name
+        }
+    )
 
 # ?????????????????????????????????????????????
 # BRANCHES (LOCATIONS)
@@ -905,15 +954,25 @@ def admin_delete_branch(branch_id: int, db: Session = Depends(get_db), admin: mo
 # ?????????????????????????????????????????????
 
 @router.get("/labels", response_model=List[schemas.SystemLabel])
-def get_system_labels(db: Session = Depends(get_db)):
-    labels = crud.get_system_labels(db)
+def get_system_labels(db: Session = Depends(get_db), admin: Optional[models.User] = Depends(get_current_admin)):
+    """
+    Returns labels scoped to the current admin's organization.
+    If no organization-specific labels exist, it falls back to global labels.
+    """
+    org_id = admin.organization_id if admin else None
+    labels = crud.get_system_labels(db, organization_id=org_id)
+    
+    # If a scoped admin has no labels yet, they should see the global ones as a baseline
+    if org_id and not labels:
+        labels = crud.get_system_labels(db, organization_id=None)
+
     if not labels:
-        # Seed defaults if empty
+        # Seed defaults globally if completely empty
         defaults = [
-            ("category_label", "Entity / Service"),
-            ("entity_label", "Entity"),
-            ("category_label_plural", "Entities / Services"),
-            ("entity_label_plural", "Entities"),
+            ("category_label", "Program"),
+            ("entity_label", "Location"),
+            ("category_label_plural", "Programs"),
+            ("entity_label_plural", "Locations"),
             ("dept_label", "Department"),
             ("dept_label_plural", "Departments"),
             ("feedback_label", "Feedback"),
@@ -926,10 +985,10 @@ def get_system_labels(db: Session = Depends(get_db)):
 
 @router.post("/labels")
 def update_system_label(key: str, value: str, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
-    if not has_global_admin_access(admin):
-        raise HTTPException(status_code=403, detail="Only global admins can change terminology")
+    # Any admin (Global or Scoped) can change their own terminology
+    org_id = admin.organization_id # None if global admin
     
-    label = crud.update_system_label(db, key, value)
+    label = crud.update_system_label(db, key, value, organization_id=org_id)
     
     # Audit Log
     crud.create_audit_log(
@@ -937,18 +996,18 @@ def update_system_label(key: str, value: str, db: Session = Depends(get_db), adm
         action_type="update_terminology",
         performed_by_id=admin.id,
         target_id=key,
-        details={"key": key, "new_value": value}
+        details={"key": key, "new_value": value, "org_id": org_id}
     )
     
     return label
 @router.post("/labels/bulk")
 def update_system_labels_bulk(data: dict = Body(...), db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
-    if not has_global_admin_access(admin):
-        raise HTTPException(status_code=403, detail="Only global admins can change terminology")
+    # Any admin (Global or Scoped) can change their own terminology
+    org_id = admin.organization_id # None if global admin
     
     updated_keys = []
     for key, value in data.items():
-        crud.update_system_label(db, key, value)
+        crud.update_system_label(db, key, value, organization_id=org_id)
         updated_keys.append(key)
     
     # Single Audit Log for all changes
@@ -957,7 +1016,7 @@ def update_system_labels_bulk(data: dict = Body(...), db: Session = Depends(get_
         action_type="bulk_update_terminology",
         performed_by_id=admin.id,
         target_id="system",
-        details={"updated_labels": updated_keys}
+        details={"updated_labels": updated_keys, "org_id": org_id}
     )
     db.commit()
     return {"status": "success", "updated_count": len(updated_keys)}
@@ -975,13 +1034,28 @@ def update_admin_setting(key: str, value: str, db: Session = Depends(get_db), ad
     
     setting = crud.update_system_setting(db, key, value)
     
-    # Audit Log
+    # Metadata Tracking for Branding
+    if key in ["primary_organization_logo", "primary_organization_name", "primary_color"]:
+        crud.update_system_setting(db, "logo_last_updated_at", datetime.now(timezone.utc).isoformat())
+        crud.update_system_setting(db, "logo_updated_by", admin.name or admin.email)
+    
+    # Audit Log with refined action types
+    action_type = "update_system_setting"
+    if key == "primary_organization_logo":
+        action_type = "update_org_logo" if value else "remove_org_logo"
+    elif key == "primary_organization_name":
+        action_type = "update_org_name"
+    
     crud.create_audit_log(
         db,
-        action_type="update_system_setting",
+        action_type=action_type,
         performed_by_id=admin.id,
         target_id=key,
-        details={"key": key, "new_value": value}
+        details={
+            "key": key, 
+            "new_value": value if key != "primary_organization_logo" else "[IMAGE_DATA]",
+            "description": f"System setting '{key}' was updated by {admin.name or admin.email}."
+        }
     )
     
     return setting

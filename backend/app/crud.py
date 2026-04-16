@@ -152,12 +152,26 @@ def create_department(db: Session, department: schemas.DepartmentCreate):
 def get_entities(db: Session, skip: int = 0, limit: int = 100):
     return db.query(models.Entity).offset(skip).limit(limit).all()
 
-def create_entity(db: Session, entity: schemas.EntityCreate):
-    db_ent = models.Entity(**entity.model_dump())
+def create_entity(db: Session, entity: schemas.EntityCreate, created_by_id: int = None):
+    data = entity.model_dump()
+    data["created_by_id"] = created_by_id
+    db_ent = models.Entity(**data)
     db.add(db_ent)
     db.commit()
     db.refresh(db_ent)
     return db_ent
+
+def update_entity(db: Session, entity_id: int, name: str = None, description: str = None, fields: dict = None, icon: str = None):
+    db_entity = db.query(models.Entity).filter(models.Entity.id == entity_id).first()
+    if not db_entity: return None
+    if name: db_entity.name = name
+    if description: db_entity.description = description
+    if icon: db_entity.icon = icon
+    if fields is not None:
+        db_entity.fields = fields
+    db.commit()
+    db.refresh(db_entity)
+    return db_entity
 
 # Branch operations
 def get_branches(db: Session, skip: int = 0, limit: int = 100, entity_id: int = None, only_active: bool = True):
@@ -1253,7 +1267,9 @@ def get_user_distribution(db: Session, dept_name: Optional[str] = None, entity_i
         "by_entity": format_data(entity_dist),
         "by_role": format_data(role_dist)
     }
+
 # Audit Logs
+
 def create_audit_log(db: Session, action_type: str, performed_by_id: int, target_id: str = None, details: dict = None):
     db_log = models.AuditLog(
         action_type=action_type,

@@ -28,6 +28,9 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     username = Column(String, unique=True, index=True, nullable=True)
     phone = Column(String, nullable=True)
+    first_name = Column(String, nullable=True)
+    middle_name = Column(String, nullable=True)
+    last_name = Column(String, nullable=True)
     department = Column(String, nullable=True)
     program = Column(String, nullable=True)
     entity_id = Column(Integer, ForeignKey("entities.id"), nullable=True)
@@ -51,6 +54,8 @@ class User(Base):
     is_global_user = Column(Boolean, default=False)
     avatar_url = Column(Text, nullable=True)  # base64 data URI or URL
     id_photo_url = Column(Text, nullable=True)
+    citizenship = Column(String, nullable=True)
+    marital_status = Column(String, nullable=True)
     
     # Interaction Preference Fields (Interaction-First Architecture)
     notify_replies = Column(Boolean, default=True)      # Replaces reply_notifications
@@ -87,7 +92,7 @@ class User(Base):
     
     # Relationships
     organization = relationship("Organization", back_populates="users")
-    entity = relationship("Entity")
+    entity = relationship("Entity", foreign_keys=[entity_id])
 
 class Department(Base):
     __tablename__ = "departments"
@@ -117,8 +122,12 @@ class Entity(Base):
     icon = Column(String, nullable=True) # stores icon identifier (emoji or svg key)
     fields = Column(JSONB, nullable=True) # stores List[dict] of field definitions
     organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=True)
+    created_by_id = Column(Integer, ForeignKey("global_user.id"), nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     
     organization = relationship("Organization", back_populates="entities")
+    created_by = relationship("User", foreign_keys=[created_by_id])
     departments = relationship("Department", back_populates="entity", cascade="all, delete-orphan")
     feedbacks = relationship("Feedback", back_populates="entity")
     branches = relationship("Branch", back_populates="entity", cascade="all, delete-orphan")
@@ -133,6 +142,8 @@ class Branch(Base):
     city = Column(String, nullable=True)
     barangay = Column(String, nullable=True)
     is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     
     entity = relationship("Entity", back_populates="branches")
     feedbacks = relationship("Feedback", back_populates="branch")

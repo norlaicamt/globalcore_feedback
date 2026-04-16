@@ -112,7 +112,7 @@ const AdminDashboard = ({ onNavigate, theme, darkMode, adminUser }) => {
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', fontWeight: '700', color: theme.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
         <span>Admin Hub</span>
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="9 18 15 12 9 6"/></svg>
-        <span style={{ color: 'var(--primary-color)' }}>{hasGlobalAdminAccess ? "System Overview" : (adminUser?.department || "Program Portal")}</span>
+        <span style={{ color: 'var(--primary-color)' }}>{hasGlobalAdminAccess ? "System Overview" : (adminUser?.department || `${getLabel('category_label', 'Program')} Portal`)}</span>
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="9 18 15 12 9 6"/></svg>
         <span style={{ color: theme.text }}>Insights Dashboard</span>
       </div>
@@ -121,7 +121,7 @@ const AdminDashboard = ({ onNavigate, theme, darkMode, adminUser }) => {
       {hasGlobalAdminAccess ? (
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: theme.surface, padding: "16px 20px", borderRadius: "12px", border: `1px solid ${theme.border}`, boxShadow: "0 1px 4px rgba(0,0,0,0.03)" }}>
           <div>
-            <h3 style={{ margin: 0, fontSize: "16px", fontWeight: "800", color: theme.text }}>{getLabel("entity_label", "Department")} Scope Tracker</h3>
+            <h3 style={{ margin: 0, fontSize: "16px", fontWeight: "800", color: theme.text }}>{getLabel("category_label", "Program")} Scope Tracker</h3>
             {selectedDept ? (
               <p style={{ margin: "4px 0 0", fontSize: "12px", color: "#3B82F6", fontWeight: "700", display: "flex", alignItems: "center", gap: "6px" }}>
                 <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#3B82F6" }} />
@@ -139,7 +139,7 @@ const AdminDashboard = ({ onNavigate, theme, darkMode, adminUser }) => {
             onChange={(e) => setSelectedDept(e.target.value)}
             style={{ padding: "8px 16px", borderRadius: "8px", border: `1.5px solid ${theme.border}`, background: theme.bg, color: theme.text, fontSize: "13px", fontWeight: "600", outline: "none", cursor: "pointer", fontFamily: "inherit" }}
           >
-            <option value="">All {getLabel("entity_label_plural", "Departments")} (Global)</option>
+            <option value="">All {getLabel("category_label_plural", "Programs")} (Global)</option>
             {scopeCategories.map((d) => (
               <option key={d.name} value={d.name}>{d.name}</option>
             ))}
@@ -148,10 +148,10 @@ const AdminDashboard = ({ onNavigate, theme, darkMode, adminUser }) => {
       ) : (
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: theme.surface, padding: "16px 20px", borderRadius: "12px", border: `1px solid ${theme.border}` }}>
            <div>
-            <h3 style={{ margin: 0, fontSize: "16px", fontWeight: "800", color: theme.text }}>{adminUser?.department || getLabel("category_label", "Entity")} Dashboard</h3>
+            <h3 style={{ margin: 0, fontSize: "16px", fontWeight: "800", color: theme.text }}>{adminUser?.department || getLabel("category_label", "Program")} Dashboard</h3>
             <p style={{ margin: "4px 0 0", fontSize: "12px", color: "#3B82F6", fontWeight: "700", display: "flex", alignItems: "center", gap: "6px" }}>
               <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#3B82F6" }} />
-              📍 Viewing: <strong>{adminUser?.department?.toUpperCase()} SERVICE</strong>
+              📍 Viewing: <strong>{(adminUser?.department || getLabel("category_label", "Program")).toUpperCase()} SERVICE</strong>
             </p>
           </div>
         </div>
@@ -164,11 +164,11 @@ const AdminDashboard = ({ onNavigate, theme, darkMode, adminUser }) => {
         gap: "16px",
         justifyContent: "center"
       }}>
-        <KpiCard theme={theme} label={hasGlobalAdminAccess ? `Total ${getLabel("feedback_label_plural", "Feedback")}` : `${getLabel("category_label", "Entity")} ${getLabel("feedback_label", "Feedback")}`} value={summary?.total_feedback ?? 0} sub={hasGlobalAdminAccess ? "System-wide" : "Assigned scope"} onClick={() => onNavigate("feedbacks")} />
+        <KpiCard theme={theme} label={hasGlobalAdminAccess ? `Total ${getLabel("feedback_label_plural", "Feedback")}` : `${getLabel("category_label", "Program")} ${getLabel("feedback_label", "Feedback")}`} value={summary?.total_feedback ?? 0} sub={hasGlobalAdminAccess ? "System-wide" : "Assigned scope"} onClick={() => onNavigate("feedbacks")} />
         {hasGlobalAdminAccess ? (
           <KpiCard theme={theme} label="Total Users" value={summary?.total_users ?? 0} sub="Registered" onClick={() => onNavigate("users")} />
         ) : (
-          <KpiCard theme={theme} label="Scoped Users" value={summary?.total_users ?? 0} sub={`In your ${getLabel("category_label", "Entity").toLowerCase()}`} onClick={() => onNavigate("users")} />
+          <KpiCard theme={theme} label="Scoped Users" value={summary?.total_users ?? 0} sub={`In your ${getLabel("category_label", "Program").toLowerCase()}`} onClick={() => onNavigate("users")} />
         )}
         <KpiCard theme={theme} label="Avg. Rating" value={summary?.avg_rating ?? 0} sub="Out of 5" />
         <KpiCard theme={theme} label="Anonymous Rate" value={`${summary?.anonymous_rate ?? 0}%`} sub="Of submissions" />
@@ -178,7 +178,7 @@ const AdminDashboard = ({ onNavigate, theme, darkMode, adminUser }) => {
       {/* 📊 User Insight Section */}
       <div style={{ display: "grid", gridTemplateColumns: hasGlobalAdminAccess ? "1fr 1fr" : "1fr", gap: "16px" }}>
         {hasGlobalAdminAccess && (
-          <Section theme={theme} title={`${getLabel("category_label", "Entity")} distribution`}>
+          <Section theme={theme} title={`${getLabel("entity_label", "Location")} Distribution`}>
             <ResponsiveContainer width="100%" height={250}>
               <PieChart>
                 <Pie
@@ -289,7 +289,7 @@ const AdminDashboard = ({ onNavigate, theme, darkMode, adminUser }) => {
       </Section>
 
       {/* Entity Analytics */}
-      <Section theme={theme} title={`Submissions by ${getLabel("category_label", "Entity")} Type`}>
+      <Section theme={theme} title={`Submissions by ${getLabel("category_label", "Program")} Type`}>
         <ResponsiveContainer width="100%" height={300}>
           <BarChart data={byEntity} layout="vertical">
             <XAxis type="number" tick={{ fontSize: 10, fill: theme.textMuted }} tickLine={false} axisLine={false} />
@@ -355,7 +355,7 @@ const AdminDashboard = ({ onNavigate, theme, darkMode, adminUser }) => {
           </div>
         </Section>
 
-        <Section theme={theme} title="Top Performing Offices / Branches">
+        <Section theme={theme} title={`Top Performing ${getLabel("entity_label_plural", "Locations")}`}>
           <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
             {topBranches.length > 0 ? topBranches.map((b, i) => (
               <div key={i} style={{ display: "flex", alignItems: "center", gap: "12px", padding: "10px", borderRadius: "8px", background: darkMode ? "rgba(255,255,255,0.02)" : "#F8FAFC", border: `1px solid ${theme.border}` }}>

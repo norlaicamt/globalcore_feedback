@@ -84,6 +84,7 @@ export const TerminologyProvider = ({ children }) => {
 
       // Merge public branding settings
       if (publicInfo.organization_name) mappedSettings.primary_organization_name = publicInfo.organization_name;
+      if (publicInfo.organization_logo) mappedSettings.primary_organization_logo = publicInfo.organization_logo;
       if (publicInfo.primary_color) mappedSettings.primary_color = publicInfo.primary_color;
 
       setSystemSettings(mappedSettings);
@@ -109,15 +110,25 @@ export const TerminologyProvider = ({ children }) => {
     refreshLabels();
   }, [refreshLabels]);
 
-  // Safe getter with fallback
-  const getLabel = (key, fallback) => {
-    return labels[key] || fallback;
+  const systemName = systemSettings.primary_organization_name || "GlobalCore Feedback";
+  const systemLogo = systemSettings.primary_organization_logo || null;
+  
+  // Refined defaults for mental model clarity
+  const defaultLabels = {
+    category_label: "Program",
+    category_label_plural: "Programs",
+    entity_label: "Location",
+    entity_label_plural: "Locations",
+    feedback_label: "Feedback",
+    feedback_label_plural: "Feedbacks"
   };
 
-  const systemName = systemSettings.primary_organization_name || "GlobalCore Feedback";
+  const getLabel = (key, fallback) => {
+    return labels[key] || defaultLabels[key] || fallback;
+  };
 
   return (
-    <TerminologyContext.Provider value={{ labels, getLabel, refreshLabels, loading, systemName, systemSettings }}>
+    <TerminologyContext.Provider value={{ labels, getLabel, refreshLabels, loading, systemName, systemLogo, systemSettings }}>
       {children}
     </TerminologyContext.Provider>
   );

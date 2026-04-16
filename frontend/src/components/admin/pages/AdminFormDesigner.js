@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from "react";
+import { useTerminology } from "../../../context/TerminologyContext";
 import { 
   adminGetEntities, 
   getEntityFormConfig, 
-  updateEntityFormConfig 
+  updateEntityFormConfig,
+  getSystemLabels
 } from "../../../services/adminApi";
 import { IconRegistry } from "../../IconRegistry";
 
@@ -19,6 +21,14 @@ const Ico = {
   Grid: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>,
   Check: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>,
   AlertTriangle: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>,
+  User: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
+  Mic: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>,
+  Paperclip: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>,
+  EyeOff: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>,
+  MapPin: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>,
+  Star: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>,
+  MessageSquare: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>,
+  Building: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12" y2="18"/><line x1="9" y1="14" x2="9" y2="14"/><line x1="15" y1="14" x2="15" y2="14"/><line x1="12" y1="10" x2="12" y2="10"/><line x1="9" y1="6" x2="9" y2="6"/><line x1="15" y1="6" x2="15" y2="6"/></svg>,
 };
 
 const FIELD_TYPES = [
@@ -29,16 +39,16 @@ const FIELD_TYPES = [
   { value: "date",     label: "Date Picker" }
 ];
 
-const MODULE_OPTIONS = [
-  { key: "feedback_type",  label: "🎯 Feedback Type Picker",    desc: "Complaint / Suggestion / Appreciation" },
-  { key: "entity_picker",  label: "🏢 Service / Entity Picker", desc: "Let user choose a program or service" },
-  { key: "location_picker",label: "📍 Location Picker",         desc: "Branch or manual location input" },
-  { key: "message_input",  label: "💬 Message Input",           desc: "Main description / feedback text" },
-  { key: "staff",          label: "👤 Staff Selection",         desc: "Tag involved staff member(s)" },
-  { key: "rating",         label: "⭐ Experience Rating",       desc: "Star rating 1–5" },
-  { key: "voice",          label: "🎙️ Voice Recording",        desc: "Audio note from user" },
-  { key: "attachments",    label: "📎 Photo / Attachments",     desc: "File or photo upload" },
-  { key: "anonymous",      label: "🕵️ Anonymous Toggle",       desc: "Let user submit anonymously" },
+const getModuleOptions = (getLabel) => [
+  { key: "feedback_type",  label: `${getLabel('feedback_label', 'Feedback')} Type Picker`,    desc: "Complaint / Suggestion / Appreciation", icon: "Layers" },
+  { key: "entity_picker",  label: `${getLabel('category_label', 'Program')} Picker`, desc: `Let user choose a ${getLabel('category_label', 'program').toLowerCase()} or service`, icon: "Building" },
+  { key: "location_picker",label: `${getLabel('entity_label', 'Location')} Picker`,         desc: "Specific site or manual location input", icon: "MapPin" },
+  { key: "message_input",  label: "Message Input",           desc: "Main description / feedback text", icon: "MessageSquare" },
+  { key: "staff",          label: "Staff Selection",         desc: "Tag involved staff member(s)", icon: "User" },
+  { key: "rating",         label: "Experience Rating",       desc: "Star rating 1–5", icon: "Star" },
+  { key: "voice",          label: "Voice Recording",        desc: "Audio note from user", icon: "Mic" },
+  { key: "attachments",    label: "Photo / Attachments",     desc: "File or photo upload", icon: "Paperclip" },
+  { key: "anonymous",      label: "Anonymous Toggle",       desc: "Let user submit anonymously", icon: "EyeOff" },
 ];
 
 // ── Normalize for safe rendering ──────────────────────────────────────────────
@@ -65,11 +75,12 @@ function validateConfig(config) {
   if (!hasDetails) {
     errors.push("The 'Report Details' step (id: details) must exist and be enabled.");
   }
-  config.steps.forEach((step, i) => {
-    if (step.enabled && (!step.items || step.items.length === 0)) {
-      errors.push(`Step ${i + 1} ("${step.label}") is enabled but has no items. Add at least one module or section.`);
-    }
-  });
+  // Soft warning for empty steps (not blocking)
+  // config.steps.forEach((step, i) => {
+  //   if (step.enabled && (!step.items || step.items.length === 0)) {
+  //     errors.push(`Step ${i + 1} ("${step.label}") is enabled but has no items. Add at least one module or section.`);
+  //   }
+  // });
   // Detect duplicate section usage
   const usedSections = {};
   config.steps.forEach(step => {
@@ -88,6 +99,8 @@ function validateConfig(config) {
 
 // ── Main Component ────────────────────────────────────────────────────────────
 const AdminFormDesigner = ({ theme, darkMode, adminUser }) => {
+  const { getLabel } = useTerminology();
+  const MODULE_OPTIONS = getModuleOptions(getLabel);
   const [entities,      setEntities]      = useState([]);
   const [selectedEntId, setSelectedEntId] = useState("");
   const [config,        setConfig]        = useState(null);
@@ -95,11 +108,39 @@ const AdminFormDesigner = ({ theme, darkMode, adminUser }) => {
   const [isSaving,      setIsSaving]      = useState(false);
   const [expandedSteps, setExpandedSteps] = useState({});
   const previewChannel = React.useRef(null);
+  const lastBroadcast = React.useRef(0);
 
   React.useEffect(() => {
-    previewChannel.current = new BroadcastChannel('form_preview');
+    previewChannel.current = new BroadcastChannel('form_preview_v1');
+    previewChannel.current.onmessage = (e) => {
+      if (e.data?.type === 'preview_ready' && config) {
+        console.log("[Designer] Handshake received, sending current config...");
+        sendUpdate(config, selectedEntId);
+      }
+    };
     return () => previewChannel.current?.close();
-  }, []);
+  }, [config, selectedEntId]);
+
+  const sendUpdate = (currConfig, entId) => {
+    if (!previewChannel.current || !currConfig) return;
+    const version = Date.now();
+    lastBroadcast.current = version;
+    previewChannel.current.postMessage({ 
+      type: 'config_update', 
+      config: currConfig, 
+      entity_id: entId,
+      version: version,
+      source: 'preview'
+    });
+  };
+
+  useEffect(() => {
+    if (!config) return;
+    const timer = setTimeout(() => {
+      sendUpdate(config, selectedEntId);
+    }, 250); // Debounce
+    return () => clearTimeout(timer);
+  }, [config, selectedEntId]);
 
   const isGlobalAdmin = adminUser && !adminUser.entity_id;
 
@@ -309,13 +350,13 @@ const AdminFormDesigner = ({ theme, darkMode, adminUser }) => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: theme.surface, padding: '20px 24px', borderRadius: '16px', border: `1px solid ${theme.border}`, boxShadow: '0 4px 20px rgba(0,0,0,0.03)' }}>
         <div>
           <h1 style={{ margin: 0, fontSize: '22px', fontWeight: '800', color: theme.text, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '10px' }}>{Ico.Layers} Workflow Builder</h1>
-          <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: theme.textMuted }}>Design multi-step feedback workflows. Each step can contain modules and sections.</p>
+          <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: theme.textMuted }}>Design multi-step {getLabel('feedback_label', 'feedback').toLowerCase()} workflows.</p>
         </div>
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
           <select value={selectedEntId} onChange={e => setSelectedEntId(e.target.value)} style={st.select(theme)}>
             {entities.map(ent => <option key={ent.id} value={ent.id}>{ent.name}</option>)}
           </select>
-          <button onClick={() => { if (config && previewChannel.current) previewChannel.current.postMessage({ type: 'config_update', config, entity_id: selectedEntId }); window.open(`/preview?entity_id=${selectedEntId}`, '_blank'); }} style={st.btnSecondary(theme)}>
+          <button onClick={() => { if (config && previewChannel.current) previewChannel.current.postMessage({ type: 'config_update', config, entity_id: selectedEntId, version: Date.now(), source: 'preview' }); window.open(`/preview?preview=true&entity_id=${selectedEntId}`, '_blank'); }} style={st.btnSecondary(theme)}>
             {Ico.Eye} <span>Preview</span>
           </button>
           <button onClick={handleSave} disabled={isSaving} style={st.btnPrimary(isSaving)}>
@@ -396,14 +437,17 @@ const AdminFormDesigner = ({ theme, darkMode, adminUser }) => {
                     <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       {(step.items || []).length === 0 && (
                         <div style={{ textAlign: 'center', padding: '16px', color: theme.textMuted, fontSize: '12px', border: `1.5px dashed ${theme.border}`, borderRadius: '10px' }}>
-                          No items yet. Add a module or section below.
+                          <div style={{ color: '#F59E0B', fontWeight: '800', marginBottom: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}>
+                            {Ico.AlertTriangle} Empty Step
+                          </div>
+                          No items yet. This step will be automatically skipped in the form. Add a module or section below.
                         </div>
                       )}
 
                       {(step.items || []).map((item, iIdx) => (
                         <div key={iIdx} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', borderRadius: '10px', background: theme.surface, border: `1px solid ${theme.border}` }}>
-                          <span style={{ fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', color: item.type === 'module' ? '#3B82F6' : '#8B5CF6', minWidth: '55px' }}>
-                            {item.type === 'module' ? `${Ico.Box} Mod` : `${Ico.Grid} Sec`}
+                          <span style={{ fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', color: item.type === 'module' ? '#3B82F6' : '#8B5CF6', minWidth: '55px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            {item.type === 'module' ? <>{Ico.Box} Mod</> : <>{Ico.Grid} Sec</>}
                           </span>
 
                           {item.type === 'module' ? (
@@ -519,12 +563,12 @@ const AdminFormDesigner = ({ theme, darkMode, adminUser }) => {
               <p style={{ margin: '0 0 14px', fontSize: '11px', color: theme.textMuted }}>Rename system labels to match your industry.</p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 <div>
-                  <label style={st.label(theme)}>Entity Label (e.g. Program, Service)</label>
-                  <input value={config.terminology?.entity_label || ""} onChange={e => updateTerminology('entity_label', e.target.value)} style={st.input(theme)} />
+                  <label style={st.label(theme)}>{getLabel('category_label', 'Program')} Label Override (current: {getLabel('category_label', 'Program')})</label>
+                  <input value={config.terminology?.entity_label || ""} placeholder={getLabel('category_label', 'Program')} onChange={e => updateTerminology('entity_label', e.target.value)} style={st.input(theme)} />
                 </div>
                 <div>
-                  <label style={st.label(theme)}>Location Label (e.g. Branch, Office)</label>
-                  <input value={config.terminology?.location_label || ""} onChange={e => updateTerminology('location_label', e.target.value)} style={st.input(theme)} />
+                  <label style={st.label(theme)}>{getLabel('entity_label', 'Location')} Label Override (current: {getLabel('entity_label', 'Location')})</label>
+                  <input value={config.terminology?.location_label || ""} placeholder={getLabel('entity_label', 'Location')} onChange={e => updateTerminology('location_label', e.target.value)} style={st.input(theme)} />
                 </div>
               </div>
             </div>

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from typing import List, Optional
 from datetime import datetime
 from app.models import FeedbackStatus, NotificationType
@@ -14,6 +14,9 @@ class UserBase(BaseModel):
     is_global_user: Optional[bool] = False
     username: Optional[str] = None
     phone: Optional[str] = None
+    first_name: Optional[str] = None
+    middle_name: Optional[str] = None
+    last_name: Optional[str] = None
     department: Optional[str] = None
     program: Optional[str] = None
     role_identity: Optional[str] = None
@@ -27,6 +30,8 @@ class UserBase(BaseModel):
     exact_address: Optional[str] = None
     birthdate: Optional[str] = None
     birthplace: Optional[str] = None
+    citizenship: Optional[str] = None
+    marital_status: Optional[str] = None
     unit_name: Optional[str] = None
     profile_completed: Optional[bool] = False
     completed_at: Optional[datetime] = None
@@ -54,6 +59,7 @@ class UserBase(BaseModel):
     deactivated_until: Optional[datetime] = None
 
 class UserCreate(UserBase):
+    username: str # Required for new signups
     password: str
 
 class UserUpdate(BaseModel):
@@ -61,6 +67,9 @@ class UserUpdate(BaseModel):
     username: Optional[str] = None
     email: Optional[str] = None
     phone: Optional[str] = None
+    first_name: Optional[str] = None
+    middle_name: Optional[str] = None
+    last_name: Optional[str] = None
     department: Optional[str] = None
     program: Optional[str] = None
     role_identity: Optional[str] = None
@@ -74,6 +83,8 @@ class UserUpdate(BaseModel):
     exact_address: Optional[str] = None
     birthdate: Optional[str] = None
     birthplace: Optional[str] = None
+    citizenship: Optional[str] = None
+    marital_status: Optional[str] = None
     unit_name: Optional[str] = None
     profile_completed: Optional[bool] = None
     completed_at: Optional[datetime] = None
@@ -186,6 +197,9 @@ class EntityCreate(EntityBase):
 
 class Entity(EntityBase):
     id: int
+    created_at: datetime
+    updated_at: datetime
+    created_by: Optional[UserSearchEntry] = None
     model_config = ConfigDict(from_attributes=True)
 
 # --- BRANCH SCHEMAS ---
@@ -212,6 +226,8 @@ class BranchUpdate(BaseModel):
 
 class Branch(BranchBase):
     id: int
+    created_at: datetime
+    updated_at: datetime
     model_config = ConfigDict(from_attributes=True)
 
 # --- REPLY SCHEMAS ---
@@ -489,14 +505,17 @@ class FormSectionDesigner(BaseModel):
     title: str
     fields: List[FormFieldDesigner] = []
 
+class FormItemDesigner(BaseModel):
+    type: str # "module", "section"
+    key: Optional[str] = None # module key
+    section_id: Optional[str] = None
+
 class FormStepDesigner(BaseModel):
     id: str
     label: str
     enabled: bool = True
     order: int = 0
-    type: str = "core" # "core", "custom_section", or "module"
-    linked_section_id: Optional[str] = None
-    module_key: Optional[str] = None
+    items: List[FormItemDesigner] = Field(default_factory=list)
 
 class FormTogglesDesigner(BaseModel):
     enabled: bool = True

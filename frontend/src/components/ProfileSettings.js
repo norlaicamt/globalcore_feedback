@@ -34,7 +34,28 @@ const Icons = {
 };
 
 
+const calculateProfileCompletion = (user) => {
+  if (!user) return 0;
+  let score = 0;
+  if (user.first_name && user.last_name) score += 20;
+  else if (user.name) score += 5;
+  if (user.email || user.phone) score += 20;
+  if (user.city && user.province) score += 30;
+  if (user.barangay) score += 10;
+  if (user.birthdate) score += 10;
+  if (user.citizenship) score += 10;
+  return score;
+};
+
+
 // --- HELPERS & SHARED COMPONENTS ---
+
+const PasswordRule = ({ met, text }) => (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: met ? '#10B981' : '#94A3B8', padding: '2px 0' }}>
+        <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: met ? '#10B981' : '#E2E8F0' }} />
+        <span style={{ fontWeight: '600' }}>{text}</span>
+    </div>
+);
 
 const DataTile = ({ label, value, icon }) => (
     <div style={styles.dataTile}>
@@ -46,9 +67,12 @@ const DataTile = ({ label, value, icon }) => (
     </div>
 );
 
-const InputGroup = ({ label, value, onChange, placeholder, type }) => (
+const InputGroup = ({ label, value, onChange, placeholder, type, trailingAction }) => (
     <div style={styles.inputWrap}>
-        <label style={styles.fieldLabel}>{label}</label>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '2px' }}>
+            <label style={styles.fieldLabel}>{label}</label>
+            {trailingAction}
+        </div>
         <input 
             type={type || "text"}
             style={styles.inputField}
@@ -84,31 +108,96 @@ const ToggleCard = ({ title, desc, isOn, onToggle, icon, isDisabled }) => (
 const ProfileView = ({ currentUser, onUserUpdate, showToast }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [formData, setFormData] = useState({ ...currentUser });
-    
-    // Philippines Locations Data
-    const provinces = ["Metro Manila", "Cebu", "Davao", "Iloilo", "Bulacan", "Pampanga"];
-    const cityMap = {
-        "Metro Manila": ["Quezon City", "Manila", "Makati", "Pasig", "Taguig"],
-        "Cebu": ["Cebu City", "Mandaue", "Lapu-Lapu"],
-        "Davao": ["Davao City"],
-        "Iloilo": ["Iloilo City"],
-        "Bulacan": ["Malolos", "Meycauayan"],
-        "Pampanga": ["San Fernando", "Angeles"]
-    };
+    const [regionList, setRegionList] = useState([]);
+    const [allProvinces, setAllProvinces] = useState({});
+    const [provinceList, setProvinceList] = useState([]);
+    const [allCities, setAllCities] = useState({});
+    const [cityList, setCityList] = useState([]);
+    const [barangayList, setBarangayList] = useState([]);
+    const [barangayCache, setBarangayCache] = useState({});
+    const [isLoadingLocations, setIsLoadingLocations] = useState(false);
+
+    const normalize = (val) => val?.toLowerCase().trim();
+
+    // 1. Initial Load of Base Assets
+    useEffect(() => {
+        const loadBaseLocations = async () => {
+            try {
+                const [regRes, provRes, cityRes] = await Promise.all([
+                    fetch("/assets/locations/regions.json"),
+                    fetch("/assets/locations/provinces.json"),
+                    fetch("/assets/locations/cities.json"),
+                ]);
+                setRegionList(await regRes.json());
+                setAllProvinces(await provRes.json());
+                setAllCities(await cityRes.json());
+            } catch (err) {
+                console.error("Failed to load locations", err);
+            }
+        };
+        loadBaseLocations();
+    }, []);
+
+    // 2. Chained Sync for Region -> Province
+    useEffect(() => {
+        if (formData.region && allProvinces[formData.region]) {
+            setProvinceList(allProvinces[formData.region]);
+        } else {
+            setProvinceList([]);
+        }
+    }, [formData.region, allProvinces]);
+
+    // 3. Chained Sync for Province -> City
+    useEffect(() => {
+        if (formData.province && allCities[formData.province]) {
+            setCityList(allCities[formData.province]);
+        } else {
+            setCityList([]);
+        }
+    }, [formData.province, allCities]);
+
+    // 4. Chained Sync for City -> Barangay (with Caching)
+    useEffect(() => {
+        const loadBarangays = async () => {
+            if (!formData.city) {
+                setBarangayList([]);
+                return;
+            }
+            if (barangayCache[formData.city]) {
+                setBarangayList(barangayCache[formData.city]);
+                return;
+            }
+            setIsLoadingLocations(true);
+            try {
+                const safeCity = formData.city.replace(/[^a-z0-9]/gi, (x) => (" -_".includes(x) ? x : "")).trim();
+                const res = await fetch(`/assets/locations/barangays/${safeCity}.json`);
+                if (res.ok) {
+                    const data = await res.json();
+                    setBarangayList(data);
+                    setBarangayCache(prev => ({ ...prev, [formData.city]: data }));
+                } else {
+                    setBarangayList([]);
+                }
+            } catch (err) {
+                setBarangayList([]);
+            } finally {
+                setIsLoadingLocations(false);
+            }
+        };
+        loadBarangays();
+    }, [formData.city]);
 
     const handleSave = async () => {
         try {
             const updatedUser = await updateUser(currentUser.id, formData);
             onUserUpdate(updatedUser);
             setIsEditing(false);
-            showToast("Profile synchronized successfully");
+            showToast("Changes saved successfully");
         } catch (err) {
-            showToast("Failed to save professional profile");
+            showToast("Failed to save changes");
         }
     };
 
-    const cityList = cityMap[formData.province] || [];
-    const barangayList = ["Barangay 1", "Barangay 2", "Barangay 3"]; 
 
     return (
         <div style={styles.viewContainer}>
@@ -132,14 +221,14 @@ const ProfileView = ({ currentUser, onUserUpdate, showToast }) => {
                     <div style={styles.heroText}>
                         <h3 style={styles.heroName}>{currentUser.name}</h3>
                         <p style={styles.heroUsername}>@{currentUser.username || currentUser.name.toLowerCase().replace(" ", ".")}</p>
-                        <p style={styles.heroEmail}>{currentUser.email}</p>
-                        <div style={styles.badgeRow}>
+                        
+                        <div style={{ ...styles.badgeRow, marginTop: '14px' }}>
                             <span style={styles.roleBadge}>{currentUser.role === 'superadmin' ? 'Global Admin' : currentUser.role.toUpperCase()}</span>
-                            <span style={styles.statusBadge}>Verified Access</span>
+                            <span style={styles.statusBadge}>Verified Citizen</span>
                         </div>
                     </div>
                     <button style={styles.premiumEditBtn} onClick={() => setIsEditing(!isEditing)}>
-                        {isEditing ? "Cancel Edit" : "Modify Profile"}
+                        {isEditing ? "Cancel Edit" : "Modify Details"}
                     </button>
                 </div>
                 
@@ -162,63 +251,135 @@ const ProfileView = ({ currentUser, onUserUpdate, showToast }) => {
             </div>
 
             <div style={styles.sectionCardPremiumProfile}>
-                <div style={styles.cardHeader}>
-                    <h4 style={styles.cardTitlePremium}>Identity & Organization</h4>
-                </div>
-                
                 {!isEditing ? (
-                    <div style={styles.dataGridPremium}>
-                        <DataTile label="Position Title" value={currentUser.position_title} icon={<Icons.Zap />} />
-                        <DataTile label="Department / Unit" value={currentUser.unit_name || currentUser.department} icon={<Icons.Users />} />
-                        <DataTile label="Organization" value={currentUser.company_name} icon={<Icons.Shield />} />
-                        <DataTile label="Entity Access" value={currentUser.entity_name} icon={<Icons.Key />} />
-                        <DataTile label="Assigned Program" value={currentUser.program} icon={<Icons.Zap />} />
-                        <DataTile label="Service Scope" value={currentUser.region} icon={<Icons.Activity />} />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+                        {/* SECTION: PERSONAL IDENTITY */}
+                        <div>
+                            <div style={{ ...styles.cardHeader, borderBottom: '1px solid #F1F5F9', paddingBottom: '12px' }}>
+                                <h4 style={styles.cardTitlePremium}>Personal Information</h4>
+                            </div>
+                            <div style={{ ...styles.dataGridPremium, marginTop: '20px' }}>
+                                <DataTile label="Full Name" value={currentUser.name} icon={<Icons.Users />} />
+                                <DataTile label="Citizenship" value={currentUser.citizenship} icon={<Icons.Shield />} />
+                                <DataTile label="Marital Status" value={currentUser.marital_status} icon={<Icons.Info />} />
+                                <DataTile label="Birthdate" value={currentUser.birthdate} icon={<Icons.Calendar />} />
+                            </div>
+                        </div>
+
+                        {/* SECTION: ADDRESS INFORMATION */}
+                        <div>
+                            <div style={{ ...styles.cardHeader, borderBottom: '1px solid #F1F5F9', paddingBottom: '12px' }}>
+                                <h4 style={styles.cardTitlePremium}>Address Information</h4>
+                            </div>
+                            <div style={{ ...styles.dataGridPremium, marginTop: '20px' }}>
+                                <DataTile label="Region" value={currentUser.region} icon={<Icons.Activity />} />
+                                <DataTile label="Province" value={currentUser.province} icon={<Icons.Activity />} />
+                                <DataTile label="City / Municipality" value={currentUser.city} icon={<Icons.Activity />} />
+                                <DataTile label="Barangay" value={currentUser.barangay} icon={<Icons.Activity />} />
+                            </div>
+                        </div>
+
+                        {/* SECTION: ORGANIZATIONAL (Hide for standard users) */}
+                        {currentUser.role !== 'user' && (
+                            <div>
+                                <div style={{ ...styles.cardHeader, borderBottom: '1px solid #F1F5F9', paddingBottom: '12px' }}>
+                                    <h4 style={{ ...styles.cardTitlePremium, color: '#64748B' }}>Professional Metadata</h4>
+                                </div>
+                                <div style={{ ...styles.dataGridPremium, marginTop: '20px' }}>
+                                    <DataTile label="Position Title" value={currentUser.position_title} icon={<Icons.Zap />} />
+                                    <DataTile label="Unit / Department" value={currentUser.unit_name || currentUser.department} icon={<Icons.Shield />} />
+                                    <DataTile label="Official Program" value={currentUser.program} icon={<Icons.Zap />} />
+                                </div>
+                            </div>
+                        )}
                     </div>
                 ) : (
                     <div style={styles.formPadding}>
-                        <div style={styles.formGridPremium}>
-                            <InputGroup label="Full Legal Name" value={formData.name} onChange={v => setFormData({...formData, name: v})} />
-                            <InputGroup label="Position Title" value={formData.position_title} onChange={v => setFormData({...formData, position_title: v})} />
-                            <InputGroup label="Unit / Department" value={formData.unit_name} onChange={v => setFormData({...formData, unit_name: v})} />
-                            <InputGroup label="Official Program" value={formData.program} onChange={v => setFormData({...formData, program: v})} />
-                        </div>
-                        
-                        <div style={styles.locationSectionPremium}>
-                            <div style={styles.locationHeader}>
-                                <Icons.Activity />
-                                <span style={{fontWeight: '800', textTransform: 'uppercase', fontSize: '13px', letterSpacing: '1px'}}>Regional Stewardship</span>
+                         {/* EDIT SECTION: PERSONAL */}
+                         <div style={{ marginBottom: '32px' }}>
+                            <div style={{ ...styles.cardHeader, borderBottom: '1.5px solid var(--primary-color)', paddingBottom: '10px', marginBottom: '24px' }}>
+                                <h4 style={styles.cardTitlePremium}>Edit Personal Information</h4>
                             </div>
-                            <div style={styles.locationGridPremium}>
+                            <div style={styles.formGridPremium}>
+                                <InputGroup label="Full Legal Name" value={formData.name} onChange={v => setFormData({...formData, name: v})} />
                                 <div style={styles.inputWrap}>
-                                    <label style={styles.fieldLabelPremium}>Province / State</label>
-                                    <select style={styles.selectFieldPremium} value={formData.province} onChange={e => setFormData({...formData, province: e.target.value, city: "", barangay: ""})}>
-                                        <option value="">Select Province</option>
-                                        {provinces.map(p => <option key={p} value={p}>{p}</option>)}
+                                    <label style={styles.fieldLabel}>Citizenship</label>
+                                    <select style={styles.inputField} value={formData.citizenship} onChange={e => setFormData({...formData, citizenship: e.target.value})}>
+                                        <option value="">Select Citizenship</option>
+                                        <option value="Filipino">Filipino</option>
+                                        <option value="Foreign National">Foreign National</option>
                                     </select>
                                 </div>
                                 <div style={styles.inputWrap}>
-                                    <label style={styles.fieldLabelPremium}>City / Municipality</label>
-                                    <select style={styles.selectFieldPremium} value={formData.city} onChange={e => setFormData({...formData, city: e.target.value, barangay: ""})} disabled={!formData.province}>
+                                    <label style={styles.fieldLabel}>Marital Status</label>
+                                    <select style={styles.inputField} value={formData.marital_status} onChange={e => setFormData({...formData, marital_status: e.target.value})}>
+                                        <option value="">Select Status</option>
+                                        <option value="Single">Single</option>
+                                        <option value="Married">Married</option>
+                                        <option value="Widowed">Widowed</option>
+                                        <option value="Separated">Separated</option>
+                                    </select>
+                                </div>
+                                <InputGroup type="date" label="Birthdate" value={formData.birthdate} onChange={v => setFormData({...formData, birthdate: v})} />
+                            </div>
+                        </div>
+
+                        {/* EDIT SECTION: ADDRESS */}
+                        <div style={{ marginBottom: '32px' }}>
+                            <div style={{ ...styles.cardHeader, borderBottom: '1.5px solid var(--primary-color)', paddingBottom: '10px', marginBottom: '24px' }}>
+                                <h4 style={styles.cardTitlePremium}>Edit Address Information</h4>
+                            </div>
+                            <div style={styles.formGridPremium}>
+                                <div style={styles.inputWrap}>
+                                    <label style={styles.fieldLabel}>Region</label>
+                                    <select style={styles.inputField} value={formData.region} onChange={e => setFormData({...formData, region: e.target.value, province: "", city: "", barangay: ""})}>
+                                        <option value="">Select Region</option>
+                                        {regionList.map(r => <option key={r} value={r}>{r}</option>)}
+                                    </select>
+                                </div>
+                                <div style={styles.inputWrap}>
+                                    <label style={styles.fieldLabel}>Province</label>
+                                    <select style={styles.inputField} value={formData.province} onChange={e => setFormData({...formData, province: e.target.value, city: "", barangay: ""})} disabled={!formData.region}>
+                                        <option value="">Select Province</option>
+                                        {provinceList.map(p => <option key={p} value={p}>{p}</option>)}
+                                    </select>
+                                </div>
+                                <div style={styles.inputWrap}>
+                                    <label style={styles.fieldLabel}>City / Municipality</label>
+                                    <select style={styles.inputField} value={formData.city} onChange={e => setFormData({...formData, city: e.target.value, barangay: ""})} disabled={!formData.province}>
                                         <option value="">Select City / Municipality</option>
                                         {cityList.map(c => <option key={c} value={c}>{c}</option>)}
                                     </select>
                                 </div>
                                 <div style={styles.inputWrap}>
-                                    <label style={styles.fieldLabelPremium}>Barangay</label>
-                                    <select style={styles.selectFieldPremium} value={formData.barangay} onChange={e => setFormData({...formData, barangay: e.target.value})} disabled={!formData.city}>
-                                        <option value="">Select Barangay</option>
+                                    <label style={styles.fieldLabel}>Barangay</label>
+                                    <select style={styles.inputField} value={formData.barangay} onChange={e => setFormData({...formData, barangay: e.target.value})} disabled={!formData.city || isLoadingLocations}>
+                                        <option value="">{isLoadingLocations ? "Loading Barangays..." : "Select Barangay"}</option>
                                         {barangayList.map(b => <option key={b} value={b}>{b}</option>)}
                                     </select>
                                 </div>
                             </div>
                         </div>
+
+                        {/* EDIT SECTION: ORGANIZATIONAL (Admins Only) */}
+                        {currentUser.role !== 'user' && (
+                            <div style={{ marginBottom: '32px' }}>
+                                <div style={{ ...styles.cardHeader, borderBottom: '1.5px solid #64748B', paddingBottom: '10px', marginBottom: '24px' }}>
+                                    <h4 style={{ ...styles.cardTitlePremium, color: '#64748B' }}>Edit Organizational Context</h4>
+                                </div>
+                                <div style={styles.formGridPremium}>
+                                    <InputGroup label="Position Title" value={formData.position_title} onChange={v => setFormData({...formData, position_title: v})} />
+                                    <InputGroup label="Unit / Department" value={formData.unit_name} onChange={v => setFormData({...formData, unit_name: v})} />
+                                    <InputGroup label="Official Program" value={formData.program} onChange={v => setFormData({...formData, program: v})} />
+                                </div>
+                            </div>
+                        )}
                         
                         <div style={styles.formActionsPremium}>
                             <button style={styles.primaryBtnPremium} onClick={handleSave}>
-                                <Icons.Check /> Save Profile
+                                Save Changes
                             </button>
-                            <button style={styles.secondaryBtnPremium} onClick={() => setIsEditing(false)}>Discard</button>
+                            <button style={styles.secondaryBtnPremium} onClick={() => setIsEditing(false)}>Cancel</button>
                         </div>
                     </div>
                 )}
@@ -381,36 +542,32 @@ const NotificationsView = ({ currentUser, notifs, handleToggle }) => {
 };
 
 const PrivacyView = ({ currentUser, onUserUpdate, showToast, onLogout }) => {
-    const [showDelete, setShowDelete] = useState(false);
-    const [showDeactivate, setShowDeactivate] = useState(false);
-    const [deactivateDays, setDeactivateDays] = useState(7);
-
     const [pOld, setPOld] = useState("");
     const [pNew, setPNew] = useState("");
     const [pConfirm, setPConfirm] = useState("");
     const [isUpdating, setIsUpdating] = useState(false);
+    const [deactivateDays, setDeactivateDays] = useState(2);
+    const [showHiatusConfirm, setShowHiatusConfirm] = useState(false);
+    
+    const [showOld, setShowOld] = useState(false);
+    const [showNew, setShowNew] = useState(false);
+    const [showConfirm, setShowConfirm] = useState(false);
+
+    // Validation 
+    const isLenValid = pNew.length >= 8;
+    const hasNum = /\d/.test(pNew);
+    const isMatch = pNew === pConfirm && pNew.length > 0;
+    const canUpdate = isLenValid && hasNum && isMatch && pOld.length > 0;
 
     const handlePasswordChange = async () => {
-        if (!pOld || !pNew || !pConfirm) {
-            showToast("Please complete all security fields.");
-            return;
-        }
-        if (pNew !== pConfirm) {
-            showToast("New access keys do not match.");
-            return;
-        }
-        if (pNew.length < 8) {
-            showToast("New access key must be at least 8 characters.");
-            return;
-        }
-
+        if (!canUpdate) return;
         setIsUpdating(true);
         try {
             await changePassword(currentUser.id, pOld, pNew);
-            showToast("Security credentials updated successfully.");
+            showToast("Password updated successfully.");
             setPOld(""); setPNew(""); setPConfirm("");
         } catch (err) {
-            const msg = err.response?.data?.detail || "Failed to recognize current access key.";
+            const msg = err.response?.data?.detail || "Failed to recognize current password.";
             showToast(msg);
         } finally {
             setIsUpdating(false);
@@ -420,99 +577,153 @@ const PrivacyView = ({ currentUser, onUserUpdate, showToast, onLogout }) => {
     const handleDeactivate = async () => {
         try {
             await deactivateUser(currentUser.id, deactivateDays);
-            showToast(`Account stewardship paused for ${deactivateDays} days.`);
+            showToast(`Account activity hidden for ${deactivateDays === 0 ? 'indefinite' : deactivateDays} days.`);
             onLogout();
         } catch (err) {
-            showToast("Deactivation failed.");
+            showToast("Failed to pause account activity.");
         }
     };
 
     return (
         <div style={styles.viewContainer}>
-            <div style={{...styles.sectionHeader, display: 'flex', alignItems: 'center', gap: '20px'}}>
-                <div style={{width: '64px', height: '64px', background: 'rgba(var(--primary-rgb), 0.05)', borderRadius: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--primary-color)'}}>
-                    <Icons.Shield />
-                </div>
-                <div>
-                    <h2 style={styles.viewTitle}>Security & Privacy</h2>
-                    <p style={styles.viewSubtitle}>Professional controls for your professional identity and session security.</p>
-                </div>
+            <div style={styles.sectionHeader}>
+                <h2 style={styles.viewTitle}>Security & Privacy</h2>
+                <p style={styles.viewSubtitle}>Controls for your identity and account security.</p>
             </div>
 
+            {/* SECTION 1: ACCOUNT INFORMATION */}
             <div style={styles.sectionCardPremium}>
-                <div style={{display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px', paddingBottom: '16px', borderBottom: '1px solid #F1F5F9'}}>
-                    <div style={{color: 'var(--primary-color)'}}><Icons.Key /></div>
-                    <h4 style={styles.cardTitle}>Identity Access Management</h4>
+                <h4 style={{...styles.cardTitlePremium, fontSize: '11px', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '24px'}}>
+                    Account Information
+                </h4>
+                <div style={{display: 'flex', flexDirection: 'column', gap: '24px'}}>
+                    <div>
+                        <span style={{...styles.fieldLabel, color: '#64748B', display: 'block', marginBottom: '4px'}}>Registered Email</span>
+                        <span style={{fontSize: '16px', fontWeight: '700', color: 'var(--primary-color)'}}>{currentUser.email}</span>
+                    </div>
+                    <div>
+                        <span style={{...styles.fieldLabel, color: '#64748B', display: 'block', marginBottom: '4px'}}>Registered Contact Number</span>
+                        <span style={{fontSize: '16px', fontWeight: '700', color: 'var(--primary-color)'}}>{currentUser.phone || "Not set"}</span>
+                    </div>
                 </div>
-                <p style={{fontSize: '14px', color: '#64748B', lineHeight: '1.6', marginBottom: '24px', maxWidth: '600px'}}>
-                    Your password (Access Key) is the primary lock for your professional data. Ensuring it is complex and unique is vital for organizational stewardship.
-                </p>
-                
-                <div style={{display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: '32px', maxWidth: '500px'}}>
+            </div>
+
+            {/* SECTION 2: CHANGE PASSWORD */}
+            <div style={styles.sectionCardPremium}>
+                <h4 style={{...styles.cardTitlePremium, fontSize: '11px', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '24px'}}>
+                    Change Password
+                </h4>
+                <div style={{maxWidth: '500px', display: 'flex', flexDirection: 'column', gap: '24px'}}>
+                    <InputGroup 
+                        label="Current Password" 
+                        value={pOld} 
+                        onChange={setPOld} 
+                        type={showOld ? "text" : "password"} 
+                        placeholder="••••••••"
+                        trailingAction={
+                            <span onClick={() => setShowOld(!showOld)} style={{fontSize: '11px', fontWeight: '800', color: 'var(--primary-color)', cursor: 'pointer'}}>
+                                {showOld ? "[ HIDE ]" : "[ SHOW ]"}
+                            </span>
+                        }
+                    />
+
+                    <div style={{display: 'flex', flexDirection: 'column', gap: '16px'}}>
+                        <InputGroup 
+                            label="New Password" 
+                            value={pNew} 
+                            onChange={setPNew} 
+                            type={showNew ? "text" : "password"} 
+                            placeholder="••••••••"
+                            trailingAction={
+                                <span onClick={() => setShowNew(!showNew)} style={{fontSize: '11px', fontWeight: '800', color: 'var(--primary-color)', cursor: 'pointer'}}>
+                                    {showNew ? "[ HIDE ]" : "[ SHOW ]"}
+                                </span>
+                            }
+                        />
+                        <div style={{background: '#F8FAFC', padding: '16px', borderRadius: '16px', border: '1px solid #F1F5F9'}}>
+                            <PasswordRule met={isLenValid} text="Minimum 8 characters" />
+                            <PasswordRule met={hasNum} text="Include at least one number" />
+                        </div>
+                    </div>
+
                     <div style={{display: 'flex', flexDirection: 'column', gap: '8px'}}>
-                        <InputGroup type="password" label="Current Access Key" value={pOld} onChange={setPOld} placeholder="••••••••" />
-                        <div style={{textAlign: 'right'}}>
-                            <a href="/forgot-password" style={{fontSize: '12px', color: 'var(--primary-color)', fontWeight: '800', textDecoration: 'none'}}>Forgot Current Key?</a>
-                        </div>
-                    </div>
-                    
-                    <div style={{padding: '24px', background: '#F8FAFC', borderRadius: '20px', border: '1.5px solid #E2E8F0'}}>
-                        <div style={{display: 'flex', flexDirection: 'column', gap: '20px'}}>
-                            <InputGroup type="password" label="New Access Key" value={pNew} onChange={setPNew} placeholder="••••••••" />
-                            <InputGroup type="password" label="Confirm New Access Key" value={pConfirm} onChange={setPConfirm} placeholder="••••••••" />
-                        </div>
+                        <InputGroup 
+                            label="Confirm Password" 
+                            value={pConfirm} 
+                            onChange={setPConfirm} 
+                            type={showConfirm ? "text" : "password"} 
+                            placeholder="••••••••"
+                            trailingAction={
+                                <span onClick={() => setShowConfirm(!showConfirm)} style={{fontSize: '11px', fontWeight: '800', color: 'var(--primary-color)', cursor: 'pointer'}}>
+                                    {showConfirm ? "[ HIDE ]" : "[ SHOW ]"}
+                                </span>
+                            }
+                        />
+                        {pConfirm.length > 0 && (
+                            <div style={{fontSize: '11px', fontWeight: '800', color: isMatch ? '#10B981' : '#EF4444', textAlign: 'right', padding: '0 4px'}}>
+                                {isMatch ? "Passwords match ✓" : "Passwords do not match"}
+                            </div>
+                        )}
                     </div>
 
-                    <button 
-                        style={styles.primaryBtnPremium}
-                        onClick={handlePasswordChange}
-                        disabled={isUpdating}
-                    >
-                        <Icons.Check /> {isUpdating ? "Synchronizing..." : "Update Security Credentials"}
-                    </button>
-                </div>
-            </div>
-
-            <div style={{...styles.sectionCardPremium, borderLeft: '6px solid var(--primary-color)'}}>
-                <div style={{display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px'}}>
-                    <div style={{color: 'var(--primary-color)'}}><Icons.Power /></div>
-                    <h4 style={{...styles.cardTitle, color: 'var(--primary-color)'}}>Temporary Hiatus</h4>
-                </div>
-                <p style={{fontSize: '14px', color: '#64748B', lineHeight: '1.6', marginBottom: '24px'}}>
-                    Stepping away from stewardship? Temporarily hide your presence. Your activity remains intact but hidden until your next secure login.
-                </p>
-                <div style={{display: 'flex', alignItems: 'flex-end', gap: '16px', flexWrap: 'wrap', background: 'rgba(var(--primary-rgb), 0.05)', padding: '24px', borderRadius: '24px'}}>
-                    <div style={{...styles.inputWrap, flex: '1', minWidth: '200px'}}>
-                        <label style={{...styles.fieldLabel, color: 'var(--primary-color)'}}>Planned Reactivation</label>
-                        <select 
-                            style={styles.selectFieldPremium} 
-                            value={deactivateDays} 
-                            onChange={(e) => setDeactivateDays(parseInt(e.target.value))}
+                    <div style={{marginTop: '8px'}}>
+                        <button 
+                            style={{
+                                ...styles.primaryBtnPremium, 
+                                width: '100%', 
+                                justifyContent: 'center',
+                                opacity: canUpdate ? 1 : 0.5,
+                                cursor: canUpdate ? 'pointer' : 'not-allowed'
+                            }} 
+                            onClick={handlePasswordChange}
+                            disabled={!canUpdate || isUpdating}
                         >
-                            <option value={2}>48 Hours</option>
-                            <option value={7}>1 Week</option>
-                            <option value={14}>2 Weeks</option>
-                            <option value={30}>1 Month</option>
-                            <option value={0}>Manual Reactivation Only</option>
-                        </select>
+                            {isUpdating ? "Updating Password..." : "Update Password"}
+                        </button>
+                        <p style={{fontSize: '11px', color: '#94A3B8', textAlign: 'center', marginTop: '16px'}}>
+                            🔒 Your password is securely encrypted and never stored in plain text.
+                        </p>
                     </div>
-                    <button 
-                        style={{...styles.primaryBtnPremium, background: 'var(--primary-color)'}}
-                        onClick={() => setShowDeactivate(true)}
+                </div>
+            </div>
+
+            {/* SECTION 3: ACCOUNT ACTIONS */}
+            <div style={{...styles.sectionCardPremium, background: '#FFFBEB', borderColor: '#FEF3C7'}}>
+                <h4 style={{...styles.cardTitlePremium, fontSize: '11px', color: '#92400E', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '16px'}}>
+                    Account Actions
+                </h4>
+                <p style={{fontSize: '14px', color: '#92400E', lineHeight: '1.6', marginBottom: '24px', fontWeight: '500'}}>
+                    Temporarily hide your account activity. You can return anytime by logging in again.
+                </p>
+                <div style={{display: 'flex', alignItems: 'center', gap: '16px'}}>
+                    <select 
+                        style={{...styles.selectFieldPremium, background: 'white', flex: 1, height: '56px'}} 
+                        value={deactivateDays} 
+                        onChange={(e) => setDeactivateDays(parseInt(e.target.value))}
                     >
-                        Initiate Hiatus
+                        <option value={2}>48 Hours</option>
+                        <option value={7}>1 Week</option>
+                        <option value={30}>1 Month</option>
+                        <option value={0}>Until next login</option>
+                    </select>
+                    <button 
+                        style={{...styles.primaryBtnPremium, background: '#D97706', height: '56px'}}
+                        onClick={() => setShowHiatusConfirm(true)}
+                    >
+                        Start Hiatus
                     </button>
                 </div>
             </div>
 
-            <CustomModal isOpen={showDeactivate} type="alert" title="Confirm Hiatus" 
-                message={`Your profile and feedback will be hidden from the platform for ${deactivateDays === 0 ? 'indefinite' : deactivateDays} days. Log in at any time to restore full access.`}
-                confirmText="Confirm Hiatus" onConfirm={handleDeactivate} onCancel={() => setShowDeactivate(false)} />
-
-            <CustomModal isOpen={showDelete} type="alert" title="Termination Warning" isDestructive={true}
-                message="This is permanent. Your professional history, impact points, and organizational records will be scrubbed. Proceed with caution."
-                confirmText="Terminate Account" onConfirm={async() => { await deleteUser(currentUser.id); onLogout(); }} 
-                onCancel={() => setShowDelete(false)} />
+            <CustomModal 
+                isOpen={showHiatusConfirm} 
+                type="alert" 
+                title="Confirm Account Hiatus" 
+                message="Are you sure you want to pause your stewardship activity? Your profile and feedback will be hidden from the platform until you log in again."
+                confirmText="Confirm Hiatus" 
+                onConfirm={handleDeactivate} 
+                onCancel={() => setShowHiatusConfirm(false)} 
+            />
         </div>
     );
 };
@@ -635,7 +846,8 @@ const styles = {
     inputField: { padding: '16px', background: '#F8FAFC', border: '1.5px solid #E2E8F0', borderRadius: '16px', fontSize: '15px', color: '#1E293B' },
     selectFieldPremium: { padding: '16px', background: '#F8FAFC', border: '1.5px solid #E2E8F0', borderRadius: '16px', fontSize: '15px', outline: 'none' },
     primaryBtnPremium: { padding: '16px 28px', background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '18px', fontSize: '15px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px' },
-    secondaryBtnPremium: { padding: '16px 28px', background: 'transparent', color: '#64748B', border: '1.5px solid #E2E8F0', borderRadius: '18px', fontSize: '15px', fontWeight: '700' },
+    secondaryBtnPremium: { padding: '16px 28px', background: 'transparent', color: '#64748B', border: '1.5px solid #E2E8F0', borderRadius: '18px', fontSize: '15px', fontWeight: '700', cursor: 'pointer' },
+    formActionsPremium: { display: 'flex', gap: '16px', marginTop: '40px', justifyContent: 'flex-end', borderTop: '1px solid #F1F5F9', paddingTop: '32px' },
 
     scopeAwarenessBanner: { display: 'flex', gap: '20px', background: '#F0F9FF', border: '1px solid #BAE6FD', padding: '24px', borderRadius: '24px', marginBottom: '40px' },
     scopeIcon: { width: '48px', height: '48px', background: '#E0F2FE', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0369A1' },

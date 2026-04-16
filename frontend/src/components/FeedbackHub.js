@@ -64,8 +64,20 @@ const calculateLevel = (points) => {
   return { lv: 1, name: "New Citizen", color: "var(--primary-color)" };
 };
 
+const calculateProfileCompletion = (user) => {
+  if (!user) return 0;
+  let score = 0;
+  if (user.first_name && user.last_name) score += 20;
+  if (user.email || user.phone) score += 20;
+  if (user.city && user.province) score += 30;
+  if (user.barangay) score += 10;
+  if (user.birthdate) score += 10;
+  if (user.citizenship) score += 10;
+  return score;
+};
+
 const FeedbackHub = ({ currentUser, onLogout }) => {
-  const { getLabel } = useTerminology();
+  const { getLabel, systemName, systemLogo } = useTerminology();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [view, setView] = useState(localStorage.getItem("userView") || "home");
@@ -88,9 +100,16 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
   const [fullscreenImg, setFullscreenImg] = useState(null);
   const [resumeDraft, setResumeDraft] = useState(null);
   const [localUser, setLocalUser] = useState(() => {
-    try { return JSON.parse(localStorage.getItem("currentUser") || 'null') || currentUser; }
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEYS.USER_CURRENT) || 'null') || currentUser; }
     catch { return currentUser; }
   });
+
+  // Keep localUser in sync with prop from App.js
+  useEffect(() => {
+    if (currentUser) {
+      setLocalUser(currentUser);
+    }
+  }, [currentUser]);
 
   const [publicFeedEnabled, setPublicFeedEnabled] = useState(true);
   const [entities, setEntities] = useState([]);
@@ -305,11 +324,16 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
             <line x1="3" y1="18" x2="15" y2="18"></line>
           </svg>
         </button>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
-          <span style={{ ...styles.headerTitle, color: 'var(--primary-color)' }}>Command Center</span>
-          <span style={{ fontSize: '10px', color: '#64748B', fontWeight: '500', textAlign: 'center' }}>
-            Submit and track feedback across entities, offices, or services
-          </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flex: 1, justifyContent: 'center' }}>
+          {systemLogo && (
+            <img src={systemLogo} alt="Logo" style={{ height: '40px', maxWidth: '120px', objectFit: 'contain' }} />
+          )}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+            <span style={{ ...styles.headerTitle, color: 'var(--primary-color)', fontSize: '16px', fontWeight: '800', lineHeight: 1.2 }}>{systemName}</span>
+            <span style={{ fontSize: '11px', color: '#64748B', fontWeight: '500', letterSpacing: '0.01em' }}>
+              Official Feedback Portal
+            </span>
+          </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
           <button onClick={handleOpenNotifications} style={{ ...styles.iconBtn, color: 'var(--primary-color)' }} title="Notifications">
@@ -412,36 +436,23 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
                 )}
               </div>
               <h3 style={styles.userName}>{localUser?.name || "User"}</h3>
-
-              {/* COMPACT IMPACT CARD IN SIDEBAR */}
+              
+              {/* COMPACT IMPACT MINI-STATS */}
               <div style={{
-                marginTop: '16px', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '12px', padding: '12px',
-                border: '1px solid rgba(255,255,255,0.1)', textAlign: 'center'
+                marginTop: '12px', display: 'flex', gap: '16px', justifyContent: 'center'
               }}>
-                <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginBottom: '8px' }}>
-                  <div style={{
-                    backgroundColor: '#FCD34D', color: '#1E1B4B', padding: '2px 8px', borderRadius: '10px',
-                    fontSize: '9px', fontWeight: '900', letterSpacing: '0.05em'
-                  }}>
-                    {calculateLevel(localUser?.impact_points || 0).name.toUpperCase()}
+                  <div style={{ textAlign: 'center' }}>
+                    <p style={{ margin: 0, fontSize: '12px', fontWeight: '900', color: '#FCD34D' }}>{(localUser?.impact_points || 0).toFixed(0)}</p>
+                    <p style={{ margin: 0, fontSize: '7px', color: 'rgba(255,255,255,0.4)', fontWeight: 'bold' }}>PTS</p>
                   </div>
-                </div>
-                <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
-                  <div>
-                    <p style={{ margin: 0, fontSize: '14px', fontWeight: '900', color: '#FCD34D' }}>{(localUser?.impact_points || 0).toFixed(1)}</p>
-                    <p style={{ margin: 0, fontSize: '8px', color: 'rgba(255,255,255,0.5)', fontWeight: 'bold' }}>POINTS</p>
+                  <div style={{ textAlign: 'center' }}>
+                    <p style={{ margin: 0, fontSize: '12px', fontWeight: '900', color: 'white' }}>{localUser?.posts_count || 0}</p>
+                    <p style={{ margin: 0, fontSize: '7px', color: 'rgba(255,255,255,0.4)', fontWeight: 'bold' }}>POSTS</p>
                   </div>
-                  <div style={{ width: '1px', backgroundColor: 'rgba(255,255,255,0.1)' }}></div>
-                  <div>
-                    <p style={{ margin: 0, fontSize: '14px', fontWeight: '900', color: 'white' }}>{localUser?.posts_count || 0}</p>
-                    <p style={{ margin: 0, fontSize: '8px', color: 'rgba(255,255,255,0.5)', fontWeight: 'bold' }}>POSTS</p>
+                  <div style={{ textAlign: 'center' }}>
+                    <p style={{ margin: 0, fontSize: '12px', fontWeight: '900', color: 'white' }}>{localUser?.likes_received || 0}</p>
+                    <p style={{ margin: 0, fontSize: '7px', color: 'rgba(255,255,255,0.4)', fontWeight: 'bold' }}>LIKES</p>
                   </div>
-                  <div style={{ width: '1px', backgroundColor: 'rgba(255,255,255,0.1)' }}></div>
-                  <div>
-                    <p style={{ margin: 0, fontSize: '14px', fontWeight: '900', color: 'white' }}>{localUser?.likes_received || 0}</p>
-                    <p style={{ margin: 0, fontSize: '8px', color: 'rgba(255,255,255,0.5)', fontWeight: 'bold' }}>LIKES</p>
-                  </div>
-                </div>
               </div>
             </div>
             <nav style={styles.menuLinks}>

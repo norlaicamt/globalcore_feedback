@@ -45,6 +45,11 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
   const [defaultView, setDefaultView] = useState(localStorage.getItem(STORAGE_KEYS.ADMIN_DEFAULT_VIEW) || "dashboard");
   const [isEditingProfile, setIsEditingProfile] = useState(false);
 
+  // Logo & Branding States
+  const [logoPreview, setLogoPreview] = useState(null);
+  const [isProcessingLogo, setIsProcessingLogo] = useState(false);
+  const [logoMeta, setLogoMeta] = useState({ updated_at: null, updated_by: null });
+
   const [form, setForm] = useState({
     name: "",
     avatar_url: "",
@@ -88,6 +93,11 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
             mapped[s.key] = (s.value === "true" || s.value === "false") ? (s.value === "true") : s.value;
           });
           setSettings(prev => ({ ...prev, ...mapped }));
+          setLogoPreview(mapped.primary_organization_logo || null);
+          setLogoMeta({
+            updated_at: mapped.logo_last_updated_at || null,
+            updated_by: mapped.logo_updated_by || null
+          });
         }
         setProfile(profileData);
         setForm(prev => ({
@@ -105,12 +115,10 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
           phone: profileData.phone || "",
         }));
         setTermForm({
-          category_label: labels.category_label || "Category",
-          category_label_plural: labels.category_label_plural || "Categories",
-          entity_label: labels.entity_label || "Establishment/Service",
-          entity_label_plural: labels.entity_label_plural || "Establishments/Services",
-          dept_label: labels.dept_label || "Department",
-          dept_label_plural: labels.dept_label_plural || "Departments",
+          category_label: labels.category_label || "Program",
+          category_label_plural: labels.category_label_plural || "Programs",
+          entity_label: labels.entity_label || "Location",
+          entity_label_plural: labels.entity_label_plural || "Locations",
           feedback_label: labels.feedback_label || "Feedback",
           feedback_label_plural: labels.feedback_label_plural || "Feedbacks",
         });
@@ -159,6 +167,80 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
     return `${parseInt(hex.substring(0,2),16)}, ${parseInt(hex.substring(2,4),16)}, ${parseInt(hex.substring(4,6),16)}`;
   };
 
+  const compressImage = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onerror = reject;
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target.result;
+        img.onerror = reject;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          const maxDim = 400; // slightly higher for quality
+          if (width > height) {
+            if (width > maxDim) {
+              height *= maxDim / width;
+              width = maxDim;
+            }
+          } else {
+            if (height > maxDim) {
+              width *= maxDim / height;
+              height = maxDim;
+            }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', 0.85));
+        };
+      };
+    });
+  };
+
+  const handleLogoChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      alert("Image is too large. Please select a file under 2MB (it will be compressed automatically).");
+      return;
+    }
+
+    setIsProcessingLogo(true);
+    try {
+      const compressed = await compressImage(file);
+      setLogoPreview(compressed);
+    } catch (err) {
+      console.error(err);
+      alert("Failed to process image.");
+    } finally {
+      setIsProcessingLogo(false);
+    }
+  };
+
+  const handleRemoveLogo = async () => {
+    if (!window.confirm("Are you sure you want to remove the organization logo? This will revert to the default system icon.")) return;
+    setUpdatingKey("branding");
+    try {
+      await updateAdminSetting("primary_organization_logo", "");
+      setLogoPreview(null);
+      setSuccessMsg("✅ Logo removed successfully.");
+      setTimeout(() => setSuccessMsg(""), 3000);
+      refreshLabels();
+    } catch (e) {
+      alert("Failed to remove logo.");
+    } finally {
+      setUpdatingKey("branding");
+    }
+  };
+
   const handleBrandingUpdate = async () => {
     setUpdatingKey("branding");
     try {
@@ -172,8 +254,15 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
         root.style.setProperty('--primary-color', settings.primary_color);
         root.style.setProperty('--primary-rgb', hexToRgb(settings.primary_color));
       }
-      setSuccessMsg("✅ System branding updated. Colors applied live.");
+      
+      // Save Logo if changed
+      if (logoPreview !== settings.primary_organization_logo) {
+        await updateAdminSetting("primary_organization_logo", logoPreview || "");
+      }
+
+      setSuccessMsg("✅ System branding updated. All changes applied globally.");
       setTimeout(() => setSuccessMsg(""), 3000);
+      refreshLabels();
     } catch (e) {
       console.error(e);
       alert("Failed to update branding.");
@@ -256,8 +345,11 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
     { id: "display", label: "Display" },
     { id: "activity", label: "Activity" },
   ];
+  
+  // Any admin can manage terminology for their own scope
+  tabs.push({ id: "terminology", label: "Terminology" });
+
   if (isGlobalCoreAdmin) {
-    tabs.push({ id: "terminology", label: "Terminology" });
     tabs.push({ id: "system", label: "Global Config" });
   }
 
@@ -512,6 +604,50 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
               
               <div style={{ marginTop: 24, borderTop: `1px solid ${theme.border}`, paddingTop: 20 }}>
                 <p style={{ margin: '0 0 12px 0', fontSize: 13, fontWeight: 700, color: 'var(--primary-color)' }}>SYSTEM BRANDING</p>
+                
+                {/* Logo Section */}
+                <div style={{ marginBottom: 24, padding: 16, background: theme.bg, borderRadius: 12, border: `1px solid ${theme.border}` }}>
+                  <label style={labelStyle}>Organization Logo</label>
+                  <div style={{ display: 'flex', gap: 20, alignItems: 'center' }}>
+                    <div style={{ 
+                      width: 100, height: 60, borderRadius: 8, background: darkMode ? 'rgba(255,255,255,0.05)' : '#F8FAFC', 
+                      border: `1.5px dashed ${theme.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden'
+                    }}>
+                      {isProcessingLogo ? (
+                        <div style={{ fontSize: 10, color: theme.textMuted }}>Processing...</div>
+                      ) : logoPreview ? (
+                        <img src={logoPreview} alt="Preview" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} onError={(e) => { e.target.src = ""; alert("Corrupt logo data detected. Reverting to default."); }} />
+                      ) : (
+                        <div style={{ fontSize: 10, color: theme.textMuted }}>No Logo</div>
+                      )}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', gap: 10 }}>
+                        <label style={{ 
+                          padding: '8px 16px', background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: 8, 
+                          fontSize: 12, fontWeight: 700, cursor: 'pointer', opacity: isProcessingLogo ? 0.6 : 1
+                        }}>
+                          {logoPreview ? "Change Logo" : "Upload Logo"}
+                          <input type="file" accept="image/*" onChange={handleLogoChange} style={{ display: 'none' }} disabled={isProcessingLogo} />
+                        </label>
+                        {logoPreview && (
+                          <button onClick={handleRemoveLogo} style={{ padding: '8px 16px', background: 'none', color: '#EF4444', border: '1.5px solid #EF4444', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                            Remove
+                          </button>
+                        )}
+                      </div>
+                      <p style={{ margin: "10px 0 0 0", fontSize: "11px", color: theme.textMuted }}>
+                        Optimal size: Square or Horizontal (max 300px). Supports JPG, PNG, PNG8.
+                      </p>
+                    </div>
+                  </div>
+                  {logoMeta.updated_at && (
+                    <div style={{ marginTop: 12, padding: '8px 12px', background: 'rgba(var(--primary-rgb), 0.04)', borderRadius: 6, fontSize: 11, color: theme.textMuted, border: '1px solid rgba(var(--primary-rgb), 0.1)' }}>
+                      🛡️ Last updated by <strong>{logoMeta.updated_by}</strong> on {new Date(logoMeta.updated_at).toLocaleString()}
+                    </div>
+                  )}
+                </div>
+
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                   <div>
                     <label style={labelStyle}>Primary Organization Name</label>
@@ -521,7 +657,7 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
                       style={inputStyle} 
                       placeholder="e.g. DSWD"
                     />
-                    <p style={{ margin: "6px 0 0 0", fontSize: "11px", color: theme.textMuted }}>Auto-filled for new employees during onboarding.</p>
+                    <p style={{ margin: "6px 0 0 0", fontSize: "11px", color: theme.textMuted }}>Branding used in headers and login screens.</p>
                   </div>
                   <div>
                     <label style={labelStyle}>Primary Theme Color</label>
@@ -558,12 +694,12 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
         </SectionCard>
       )}
 
-      {activeTab === "terminology" && isGlobalCoreAdmin && (
+      {activeTab === "terminology" && (
         <>
           <SectionCard theme={theme} title="System Terminology" subtitle="Customize the language used throughout the platform to fit your industry.">
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
               <div>
-                <p style={{ fontSize: '12px', fontWeight: '800', color: '#c35b00', marginBottom: '12px', textTransform: 'uppercase' }}>Categories</p>
+                <p style={{ fontSize: '12px', fontWeight: '800', color: '#c35b00', marginBottom: '12px', textTransform: 'uppercase' }}>Programs / Services</p>
                 <div style={{ marginBottom: 12 }}>
                   <label style={labelStyle}>Singular (e.g. Program)</label>
                   <input value={termForm.category_label} onChange={e => setTermForm(p => ({ ...p, category_label: e.target.value }))} style={inputStyle} />
@@ -575,7 +711,7 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
               </div>
 
               <div>
-                <p style={{ fontSize: '12px', fontWeight: '800', color: '#c35b00', marginBottom: '12px', textTransform: 'uppercase' }}>Entities / Establishments</p>
+                <p style={{ fontSize: '12px', fontWeight: '800', color: '#c35b00', marginBottom: '12px', textTransform: 'uppercase' }}>Locations / Branches</p>
                 <div style={{ marginBottom: 12 }}>
                   <label style={labelStyle}>Singular (e.g. Office)</label>
                   <input value={termForm.entity_label} onChange={e => setTermForm(p => ({ ...p, entity_label: e.target.value }))} style={inputStyle} />

@@ -167,6 +167,12 @@ const AdminUsers = ({ theme, darkMode, adminUser }) => {
   }, []);
 
   const filtered = users
+    .filter(u => 
+      u.onboarding_completed === true && 
+      u.first_name && 
+      u.last_name && 
+      u.city
+    )
     .filter(u => {
       const role = (u.role || "user").toLowerCase();
       if (roleTab === "admin") return role === "admin" || role === "superadmin";
@@ -256,7 +262,7 @@ const AdminUsers = ({ theme, darkMode, adminUser }) => {
   };
 
   const handleExport = (format) => {
-    const headers = ["ID", "Name", "Email", "Role", "Position", getLabel("category_label", "Entity"), "Created Date", "Status", "Posts", "Impact Points"];
+    const headers = ["ID", "Name", "Email", "Role", "Position", getLabel("category_label", "Program"), "Created Date", "Status", "Posts", "Impact Points"];
     const data = filtered.map((u, idx) => {
       const createdDate = u.created_at ? new Date(u.created_at).toLocaleString() : "—";
       return [
@@ -406,7 +412,7 @@ const AdminUsers = ({ theme, darkMode, adminUser }) => {
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
             <thead>
               <tr style={{ background: darkMode ? "rgba(255,255,255,0.02)" : "#F8FAFC", borderBottom: `1px solid ${theme.border}` }}>
-                {["#", "Name", "Email", "Role", "Position", getLabel("category_label", "Entity"), "Created Date", "Posts", "Points", "Status", ""].map(h => (
+                {["#", "Name", "Email", "Role", "Position", getLabel("category_label", "Program"), "Created Date", "Posts", "Points", "Status", ""].map(h => (
                   <th key={h} style={{ ...thStyle, color: theme.textMuted }}>{h}</th>
                 ))}
               </tr>
@@ -507,8 +513,8 @@ const AdminUsers = ({ theme, darkMode, adminUser }) => {
       {deptModal.isOpen && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15, 23, 42, 0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000 }}>
           <div style={{ background: theme.surface, padding: '32px', borderRadius: '16px', width: '100%', maxWidth: '400px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
-            <h3 style={{ margin: '0 0 12px 0', fontSize: '18px', fontWeight: '800', color: theme.text }}>Assign to {getLabel("category_label", "Entity")}</h3>
-            <p style={{ margin: '0 0 24px 0', fontSize: '14px', color: theme.textMuted }}>Select the {getLabel("category_label", "Entity")} or Office that <strong>{deptModal.user?.name}</strong> will manage as an administrator.</p>
+            <h3 style={{ margin: '0 0 12px 0', fontSize: '18px', fontWeight: '800', color: theme.text }}>Assign to {getLabel("category_label", "Program")}</h3>
+            <p style={{ margin: '0 0 24px 0', fontSize: '14px', color: theme.textMuted }}>Select the {getLabel("category_label", "program")} or functional unit that <strong>{deptModal.user?.name}</strong> will manage as an administrator.</p>
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '300px', overflowY: 'auto', paddingRight: '4px' }}>
               {scopeOptions.map(opt => (

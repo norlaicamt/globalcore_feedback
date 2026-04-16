@@ -26,10 +26,10 @@ const CustomModal = ({
   if (!isOpen) return null;
 
   const typeStyles = {
-    success: { title: '#10B981', bg: '#F0FDF4', icon: '✅' },
-    error: { title: '#EF4444', bg: '#FEF2F2', icon: '❌' },
-    info: { title: 'var(--primary-color)', bg: '#F8F9FF', icon: 'ℹ️' },
-    confirm: { title: '#334155', bg: '#F8FAFC', icon: '❓' }
+    success: { title: '#10B981', bg: '#F0FDF4', icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg> },
+    error: { title: '#EF4444', bg: '#FEF2F2', icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg> },
+    info: { title: 'var(--primary-color)', bg: '#F8F9FF', icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--primary-color)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg> },
+    confirm: { title: '#334155', bg: '#F8FAFC', icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg> }
   };
 
   const currentStyle = typeStyles[type] || typeStyles.info;
@@ -37,8 +37,10 @@ const CustomModal = ({
   return (
     <div style={styles.overlay} onClick={onCancel || onConfirm}>
       <div style={styles.content} onClick={e => e.stopPropagation()}>
-        <div style={{ ...styles.iconBadge, backgroundColor: currentStyle.bg }}>{currentStyle.icon}</div>
-        <h3 style={{ ...styles.title, color: currentStyle.title }}>{title}</h3>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+          <div style={{ ...styles.iconBadge, backgroundColor: currentStyle.bg }}>{currentStyle.icon}</div>
+          <h3 style={{ ...styles.title, color: currentStyle.title }}>{title}</h3>
+        </div>
         <p style={styles.message}>{message}</p>
         <div style={styles.actions}>
           {(type === 'confirm' || (type === 'error' && onCancel)) && (
@@ -85,18 +87,17 @@ const styles = {
     textAlign: 'center'
   },
   iconBadge: {
-    width: '48px',
-    height: '48px',
-    borderRadius: '16px',
+    width: '32px',
+    height: '32px',
+    borderRadius: '8px',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    fontSize: '24px',
-    marginBottom: '16px'
+    flexShrink: 0
   },
   title: {
-    margin: '0 0 8px 0',
-    fontSize: '20px',
+    margin: 0,
+    fontSize: '18px',
     fontWeight: '800',
     letterSpacing: '-0.02em'
   },
