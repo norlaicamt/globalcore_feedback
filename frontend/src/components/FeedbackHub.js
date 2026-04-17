@@ -1889,26 +1889,71 @@ const styles = {
 
 const BroadcastViewModal = ({ notif, currentUser, onClose }) => {
   const { systemName } = useTerminology();
+  const isHighPriority = notif.priority === 'high';
+  const requireAck = notif.require_ack === true;
+
   return (
-    <div style={styles.modalOverlay} onClick={onClose}>
-      <div style={{ ...styles.commentModalContent, maxWidth: '500px', height: 'auto', maxHeight: '90vh' }} onClick={e => e.stopPropagation()}>
-        <header style={{ ...styles.commentModalHeader, backgroundColor: '#FFFFFF', borderBottom: '1px solid #E2E8F0' }}>
+    <div style={{ ...styles.modalOverlay, cursor: requireAck ? 'default' : 'pointer' }} onClick={requireAck ? null : onClose}>
+      <div 
+        style={{ 
+          ...styles.commentModalContent, 
+          maxWidth: '500px', 
+          height: 'auto', 
+          maxHeight: '90vh',
+          border: isHighPriority ? '2px solid #EF4444' : '1px solid #E2E8F0',
+          boxShadow: isHighPriority ? '0 20px 50px rgba(239, 68, 68, 0.2)' : '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
+        }} 
+        onClick={e => e.stopPropagation()}
+      >
+        <header style={{ 
+          ...styles.commentModalHeader, 
+          backgroundColor: isHighPriority ? '#FEF2F2' : '#FFFFFF', 
+          borderBottom: '1px solid #E2E8F0' 
+        }}>
           <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-            <div style={{ padding: '10px', background: 'linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%)', borderRadius: '12px', color: '#92400E' }}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+            <div style={{ 
+              padding: '10px', 
+              background: isHighPriority ? '#EF4444' : 'linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%)', 
+              borderRadius: '12px', 
+              color: isHighPriority ? '#FFFFFF' : '#92400E' 
+            }}>
+              {isHighPriority ? (
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+              ) : (
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+              )}
             </div>
             <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#0F172A' }}>{notif.subject || 'System Announcement'}</h3>
-              <span style={{ fontSize: '11px', color: '#64748B' }}>Posted by {systemName} Admin</span>
+              <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: isHighPriority ? '#991B1B' : '#0F172A' }}>
+                {isHighPriority && '🚨 '}{notif.subject || 'System Announcement'}
+              </h3>
+              <span style={{ fontSize: '11px', color: isHighPriority ? '#B91C1C' : '#64748B' }}>
+                {isHighPriority ? 'URGENT COORDINATION' : `Posted by ${systemName} Admin`}
+              </span>
             </div>
           </div>
-          <button onClick={onClose} style={{ ...styles.closeBtn, backgroundColor: '#F1F5F9', color: '#64748B' }}>✕</button>
+          {!requireAck && (
+            <button onClick={onClose} style={{ ...styles.closeBtn, backgroundColor: '#F1F5F9', color: '#64748B' }}>✕</button>
+          )}
         </header>
-        <div style={{ padding: '24px', backgroundColor: '#FFFFFF' }}>
-          <p style={{ margin: 0, fontSize: '14px', lineHeight: '1.6', color: '#334155', whiteSpace: 'pre-wrap' }}>
+        <div style={{ padding: '24px', backgroundColor: isHighPriority ? '#FFF5F5' : '#FFFFFF' }}>
+          <p style={{ margin: 0, fontSize: '14px', lineHeight: '1.6', color: isHighPriority ? '#7F1D1D' : '#334155', whiteSpace: 'pre-wrap', fontWeight: isHighPriority ? '500' : 'normal' }}>
             {notif.message}
           </p>
-          <div style={{ marginTop: '24px', paddingTop: '16px', borderTop: '1px dotted #E2E8F0', display: 'flex', justifyContent: 'flex-end' }}>
+          <div style={{ 
+            marginTop: '24px', 
+            paddingTop: '16px', 
+            borderTop: isHighPriority ? '1px solid #FEE2E2' : '1px dotted #E2E8F0', 
+            display: 'flex', 
+            justifyContent: 'flex-end',
+            alignItems: 'center',
+            gap: '12px'
+          }}>
+            {requireAck && (
+              <span style={{ fontSize: '11px', color: isHighPriority ? '#EF4444' : '#64748B', fontWeight: '700' }}>
+                Acknowledgment Required
+              </span>
+            )}
             <button
               onClick={async () => {
                 if (currentUser && notif.broadcast_id) {
@@ -1918,8 +1963,17 @@ const BroadcastViewModal = ({ notif, currentUser, onClose }) => {
                 }
                 onClose();
               }}
-              style={{ ...styles.modalSendBtn, backgroundColor: 'var(--primary-color)', width: 'auto', padding: '10px 24px' }}
-            >Confirm</button>
+              style={{ 
+                ...styles.modalSendBtn, 
+                backgroundColor: isHighPriority ? '#EF4444' : 'var(--primary-color)', 
+                width: 'auto', 
+                padding: '10px 32px',
+                fontWeight: '800',
+                boxShadow: isHighPriority ? '0 4px 12px rgba(239, 68, 68, 0.3)' : 'none'
+              }}
+            >
+              {requireAck ? 'Acknowledge' : 'Confirm'}
+            </button>
           </div>
         </div>
       </div>

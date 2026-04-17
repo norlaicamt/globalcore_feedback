@@ -1,16 +1,131 @@
-import React, { useEffect, useRef, useState } from "react"; // Fixed search state
-import { adminGetFeedbacks, adminDeleteFeedback } from "../../../services/adminApi";
+import React, { useEffect, useRef, useState } from "react";
+import { adminGetFeedbacks, adminDeleteFeedback, adminUpdateFeedbackStatus } from "../../../services/adminApi";
 import { useTerminology } from "../../../context/TerminologyContext";
 import CustomModal from "../../CustomModal";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 
-// 3-dot menu for each feedback row
-const DotsMenu = ({ onDelete, theme, darkMode }) => {
+// --- CONFIG: Workflow Definitions ---
+const STATUSES = {
+  OPEN: { 
+    label: "New", color: "#3B82F6", bg: "rgba(59, 130, 246, 0.1)", 
+    icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+  },
+  IN_PROGRESS: { 
+    label: "In Review", color: "#EAB308", bg: "rgba(234, 179, 8, 0.1)", 
+    icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+  },
+  RESOLVED: { 
+    label: "Resolved", color: "#10B981", bg: "rgba(16, 185, 129, 0.1)", 
+    icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+  },
+  CLOSED: { 
+    label: "Closed", color: "#64748B", bg: "rgba(100, 116, 139, 0.1)", 
+    icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+  }
+};
+
+// --- COMPONENT: Side Detail Panel ---
+const FeedbackSidePanel = ({ feedback, onClose, onUpdateStatus, theme, darkMode }) => {
+  if (!feedback) return null;
+
+  const currentStatus = STATUSES[feedback.status] || STATUSES.OPEN;
+
+  return (
+    <div style={{ position: "fixed", right: 0, top: 0, width: "420px", height: "100vh", background: theme.surface, borderLeft: `1px solid ${theme.border}`, boxShadow: "-10px 0 30px rgba(0,0,0,0.1)", zIndex: 1000, display: "flex", flexDirection: "column", animation: "slideIn 0.3s ease-out" }}>
+      <style>{`@keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }`}</style>
+      
+      {/* Header */}
+      <div style={{ padding: "24px", borderBottom: `1px solid ${theme.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div>
+          <h3 style={{ margin: 0, fontSize: "16px", color: theme.text }}>Submission Details</h3>
+          <p style={{ margin: "4px 0 0", fontSize: "12px", color: theme.textMuted }}>ID: #{feedback.id}</p>
+        </div>
+        <button onClick={onClose} style={{ background: "none", border: "none", color: theme.textMuted, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+
+      {/* Content */}
+      <div style={{ flex: 1, overflowY: "auto", padding: "24px" }}>
+        <div style={{ marginBottom: "24px" }}>
+           <span style={{ padding: "4px 10px", borderRadius: "20px", fontSize: "11px", fontWeight: "700", color: currentStatus.color, background: currentStatus.bg }}>
+             {currentStatus.label.toUpperCase()}
+           </span>
+        </div>
+
+        <h4 style={{ fontSize: "14px", color: theme.textMuted, marginBottom: "8px", textTransform: "uppercase", letterSpacing: "0.05em" }}>Message</h4>
+        <p style={{ fontSize: "15px", lineHeight: "1.6", color: theme.text, background: theme.bg, padding: "16px", borderRadius: "12px", margin: "0 0 24px" }}>
+          {feedback.description}
+        </p>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: "24px" }}>
+          <div>
+            <h4 style={{ fontSize: "11px", color: theme.textMuted, marginBottom: "4px", textTransform: "uppercase" }}>Rating</h4>
+            <div style={{ fontSize: "14px", fontWeight: "700", color: theme.text, display: "flex", alignItems: "center", gap: "4px" }}>
+              {feedback.rating ? (
+                <>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="#FBBF24" stroke="#FBBF24" strokeWidth="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                  {feedback.rating} / 5
+                </>
+              ) : "—"}
+            </div>
+          </div>
+          <div>
+            <h4 style={{ fontSize: "11px", color: theme.textMuted, marginBottom: "4px", textTransform: "uppercase" }}>Date Submitted</h4>
+            <div style={{ fontSize: "14px", fontWeight: "600", color: theme.text }}>{new Date(feedback.created_at).toLocaleDateString()}</div>
+          </div>
+          <div>
+            <h4 style={{ fontSize: "11px", color: theme.textMuted, marginBottom: "4px", textTransform: "uppercase" }}>Submitted By</h4>
+            <div style={{ fontSize: "14px", fontWeight: "600", color: theme.text }}>{feedback.user_name || "Anonymous"}</div>
+          </div>
+          <div>
+            <h4 style={{ fontSize: "11px", color: theme.textMuted, marginBottom: "4px", textTransform: "uppercase" }}>Location</h4>
+            <div style={{ fontSize: "14px", fontWeight: "600", color: theme.text }}>{feedback.dept_name || "General"}</div>
+          </div>
+        </div>
+
+        <div style={{ borderTop: `1px solid ${theme.border}`, paddingTop: "24px", marginTop: "24px" }}>
+          <h4 style={{ fontSize: "14px", color: theme.text, marginBottom: "12px" }}>Update Workflow</h4>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+            {Object.entries(STATUSES).map(([key, cfg]) => (
+              <button
+                key={key}
+                disabled={feedback.status === key}
+                onClick={() => onUpdateStatus(feedback.id, key)}
+                style={{
+                  padding: "10px", borderRadius: "8px", border: `1px solid ${feedback.status === key ? cfg.color : theme.border}`,
+                  background: feedback.status === key ? cfg.bg : "none", color: feedback.status === key ? cfg.color : theme.text,
+                  fontSize: "12px", fontWeight: "600", cursor: feedback.status === key ? "default" : "pointer",
+                  textAlign: "left", display: "flex", alignItems: "center", gap: "8px", transition: "0.2s"
+                }}
+                onMouseEnter={e => { if (feedback.status !== key) e.currentTarget.style.borderColor = cfg.color; }}
+                onMouseLeave={e => { if (feedback.status !== key) e.currentTarget.style.borderColor = theme.border; }}
+              >
+                <span>{cfg.icon}</span> {cfg.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ borderTop: `1px solid ${theme.border}`, paddingTop: "24px", marginTop: "24px" }}>
+          <h4 style={{ fontSize: "14px", color: theme.text, marginBottom: "8px" }}>Internal Notes</h4>
+          <textarea 
+            placeholder="Add internal note for coordination... (Coming soon)"
+            disabled
+            style={{ width: "100%", height: "80px", padding: "12px", borderRadius: "10px", border: `1px solid ${theme.border}`, background: theme.bg, color: theme.text, fontSize: "13px", resize: "none", opacity: 0.6 }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// --- COMPONENT: 3-dot Menu ---
+const DotsMenu = ({ onUpdateStatus, onDelete, theme, darkMode, currentStatus }) => {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
-
   useEffect(() => {
     const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
     document.addEventListener("mousedown", handler);
@@ -19,66 +134,83 @@ const DotsMenu = ({ onDelete, theme, darkMode }) => {
 
   return (
     <div ref={ref} style={{ position: "relative", display: "inline-block" }}>
-      <button
-        onClick={() => setOpen(o => !o)}
-        style={{ width: "30px", height: "30px", display: "flex", alignItems: "center", justifyContent: "center", background: open ? (darkMode ? "rgba(255,255,255,0.1)" : "#F1F5F9") : "transparent", border: "1px solid transparent", borderRadius: "6px", cursor: "pointer", color: theme.textMuted, fontFamily: "inherit" }}
-      >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-          <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
-        </svg>
+      <button onClick={() => setOpen(!open)} style={{ width: "30px", height: "30px", display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", borderRadius: "6px", cursor: "pointer", color: theme.textMuted }}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
       </button>
       {open && (
-        <div style={{ position: "absolute", right: 0, top: "34px", background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: "10px", boxShadow: "0 8px 24px rgba(0,0,0,0.1)", zIndex: 100, minWidth: "130px", padding: "4px" }}>
-          <button
-            onClick={() => { onDelete(); setOpen(false); }}
-            style={{ display: "block", width: "100%", padding: "8px 12px", background: "none", border: "none", borderRadius: "7px", textAlign: "left", fontSize: "12px", fontWeight: "600", color: "#EF4444", cursor: "pointer", fontFamily: "inherit" }}
-            onMouseEnter={e => e.currentTarget.style.background = darkMode ? "rgba(255,255,255,0.05)" : "#F1F5F9"}
-            onMouseLeave={e => e.currentTarget.style.background = "none"}
-          >
-            Delete Post
-          </button>
+        <div style={{ position: "absolute", right: 0, top: "34px", background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: "10px", boxShadow: "0 8px 24px rgba(0,0,0,0.1)", zIndex: 100, minWidth: "160px", padding: "6px" }}>
+          <p style={{ margin: "4px 8px 8px", fontSize: "9px", fontWeight: "800", color: theme.textMuted, textTransform: "uppercase" }}>Change Status</p>
+          {Object.entries(STATUSES).map(([key, cfg]) => (
+            <button
+              key={key}
+              onClick={() => { onUpdateStatus(key); setOpen(false); }}
+              style={{ display: "block", width: "100%", padding: "8px 12px", background: "none", border: "none", borderRadius: "7px", textAlign: "left", fontSize: "12px", fontWeight: currentStatus === key ? "700" : "500", color: currentStatus === key ? cfg.color : theme.text, cursor: "pointer" }}
+              onMouseEnter={e => e.currentTarget.style.background = darkMode ? "rgba(255,255,255,0.05)" : "#F1F5F9"}
+              onMouseLeave={e => e.currentTarget.style.background = "none"}
+            >
+              {cfg.label}
+            </button>
+          ))}
+          <div style={{ margin: "6px 0", borderTop: `1px solid ${theme.border}` }} />
+          <button onClick={() => { onDelete(); setOpen(false); }} style={{ display: "block", width: "100%", padding: "8px 12px", background: "none", border: "none", borderRadius: "7px", textAlign: "left", fontSize: "12px", fontWeight: "700", color: "#EF4444", cursor: "pointer" }}>Delete Permanent</button>
         </div>
       )}
     </div>
   );
 };
 
-// --- EXPORT DROPDOWN COMPONENT ---
+// --- COMPONENT: Summary Card ---
+const SummaryCard = ({ label, count, color, bg, icon, isActive, onClick, theme }) => (
+  <div 
+    onClick={onClick}
+    style={{ flex: 1, padding: "16px 20px", background: theme.surface, borderRadius: "14px", border: `1px solid ${isActive ? color : theme.border}`, boxShadow: isActive ? `0 4px 20px ${bg}` : "none", cursor: "pointer", transition: "0.2s", display: "flex", justifyContent: "space-between", alignItems: "center" }}
+  >
+    <div>
+      <p style={{ margin: 0, fontSize: "12px", fontWeight: "700", color: theme.textMuted, textTransform: "uppercase", letterSpacing: "0.05em" }}>{label}</p>
+      <p style={{ margin: "4px 0 0", fontSize: "24px", fontWeight: "800", color: theme.text }}>{count}</p>
+    </div>
+    <div style={{ width: "40px", height: "40px", borderRadius: "12px", background: bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "18px" }}>
+      {icon}
+    </div>
+  </div>
+);
+
+// --- COMPONENT: Export Dropdown ---
 const ExportDropdown = ({ onExport, theme, darkMode }) => {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
-
   useEffect(() => {
     const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  const handleSelect = (format) => {
-    onExport(format);
-    setOpen(false);
-  };
-
-  const btnStyle = { padding: "8px 16px", background: theme.surface, color: theme.text, border: `1.5px solid ${theme.border}`, borderRadius: "8px", fontSize: "12px", fontWeight: "600", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: "8px" };
-
   return (
-    <div ref={ref} style={{ position: "relative", display: "inline-block" }}>
-      <button onClick={() => setOpen(!open)} style={btnStyle}>
+    <div ref={ref} style={{ position: "relative" }}>
+      <button 
+        onClick={() => setOpen(!open)}
+        style={{ 
+          display: "flex", alignItems: "center", gap: "8px", padding: "10px 16px", 
+          background: theme.surface, color: theme.text, border: `1.5px solid ${theme.border}`, 
+          borderRadius: "10px", fontSize: "13px", fontWeight: "600", cursor: "pointer", transition: "0.2s" 
+        }}
+        onMouseEnter={e => e.currentTarget.style.borderColor = "var(--primary-color)"}
+        onMouseLeave={e => e.currentTarget.style.borderColor = theme.border}
+      >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         Export
       </button>
       {open && (
-        <div style={{ position: "absolute", right: 0, top: "40px", background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: "12px", boxShadow: "0 10px 30px rgba(0,0,0,0.15)", zIndex: 100, minWidth: "160px", padding: "6px" }}>
+        <div style={{ position: "absolute", right: 0, top: "42px", background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: "12px", boxShadow: "0 10px 30px rgba(0,0,0,0.15)", zIndex: 100, minWidth: "160px", padding: "6px" }}>
           {[
-            { id: 'pdf', label: 'PDF Report', icon: '📄' },
-            { id: 'xls', label: 'Excel (XLS)', icon: '📊' },
-            { id: 'doc', label: 'Word (DOC)', icon: '📝' },
-            { id: 'csv', label: 'CSV (Legacy)', icon: '📑' }
+            { id: 'pdf', label: 'PDF Report', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg> },
+            { id: 'xls', label: 'Excel (XLS)', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="20" x2="12" y2="10"></line><line x1="18" y1="20" x2="18" y2="4"></line><line x1="6" y1="20" x2="6" y2="16"></line></svg> },
+            { id: 'csv', label: 'CSV (Legacy)', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg> }
           ].map(fmt => (
             <button
               key={fmt.id}
-              onClick={() => handleSelect(fmt.id)}
-              style={{ display: "flex", alignItems: "center", gap: "10px", width: "100%", padding: "10px 14px", background: "none", border: "none", borderRadius: "8px", textAlign: "left", fontSize: "13px", fontWeight: "600", color: theme.text, cursor: "pointer", fontFamily: "inherit" }}
+              onClick={() => { onExport(fmt.id); setOpen(false); }}
+              style={{ display: "flex", alignItems: "center", gap: "10px", width: "100%", padding: "10px 14px", background: "none", border: "none", borderRadius: "8px", textAlign: "left", fontSize: "13px", fontWeight: "600", color: theme.text, cursor: "pointer" }}
               onMouseEnter={e => e.currentTarget.style.background = darkMode ? "rgba(255,255,255,0.05)" : "#F1F5F9"}
               onMouseLeave={e => e.currentTarget.style.background = "none"}
             >
@@ -91,294 +223,206 @@ const ExportDropdown = ({ onExport, theme, darkMode }) => {
   );
 };
 
-// --- TABLE HEADER FILTER COMPONENT ---
-const HeaderFilter = ({ label, value, onChange, theme, darkMode }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const ref = useRef(null);
-
-  useEffect(() => {
-    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setIsOpen(false); };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
-
-  return (
-    <th style={{ ...thStyle, position: "relative" }}>
-      <div 
-        style={{ display: "flex", alignItems: "center", gap: "6px", cursor: "pointer", userSelect: "none", color: value ? (darkMode ? "#60A5FA" : "var(--primary-color)") : "inherit" }}
-        onClick={() => setIsOpen(!isOpen)}
-      >
-        <span>{label}</span>
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" style={{ transition: "transform 0.2s", transform: isOpen ? "rotate(180deg)" : "rotate(0deg)" }}>
-          <path d="M7 10l5 5 5-5H7z" />
-        </svg>
-      </div>
-
-      {isOpen && (
-        <div ref={ref} style={{ position: "absolute", top: "100%", left: "10px", zIndex: 100, background: theme.surface, padding: "10px", borderRadius: "8px", boxShadow: "0 10px 25px rgba(0,0,0,0.1)", border: `1px solid ${theme.border}`, minWidth: "180px", marginTop: "4px" }}>
-          <p style={{ margin: "0 0 8px 0", fontSize: "10px", fontWeight: "700", color: theme.textMuted, textTransform: "uppercase" }}>Filter {label}</p>
-          <input
-            autoFocus
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') setIsOpen(false); }}
-            placeholder={`Search ${label}...`}
-            style={{ ...miniFilter, background: theme.bg, border: `1.5px solid ${theme.border}`, color: theme.text, padding: "8px" }}
-          />
-          {value && (
-            <button 
-              onClick={(e) => { e.stopPropagation(); onChange(""); }}
-              style={{ background: "none", border: "none", color: "#EF4444", fontSize: "10px", fontWeight: "700", marginTop: "8px", cursor: "pointer", padding: 0 }}
-            >
-              Clear Filter
-            </button>
-          )}
-        </div>
-      )}
-    </th>
-  );
-};
-
 const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
   const { getLabel } = useTerminology();
-  const hasGlobalAdminAccess = (adminUser?.role === "superadmin") || (adminUser?.role === "admin" && !adminUser?.entity_id);
   const [feedbacks, setFeedbacks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [filters, setFilters] = useState({ program: "", service: "", author: "" });
+  const [activeTab, setActiveTab] = useState("ALL"); // ALL, OPEN, IN_PROGRESS, RESOLVED, CLOSED
+  const [selectedFeedback, setSelectedFeedback] = useState(null);
   const [dialog, setDialog] = useState({ isOpen: false });
 
   const load = () => {
-    // For program-scoped admins, the backend handles scoping via session token.
-    // We only pass dept_name for global admins using the dropdown filter.
-    adminGetFeedbacks({}).then(setFeedbacks).catch(console.error).finally(() => setLoading(false));
+    setLoading(true);
+    adminGetFeedbacks({ limit: 200 }).then(setFeedbacks).catch(console.error).finally(() => setLoading(false));
   };
 
   useEffect(() => { load(); }, [adminUser]);
 
+  const handleUpdateStatus = async (id, status) => {
+    try {
+      await adminUpdateFeedbackStatus(id, status);
+      load();
+      if (selectedFeedback?.id === id) setSelectedFeedback(prev => ({ ...prev, status }));
+    } catch (e) { console.error(e); }
+  };
+
   const filtered = feedbacks.filter(f => {
-    const prgMatch = f.entity_name?.toLowerCase().includes(filters.program.toLowerCase());
-    const serviceMatch = (f.title?.split(": ")[1] || f.title)?.toLowerCase().includes(filters.service.toLowerCase());
-    const authMatch = f.user_name?.toLowerCase().includes(filters.author.toLowerCase());
-    const globalSearch = search === "" || 
-      f.title?.toLowerCase().includes(search.toLowerCase()) || 
+    const tabMatch = activeTab === "ALL" || f.status === activeTab;
+    const searchMatch = !search || 
+      f.description?.toLowerCase().includes(search.toLowerCase()) ||
       f.user_name?.toLowerCase().includes(search.toLowerCase()) ||
       f.entity_name?.toLowerCase().includes(search.toLowerCase());
-    
-    return prgMatch && serviceMatch && authMatch && globalSearch;
+    return tabMatch && searchMatch;
   });
+
+  const stats = {
+    TOTAL: feedbacks.length,
+    OPEN: feedbacks.filter(f => f.status === "OPEN").length,
+    IN_PROGRESS: feedbacks.filter(f => f.status === "IN_PROGRESS").length,
+    RESOLVED: feedbacks.filter(f => f.status === "RESOLVED").length,
+  };
 
   const handleDelete = (fb) => {
     setDialog({
       isOpen: true, type: "alert", title: `Delete ${getLabel("feedback_label", "Feedback")}`,
-      message: `Permanently delete "${fb.title}"? This cannot be undone.`,
-      confirmText: "Delete", isDestructive: true,
+      message: `Permanently delete this submission? This cannot be undone.`,
+      confirmText: "Delete Permanent", isDestructive: true,
       onConfirm: async () => { await adminDeleteFeedback(fb.id); setDialog({ isOpen: false }); load(); },
       onCancel: () => setDialog({ isOpen: false }),
     });
   };
 
   const handleExport = (format) => {
-    const headers = ["ID", `${getLabel("category_label", "Program")} / Service & Feedback`, getLabel("category_label", "Program"), "Author", "Rating", "Comments", "Date"];
-    const data = filtered.map((f, idx) => [
-      idx + 1,
-      `${f.entity_name || "General"} | ${f.title?.split(": ")[1] || f.title || ""} - ${f.description || ""}`,
+    const headers = ["ID", "Program", "Location", "Author", "Rating", "Status", "Date"];
+    const data = filtered.map(f => [
+      f.id,
+      f.entity_name || "General",
       f.dept_name || "—",
       f.user_name || "Anonymous",
       f.rating ? `${f.rating}/5` : "—",
-      f.comments_count,
+      STATUSES[f.status]?.label || f.status,
       f.created_at?.split("T")[0]
     ]);
 
     if (format === 'csv') {
-      const csvContent = [headers, ...data].map(r => r.join(",")).join("\n");
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const csv = [headers, ...data].map(r => r.join(",")).join("\n");
+      const blob = new Blob([csv], { type: 'text/csv' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
-      link.setAttribute("href", url);
-      link.setAttribute("download", `feedbacks_${new Date().getTime()}.csv`);
-      link.click();
+      link.href = url; link.download = `submissions_export.csv`; link.click();
     } else if (format === 'xls') {
       const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
-      
-      // Auto-width columns for professional look
-      const colWidths = headers.map((h, i) => {
-        const longest = data.reduce((acc, row) => Math.max(acc, String(row[i]).length), h.length);
-        return { wch: longest + 5 };
-      });
-      ws['!cols'] = colWidths;
-
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Feedbacks");
-      XLSX.writeFile(wb, `feedbacks_report_${new Date().getTime()}.xlsx`);
+      const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Submissions");
+      XLSX.writeFile(wb, `submissions_report.xlsx`);
     } else if (format === 'pdf') {
       const doc = new jsPDF();
-      
-      // Header Branding
-      doc.setFillColor(31, 42, 86); // Navy
-      doc.rect(0, 0, 210, 25, 'F');
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(20);
-      doc.text(`${getLabel("feedback_label", "Feedback").toUpperCase()} AUDIT REPORT`, 14, 17);
-      
-      doc.setFontSize(8);
-      doc.setTextColor(200, 200, 200);
-      doc.text(`Generated: ${new Date().toLocaleString()}`, 160, 17);
-
-      autoTable(doc, {
-        head: [headers],
-        body: data,
-        startY: 30,
-        margin: { horizontal: 14 },
-        styles: { fontSize: 8, cellPadding: 3 },
-        headStyles: { fillColor: [31, 42, 86], textColor: [255, 255, 255], fontStyle: 'bold' },
-        alternateRowStyles: { fillColor: [245, 247, 250] },
-        didDrawPage: (data) => {
-          // Footer with page numbering
-          const str = "Page " + doc.internal.getNumberOfPages();
-          doc.setFontSize(8);
-          doc.setTextColor(150, 150, 150);
-          doc.text(str, data.settings.margin.left, doc.internal.pageSize.height - 10);
-          doc.text("Confidential - Internal Use Only", 140, doc.internal.pageSize.height - 10);
-        }
-      });
-      doc.save(`feedbacks_audit_${new Date().getTime()}.pdf`);
-    } else if (format === 'doc') {
-      let html = `
-        <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
-        <head><meta charset='utf-8'><title>Feedback Audit Report</title>
-        <style>
-          body { font-family: 'Segoe UI', Tahoma, Arial, sans-serif; color: #1e293b; padding: 20px; }
-          h1 { color: var(--primary-color); border-bottom: 2px solid #3b82f6; padding-bottom: 5px; font-size: 24px; }
-          .meta { color: #64748b; font-size: 11px; margin-bottom: 20px; }
-          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-          th { background-color: var(--primary-color); color: white; text-align: left; padding: 12px; font-size: 13px; }
-          td { border-bottom: 1px solid #e2e8f0; padding: 10px; font-size: 12px; }
-          .stripe { background-color: #f8fafc; }
-        </style>
-        </head>
-        <body>
-          <h1>{getLabel("feedback_label", "Feedback").toUpperCase()} AUDIT REPORT</h1>
-          <p class="meta">Exported from GlobalCore Admin on ${new Date().toLocaleString()}</p>
-          <table>
-            <thead>
-              <tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>
-            </thead>
-            <tbody>
-              ${data.map((row, i) => `<tr ${i % 2 === 0 ? '' : 'class="stripe"'}>${row.map(cell => `<td>${cell}</td>`).join('')}</tr>`).join('')}
-            </tbody>
-          </table>
-          <p style="margin-top: 40px; font-size: 10px; color: #94a3b8; text-align: center;">--- End of Report ---</p>
-        </body>
-        </html>
-      `;
-      const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `feedbacks_report_${new Date().getTime()}.doc`;
-      link.click();
+      autoTable(doc, { head: [headers], body: data });
+      doc.save("submissions_report.pdf");
     }
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-      {/* Search Header */}
-      <div style={{ display: "flex", gap: "10px", alignItems: "center", background: theme.surface, padding: "14px 16px", borderRadius: "12px", border: `1px solid ${theme.border}` }}>
-        <input
-          value={search} onChange={e => setSearch(e.target.value)}
-          placeholder="Global Search..."
-          style={{ ...inputStyle, background: theme.bg, color: theme.text, borderColor: theme.border }}
-        />
+    <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+      {/* Status Workflow Tabs */}
+      <div style={{ display: "flex", gap: "8px", borderBottom: `1px solid ${theme.border}`, paddingBottom: "2px", marginBottom: "8px" }}>
+        {[
+          { key: "ALL", label: "All Submissions", count: stats.TOTAL },
+          { key: "OPEN", label: "New", count: stats.OPEN, color: "#3B82F6" },
+          { key: "IN_PROGRESS", label: "In Review", count: stats.IN_PROGRESS, color: "#EAB308" },
+          { key: "RESOLVED", label: "Resolved", count: stats.RESOLVED, color: "#10B981" },
+          { key: "CLOSED", label: "Closed", count: feedbacks.filter(f => f.status === "CLOSED").length, color: "#64748B" }
+        ].map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            style={{
+              padding: "10px 16px", background: "none", border: "none", cursor: "pointer",
+              fontSize: "13px", fontWeight: activeTab === tab.key ? "700" : "500",
+              color: activeTab === tab.key ? (tab.color || "var(--primary-color)") : theme.textMuted,
+              position: "relative", transition: "0.2s", display: "flex", alignItems: "center", gap: "8px"
+            }}
+          >
+            {tab.label}
+            {tab.count > 0 && (
+              <span style={{ 
+                fontSize: "10px", padding: "2px 6px", borderRadius: "10px", 
+                background: activeTab === tab.key ? (tab.color || "var(--primary-color)") : theme.bg,
+                color: activeTab === tab.key ? "white" : theme.textMuted,
+                fontWeight: "700"
+              }}>
+                {tab.count}
+              </span>
+            )}
+            {activeTab === tab.key && (
+              <div style={{ position: "absolute", bottom: "-2px", left: 0, right: 0, height: "2px", background: tab.color || "var(--primary-color)", borderRadius: "2px" }} />
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* Actions & Filters */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "16px", marginBottom: "8px" }}>
+        <div style={{ position: "relative", flex: 1, maxWidth: "400px" }}>
+          <svg style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: theme.textMuted }} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input
+            value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="Search by user, program, or keyword..."
+            style={{ width: "100%", padding: "10px 12px 10px 38px", background: theme.surface, color: theme.text, border: `1px solid ${theme.border}`, borderRadius: "10px", fontSize: "13px", outline: "none" }}
+          />
+        </div>
         <ExportDropdown onExport={handleExport} theme={theme} darkMode={darkMode} />
       </div>
 
-      {/* Table */}
-      <div style={{ background: theme.surface, borderRadius: "12px", border: `1px solid ${theme.border}`, overflow: "visible" }}>
-        {loading ? (
-          <div style={{ textAlign: "center", padding: "40px", color: theme.textMuted, fontSize: "13px" }}>Loading feedback...</div>
-        ) : (
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
-            <thead>
-              <tr style={{ background: darkMode ? "rgba(255,255,255,0.02)" : "#F8FAFC", borderBottom: `1px solid ${theme.border}` }}>
-                <th style={{ ...thStyle, color: theme.textMuted }}>#</th>
-                <HeaderFilter theme={theme} darkMode={darkMode} label={`${getLabel("category_label", "Program")} / Service`} value={filters.program} onChange={v => setFilters({...filters, program: v})} />
-                {hasGlobalAdminAccess && <HeaderFilter theme={theme} darkMode={darkMode} label={getLabel("category_label", "Program")} value={filters.dept_name || ""} onChange={v => setFilters({...filters, dept_name: v})} />}
-                <HeaderFilter theme={theme} darkMode={darkMode} label="Author" value={filters.author} onChange={v => setFilters({...filters, author: v})} />
-                {["Rating", "Comments", "Date", ""].map(h => (
-                  <th key={h} style={{ ...thStyle, color: theme.textMuted }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((f, i) => (
-                <tr key={f.id} style={{ borderBottom: `1px solid ${theme.border}` }}
-                  onMouseEnter={e => e.currentTarget.style.background = darkMode ? "rgba(255,255,255,0.02)" : "#FAFAFA"}
-                  onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                  <td style={{ ...tdStyle, color: theme.text }}>{i + 1}</td>
-                  <td style={{ ...tdStyle, maxWidth: "280px" }}>
-                    <p style={{ margin: 0, fontWeight: "700", color: theme.text }}>
-                      {f.entity_name || "General"}
-                      {f.title && f.title !== f.entity_name && ` - ${f.title.split(": ")[1] || f.title}`}
-                    </p>
-                    {f.description && (
-                      <p style={{ margin: "4px 0 0 0", fontSize: "11px", color: theme.textMuted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {f.description.substring(0, 100)}{f.description.length > 100 ? "..." : ""}
-                      </p>
-                    )}
-                    {f.custom_data && Object.keys(f.custom_data).length > 0 && (
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '6px' }}>
-                        {Object.entries(f.custom_data).map(([k, v]) => (
-                          <div key={k} style={{ 
-                            fontSize: '9px', fontWeight: '700', padding: '2px 6px', 
-                            background: darkMode ? 'rgba(59, 130, 246, 0.1)' : '#EFF6FF', 
-                            color: darkMode ? '#60A5FA' : '#1D4ED8', 
-                            borderRadius: '4px', border: `1px solid ${darkMode ? 'rgba(59, 130, 246, 0.2)' : '#BFDBFE'}`
-                          }}>
-                            {k}: {v}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </td>
-                  {hasGlobalAdminAccess && (
-                    <td style={{ ...tdStyle, color: theme.textMuted, fontSize: '11px', fontWeight: '500' }}>
-                      {f.dept_name || "—"}
-                    </td>
-                  )}
-                  <td style={{ ...tdStyle, color: f.is_anonymous ? theme.textMuted : theme.text, fontWeight: f.is_anonymous ? "400" : "600" }}>
-                    {f.user_name || "—"}
-                    {f.is_anonymous && <span style={{ fontSize: "10px", marginLeft: "4px", fontStyle: "italic" }}>(Anon)</span>}
-                  </td>
-                  <td style={{ ...tdStyle, color: theme.text }}>{f.rating ? `${f.rating} / 5` : "—"}</td>
-                  <td style={{ ...tdStyle, color: theme.text }}>{f.comments_count}</td>
-                  <td style={{ ...tdStyle, color: theme.textMuted, whiteSpace: "nowrap" }}>{f.created_at?.split("T")[0]}</td>
-                  <td style={{ ...tdStyle, textAlign: "right" }}>
-                    <DotsMenu onDelete={() => handleDelete(f)} theme={theme} darkMode={darkMode} />
-                  </td>
-                </tr>
+      {/* Table Section */}
+      <div style={{ background: theme.surface, borderRadius: "16px", border: `1px solid ${theme.border}`, overflow: "hidden", boxShadow: "0 4px 12px rgba(0,0,0,0.03)" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
+          <thead>
+            <tr style={{ background: darkMode ? "rgba(255,255,255,0.02)" : "#F8FAFC", borderBottom: `1px solid ${theme.border}` }}>
+              {["Program / Service", "Location", "User", "Rating", "Status", "Date", ""].map((h, idx) => (
+                <th key={idx} style={{ padding: "16px 20px", textAlign: "left", fontSize: "11px", fontWeight: "800", color: theme.textMuted, textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</th>
               ))}
-              {filtered.length === 0 && (
-                <tr>
-                  <td colSpan={8} style={{ padding: "32px", textAlign: "center", color: theme.textMuted, fontSize: "13px" }}>No {getLabel("feedback_label", "feedback")} found.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        )}
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map(f => (
+              <tr 
+                key={f.id} 
+                onClick={() => setSelectedFeedback(f)}
+                style={{ borderBottom: `1px solid ${theme.border}`, cursor: "pointer", transition: "0.15s" }}
+                onMouseEnter={e => e.currentTarget.style.background = darkMode ? "rgba(255,255,255,0.03)" : "#FAFAFA"}
+                onMouseLeave={e => e.currentTarget.style.background = "none"}
+              >
+                <td style={{ padding: "16px 20px" }}>
+                  <div style={{ fontWeight: "700", color: theme.text }}>{f.entity_name || "General"}</div>
+                  <div style={{ fontSize: "11px", color: theme.textMuted, marginTop: "2px" }}>{f.title?.split(": ")[1] || f.title || "No Subject"}</div>
+                </td>
+                <td style={{ padding: "16px 20px", color: theme.textMuted, fontWeight: "500" }}>{f.dept_name || "—"}</td>
+                <td style={{ padding: "16px 20px" }}>
+                  <div style={{ fontWeight: "600", color: theme.text }}>{f.user_name || "Anonymous"}</div>
+                  {f.is_anonymous && <span style={{ fontSize: "10px", color: "#94A3B8", fontStyle: "italic" }}>Private Submission</span>}
+                </td>
+                <td style={{ padding: "16px 20px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                    <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: f.rating <= 2 ? "#EF4444" : f.rating === 3 ? "#EAB308" : "#3B82F6" }} />
+                    <span style={{ fontWeight: "700", color: theme.text }}>{f.rating || "—"}</span>
+                  </div>
+                </td>
+                <td style={{ padding: "16px 20px" }}>
+                  <span style={{ padding: "4px 8px", borderRadius: "6px", fontSize: "10px", fontWeight: "800", textTransform: "uppercase", background: STATUSES[f.status]?.bg, color: STATUSES[f.status]?.color }}>
+                    {STATUSES[f.status]?.label}
+                  </span>
+                </td>
+                <td style={{ padding: "16px 20px", color: theme.textMuted }}>{f.created_at?.split("T")[0]}</td>
+                <td style={{ padding: "16px 20px", textAlign: "right" }} onClick={e => e.stopPropagation()}>
+                  <DotsMenu onUpdateStatus={(s) => handleUpdateStatus(f.id, s)} onDelete={() => handleDelete(f)} theme={theme} darkMode={darkMode} currentStatus={f.status} />
+                </td>
+              </tr>
+            ))}
+            {!loading && filtered.length === 0 && (
+              <tr>
+                <td colSpan={7} style={{ padding: "48px 24px", textAlign: "center" }}>
+                   <div style={{ fontSize: "18px", marginBottom: "8px" }}>📦</div>
+                   <p style={{ margin: 0, fontSize: "14px", fontWeight: "600", color: theme.text }}>No feedback submissions found.</p>
+                   <p style={{ margin: "4px 0 0", fontSize: "12px", color: theme.textMuted }}>Once users submit feedback, they will appear here for review and action.</p>
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
 
-      <CustomModal isOpen={dialog.isOpen} title={dialog.title} message={dialog.message} type={dialog.type}
-        confirmText={dialog.confirmText} isDestructive={dialog.isDestructive}
-        onConfirm={dialog.onConfirm} onCancel={dialog.onCancel} />
+      <FeedbackSidePanel 
+        feedback={selectedFeedback} 
+        onClose={() => setSelectedFeedback(null)} 
+        onUpdateStatus={handleUpdateStatus}
+        theme={theme} 
+        darkMode={darkMode} 
+      />
+
+      <CustomModal isOpen={dialog.isOpen} title={dialog.title} message={dialog.message} type={dialog.type} confirmText={dialog.confirmText} isDestructive={dialog.isDestructive} onConfirm={dialog.onConfirm} onCancel={dialog.onCancel} />
     </div>
   );
 };
-
-const inputStyle = { flex: 1, padding: "8px 12px", border: "1.5px solid #E2E8F0", borderRadius: "8px", fontSize: "13px", outline: "none", fontFamily: "inherit", color: "#1E293B" };
-const miniFilter = { width: '100%', padding: "4px 8px", border: "1px solid #F1F5F9", borderRadius: "6px", fontSize: "11px", outline: "none", fontFamily: "inherit", color: "#475569", background: '#F8FAFC' };
-const outlineBtn = { padding: "8px 16px", background: "white", color: "var(--primary-color)", border: "1.5px solid #CBD5E1", borderRadius: "8px", fontSize: "12px", fontWeight: "600", cursor: "pointer", fontFamily: "inherit" };
-const thStyle = { padding: "11px 14px", textAlign: "left", fontSize: "10px", fontWeight: "700", color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.06em", whiteSpace: "nowrap" };
-const tdStyle = { padding: "11px 14px", color: "#374151", verticalAlign: "middle" };
 
 export default AdminFeedbacks;

@@ -137,35 +137,34 @@ def admin_login(email: str, password: str, db: Session = Depends(get_db)):
 # ?????????????????????????????????????????????
 
 @router.get("/analytics/snapshot")
-def analytics_snapshot(dept_name: Optional[str] = None, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
+def analytics_snapshot(days: int = 30, dept_name: Optional[str] = None, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
     """Consolidated endpoint to fetch all dashboard data in a single request."""
-    # Logic: Global admins can use dept_name param. Scoped admins are locked to their entity_id.
     target_entity_id = admin.entity_id if not has_global_admin_access(admin) else None
+    dept_scope = dept_name if has_global_admin_access(admin) else None
     
     return {
-        "summary": crud.get_analytics_summary(db, entity_id=target_entity_id, dept_name=dept_name if has_global_admin_access(admin) else None),
-        "volume": analytics_volume(30, dept_name, db, admin),
-        "by_entity": analytics_by_entity(dept_name, db, admin),
-        "by_department": analytics_by_department(db),
-        "by_status": analytics_by_status(dept_name, db, admin),
-        "ratings": analytics_ratings(dept_name, db, admin),
+        "summary": crud.get_analytics_summary(db, entity_id=target_entity_id, dept_name=dept_scope, days=days),
+        "volume": analytics_volume(days, dept_name, db, admin),
+        "by_entity": analytics_by_entity(days, dept_name, db, admin),
+        "by_status": analytics_by_status(days, dept_name, db, admin),
+        "ratings": analytics_ratings(days, dept_name, db, admin),
         "top_users": analytics_top_users(8, dept_name=dept_name, db=db, admin=admin),
-        "engagement": analytics_engagement(30, dept_name=dept_name, db=db, admin=admin),
-        "sentiment": crud.get_sentiment_summary(db, entity_id=target_entity_id, dept_name=dept_name if has_global_admin_access(admin) else None),
-        "user_distribution": crud.get_user_distribution(db, entity_id=target_entity_id, dept_name=dept_name if has_global_admin_access(admin) else None),
-        "top_branches": crud.get_top_branches(db, entity_id=target_entity_id, limit=5),
-        "feedback_type_distribution": crud.get_feedback_type_distribution(db, entity_id=target_entity_id)
+        "engagement": analytics_engagement(days, dept_name=dept_name, db=db, admin=admin),
+        "sentiment": crud.get_sentiment_summary(db, entity_id=target_entity_id, dept_name=dept_scope, days=days),
+        "user_distribution": crud.get_user_distribution(db, entity_id=target_entity_id, dept_name=dept_scope),
+        "top_branches": crud.get_top_branches(db, entity_id=target_entity_id, limit=5, days=days),
+        "feedback_type_distribution": crud.get_feedback_type_distribution(db, entity_id=target_entity_id, days=days),
+        "program_rankings": crud.get_program_rankings(db, entity_id=target_entity_id, days=days)
     }
 
 @router.get("/analytics/summary")
-def analytics_summary(dept_name: Optional[str] = None, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
+def analytics_summary(days: int = 30, dept_name: Optional[str] = None, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
     target_entity_id = admin.entity_id if not has_global_admin_access(admin) else None
-    return crud.get_analytics_summary(db, entity_id=target_entity_id, dept_name=dept_name if has_global_admin_access(admin) else None)
+    return crud.get_analytics_summary(db, entity_id=target_entity_id, dept_name=dept_name if has_global_admin_access(admin) else None, days=days)
 
 
 @router.get("/analytics/volume")
 def analytics_volume(days: int = 30, dept_name: Optional[str] = None, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
-    effective_dept = dept_name if has_global_admin_access(admin) else admin.department
     since = datetime.now(timezone.utc) - timedelta(days=days)
     q = db.query(
         cast(models.Feedback.created_at, Date).label("day"),
@@ -180,12 +179,13 @@ def analytics_volume(days: int = 30, dept_name: Optional[str] = None, db: Sessio
 
 
 @router.get("/analytics/by-entity")
-def analytics_by_entity(dept_name: Optional[str] = None, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
-    effective_dept = dept_name if has_global_admin_access(admin) else admin.department
+def analytics_by_entity(days: int = 30, dept_name: Optional[str] = None, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
+    since = datetime.now(timezone.utc) - timedelta(days=days)
     q = db.query(
         models.Entity.name,
         func.count(models.Feedback.id).label("count")
-    ).outerjoin(models.Feedback, models.Feedback.entity_id == models.Entity.id)
+    ).outerjoin(models.Feedback, models.Feedback.entity_id == models.Entity.id)\
+     .filter(models.Feedback.created_at >= since)
     
     # Apply scoping
     q = apply_data_scope(q, models.Feedback, admin)
@@ -207,24 +207,24 @@ def analytics_by_department(db: Session = Depends(get_db), admin: models.User = 
 
 
 @router.get("/analytics/by-status")
-def analytics_by_status(dept_name: Optional[str] = None, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
-    effective_dept = dept_name if has_global_admin_access(admin) else admin.department
+def analytics_by_status(days: int = 30, dept_name: Optional[str] = None, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
+    since = datetime.now(timezone.utc) - timedelta(days=days)
     q = db.query(
         models.Feedback.status,
         func.count(models.Feedback.id).label("count")
-    )
+    ).filter(models.Feedback.created_at >= since)
     q = apply_data_scope(q, models.Feedback, admin)
     rows = q.group_by(models.Feedback.status).all()
     return [{"status": str(r.status).replace("FeedbackStatus.", ""), "count": r.count} for r in rows]
 
 
 @router.get("/analytics/ratings")
-def analytics_ratings(dept_name: Optional[str] = None, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
-    effective_dept = dept_name if has_global_admin_access(admin) else admin.department
+def analytics_ratings(days: int = 30, dept_name: Optional[str] = None, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
+    since = datetime.now(timezone.utc) - timedelta(days=days)
     q = db.query(
         models.Feedback.rating,
         func.count(models.Feedback.id).label("count")
-    ).filter(models.Feedback.rating != None)
+    ).filter(models.Feedback.rating != None, models.Feedback.created_at >= since)
     q = apply_data_scope(q, models.Feedback, admin)
     rows = q.group_by(models.Feedback.rating)\
             .order_by(models.Feedback.rating).all()
@@ -266,7 +266,7 @@ def analytics_top_users(
         give_likes_sq.label("r_give"),
         give_rlikes_sq.label("rr_give"),
         give_comm_sq.label("c_give")
-    )
+    ).filter(models.User.role.notin_(["admin", "superadmin"]))
     
     if effective_dept:
         query = query.filter(
@@ -302,17 +302,14 @@ def analytics_engagement(
     db: Session = Depends(get_db),
     admin: models.User = Depends(get_current_admin),
 ):
-    effective_dept = (
-        dept_name
-        if dept_name is not None
-        else (None if has_global_admin_access(admin) else admin.department)
-    )
     since = datetime.now(timezone.utc) - timedelta(days=days)
     q = db.query(
         cast(models.Reply.created_at, Date).label("day"),
         func.count(models.Reply.id).label("comments"),
     ).filter(models.Reply.created_at >= since)\
-     .join(models.Feedback, models.Reply.feedback_id == models.Feedback.id)
+     .join(models.Feedback, models.Reply.feedback_id == models.Feedback.id)\
+     .join(models.User, models.Reply.user_id == models.User.id)\
+     .filter(models.User.role.notin_(["admin", "superadmin"]))
 
     q = apply_data_scope(q, models.Feedback, admin)
 
@@ -387,6 +384,9 @@ def admin_get_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_d
     
     # Apply program-based scoping
     query = apply_data_scope(query, models.User, admin)
+    
+    # EXCLUSION: Hide global admins from account management list
+    query = query.filter(models.User.role != "superadmin")
         
     users_with_stats = query.order_by(models.User.id).offset(skip).limit(limit).all()
 
@@ -409,10 +409,55 @@ def admin_get_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_d
             "role": "user" if u.role == "maker" else u.role,
             "is_active": u.is_active, "avatar_url": u.avatar_url,
             "created_at": str(u.created_at),
+            "last_login": str(u.last_login) if u.last_login else None,
             "total_posts": p_cnt,
             "impact_points": round(float(pts), 1)
         })
     return result
+
+@router.get("/staff")
+def admin_get_staff_list(db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
+    """Returns a list of all administrative accounts. Restricted to Global Admins."""
+    if not has_global_admin_access(admin):
+        raise HTTPException(status_code=403, detail="Access denied: Only Global Admins can view the Staff Registry")
+    
+    staff = db.query(models.User).filter(models.User.role.in_(["admin", "superadmin"])).order_by(models.User.name).all()
+    
+    return [{
+        "id": s.id,
+        "name": s.name,
+        "email": s.email,
+        "role": s.role,
+        "department": s.department,
+        "last_login": s.last_login,
+        "position_title": s.position_title
+    } for s in staff]
+
+@router.post("/users/{user_id}/reset-password")
+def admin_reset_password(user_id: int, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
+    """Resets user password to a default 'Welcome123'."""
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Authority Check: Scoped admins can only reset their own users
+    if not has_global_admin_access(admin):
+        if user.entity_id != admin.entity_id:
+            raise HTTPException(status_code=403, detail="Cannot reset password for users outside your assigned program")
+    from app import auth
+    user.password = auth.get_password_hash("Welcome123")
+    
+    # Audit Log
+    crud.create_audit_log(
+        db, 
+        action_type="password_reset",
+        performed_by_id=admin.id,
+        target_id=str(user_id),
+        details={"user_email": user.email}
+    )
+    
+    db.commit()
+    return {"message": "Password reset successfully to Welcome123"}
 
 
 @router.put("/users/{user_id}/status")
@@ -496,13 +541,32 @@ def admin_update_user_details(
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+
+    # Capture historical context for audit trail
+    prev_role = user.role
+    prev_program = user.program
+
+    # 1. Self-Demotion Prevention
+    if user_id == admin.id and role == "user":
+        raise HTTPException(status_code=400, detail="Safety Lock: You cannot remove your own admin access.")
+
+    # 2. Last Admin Protection
+    if user.role == "admin" and role == "user" and user.entity_id:
+        other_admins = db.query(models.User).filter(
+            models.User.entity_id == user.entity_id,
+            models.User.role == "admin",
+            models.User.id != user.id,
+            models.User.is_active == True
+        ).count()
+        if other_admins == 0:
+            raise HTTPException(status_code=400, detail=f"Operational Lock: This program ({user.program}) must have at least one active assigned admin.")
         
     updates_made = {}
     if role and role in ["user", "admin", "maker"] and role != user.role:
         # Restriction: Scoped Admins cannot promote to admin unless it's their scope (already handled by outer check)
         # But we double lock promote-to-admin to global admins only for extra security
         if not has_global_admin_access(admin) and role == "admin":
-             raise HTTPException(status_code=403, detail="Scoped Admins cannot promote users to Admin via this endpoint")
+            raise HTTPException(status_code=403, detail="Scoped Admins cannot promote users to Admin via this endpoint")
              
         normalized_role = "user" if role == "maker" else role
         updates_made["role"] = {"old": user.role, "new": normalized_role}
@@ -514,13 +578,17 @@ def admin_update_user_details(
     if program is not None and program != user.program:
         updates_made["program"] = {"old": user.program, "new": program}
         user.program = program if program else None
-    if entity_id is not None and entity_id != user.entity_id:
-        # Restriction: Scoped admins cannot assign users to entities outside their own
-        if not has_global_admin_access(admin) and entity_id != admin.entity_id:
-             raise HTTPException(status_code=403, detail="You can only assign users to your own program")
-             
-        updates_made["entity_id"] = {"old": user.entity_id, "new": entity_id}
-        user.entity_id = entity_id
+    if entity_id is not None:
+        # Sentinel -1 means "Unassign/None"
+        target_entity_val = None if entity_id == -1 else entity_id
+        
+        if target_entity_val != user.entity_id:
+            # Restriction: Scoped admins cannot assign users to entities outside their own
+            if not has_global_admin_access(admin) and entity_id != admin.entity_id:
+                 raise HTTPException(status_code=403, detail="You can only assign users to your own program")
+                 
+            updates_made["entity_id"] = {"old": user.entity_id, "new": target_entity_val}
+            user.entity_id = target_entity_val
         
     if position_title is not None and position_title != user.position_title:
         updates_made["position_title"] = {"old": user.position_title, "new": position_title}
@@ -543,7 +611,13 @@ def admin_update_user_details(
             action_type=action_tag,
             performed_by_id=admin.id,
             target_id=str(user_id),
-            details={"user_email": user.email, "updates": updates_made}
+            details={
+                "user_email": user.email, 
+                "updates": updates_made,
+                "previous_role": prev_role,
+                "previous_program": prev_program,
+                "performed_at_scope": admin.department or "Global"
+            }
         )
         db.commit()
         db.refresh(user)
@@ -551,25 +625,8 @@ def admin_update_user_details(
     return {"id": user.id, "role": user.role, "department": user.department, "entity_id": user.entity_id}
 
 
-@router.delete("/users/{user_id}", status_code=204)
-def admin_delete_user(user_id: int, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
-    if not is_globalcore_admin(db, admin):
-        raise HTTPException(status_code=403, detail="Only GlobalCore Admin can permanently delete users")
-        
-    user = db.query(models.User).filter(models.User.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    # Audit Log
-    crud.create_audit_log(
-        db, 
-        action_type="delete_user",
-        performed_by_id=admin.id,
-        target_id=str(user_id),
-        details={"user_email": user.email}
-    )
-    
-    crud.delete_user(db, user_id=user_id)
+# DELETE USER ENDPOINT REMOVED TO PRESERVE AUDIT TRAIL AND DATA INTEGRITY.
+# Users should be 'Deactivated' instead of deleted.
 
 
 # ?????????????????????????????????????????????
@@ -1071,12 +1128,17 @@ def admin_broadcast(
     message: str, 
     broadcast_type: str = "announcement",
     target_group: str = "all", # all, staff, global
+    priority: str = "normal",
+    status: str = "sent", # draft, scheduled, sent
+    require_ack: bool = False,
+    scheduled_at: Optional[datetime] = None,
     db: Session = Depends(get_db), 
     admin: models.User = Depends(get_current_admin)
 ):
     """
     Broadcast system allows Superadmins to reach everyone,
     and Program Admins to reach only their own staff and beneficiaries.
+    Now supports Draft/Scheduled states and Priority levels.
     """
     source_tag = "SYSTEM"
     is_global = has_global_admin_access(admin)
@@ -1087,75 +1149,74 @@ def admin_broadcast(
     
     official_subject = f"[OFFICIAL] {source_tag} - {subject}"
     
-    # Selection Logic Refinement
+    # 1. Selection Logic (Still needed even for counts in Drafts)
     query = db.query(models.User)
-    
     if not is_global:
-        # Program Admin Scope: STRICTLY within their own entity_id
-        # Both staff AND beneficiaries in that program will have the same entity_id
         query = query.filter(models.User.entity_id == admin.entity_id)
-        
         if target_group == "staff":
             query = query.filter(models.User.role.in_(["admin", "superadmin"]))
         elif target_group == "global":
             query = query.filter(models.User.is_global_user == True)
     else:
-        # Superadmin Scope: Global access
         if target_group == "global":
             query = query.filter(models.User.is_global_user == True)
         elif target_group == "staff":
             query = query.filter(models.User.role.in_(["admin", "superadmin"]))
 
-    users = query.all()
+    recipient_count = query.count()
     
-    # 1. Log the broadcast record
+    # 2. Log the broadcast record (Always created)
     broadcast_log = crud.create_broadcast_log(
         db, 
         subject=official_subject, 
         message=message, 
-        count=len(users),
-        entity_id=admin.entity_id if not is_global else None
+        count=recipient_count,
+        entity_id=admin.entity_id if not is_global else None,
+        priority=priority,
+        status=status,
+        require_ack=require_ack,
+        scheduled_at=scheduled_at
     )
     
-    # 2. Prepare Bulk Notifications
-    notifications = []
-    for user in users:
-        notifications.append(models.Notification(
-            user_id=user.id,
-            actor_id=admin.id, # Attributed to sending admin
-            type=models.NotificationType.ANNOUNCEMENT,
-            feedback_id=None, # Broadcasts are system-wide
-            entity_id=admin.entity_id if not is_global else None,
-            subject=official_subject,
-            message=message,
-            broadcast_id=broadcast_log.id,
-            broadcast_type=broadcast_type
-        ))
-    
-    if notifications:
-        crud.create_notifications_bulk(db, notifications)
-    
-    # 3. Audit Log
+    # 3. Deliver Notifications (ONLY if status is 'sent')
+    if status == "sent":
+        users = query.all()
+        notifications = []
+        for user in users:
+            notifications.append(models.Notification(
+                user_id=user.id,
+                actor_id=admin.id,
+                type=models.NotificationType.ANNOUNCEMENT,
+                feedback_id=None,
+                entity_id=admin.entity_id if not is_global else None,
+                subject=official_subject,
+                message=message,
+                broadcast_id=broadcast_log.id,
+                broadcast_type=broadcast_type,
+                priority=priority # Pass priority to notification for quick feed rendering
+            ))
+        
+        if notifications:
+            crud.create_notifications_bulk(db, notifications)
+
+    # 4. Audit Log
     crud.create_audit_log(
         db, 
         action_type="broadcast_created",
         performed_by_id=admin.id,
         details={
             "subject": official_subject, 
-            "sent_to_count": len(users), 
+            "sent_to_count": recipient_count, 
             "type": broadcast_type,
+            "priority": priority,
+            "status": status,
             "target_group": target_group
         }
     )
     
-    return {"sent_to": len(users), "subject": official_subject, "message": message, "broadcast_id": broadcast_log.id}
+    return {"sent_to": recipient_count, "status": status, "broadcast_id": broadcast_log.id}
 
-
-@router.get("/broadcasts", response_model=List[schemas.BroadcastLog])
-def admin_get_broadcast_logs(db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
-    # Use centralized scoping
-    q = apply_data_scope(db.query(models.BroadcastLog), models.BroadcastLog, admin)
-    return q.order_by(models.BroadcastLog.created_at.desc()).all()
+# --- END OF FEEDBACK OPERATIONS ---
 
 
 @router.get("/audit-logs", response_model=List[schemas.AuditLog])
@@ -1165,7 +1226,65 @@ def get_audit_logs(skip: int = 0, limit: int = 200, db: Session = Depends(get_db
         return crud.get_audit_logs(db, skip=skip, limit=limit, dept_name=admin.department)
     return crud.get_audit_logs(db, skip=skip, limit=limit)
 
+@router.post("/broadcasts/{broadcast_id}/archive")
+def archive_broadcast(
+    broadcast_id: int, 
+    db: Session = Depends(get_db), 
+    admin: models.User = Depends(get_current_admin)
+):
+    log = db.query(models.BroadcastLog).filter(models.BroadcastLog.id == broadcast_id).first()
+    if not log:
+        raise HTTPException(status_code=404, detail="Broadcast not found")
+    
+    # Scope check
+    if not has_global_admin_access(admin) and log.entity_id != admin.entity_id:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+    
+    log.status = "archived"
+    db.commit()
+    return {"status": "archived"}
 
+@router.post("/broadcasts/{broadcast_id}/resend")
+def resend_broadcast(
+    broadcast_id: int, 
+    db: Session = Depends(get_db), 
+    admin: models.User = Depends(get_current_admin)
+):
+    log = db.query(models.BroadcastLog).filter(models.BroadcastLog.id == broadcast_id).first()
+    if not log:
+        raise HTTPException(status_code=404, detail="Broadcast not found")
+    
+    if not has_global_admin_access(admin) and log.entity_id != admin.entity_id:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+
+    # Get original target users (simplified for resend)
+    query = db.query(models.User)
+    if log.entity_id:
+        query = query.filter(models.User.entity_id == log.entity_id)
+    
+    users = query.all()
+    notifications = []
+    for user in users:
+        notifications.append(models.Notification(
+            user_id=user.id,
+            actor_id=admin.id,
+            type=models.NotificationType.ANNOUNCEMENT,
+            entity_id=log.entity_id,
+            subject=log.subject,
+            message=log.message,
+            broadcast_id=log.id,
+            priority=log.priority
+        ))
+    
+    if notifications:
+        crud.create_notifications_bulk(db, notifications)
+    
+    # Update count if it changed
+    log.sent_to_count = len(users)
+    log.status = "sent"
+    db.commit()
+    
+    return {"resent_to": len(users)}
 @router.get("/profile")
 def get_admin_profile(db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
     db_admin = db.query(models.User).filter(models.User.id == admin.id).first()
@@ -1401,3 +1520,187 @@ def update_entity_form_config(ent_id: int, config: schemas.FormConfig, db: Sessi
     
     db.commit()
     return {"message": "Form configuration updated successfully"}
+
+
+@router.post("/audit/log-action")
+def admin_log_action(action_type: str, details: dict = Body(...), db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
+    """Generic endpoint for the frontend to log audit actions (e.g. Exports)."""
+    crud.create_audit_log(
+        db,
+        action_type=action_type,
+        performed_by_id=admin.id,
+        details={**details, "scope": admin.department or "Global"}
+    )
+    db.commit()
+    return {"status": "logged"}
+
+# ---------------------------------------------
+#  Broadcast & Communications
+# ---------------------------------------------
+
+@router.post("/broadcast")
+def admin_broadcast(
+    subject: str,
+    message: str,
+    broadcast_type: str = "announcement",
+    target_group: str = "all",
+    priority: str = "normal",
+    status: str = "sent",
+    require_ack: bool = False,
+    scheduled_at: Optional[datetime] = None,
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(get_current_admin)
+):
+    """
+    Dispatch a broadcast announcement or save as draft/scheduled.
+    """
+    # Create the log
+    log = crud.create_broadcast_log(
+        db, subject, message, count=0, entity_id=admin.entity_id,
+        priority=priority, status=status, require_ack=require_ack, scheduled_at=scheduled_at
+    )
+    
+    # If status is "sent", create notifications for all users
+    sent_count = 0
+    if status == "sent":
+        # Identify target users
+        query = db.query(models.User).filter(models.User.is_active == True)
+        # Filter by program/entity if admin is not global
+        if admin.entity_id:
+            query = query.filter(models.User.entity_id == admin.entity_id)
+        
+        target_users = query.all()
+        
+        for user in target_users:
+            # Create notification
+            db_notif = models.Notification(
+                user_id=user.id,
+                actor_id=admin.id,
+                subject=subject,
+                message=message,
+                type=models.NotificationType.broadcast,
+                priority=priority,
+                require_ack=require_ack,
+                broadcast_id=log.id
+            )
+            db.add(db_notif)
+            sent_count += 1
+        
+        # Update log count
+        log.sent_to_count = sent_count
+        db.commit()
+
+        # Audit Log
+        crud.create_audit_log(
+            db, action_type="broadcast_sent", performed_by_id=admin.id,
+            target_id=str(log.id), details={"subject": subject, "sent_to": sent_count}
+        )
+
+    return {"message": "Success", "sent_to": sent_count, "log_id": log.id}
+
+@router.get("/broadcasts", response_model=List[schemas.BroadcastLog])
+def admin_get_broadcasts(db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
+    q = apply_data_scope(db.query(models.BroadcastLog), models.BroadcastLog, admin)
+    return q.order_by(models.BroadcastLog.created_at.desc()).all()
+
+@router.post("/broadcasts/{log_id}/archive")
+def admin_archive_broadcast(log_id: int, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
+    log = db.query(models.BroadcastLog).filter(models.BroadcastLog.id == log_id).first()
+    if not log:
+        raise HTTPException(status_code=404, detail="Log not found")
+    
+    # Scoping check
+    if not has_global_admin_access(admin) and log.entity_id != admin.entity_id:
+        raise HTTPException(status_code=403, detail="Cannot archive other program's broadcast")
+
+    log.status = "archived"
+    db.commit()
+    return {"message": "Archived"}
+
+@router.post("/broadcasts/{log_id}/resend")
+def admin_resend_broadcast(log_id: int, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
+    log = db.query(models.BroadcastLog).filter(models.BroadcastLog.id == log_id).first()
+    if not log:
+        raise HTTPException(status_code=404, detail="Log not found")
+    
+    # Scoping check
+    if not has_global_admin_access(admin) and log.entity_id != admin.entity_id:
+        raise HTTPException(status_code=403, detail="Cannot resend other program's broadcast")
+
+    # Simple resend implementation: create notifications again
+    query = db.query(models.User).filter(models.User.is_active == True)
+    if not has_global_admin_access(admin):
+        query = query.filter(models.User.entity_id == admin.entity_id)
+    elif log.entity_id:
+        query = query.filter(models.User.entity_id == log.entity_id)
+    
+    target_users = query.all()
+    sent_count = 0
+    for user in target_users:
+        db_notif = models.Notification(
+            user_id=user.id, 
+            actor_id=admin.id,
+            subject=log.subject, 
+            message=log.message,
+            type=models.NotificationType.broadcast, 
+            priority=log.priority,
+            require_ack=log.require_ack, 
+            broadcast_id=log.id
+        )
+        db.add(db_notif)
+        sent_count += 1
+    
+    log.status = "sent"
+    log.created_at = datetime.now() # Update timestamp to now
+    db.commit()
+    return {"message": "Resent", "sent_to": sent_count}
+
+@router.get("/broadcast-templates", response_model=List[schemas.BroadcastTemplate])
+def get_broadcast_templates(db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
+    q = apply_data_scope(db.query(models.BroadcastTemplate), models.BroadcastTemplate, admin)
+    return q.order_by(models.BroadcastTemplate.name.asc()).all()
+
+@router.post("/broadcast-templates", response_model=schemas.BroadcastTemplate)
+def create_broadcast_template(
+    payload: schemas.BroadcastTemplateCreate,
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(get_current_admin)
+):
+    return crud.create_broadcast_template(
+        db, 
+        name=payload.name, 
+        title=payload.title, 
+        message=payload.message,
+        entity_id=admin.entity_id,
+        created_by_id=admin.id
+    )
+
+@router.put("/broadcast-templates/{tpl_id}", response_model=schemas.BroadcastTemplate)
+def update_broadcast_template(
+    tpl_id: int,
+    payload: schemas.BroadcastTemplateBase,
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(get_current_admin)
+):
+    # Scoping check
+    if not has_global_admin_access(admin):
+        target = db.query(models.BroadcastTemplate).filter(models.BroadcastTemplate.id == tpl_id).first()
+        if not target or target.entity_id != admin.entity_id:
+            raise HTTPException(status_code=403, detail="Cannot edit other program's template")
+
+    res = crud.update_broadcast_template(db, tpl_id, name=payload.name, title=payload.title, message=payload.message)
+    if res:
+        return res
+    raise HTTPException(status_code=404, detail="Template not found")
+
+@router.delete("/broadcast-templates/{tpl_id}")
+def delete_broadcast_template(tpl_id: int, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
+    # Scoping check
+    if not has_global_admin_access(admin):
+        target = db.query(models.BroadcastTemplate).filter(models.BroadcastTemplate.id == tpl_id).first()
+        if not target or target.entity_id != admin.entity_id:
+            raise HTTPException(status_code=403, detail="Cannot delete other program's template")
+
+    if crud.delete_broadcast_template(db, tpl_id):
+        return {"message": "Deleted"}
+    raise HTTPException(status_code=404, detail="Template not found")

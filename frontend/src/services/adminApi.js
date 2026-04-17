@@ -46,22 +46,32 @@ export const adminLogin = (email, password) =>
   adminApi.post(`/login?email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`).then(r => r.data);
 
 // Analytics
-export const getAnalyticsSnapshot = (dept_name = "") => adminApi.get(`/analytics/snapshot${dept_name ? `?dept_name=${encodeURIComponent(dept_name)}` : ""}`).then(r => r.data);
-export const getAnalyticsSummary = (dept_name = "") => adminApi.get(`/analytics/summary${dept_name ? `?dept_name=${encodeURIComponent(dept_name)}` : ""}`).then(r => r.data);
+export const getAnalyticsSnapshot = (dept_name = "", days = 30) => {
+  const q = new URLSearchParams({ days });
+  if (dept_name) q.set("dept_name", dept_name);
+  return adminApi.get(`/analytics/snapshot?${q.toString()}`).then(r => r.data);
+};
+
+export const getAnalyticsSummary = (dept_name = "", days = 30) => {
+  const q = new URLSearchParams({ days });
+  if (dept_name) q.set("dept_name", dept_name);
+  return adminApi.get(`/analytics/summary?${q.toString()}`).then(r => r.data);
+};
 export const getAnalyticsVolume = (days = 30, dept_name = "") => adminApi.get(`/analytics/volume?days=${days}${dept_name ? `&dept_name=${encodeURIComponent(dept_name)}` : ""}`).then(r => r.data);
-export const getAnalyticsByEntity = (dept_name = "") => adminApi.get(`/analytics/by-entity${dept_name ? `?dept_name=${encodeURIComponent(dept_name)}` : ""}`).then(r => r.data);
+export const getAnalyticsByEntity = (dept_name = "", days = 30) => adminApi.get(`/analytics/by-entity?days=${days}${dept_name ? `&dept_name=${encodeURIComponent(dept_name)}` : ""}`).then(r => r.data);
 export const getAnalyticsByDepartment = () => adminApi.get("/analytics/by-department").then(r => r.data);
-export const getAnalyticsByStatus = (dept_name = "") => adminApi.get(`/analytics/by-status${dept_name ? `?dept_name=${encodeURIComponent(dept_name)}` : ""}`).then(r => r.data);
-export const getAnalyticsRatings = (dept_name = "") => adminApi.get(`/analytics/ratings${dept_name ? `?dept_name=${encodeURIComponent(dept_name)}` : ""}`).then(r => r.data);
+export const getAnalyticsByStatus = (dept_name = "", days = 30) => adminApi.get(`/analytics/by-status?days=${days}${dept_name ? `&dept_name=${encodeURIComponent(dept_name)}` : ""}`).then(r => r.data);
+export const getAnalyticsRatings = (dept_name = "", days = 30) => adminApi.get(`/analytics/ratings?days=${days}${dept_name ? `&dept_name=${encodeURIComponent(dept_name)}` : ""}`).then(r => r.data);
 export const getTopUsers = (limit = 10) => adminApi.get(`/analytics/top-users?limit=${limit}`).then(r => r.data);
 export const getAnalyticsEngagement = (days = 30) => adminApi.get(`/analytics/engagement?days=${days}`).then(r => r.data);
 export const getAnalyticsByLocation = (dept_name = "") => adminApi.get(`/analytics/by-location${dept_name ? `?dept_name=${encodeURIComponent(dept_name)}` : ""}`).then(r => r.data);
-export const getAnalyticsSentiment = (dept_name = "") => adminApi.get(`/analytics/sentiment${dept_name ? `?dept_name=${encodeURIComponent(dept_name)}` : ""}`).then(r => r.data);
+export const getAnalyticsSentiment = (dept_name = "", days = 30) => adminApi.get(`/analytics/sentiment?days=${days}${dept_name ? `&dept_name=${encodeURIComponent(dept_name)}` : ""}`).then(r => r.data);
 
 // Users
 export const adminGetUsers = () => adminApi.get("/users").then(r => r.data);
 export const adminToggleUserStatus = (id, isActive) => adminApi.put(`/users/${id}/status?is_active=${isActive}`).then(r => r.data);
 export const adminUpdateUserRole = (id, role) => adminApi.put(`/users/${id}/role?role=${encodeURIComponent(role)}`).then(r => r.data);
+export const adminResetPassword = (id) => adminApi.post(`/users/${id}/reset-password`).then(r => r.data);
 export const adminUpdateUserDetails = (id, role, department, program, entity_id, position_title) => {
   const q = new URLSearchParams();
   if (role) q.set("role", role);
@@ -72,6 +82,7 @@ export const adminUpdateUserDetails = (id, role, department, program, entity_id,
   return adminApi.put(`/users/${id}/details?${q.toString()}`).then(r => r.data);
 };
 export const adminDeleteUser = (id) => adminApi.delete(`/users/${id}`);
+export const adminGetStaffList = () => adminApi.get("/staff").then(r => r.data);
 
 // Feedbacks
 export const adminGetFeedbacks = (params = {}) => {
@@ -117,12 +128,34 @@ export const adminUpdateBranch = (id, data) => adminApi.put(`/branches/${id}`, d
 export const adminDeleteBranch = (id) => adminApi.delete(`/branches/${id}`);
 
 // Broadcast
-export const adminBroadcast = (subject, message, broadcast_type = "announcement", target_group = "all") => 
-  adminApi.post(`/broadcast?subject=${encodeURIComponent(subject)}&message=${encodeURIComponent(message)}&broadcast_type=${broadcast_type}&target_group=${target_group}`).then(r => r.data);
+export const adminBroadcast = (subject, message, broadcast_type = "announcement", target_group = "all", priority = "normal", status = "sent", require_ack = false, scheduled_at = null) => {
+  const q = new URLSearchParams({
+    subject,
+    message,
+    broadcast_type,
+    target_group,
+    priority,
+    status,
+    require_ack: !!require_ack
+  });
+  if (scheduled_at) q.set("scheduled_at", scheduled_at);
+  return adminApi.post(`/broadcast?${q.toString()}`).then(r => r.data);
+};
 export const adminGetBroadcastLogs = () => adminApi.get("/broadcasts").then(r => r.data);
+export const adminArchiveBroadcast = (id) => adminApi.post(`/broadcasts/${id}/archive`).then(r => r.data);
+export const adminResendBroadcast = (id) => adminApi.post(`/broadcasts/${id}/resend`).then(r => r.data);
+
+// Broadcast Templates
+export const adminGetBroadcastTemplates = () => adminApi.get("/broadcast-templates").then(r => r.data);
+export const adminCreateBroadcastTemplate = (name, title, message) => 
+  adminApi.post("/broadcast-templates", { name, title, message }).then(r => r.data);
+export const adminUpdateBroadcastTemplate = (id, name, title, message) => 
+  adminApi.put(`/broadcast-templates/${id}`, { name, title, message }).then(r => r.data);
+export const adminDeleteBroadcastTemplate = (id) => adminApi.delete(`/broadcast-templates/${id}`).then(r => r.data);
 
 // Audit
 export const adminGetAuditLogs = () => adminApi.get("/audit-logs").then(r => r.data);
+export const adminLogAction = (action_type, details) => adminApi.post("/audit/log-action", { action_type, details }).then(r => r.data);
 
 // Profile
 export const adminGetProfile = () => adminApi.get("/profile").then(r => r.data);

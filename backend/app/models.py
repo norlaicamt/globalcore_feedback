@@ -261,7 +261,9 @@ class Notification(Base):
     subject = Column(String, nullable=True)  # Legacy/Custom subject
     broadcast_id = Column(Integer, ForeignKey("broadcast_logs.id"), nullable=True)
     broadcast_type = Column(String, default="announcement")
-    meta = Column(JSONB, nullable=True)     # For smart grouping (e.g. {actor_count: 5, actor_names: [...]})
+    priority = Column(String, default="normal") # normal, high, low
+    require_ack = Column(Boolean, default=False)
+    meta = Column(JSONB, nullable=True)
     is_read = Column(Boolean, default=False)
     is_acknowledged = Column(Boolean, default=False) # New: track broadcast engagement
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
@@ -290,12 +292,30 @@ class BroadcastLog(Base):
     subject = Column(String)
     message = Column(String)
     broadcast_type = Column(String, default="announcement")
+    priority = Column(String, default="normal") # normal, high, low
+    status = Column(String, default="sent") # draft, scheduled, sent, archived
+    require_ack = Column(Boolean, default=False)
     sent_to_count = Column(Integer)
-    read_count = Column(Integer, default=0) # New: tracks acknowledgments
-    entity_id = Column(Integer, ForeignKey("entities.id"), nullable=True) # Scoping for program admins
+    read_count = Column(Integer, default=0)
+    ack_count = Column(Integer, default=0)
+    entity_id = Column(Integer, ForeignKey("entities.id"), nullable=True)
+    scheduled_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     entity = relationship("Entity")
+
+class BroadcastTemplate(Base):
+    __tablename__ = "broadcast_templates"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String) # Internal Template Name
+    title = Column(String) # Announcement Title
+    message = Column(String) # Detailed Message
+    entity_id = Column(Integer, ForeignKey("entities.id"), nullable=True) # Scoped templates
+    created_by_id = Column(Integer, ForeignKey("global_user.id"), nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    entity = relationship("Entity")
+    creator = relationship("User")
 
 class PasswordResetToken(Base):
     __tablename__ = "password_reset_tokens"

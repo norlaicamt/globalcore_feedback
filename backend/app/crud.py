@@ -4,6 +4,7 @@ from app import models
 from app import schemas
 import asyncio
 from typing import Optional, List
+from datetime import datetime
 
 # User operations
 def get_user(db: Session, user_id: int):
@@ -793,7 +794,6 @@ def deliver_notification(db: Session, notif: models.Notification):
 def get_notifications(db: Session, user_id: int):
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if not user: return []
-
     notifs_query = db.query(
         models.Notification.id,
         models.Notification.user_id,
@@ -801,17 +801,21 @@ def get_notifications(db: Session, user_id: int):
         models.Notification.type,
         models.Notification.feedback_id,
         models.Notification.reply_id,
+        models.Notification.broadcast_id,
         models.Notification.is_read,
+        models.Notification.is_acknowledged,
         models.Notification.message,
         models.Notification.subject,
         models.Notification.created_at,
         models.Notification.meta,
+        models.Notification.priority,
+        models.Notification.broadcast_type,
+        models.BroadcastLog.require_ack.label("require_ack"),
         models.User.name.label("actor_name"),
-        models.Feedback.title.label("feedback_title"),
-        models.Reply.message.label("reply_message")
-    ).outerjoin(models.User, models.Notification.actor_id == models.User.id) \
-     .outerjoin(models.Feedback, models.Notification.feedback_id == models.Feedback.id) \
-     .outerjoin(models.Reply, models.Notification.reply_id == models.Reply.id) \
+        models.Feedback.title.label("feedback_title")
+    ).outerjoin(models.BroadcastLog, models.Notification.broadcast_id == models.BroadcastLog.id)\
+     .outerjoin(models.User, models.Notification.actor_id == models.User.id)\
+     .outerjoin(models.Feedback, models.Notification.feedback_id == models.Feedback.id)\
      .filter(models.Notification.user_id == user_id)
 
     # Apply preference filtering (Bell Visibility)
@@ -825,7 +829,12 @@ def get_notifications(db: Session, user_id: int):
     if active_filters:
         notifs_query = notifs_query.filter(~models.Notification.type.in_(active_filters))
 
-    return notifs_query.order_by(models.Notification.created_at.desc()).all()
+    results = []
+    for row in notifs_query.order_by(models.Notification.created_at.desc()).all():
+        d = dict(row._asdict())
+        if d.get("require_ack") is None: d["require_ack"] = False
+        results.append(d)
+    return results
 
 def mark_notifications_as_read(db: Session, user_id: int):
     db.query(models.Notification).filter(models.Notification.user_id == user_id, models.Notification.is_read == False).update({"is_read": True}, synchronize_session=False)
@@ -843,10 +852,14 @@ def acknowledge_broadcast(db: Session, broadcast_id: int, user_id: int):
         # Mark notification as acknowledged
         notif.is_acknowledged = True
         
-        # Increment read_count on the log itself
+        # Increment counts on the log itself
         log = db.query(models.BroadcastLog).filter(models.BroadcastLog.id == broadcast_id).first()
         if log:
-            log.read_count += 1
+            log.ack_count += 1
+            # If not already read, increment read_count too
+            if not notif.is_read:
+                notif.is_read = True
+                log.read_count += 1
             
         db.commit()
         return True
@@ -884,7 +897,10 @@ def get_user_impact_stats(db: Session, user_id: int):
         'likes_received': likes_received
     }
 
-def get_analytics_summary(db: Session, dept_name: Optional[str] = None, entity_id: Optional[int] = None):
+def get_analytics_summary(db: Session, dept_name: Optional[str] = None, entity_id: Optional[int] = None, days: int = 30):
+    from datetime import datetime, timedelta, timezone
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    
     # Base queries
     fb_q = db.query(models.Feedback)
     u_q = db.query(models.User)
@@ -898,7 +914,6 @@ def get_analytics_summary(db: Session, dept_name: Optional[str] = None, entity_i
         r_q = r_q.join(models.Feedback).filter(models.Feedback.entity_id == entity_id)
     elif dept_name:
         dept_exists = db.query(models.Department.id).filter(models.Department.name == dept_name).first() is not None
-        # Filter everything by department
         if dept_exists:
             dept_filter = db.query(models.Department.id).filter(models.Department.name == dept_name).scalar_subquery()
             fb_q = fb_q.filter(models.Feedback.recipient_dept_id == dept_filter)
@@ -906,7 +921,6 @@ def get_analytics_summary(db: Session, dept_name: Optional[str] = None, entity_i
             c_q = c_q.join(models.Feedback).filter(models.Feedback.recipient_dept_id == dept_filter)
             r_q = r_q.join(models.Feedback).filter(models.Feedback.recipient_dept_id == dept_filter)
         else:
-            # Fallback scope: interpret selected "department" as entity name.
             fb_q = fb_q.join(models.Entity, models.Feedback.entity_id == models.Entity.id).filter(models.Entity.name == dept_name)
             c_q = c_q.join(models.Feedback).join(models.Entity, models.Feedback.entity_id == models.Entity.id).filter(models.Entity.name == dept_name)
             r_q = r_q.join(models.Feedback).join(models.Entity, models.Feedback.entity_id == models.Entity.id).filter(models.Entity.name == dept_name)
@@ -916,33 +930,109 @@ def get_analytics_summary(db: Session, dept_name: Optional[str] = None, entity_i
                 (models.User.department == dept_name)
             )
 
-    total_feedback = fb_q.count()
-    total_users = u_q.count()
-    total_comments = c_q.count()
-    total_reactions = r_q.count()
+    # Filter out administrative accounts from metrics
+    u_q = u_q.filter(models.User.role.notin_(["admin", "superadmin"]))
+    c_q = c_q.join(models.User, models.Reply.user_id == models.User.id).filter(models.User.role.notin_(["admin", "superadmin"]))
+    r_q = r_q.join(models.User, models.Reaction.user_id == models.User.id).filter(models.User.role.notin_(["admin", "superadmin"]))
 
-    avg_rating = fb_q.with_entities(func.avg(models.Feedback.rating)).scalar()
+    # Apply Time Filter to dynamic counts
+    total_feedback = fb_q.filter(models.Feedback.created_at >= cutoff).count()
+    total_comments = c_q.filter(models.Reply.created_at >= cutoff).count()
+    total_reactions = r_q.filter(models.Reaction.created_at >= cutoff).count()
+    
+    # Lifetime/Scoped users (not filtered by 'days' to show total community size)
+    total_users = u_q.count()
+
+    # New: Active Citizens (Interacted in last 7 days)
+    cutoff_7d = datetime.now(timezone.utc) - timedelta(days=7)
+    u_posted = db.query(models.Feedback.sender_id).filter(models.Feedback.created_at >= cutoff_7d).scalar_subquery()
+    u_commented = db.query(models.Reply.user_id).filter(models.Reply.created_at >= cutoff_7d).scalar_subquery()
+    u_reacted = db.query(models.Reaction.user_id).filter(models.Reaction.created_at >= cutoff_7d).scalar_subquery()
+    
+    active_citizens_7d = db.query(func.count(models.User.id.distinct()))\
+        .filter(
+            (models.User.id.in_(u_posted)) | 
+            (models.User.id.in_(u_commented)) | 
+            (models.User.id.in_(u_reacted))
+        )\
+        .filter(models.User.role.notin_(["admin", "superadmin"])).scalar() or 0
+
+    # New: Reports this Week (last 7 days)
+    new_reports_7d = fb_q.filter(models.Feedback.created_at >= cutoff_7d).count()
+
+    # New: New Signups this Week
+    new_signups_7d = u_q.filter(models.User.created_at >= cutoff_7d).count()
+
+    avg_rating = fb_q.filter(models.Feedback.created_at >= cutoff).with_entities(func.avg(models.Feedback.rating)).scalar()
     avg_rating = round(float(avg_rating), 2) if avg_rating else 0.0
 
-    anon_count = fb_q.filter(models.Feedback.is_anonymous == True).count()
+    anon_count = fb_q.filter(models.Feedback.created_at >= cutoff, models.Feedback.is_anonymous == True).count()
     anon_rate = round((anon_count / total_feedback * 100), 1) if total_feedback else 0
+
+    # User Engagement Status (Last 7 Days)
+    # Active: Interacted in last 7d
+    # Inactive: Registered users with no interaction in last 7d
+    inactive_7d_count = max(0, total_users - active_citizens_7d)
 
     return {
         "total_feedback": total_feedback,
         "total_users": total_users,
+        "active_users": active_citizens_7d,
+        "inactive_users": inactive_7d_count,
+        "new_signups_7d": new_signups_7d,
         "total_comments": total_comments,
         "total_reactions": total_reactions,
         "avg_rating": avg_rating,
         "anonymous_rate": anon_rate,
+        "active_citizens_7d": active_citizens_7d,
+        "new_reports_7d": new_reports_7d,
+        "user_engagement_status": [
+            {"name": "Active", "value": active_citizens_7d},
+            {"name": "Inactive", "value": inactive_7d_count}
+        ]
     }
 
-def get_top_branches(db: Session, entity_id: Optional[int] = None, limit: int = 5):
-    """Returns top branches based on feedback count and average rating."""
+def get_program_rankings(db: Session, entity_id: Optional[int] = None, days: int = 30):
+    """Returns top performing and lowest rated programs with a statistical threshold."""
+    from datetime import datetime, timedelta, timezone
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+
+    query = db.query(
+        models.Entity.name,
+        func.count(models.Feedback.id).label("count"),
+        func.avg(models.Feedback.rating).label("avg_rating")
+    ).join(models.Feedback, models.Feedback.entity_id == models.Entity.id)\
+     .filter(models.Feedback.created_at >= cutoff)
+    
+    if entity_id:
+        query = query.filter(models.Feedback.entity_id == entity_id)
+        
+    # Minimum 5 feedbacks for credibility
+    rows = query.group_by(models.Entity.name)\
+                .having(func.count(models.Feedback.id) >= 5)\
+                .all()
+                
+    stats = [
+        {"name": r.name, "count": r.count, "avg_rating": round(float(r.avg_rating), 2) if r.avg_rating else 0.0} 
+        for r in rows
+    ]
+
+    top = sorted(stats, key=lambda x: x["avg_rating"], reverse=True)[:5]
+    lowest = sorted(stats, key=lambda x: x["avg_rating"])[:5]
+    
+    return {"top": top, "lowest": lowest, "all": stats}
+
+def get_top_branches(db: Session, entity_id: Optional[int] = None, limit: int = 5, days: int = 30):
+    """Returns top branches based on feedback count and average rating within a timeframe."""
+    from datetime import datetime, timedelta, timezone
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+
     query = db.query(
         models.Branch.name,
         func.count(models.Feedback.id).label("count"),
         func.avg(models.Feedback.rating).label("avg_rating")
-    ).join(models.Feedback, models.Feedback.branch_id == models.Branch.id)
+    ).join(models.Feedback, models.Feedback.branch_id == models.Branch.id)\
+     .filter(models.Feedback.created_at >= cutoff)
     
     if entity_id:
         query = query.filter(models.Feedback.entity_id == entity_id)
@@ -953,12 +1043,15 @@ def get_top_branches(db: Session, entity_id: Optional[int] = None, limit: int = 
                 
     return [{"name": r.name, "count": r.count, "avg_rating": round(float(r.avg_rating), 2) if r.avg_rating else 0.0} for r in rows]
 
-def get_feedback_type_distribution(db: Session, entity_id: Optional[int] = None):
-    """Calculates percentage breakdown of feedback types."""
+def get_feedback_type_distribution(db: Session, entity_id: Optional[int] = None, days: int = 30):
+    """Calculates percentage breakdown of feedback types within a timeframe."""
+    from datetime import datetime, timedelta, timezone
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+
     query = db.query(
         models.Feedback.feedback_type,
         func.count(models.Feedback.id)
-    )
+    ).filter(models.Feedback.created_at >= cutoff)
     
     if entity_id:
         query = query.filter(models.Feedback.entity_id == entity_id)
@@ -973,9 +1066,12 @@ def get_feedback_type_distribution(db: Session, entity_id: Optional[int] = None)
         s[0]: round((s[1] / total) * 100, 1) if s[0] else 0 for s in stats
     }
 
-def get_sentiment_summary(db: Session, dept_name: Optional[str] = None, entity_id: Optional[int] = None):
-    """Analyze overall mood of user feedback."""
-    q = db.query(models.Feedback.description)
+def get_sentiment_summary(db: Session, dept_name: Optional[str] = None, entity_id: Optional[int] = None, days: int = 30):
+    """Analyze overall mood of user feedback within a timeframe."""
+    from datetime import datetime, timedelta, timezone
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+
+    q = db.query(models.Feedback.description).filter(models.Feedback.created_at >= cutoff)
     if entity_id:
         q = q.filter(models.Feedback.entity_id == entity_id)
     elif dept_name:
@@ -985,6 +1081,7 @@ def get_sentiment_summary(db: Session, dept_name: Optional[str] = None, entity_i
         else:
             q = q.join(models.Entity).filter(models.Entity.name == dept_name)
     
+    q = q.join(models.User, models.Feedback.sender_id == models.User.id).filter(models.User.role.notin_(["admin", "superadmin"]))
     feedbacks = q.all()
     pos_words = {"great", "excellent", "good", "happy", "thanks", "improved", "perfect", "amazing", "love", "awesome", "fast", "efficient"}
     neg_words = {"broken", "failed", "slow", "terrible", "bad", "frustrated", "error", "problem", "urgent", "wrong", "annoying", "poor"}
@@ -1038,8 +1135,17 @@ def update_system_label(db: Session, key: str, value: str, organization_id: int 
     return db_label
 
 # Broadcast History
-def create_broadcast_log(db: Session, subject: str, message: str, count: int, entity_id: Optional[int] = None):
-    log = models.BroadcastLog(subject=subject, message=message, sent_to_count=count, entity_id=entity_id)
+def create_broadcast_log(db: Session, subject: str, message: str, count: int, entity_id: Optional[int] = None, priority: str = "normal", status: str = "sent", require_ack: bool = False, scheduled_at: Optional[datetime] = None):
+    log = models.BroadcastLog(
+        subject=subject, 
+        message=message, 
+        sent_to_count=count, 
+        entity_id=entity_id,
+        priority=priority,
+        status=status,
+        require_ack=require_ack,
+        scheduled_at=scheduled_at
+    )
     db.add(log)
     db.commit()
     db.refresh(log)
@@ -1049,7 +1155,60 @@ def get_broadcast_logs(db: Session, entity_id: Optional[int] = None):
     query = db.query(models.BroadcastLog)
     if entity_id:
         query = query.filter(models.BroadcastLog.entity_id == entity_id)
-    return query.order_by(models.BroadcastLog.created_at.desc()).all()
+    
+    logs = query.order_by(models.BroadcastLog.created_at.desc()).all()
+    
+    # Optional: Update read/ack counts from notifications if we want "live" data
+    for log in logs:
+        log.read_count = db.query(models.Notification).filter(
+            models.Notification.broadcast_id == log.id,
+            models.Notification.is_read == True
+        ).count()
+        log.ack_count = db.query(models.Notification).filter(
+            models.Notification.broadcast_id == log.id,
+            models.Notification.is_acknowledged == True
+        ).count()
+        
+    return logs
+
+# Broadcast Templates
+def get_broadcast_templates(db: Session, entity_id: Optional[int] = None):
+    query = db.query(models.BroadcastTemplate)
+    if entity_id:
+        query = query.filter(models.BroadcastTemplate.entity_id == entity_id)
+    return query.order_by(models.BroadcastTemplate.name.asc()).all()
+
+def create_broadcast_template(db: Session, name: str, title: str, message: str, entity_id: Optional[int] = None, created_by_id: Optional[int] = None):
+    tpl = models.BroadcastTemplate(
+        name=name, 
+        title=title, 
+        message=message,
+        entity_id=entity_id,
+        created_by_id=created_by_id
+    )
+    db.add(tpl)
+    db.commit()
+    db.refresh(tpl)
+    return tpl
+
+def update_broadcast_template(db: Session, tpl_id: int, name: str, title: str, message: str):
+    tpl = db.query(models.BroadcastTemplate).filter(models.BroadcastTemplate.id == tpl_id).first()
+    if tpl:
+        tpl.name = name
+        tpl.title = title
+        tpl.message = message
+        db.commit()
+        db.refresh(tpl)
+        return tpl
+    return None
+
+def delete_broadcast_template(db: Session, tpl_id: int):
+    tpl = db.query(models.BroadcastTemplate).filter(models.BroadcastTemplate.id == tpl_id).first()
+    if tpl:
+        db.delete(tpl)
+        db.commit()
+        return True
+    return False
 
 # Moderation Operations
 def get_pending_feedbacks(db: Session, skip: int = 0, limit: int = 100):
@@ -1154,15 +1313,6 @@ def reset_password_with_token(db: Session, token: str, new_password: str):
         return True
     return False
 
-def get_broadcast_logs(db: Session):
-    logs = db.query(models.BroadcastLog).order_by(models.BroadcastLog.created_at.desc()).all()
-    for log in logs:
-        log.read_count = db.query(models.Notification).filter(
-            models.Notification.broadcast_id == log.id,
-            models.Notification.is_read == True
-        ).count()
-    return logs
-
 def get_user_activity(db: Session, user_id: int):
     results = []
     
@@ -1239,24 +1389,22 @@ def get_user_distribution(db: Session, dept_name: Optional[str] = None, entity_i
     
     entity_dist = entity_q.group_by(entity_label).all()
     
-    # 2. By Role Identity (Admins mapped to Employee)
-    role_label = case(
-        (models.User.role.in_(["admin", "superadmin"]), "Employee"),
-        else_=models.User.role_identity
-    ).label("name")
+    # 2. By Role Identity (Filter out Admins)
+    role_label = models.User.role_identity.label("name")
     
     role_q = db.query(
         role_label,
         func.count(models.User.id).label("value")
-    ).filter(role_label != None, role_label != "")
+    ).filter(
+        models.User.role.notin_(["admin", "superadmin"]),
+        role_label != None, 
+        role_label != ""
+    )
     
     if entity_id:
         role_q = role_q.filter(models.User.entity_id == entity_id)
     elif dept_name:
         role_q = role_q.filter(models.User.unit_name == dept_name)
-    else:
-        # Fallback: if no scope, maybe default to some filter? No, global system.
-        pass
     
     role_dist = role_q.group_by(role_label).all()
 

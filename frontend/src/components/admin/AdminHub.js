@@ -240,7 +240,7 @@ const AdminHub = ({ adminUser, onLogout }) => {
                   display: 'inline-block',
                   marginTop: '2px'
                 }}>
-                  {localAdminUser?.position_title || (hasGlobalAdminAccess ? "Head Admin" : (localAdminUser?.department || "Dept Admin"))}
+                  {localAdminUser?.position_title || (hasGlobalAdminAccess ? "Head Admin • Global" : `Admin • ${localAdminUser?.department}`)}
                 </span>
               </p>
             </div>

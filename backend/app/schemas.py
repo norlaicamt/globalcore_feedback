@@ -365,9 +365,11 @@ class NotificationBase(BaseModel):
     reply_id: Optional[int] = None
     broadcast_id: Optional[int] = None
     broadcast_type: Optional[str] = "announcement"
+    priority: Optional[str] = "normal"
     meta: Optional[dict] = None
     is_read: bool = False
     is_acknowledged: bool = False
+    require_ack: bool = False
 
 class NotificationCreate(NotificationBase):
     pass
@@ -381,6 +383,7 @@ class Notification(NotificationBase):
     message: Optional[str] = None
     subject: Optional[str] = None
     broadcast_type: Optional[str] = "announcement"
+    priority: Optional[str] = "normal"
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -432,7 +435,13 @@ class BroadcastLogBase(BaseModel):
     subject: str
     message: str
     broadcast_type: Optional[str] = "announcement"
+    priority: Optional[str] = "normal"
+    status: Optional[str] = "sent"
+    require_ack: Optional[bool] = False
     sent_to_count: int
+    read_count: int = 0
+    ack_count: int = 0
+    scheduled_at: Optional[datetime] = None
 
 class BroadcastLog(BroadcastLogBase):
     id: int
@@ -440,6 +449,22 @@ class BroadcastLog(BroadcastLogBase):
     created_at: datetime
     read_count: Optional[int] = 0
     model_config = ConfigDict(from_attributes=True)
+class BroadcastTemplateBase(BaseModel):
+    name: str
+    title: str
+    message: str
+
+class BroadcastTemplateCreate(BroadcastTemplateBase):
+    entity_id: Optional[int] = None
+    created_by_id: Optional[int] = None
+
+class BroadcastTemplate(BroadcastTemplateBase):
+    id: int
+    entity_id: Optional[int] = None
+    created_by_id: Optional[int] = None
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
 class AuditLogBase(BaseModel):
     action_type: str
     performed_by_id: int
