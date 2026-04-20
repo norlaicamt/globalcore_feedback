@@ -560,3 +560,21 @@ class FormConfig(BaseModel):
     toggles: dict[str, FormTogglesDesigner] = {}
     sections: List[FormSectionDesigner] = []
     terminology: FormTerminologyDesigner = FormTerminologyDesigner()
+
+# --- WORKFLOW TEMPLATE SCHEMAS ---
+class WorkflowTemplateBase(BaseModel):
+    name: str
+    description: Optional[str] = None
+    category: str
+    config: dict
+    version: int = 1
+    is_global: bool = False
+
+class WorkflowTemplateCreate(WorkflowTemplateBase):
+    pass
+
+class WorkflowTemplate(WorkflowTemplateBase):
+    id: int
+    created_by_id: Optional[int] = None
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)

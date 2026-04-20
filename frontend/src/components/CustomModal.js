@@ -45,7 +45,7 @@ const CustomModal = ({
         <p style={styles.message}>{message}</p>
         {content && <div style={{ width: '100%', textAlign: 'left', marginBottom: '24px' }}>{content}</div>}
         <div style={styles.actions}>
-          {(type === 'confirm' || (type === 'error' && onCancel)) && (
+          {onCancel && (
             <button style={styles.cancelBtn} onClick={onCancel}>{cancelText}</button>
           )}
           <button

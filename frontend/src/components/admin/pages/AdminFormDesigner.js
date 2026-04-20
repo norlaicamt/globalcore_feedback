@@ -1,14 +1,31 @@
 import React, { useState, useEffect } from "react";
 import { useTerminology } from "../../../context/TerminologyContext";
 import { 
-  adminGetEntities, 
-  getEntityFormConfig, 
+  adminGetEntities,
+  getEntityFormConfig,
   updateEntityFormConfig,
-  getSystemLabels
+  getSystemLabels,
+  adminGetWorkflowTemplates,
+  adminCreateWorkflowTemplate,
+  adminDeleteWorkflowTemplate
 } from "../../../services/adminApi";
+import GeneralFeedback from "../../GeneralFeedback";
 import { IconRegistry } from "../../IconRegistry";
+import CustomModal from "../../CustomModal";
 
-// --- SVG Icons ---
+// --- UI Constants ---
+const st = {
+  select: (t) => ({ padding: '8px 12px', borderRadius: '10px', border: `1px solid ${t.border}`, background: t.bg, color: t.text }),
+  input: (t) => ({ width: '100%', padding: '9px 12px', borderRadius: '9px', border: `1px solid ${t.border}`, background: t.bg, fontSize: '13px' }),
+  btnPrimary: (isLoading) => ({ padding: '9px 18px', borderRadius: '10px', background: 'var(--primary-color)', color: 'white', border: 'none', fontWeight: '700', cursor: 'pointer', opacity: isLoading ? 0.7 : 1 }),
+  addBtn: (t) => ({ background: 'none', border: `1px dashed ${t.border}`, borderRadius: '9px', padding: '6px 12px', color: 'var(--primary-color)', fontSize: '12px', fontWeight: '700', cursor: 'pointer' }),
+  addItemBtn: (color, bg) => ({ flex: 1, padding: '7px 10px', borderRadius: '8px', border: `1.5px dashed ${color}30`, background: bg, color, fontSize: '12px', fontWeight: '700', cursor: 'pointer' }),
+  libraryBtn: (t) => ({ padding: '12px 10px', borderRadius: '12px', background: 'white', border: `1px solid ${t.border}`, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '2px', cursor: 'pointer', textAlign: 'left', transition: 'all 0.2s ease', height: '100%' }),
+  librarySearch: (t) => ({ width: '100%', padding: '8px 12px', borderRadius: '10px', border: `1px solid ${t.border}`, background: 'white', fontSize: '12px', marginBottom: '12px', outline: 'none' }),
+  toggle: (active) => ({ width: '28px', height: '14px', borderRadius: '20px', background: active ? 'var(--primary-color)' : '#E2E8F0', position: 'relative', cursor: 'pointer', transition: 'all 0.2s', display: 'inline-block' }),
+  toggleKnob: (active) => ({ width: '10px', height: '10px', borderRadius: '50%', background: 'white', position: 'absolute', top: '2px', left: active ? '16px' : '2px', transition: 'all 0.2s' })
+};
+
 const Ico = {
   Plus: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>,
   Trash: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1-2-2h4a2 2 0 0 1 2 2v2"/></svg>,
@@ -29,6 +46,21 @@ const Ico = {
   Star: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>,
   MessageSquare: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>,
   Building: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12" y2="18"/><line x1="9" y1="14" x2="9" y2="14"/><line x1="15" y1="14" x2="15" y2="14"/><line x1="12" y1="10" x2="12" y2="10"/><line x1="9" y1="6" x2="9" y2="6"/><line x1="15" y1="6" x2="15" y2="6"/></svg>,
+  Smile: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>,
+  Sliders: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="2" y1="14" x2="6" y2="14"/><line x1="10" y1="12" x2="14" y2="12"/><line x1="18" y1="16" x2="22" y2="16"/></svg>,
+  Type: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>,
+  FileText: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>,
+  Camera: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>,
+  Users: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-3-3.87"/><path d="M7 21v-2a4 4 0 0 1 3-3.87"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><circle cx="19" cy="7" r="4"/></svg>,
+  List: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>,
+  Phone: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>,
+  Mail: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>,
+  Hash: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/></svg>,
+  Home: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>,
+  Globe: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>,
+  Search: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
+  Lock: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>,
+  Unlock: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>,
 };
 
 const FIELD_TYPES = [
@@ -39,26 +71,53 @@ const FIELD_TYPES = [
   { value: "date",     label: "Date Picker" }
 ];
 
-const getModuleOptions = (getLabel) => [
-  { key: "feedback_type",  label: `${getLabel('feedback_label', 'Feedback')} Type Picker`,    desc: "Complaint / Suggestion / Appreciation", icon: "Layers" },
-  { key: "entity_picker",  label: `${getLabel('category_label', 'Program')} Picker`, desc: `Let user choose a ${getLabel('category_label', 'program').toLowerCase()} or service`, icon: "Building" },
-  { key: "location_picker",label: `${getLabel('entity_label', 'Location')} Picker`,         desc: "Specific site or manual location input", icon: "MapPin" },
-  { key: "message_input",  label: "Message Input",           desc: "Main description / feedback text", icon: "MessageSquare" },
-  { key: "staff",          label: "Staff Selection",         desc: "Tag involved staff member(s)", icon: "User" },
-  { key: "rating",         label: "Experience Rating",       desc: "Star rating 1–5", icon: "Star" },
-  { key: "voice",          label: "Voice Recording",        desc: "Audio note from user", icon: "Mic" },
-  { key: "attachments",    label: "Photo / Attachments",     desc: "File or photo upload", icon: "Paperclip" },
-  { key: "anonymous",      label: "Anonymous Toggle",       desc: "Let user submit anonymously", icon: "EyeOff" },
+const MODULE_OPTIONS = [
+  { group: 'RATINGS', items: [
+    { key: 'star_rating', label: 'Star Rating', desc: '1-5 Star feedback', icon: Ico.Star },
+    { key: 'emoji_rating', label: 'Emoji Rating', desc: 'Feeling based feedback', icon: Ico.Smile },
+    { key: 'slider_rating', label: 'Slider Scale', desc: 'Percentage or 1-100', icon: Ico.Sliders },
+    { key: 'rating_matrix', label: 'Rating Matrix', desc: 'TER-style 1-5 evaluation', icon: Ico.Grid },
+  ]},
+  { group: 'IDENTITIES', items: [
+    { key: 'full_name', label: 'Full Name', desc: 'Citizen identity name', icon: Ico.User },
+    { key: 'contact_number', label: 'Contact Number', desc: 'Mobile/Phone number', icon: Ico.Phone },
+    { key: 'email_address', label: 'Email Address', desc: 'Verification email', icon: Ico.Mail },
+    { key: 'mailing_address', label: 'Home Address', desc: 'Physical location', icon: Ico.Home },
+  ]},
+  { group: 'INPUT', items: [
+    { key: 'short_text', label: 'Short Answer', desc: 'Single line text', icon: Ico.Type },
+    { key: 'long_text', label: 'Long Answer', desc: 'Comment/Details box', icon: Ico.FileText },
+    { key: 'number_input', label: 'Numbers Only', desc: 'Numeric values', icon: Ico.Hash },
+    { key: 'multiple_choice', label: 'Multiple Choice', desc: 'Radio selections', icon: Ico.List },
+  ]},
+  { group: 'MEDIA', items: [
+    { key: 'photo_upload', label: 'Photo Upload', desc: 'Snap or upload image', icon: Ico.Camera },
+    { key: 'voice_record', label: 'Voice Recording', desc: 'Speak your feedback', icon: Ico.Mic },
+  ]},
+  { group: 'SYSTEM', items: [
+    { key: 'entity_picker', label: 'Service Selection', desc: 'Select Service (Required)', icon: Ico.Globe },
+    { key: 'location_picker', label: 'Location Picker', desc: 'Select Branch/Office', icon: Ico.MapPin },
+    { key: 'staff_mention', label: 'Staff Mention', desc: 'Tag specific staff', icon: Ico.Users },
+  ]}
 ];
 
 // ── Normalize for safe rendering ──────────────────────────────────────────────
 function normalizeConfig(config) {
   if (!config) return config;
-  // Ensure all steps have an items array
-  config.steps = (config.steps || []).map(s => ({
-    ...s,
-    items: s.items || []
-  }));
+  config.steps = (config.steps || []).map((s, idx) => {
+    const norm = { ...s, items: s.items || [] };
+    // Force entity_picker into Step 1 if it's the routing step and picker is missing
+    if (idx === 0 && !norm.items.some(it => it.key === 'entity_picker')) {
+      norm.items.unshift({
+        id: `mod_init_${Date.now()}`,
+        type: "module",
+        key: "entity_picker",
+        label_override: "Select Service",
+        required: true
+      });
+    }
+    return norm;
+  });
   config.sections = config.sections || [];
   config.toggles  = config.toggles  || {};
   config.terminology = config.terminology || {};
@@ -69,85 +128,56 @@ function normalizeConfig(config) {
 function validateConfig(config) {
   const errors = [];
   if (!config.steps || config.steps.length === 0) {
-    errors.push("At least one step is required.");
+    errors.push("Workflow is empty. Add at least one step.");
   }
   const hasDetails = config.steps.some(s => s.id === "details" && s.enabled);
   if (!hasDetails) {
-    errors.push("The 'Report Details' step (id: details) must exist and be enabled.");
+    // This is a legacy requirement, making it flexible
   }
-  // Soft warning for empty steps (not blocking)
-  // config.steps.forEach((step, i) => {
-  //   if (step.enabled && (!step.items || step.items.length === 0)) {
-  //     errors.push(`Step ${i + 1} ("${step.label}") is enabled but has no items. Add at least one module or section.`);
-  //   }
-  // });
-  // Detect duplicate section usage
-  const usedSections = {};
-  config.steps.forEach(step => {
-    (step.items || []).forEach(item => {
-      if (item.type === "section" && item.section_id) {
-        if (usedSections[item.section_id]) {
-          const sec = config.sections.find(s => s.id === item.section_id);
-          errors.push(`Section "${sec?.title || item.section_id}" is used in more than one step. Each section can only appear once.`);
-        }
-        usedSections[item.section_id] = true;
-      }
-    });
+  const step1 = config.steps[0];
+  if (step1 && step1.enabled) {
+    const hasPicker = (step1.items || []).some(it => it.key === 'entity_picker');
+    if (!hasPicker) {
+      errors.push("Step 1 Logic: This step should include a 'Service Selection' interaction to route users correctly.");
+    }
+  }
+  config.steps.forEach((step, i) => {
+    // Step 1 is exempt from "empty" check because it has a virtual placeholder and mandatory picker enforced by normalizeConfig
+    if (i > 0 && step.enabled && (!step.items || step.items.length === 0)) {
+      errors.push(`Empty Step: Step ${i + 1} ("${step.label}") has no interactions. It will be skipped.`);
+    }
   });
   return errors;
 }
 
-// ── Main Component ────────────────────────────────────────────────────────────
-const AdminFormDesigner = ({ theme, darkMode, adminUser }) => {
+function AdminFormDesigner({ theme, darkMode, adminUser }) {
   const { getLabel } = useTerminology();
-  const MODULE_OPTIONS = getModuleOptions(getLabel);
   const [entities,      setEntities]      = useState([]);
   const [selectedEntId, setSelectedEntId] = useState("");
   const [config,        setConfig]        = useState(null);
   const [loading,       setLoading]       = useState(true);
   const [isSaving,      setIsSaving]      = useState(false);
   const [expandedSteps, setExpandedSteps] = useState({});
+  const [showGallery,   setShowGallery]   = useState(false);
+  const [templates,     setTemplates]     = useState([]);
+  const [previewTpl,    setPreviewTpl]    = useState(null);
+  const [isSavingTpl,   setIsSavingTpl]   = useState(false);
+  const [showPreview,   setShowPreview]   = useState(true);
+  const [isLoadingTpl,  setIsLoadingTpl]  = useState(false);
+  const [selectedItem,  setSelectedItem]  = useState(null); // { sIdx, itIdx }
+  const [modal,         setModal]         = useState({ isOpen: false, title: "", message: "", type: "info" });
+  const [searchTerm,    setSearchTerm]    = useState("");
   const previewChannel = React.useRef(null);
-  const lastBroadcast = React.useRef(0);
 
   React.useEffect(() => {
     previewChannel.current = new BroadcastChannel('form_preview_v1');
-    previewChannel.current.onmessage = (e) => {
-      if (e.data?.type === 'preview_ready' && config) {
-        console.log("[Designer] Handshake received, sending current config...");
-        sendUpdate(config, selectedEntId);
-      }
-    };
     return () => previewChannel.current?.close();
-  }, [config, selectedEntId]);
-
-  const sendUpdate = (currConfig, entId) => {
-    if (!previewChannel.current || !currConfig) return;
-    const version = Date.now();
-    lastBroadcast.current = version;
-    previewChannel.current.postMessage({ 
-      type: 'config_update', 
-      config: currConfig, 
-      entity_id: entId,
-      version: version,
-      source: 'preview'
-    });
-  };
-
-  useEffect(() => {
-    if (!config) return;
-    const timer = setTimeout(() => {
-      sendUpdate(config, selectedEntId);
-    }, 250); // Debounce
-    return () => clearTimeout(timer);
-  }, [config, selectedEntId]);
-
-  const isGlobalAdmin = adminUser && !adminUser.entity_id;
+  }, []);
 
   useEffect(() => {
     adminGetEntities()
       .then(data => {
-        const visible = isGlobalAdmin ? data : data.filter(e => e.id === adminUser?.entity_id);
+        const visible = !adminUser?.entity_id ? data : data.filter(e => e.id === adminUser.entity_id);
         setEntities(visible);
         if (visible.length > 0) setSelectedEntId(visible[0].id);
         else setLoading(false);
@@ -156,443 +186,655 @@ const AdminFormDesigner = ({ theme, darkMode, adminUser }) => {
   }, []);
 
   useEffect(() => {
-    if (config && previewChannel.current) {
-      previewChannel.current.postMessage({ type: 'config_update', config, entity_id: selectedEntId });
-    }
-  }, [config, selectedEntId]);
-
-  useEffect(() => {
     if (!selectedEntId) return;
     setLoading(true);
     getEntityFormConfig(selectedEntId)
-      .then(data => setConfig(normalizeConfig(data)))
+      .then(data => {
+        const norm = normalizeConfig(data);
+        setConfig(norm);
+      })
       .catch(() => setConfig(null))
       .finally(() => setLoading(false));
   }, [selectedEntId]);
 
-  // ── Save ──
+  useEffect(() => {
+    if (config && previewChannel.current) {
+      previewChannel.current.postMessage({ 
+        type: 'config_update', 
+        config: normalizeConfig({ ...config }), 
+        entity_id: selectedEntId 
+      });
+    }
+  }, [config, selectedEntId]);
+
   const handleSave = async () => {
     const errors = validateConfig(config);
     if (errors.length > 0) {
-      alert("Please fix the following issues before saving:\n\n• " + errors.join("\n• "));
+      setModal({
+        isOpen: true,
+        title: "Validation Issues",
+        message: "Please resolve the following:\n\n• " + errors.join("\n• "),
+        type: "warning"
+      });
       return;
     }
-    setIsSaving(true);
-    try {
-      await updateEntityFormConfig(selectedEntId, config);
-      alert("Configuration saved successfully!");
-    } catch (e) {
-      alert("Failed to save configuration.");
-    } finally {
-      setIsSaving(false);
-    }
+
+    const totalModules = config.steps.reduce((acc, s) => acc + s.items.length, 0);
+    const ratingModules = config.steps.flatMap(s => s.items).filter(i => i.key.includes('rating')).length;
+
+    setModal({
+      isOpen: true,
+      title: "Deploy Interaction Flow?",
+      message: `You are about to deploy this workflow.\n\n• ${config.steps.length} Steps configured\n• ${totalModules} Total interactions\n• ${ratingModules} Rating modules active\n• Routing Engine enabled\n\nContinue with deployment?`,
+      type: "info",
+      onConfirm: async () => {
+        setIsSaving(true);
+        try {
+          await updateEntityFormConfig(selectedEntId, config);
+          setModal({ isOpen: false });
+          setTimeout(() => {
+            setModal({ isOpen: true, title: "Success", message: "Configuration deployed to production!", type: "success" });
+          }, 300);
+        } catch (e) {
+          setModal({ isOpen: true, title: "Error", message: "Failed to deploy configuration.", type: "warning" });
+        } finally {
+          setIsSaving(false);
+        }
+      }
+    });
   };
 
-  // ── Step CRUD ──
   const addStep = () => {
-    if ((config.steps || []).length >= 10) { alert("Maximum 10 steps allowed."); return; }
-    const newStep = {
-      id: `step_${Date.now()}`,
-      label: "New Step",
-      enabled: true,
-      order: (config.steps || []).length + 1,
-      items: []
+    const isFirst = !config.steps || config.steps.length === 0;
+    const getSuggestedName = () => {
+      const count = (config.steps || []).length;
+      if (count === 0) return "Service Selection";
+      if (count === 1) return "Rating & Experience";
+      if (count === 2) return "Specific Details";
+      return `Step ${count + 1}`;
     };
-    const next = { ...config, steps: [...(config.steps || []), newStep] };
-    setConfig(next);
+
+    const newStep = { 
+      id: `step_${Date.now()}`, 
+      label: getSuggestedName(), 
+      enabled: true, 
+      items: isFirst ? [{
+        id: `mod_init_${Date.now()}`,
+        type: "module",
+        key: "entity_picker",
+        label_override: "Select Service",
+        required: true,
+        config: {}
+      }] : [] 
+    };
+    setConfig({ ...config, steps: [...(config.steps || []), newStep] });
     setExpandedSteps(prev => ({ ...prev, [newStep.id]: true }));
   };
 
   const removeStep = (sIdx) => {
-    if (config.steps[sIdx].id === "details") {
-      alert("The 'Report Details' step is mandatory and cannot be deleted.");
+    if (sIdx === 0) {
+      setModal({ isOpen: true, title: "Restricted", message: "The Routing Step cannot be removed.", type: "warning" });
       return;
     }
-    const newSteps = config.steps.filter((_, i) => i !== sIdx).map((s, i) => ({ ...s, order: i + 1 }));
-    setConfig({ ...config, steps: newSteps });
+    const steps = config.steps.filter((_, i) => i !== sIdx);
+    setConfig({ ...config, steps });
   };
 
   const updateStep = (sIdx, key, val) => {
-    const newSteps = [...config.steps];
-    if (key === 'enabled' && newSteps[sIdx].id === 'details' && !val) {
-      alert("The 'Report Details' step cannot be disabled.");
+    const steps = [...config.steps];
+    steps[sIdx] = { ...steps[sIdx], [key]: val };
+    setConfig({ ...config, steps });
+  };
+
+  const addModuleItem = (sIdx, key) => {
+    if (config.steps[sIdx]?.locked) return; // Prevent adding if locked
+    const ROUTING_MODULES = ['entity_picker', 'location_picker'];
+    if (sIdx === 0 && !ROUTING_MODULES.includes(key)) {
+      setModal({
+        isOpen: true,
+        title: "Routing Restriction",
+        message: "Step 1 is reserved for the Routing Engine. Feedback modules should be placed in subsequent steps.",
+        type: "warning"
+      });
       return;
     }
-    newSteps[sIdx] = { ...newSteps[sIdx], [key]: val };
-    setConfig({ ...config, steps: newSteps });
-  };
 
-  const moveStep = (idx, dir) => {
     const steps = [...config.steps];
-    const target = idx + dir;
-    if (target < 0 || target >= steps.length) return;
-    [steps[idx], steps[target]] = [steps[target], steps[idx]];
-    setConfig({ ...config, steps: steps.map((s, i) => ({ ...s, order: i + 1 })) });
-  };
-
-  // ── Item CRUD (within a step) ──
-  const addModuleItem = (sIdx) => {
-    const newSteps = [...config.steps];
-    newSteps[sIdx] = {
-      ...newSteps[sIdx],
-      items: [...(newSteps[sIdx].items || []), { type: "module", key: "" }]
+    const module = MODULE_OPTIONS.flatMap(g => g.items).find(m => m.key === key);
+    
+    const newItem = { 
+      id: `mod_${Date.now()}`, 
+      type: "module", 
+      key, 
+      label_override: module?.label || "",
+      required: false,
+      config: {
+        criteria: key === 'rating_matrix' ? ["Overall Quality", "Staff Performance"] : [],
+        scale: 5,
+        options: []
+      },
+      logic: { visibility_rules: [] }
     };
-    setConfig({ ...config, steps: newSteps });
-  };
-
-  const addSectionItem = (sIdx) => {
-    const newSteps = [...config.steps];
-    newSteps[sIdx] = {
-      ...newSteps[sIdx],
-      items: [...(newSteps[sIdx].items || []), { type: "section", section_id: "" }]
-    };
-    setConfig({ ...config, steps: newSteps });
+    
+    steps[sIdx].items = [...(steps[sIdx].items || []), newItem];
+    setConfig({ ...config, steps });
   };
 
   const updateItem = (sIdx, iIdx, key, val) => {
-    const newSteps = [...config.steps];
-    const newItems = [...(newSteps[sIdx].items || [])];
-    newItems[iIdx] = { ...newItems[iIdx], [key]: val };
-    newSteps[sIdx] = { ...newSteps[sIdx], items: newItems };
-    setConfig({ ...config, steps: newSteps });
+    if (config.steps[sIdx]?.locked) return; // Prevent updates if locked
+    const steps = [...config.steps];
+    const items = [...steps[sIdx].items];
+    items[iIdx] = { ...items[iIdx], [key]: val };
+    steps[sIdx].items = items;
+    setConfig({ ...config, steps });
   };
 
   const removeItem = (sIdx, iIdx) => {
-    const newSteps = [...config.steps];
-    newSteps[sIdx] = {
-      ...newSteps[sIdx],
-      items: (newSteps[sIdx].items || []).filter((_, i) => i !== iIdx)
-    };
-    setConfig({ ...config, steps: newSteps });
-  };
-
-  // ── Sections CRUD ──
-  const addSection = () => {
-    if ((config.sections || []).length >= 8) return;
-    const newId = `section_${Date.now()}`;
-    setConfig({ ...config, sections: [...(config.sections || []), { id: newId, title: "New Section", fields: [] }] });
-  };
-
-  const removeSection = (idx) => {
-    const secId = config.sections[idx].id;
-    // Remove from any step items first
-    const newSteps = config.steps.map(step => ({
-      ...step,
-      items: (step.items || []).filter(item => !(item.type === "section" && item.section_id === secId))
-    }));
-    const newSections = config.sections.filter((_, i) => i !== idx);
-    setConfig({ ...config, steps: newSteps, sections: newSections });
-  };
-
-  const updateSectionTitle = (idx, title) => {
-    const s = [...config.sections];
-    s[idx] = { ...s[idx], title };
-    setConfig({ ...config, sections: s });
-  };
-
-  const addField = (sIdx) => {
-    if ((config.sections[sIdx].fields || []).length >= 10) return;
-    const sec = [...config.sections];
-    sec[sIdx] = {
-      ...sec[sIdx],
-      fields: [...(sec[sIdx].fields || []), { id: `field_${Date.now()}`, label: "New Question", type: "text", required: false }]
-    };
-    setConfig({ ...config, sections: sec });
-  };
-
-  const removeField = (sIdx, fIdx) => {
-    const sec = [...config.sections];
-    sec[sIdx] = { ...sec[sIdx], fields: sec[sIdx].fields.filter((_, i) => i !== fIdx) };
-    setConfig({ ...config, sections: sec });
-  };
-
-  const updateField = (sIdx, fIdx, key, val) => {
-    const sec = [...config.sections];
-    sec[sIdx].fields[fIdx] = { ...sec[sIdx].fields[fIdx], [key]: val };
-    setConfig({ ...config, sections: sec });
+    if (config.steps[sIdx]?.locked) return; // Prevent removal if locked
+    const steps = [...config.steps];
+    steps[sIdx].items = steps[sIdx].items.filter((_, i) => i !== iIdx);
+    setConfig({ ...config, steps });
   };
 
   const updateTerminology = (key, val) => {
     setConfig({ ...config, terminology: { ...config.terminology, [key]: val } });
   };
 
-  // ── Helpers ──
-  const toggleStepExpand = (id) => setExpandedSteps(prev => ({ ...prev, [id]: !prev[id] }));
-
-  const getSectionLabel = (section_id) => {
-    const sec = (config?.sections || []).find(s => s.id === section_id);
-    return sec ? sec.title : "Unknown Section";
+  const handleUseTemplate = async () => {
+    setIsLoadingTpl(true);
+    try {
+      const data = await adminGetWorkflowTemplates();
+      setTemplates(data || []);
+      setShowGallery(true);
+    } catch (e) {
+      setModal({ isOpen: true, title: "Error", message: "Could not load templates. Please try again.", type: "warning" });
+    } finally {
+      setIsLoadingTpl(false);
+    }
   };
 
-  const getModuleLabel = (key) => {
-    const m = MODULE_OPTIONS.find(m => m.key === key);
-    return m ? m.label : key;
-  };
-
-  const getUsedSectionIds = () => {
-    const used = new Set();
-    (config?.steps || []).forEach(step => {
-      (step.items || []).forEach(item => {
-        if (item.type === "section" && item.section_id) used.add(item.section_id);
-      });
+  const applyTemplate = (tpl) => {
+    if (!tpl) return;
+    setConfig(tpl.config);
+    setShowGallery(false);
+    setModal({
+      isOpen: true,
+      title: "Template Applied",
+      message: "Template successfully applied. You can now customize this workflow.",
+      type: "success"
     });
-    return used;
   };
 
-  const validationErrors = config ? validateConfig(config) : [];
+  const saveAsTemplate = async () => {
+    const name = window.prompt("Template Name:");
+    if (!name) return;
+    const category = window.prompt("Category:", "Custom");
+    if (!category) return;
+    
+    setIsSavingTpl(true);
+    try {
+      await adminCreateWorkflowTemplate({
+        name,
+        description: "Custom template created by workspace admin.",
+        category,
+        config: config,
+        is_global: false,
+        version: 1
+      });
+      setModal({ isOpen: true, title: "Success", message: "Saved to library!", type: "success" });
+    } catch (e) {
+      setModal({ isOpen: true, title: "Error", message: "Failed to save template.", type: "warning" });
+    } finally {
+      setIsSavingTpl(false);
+    }
+  };
 
-  if (loading && !entities.length) return <div style={{ padding: '20px', color: theme.textMuted }}>Loading entities...</div>;
+  const toggleStepExpand = (id) => setExpandedSteps(prev => ({ ...prev, [id]: !prev[id] }));
+  
+  const onDragStart = (e, sIdx, iIdx) => {
+    e.dataTransfer.setData("itemIndex", JSON.stringify({ fromSIdx: sIdx, fromIIdx: iIdx }));
+    e.currentTarget.style.opacity = '0.4';
+  };
+
+  const onDragEnd = (e) => {
+    e.currentTarget.style.opacity = '1';
+  };
+
+  const onLibraryDragStart = (e, moduleKey) => {
+    e.dataTransfer.setData("newModuleKey", moduleKey);
+  };
+
+  const onDrop = (e, targetStepIdx, targetItemIdx = null) => {
+    e.preventDefault();
+    if (config.steps[targetStepIdx]?.locked) return; // Prevent drops if locked
+    const itemIndexRaw = e.dataTransfer.getData('itemIndex');
+    const newModuleKey = e.dataTransfer.getData('newModuleKey');
+
+    const steps = [...config.steps];
+    let itemToPlace = null;
+
+    if (itemIndexRaw) {
+      const { fromSIdx, fromIIdx } = JSON.parse(itemIndexRaw);
+      itemToPlace = steps[fromSIdx].items[fromIIdx];
+      steps[fromSIdx].items = steps[fromSIdx].items.filter((_, i) => i !== fromIIdx);
+    } else if (newModuleKey) {
+      itemToPlace = {
+        id: `it_${Date.now()}`,
+        type: 'module',
+        key: newModuleKey,
+        required: false,
+        label_override: MODULE_OPTIONS.flatMap(g => g.items).find(m => m.key === newModuleKey)?.label || ""
+      };
+    }
+
+    if (!itemToPlace) return;
+
+    const ROUTING_MODULES = ['entity_picker', 'location_picker'];
+    if (targetStepIdx === 0 && !ROUTING_MODULES.includes(itemToPlace.key)) {
+      setModal({
+        isOpen: true,
+        title: "Routing Restriction",
+        message: "Step 1 is the Routing Engine. Only Service Selection and Location Pickers are allowed here.",
+        type: "warning"
+      });
+      return;
+    }
+    
+    const targetItems = [...(steps[targetStepIdx].items || [])];
+    if (targetItemIdx === null) targetItems.push(itemToPlace);
+    else targetItems.splice(targetItemIdx, 0, itemToPlace);
+    
+    steps[targetStepIdx].items = targetItems;
+    setConfig({ ...config, steps });
+  };
+
+  const onDragOver = (e) => {
+    e.preventDefault();
+    e.currentTarget.style.borderColor = 'var(--primary-color)';
+    e.currentTarget.style.background = 'rgba(59,130,246,0.02)';
+  };
+
+  const onDragLeave = (e) => {
+    e.currentTarget.style.borderColor = theme.border;
+    e.currentTarget.style.background = theme.surface;
+  };
+
+  if (loading && !entities.length) return <div style={{ padding: '20px', color: theme.textMuted }}>Loading...</div>;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', paddingBottom: '100px', animation: 'fadeIn 0.4s ease-out' }}>
-
-      {/* ── Header ── */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: theme.surface, padding: '20px 24px', borderRadius: '16px', border: `1px solid ${theme.border}`, boxShadow: '0 4px 20px rgba(0,0,0,0.03)' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', paddingBottom: '100px' }}>
+      
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: theme.surface, padding: '20px 24px', borderRadius: '16px', border: `1px solid ${theme.border}` }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: '22px', fontWeight: '800', color: theme.text, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '10px' }}>{Ico.Layers} Workflow Builder</h1>
-          <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: theme.textMuted }}>Design multi-step {getLabel('feedback_label', 'feedback').toLowerCase()} workflows.</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <h1 style={{ margin: 0, fontSize: '20px', fontWeight: '800', color: theme.text }}>{Ico.Layers} Interaction Studio</h1>
+            <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '20px', background: 'rgba(16,185,129,0.1)', color: '#10B981', fontWeight: '800' }}>CONNECTED ✓</span>
+          </div>
+          <p style={{ margin: '4px 0 0', fontSize: '12px', color: theme.textMuted }}>Isolated workflow persistence for {entities.find(e => e.id === selectedEntId)?.name || 'Service'}.</p>
         </div>
-        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button onClick={() => setShowPreview(!showPreview)} style={{ ...st.addBtn(theme), background: showPreview ? 'rgba(59,130,246,0.1)' : 'none', border: showPreview ? '1px solid var(--primary-color)' : `1px dashed ${theme.border}` }}>
+            {Ico.Eye} {showPreview ? "Hide Preview" : "Live Preview"}
+          </button>
+          <button onClick={handleUseTemplate} disabled={isLoadingTpl} style={st.addBtn(theme)}>
+            {isLoadingTpl ? "..." : Ico.Layers} Start from Template
+          </button>
+          <button onClick={saveAsTemplate} disabled={isSavingTpl} style={st.addBtn(theme)}>{Ico.Save} {isSavingTpl ? "Saving..." : "Save as Template"}</button>
+          <div style={{ width: '1px', background: theme.border, margin: '0 5px' }} />
           <select value={selectedEntId} onChange={e => setSelectedEntId(e.target.value)} style={st.select(theme)}>
             {entities.map(ent => <option key={ent.id} value={ent.id}>{ent.name}</option>)}
           </select>
-          <button onClick={() => { if (config && previewChannel.current) previewChannel.current.postMessage({ type: 'config_update', config, entity_id: selectedEntId, version: Date.now(), source: 'preview' }); window.open(`/preview?preview=true&entity_id=${selectedEntId}`, '_blank'); }} style={st.btnSecondary(theme)}>
-            {Ico.Eye} <span>Preview</span>
-          </button>
           <button onClick={handleSave} disabled={isSaving} style={st.btnPrimary(isSaving)}>
-            {isSaving ? "Saving…" : <>{Ico.Save} <span>Save</span></>}
+            {Ico.Save} {isSaving ? "Saving..." : "Deploy Flow"}
           </button>
         </div>
       </div>
 
-      {!config ? (
-        <div style={{ textAlign: 'center', padding: '80px', color: theme.textMuted }}>
-          {entities.length === 0 ? "No entities found. Create an entity first." : "Failed to load configuration."}
-        </div>
-      ) : (
-        <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start' }}>
-
-          {/* ── LEFT: Stepper Workflow ── */}
-          <div style={{ flex: 2, display: 'flex', flexDirection: 'column', gap: '16px' }}>
-
-            {/* Validation Errors Banner */}
-            {validationErrors.length > 0 && (
-              <div style={{ background: '#FEF3C7', border: '1.5px solid #FCD34D', borderRadius: '12px', padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '800', fontSize: '13px', color: '#92400E' }}>
-                  {Ico.AlertTriangle} Workflow Issues
-                </div>
-                {validationErrors.map((e, i) => <p key={i} style={{ margin: 0, fontSize: '12px', color: '#78350F' }}>• {e}</p>)}
+      {showGallery && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
+          <div style={{ background: theme.surface, width: '900px', height: '600px', borderRadius: '24px', display: 'flex', flexDirection: 'column', overflow: 'hidden', animation: 'fadeIn 0.2s ease' }}>
+            <div style={{ padding: '20px 24px', borderBottom: `1px solid ${theme.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '800' }}>Workflow Template Library</h2>
+                <p style={{ margin: '4px 0 0', fontSize: '12px', color: theme.textMuted }}>Select a professional starting point for your interaction.</p>
               </div>
-            )}
-
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h2 style={{ margin: 0, fontSize: '17px', fontWeight: '800', color: theme.text }}>Workflow Steps</h2>
-              <button onClick={addStep} style={st.addBtn(theme)}>
-                {Ico.Plus} Add Step
-              </button>
+              <button onClick={() => setShowGallery(false)} style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: theme.textMuted }}>×</button>
             </div>
-
-            {(config.steps || []).map((step, sIdx) => {
-              const isExpanded = expandedSteps[step.id] !== false; // default open
-              const isDetails  = step.id === "details";
-
-              return (
-                <div key={step.id} style={{ borderRadius: '14px', border: `1.5px solid ${step.enabled ? '#BFDBFE' : theme.border}`, background: step.enabled ? 'rgba(59,130,246,0.02)' : theme.bg, overflow: 'hidden', opacity: step.enabled ? 1 : 0.65 }}>
-
-                  {/* Step Header */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 16px', background: step.enabled ? 'rgba(59,130,246,0.06)' : '#F8FAFC', cursor: 'pointer' }} onClick={() => toggleStepExpand(step.id)}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                      <button onClick={e => { e.stopPropagation(); moveStep(sIdx, -1); }} disabled={sIdx === 0} style={st.arrowBtn(theme)}>{Ico.ChevronUp}</button>
-                      <button onClick={e => { e.stopPropagation(); moveStep(sIdx, 1); }} disabled={sIdx === (config.steps.length - 1)} style={st.arrowBtn(theme)}>{Ico.ChevronDown}</button>
+            
+            <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+              <div style={{ width: '300px', borderRight: `1px solid ${theme.border}`, padding: '20px', overflowY: 'auto' }}>
+                <span style={{ fontSize: '10px', fontWeight: '900', color: theme.textMuted, display: 'block', marginBottom: '12px' }}>ALL TEMPLATES</span>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {templates.map(tpl => (
+                    <button 
+                      key={tpl.id} 
+                      onClick={() => setPreviewTpl(tpl)}
+                      style={{ 
+                        textAlign: 'left', padding: '12px', borderRadius: '12px', border: `1px solid ${previewTpl?.id === tpl.id ? 'var(--primary-color)' : theme.border}`, 
+                        background: previewTpl?.id === tpl.id ? 'rgba(59,130,246,0.05)' : 'none', cursor: 'pointer', transition: '0.2s'
+                      }}
+                    >
+                      <div style={{ fontWeight: '700', fontSize: '13px', color: previewTpl?.id === tpl.id ? 'var(--primary-color)' : theme.text }}>{tpl.name}</div>
+                      <div style={{ fontSize: '10px', color: theme.textMuted, marginTop: '4px' }}>{tpl.category}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
+              <div style={{ flex: 1, padding: '24px', background: 'rgba(0,0,0,0.01)', overflowY: 'auto' }}>
+                {previewTpl ? (
+                  <div style={{ animation: 'fadeIn 0.2s ease' }}>
+                    <div style={{ marginBottom: '24px' }}>
+                      <h3 style={{ margin: 0, fontSize: '20px', fontWeight: '800' }}>{previewTpl.name}</h3>
+                      <p style={{ fontSize: '13px', color: theme.textMuted, marginTop: '8px', lineHeight: '1.5' }}>{previewTpl.description}</p>
                     </div>
-                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '10px', fontWeight: '800', color: 'var(--primary-color)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                          Step {sIdx + 1}{isDetails ? " · Required" : ""}
-                        </span>
-                        <span style={{ fontSize: '11px', color: theme.textMuted }}>
-                          {(step.items || []).length} item{(step.items || []).length !== 1 ? 's' : ''}
-                        </span>
-                      </div>
-                      <input
-                        value={step.label}
-                        onClick={e => e.stopPropagation()}
-                        onChange={e => updateStep(sIdx, 'label', e.target.value)}
-                        style={{ background: 'none', border: 'none', outline: 'none', fontSize: '15px', fontWeight: '700', color: theme.text, width: '280px' }}
-                      />
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }} onClick={e => e.stopPropagation()}>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', fontWeight: '600', color: theme.textMuted, cursor: 'pointer' }}>
-                        <input type="checkbox" checked={step.enabled} onChange={e => updateStep(sIdx, 'enabled', e.target.checked)} />
-                        On
-                      </label>
-                      {!isDetails && (
-                        <button onClick={() => removeStep(sIdx)} style={{ background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer', padding: '2px' }}>{Ico.Trash}</button>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Step Body - Items */}
-                  {isExpanded && (
-                    <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      {(step.items || []).length === 0 && (
-                        <div style={{ textAlign: 'center', padding: '16px', color: theme.textMuted, fontSize: '12px', border: `1.5px dashed ${theme.border}`, borderRadius: '10px' }}>
-                          <div style={{ color: '#F59E0B', fontWeight: '800', marginBottom: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}>
-                            {Ico.AlertTriangle} Empty Step
+                    
+                    <span style={{ fontSize: '10px', fontWeight: '900', color: theme.textMuted, display: 'block', marginBottom: '12px' }}>WORKFLOW PREVIEW</span>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      {previewTpl.config.steps.map((s, idx) => (
+                        <div key={idx} style={{ padding: '14px', background: 'white', borderRadius: '14px', border: `1px solid ${theme.border}` }}>
+                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                             <div style={{ fontWeight: '800', fontSize: '13px', color: 'var(--primary-color)' }}>Step {idx + 1}: {s.label}</div>
+                           </div>
+                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                            {s.items.map((it, iIdx) => (
+                              <span key={iIdx} style={{ fontSize: '10px', padding: '4px 8px', background: 'rgba(0,0,0,0.05)', borderRadius: '6px', fontWeight: '700' }}>
+                                {it.label_override || it.key}
+                              </span>
+                            ))}
                           </div>
-                          No items yet. This step will be automatically skipped in the form. Add a module or section below.
-                        </div>
-                      )}
-
-                      {(step.items || []).map((item, iIdx) => (
-                        <div key={iIdx} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', borderRadius: '10px', background: theme.surface, border: `1px solid ${theme.border}` }}>
-                          <span style={{ fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', color: item.type === 'module' ? '#3B82F6' : '#8B5CF6', minWidth: '55px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            {item.type === 'module' ? <>{Ico.Box} Mod</> : <>{Ico.Grid} Sec</>}
-                          </span>
-
-                          {item.type === 'module' ? (
-                            <select
-                              value={item.key || ""}
-                              onChange={e => updateItem(sIdx, iIdx, 'key', e.target.value)}
-                              style={{ ...st.selectSm(theme), flex: 1 }}
-                            >
-                              <option value="">Select Module…</option>
-                              {MODULE_OPTIONS.map(m => <option key={m.key} value={m.key}>{m.label}</option>)}
-                            </select>
-                          ) : (
-                            <select
-                              value={item.section_id || ""}
-                              onChange={e => updateItem(sIdx, iIdx, 'section_id', e.target.value)}
-                              style={{ ...st.selectSm(theme), flex: 1 }}
-                            >
-                              <option value="">Select Section…</option>
-                              {(config.sections || []).map(sec => (
-                                <option key={sec.id} value={sec.id}>{sec.title}</option>
-                              ))}
-                            </select>
-                          )}
-
-                          {item.type === 'module' && item.key && (
-                            <span style={{ fontSize: '11px', color: theme.textMuted, whiteSpace: 'nowrap' }}>
-                              {MODULE_OPTIONS.find(m => m.key === item.key)?.desc || ""}
-                            </span>
-                          )}
-
-                          <button onClick={() => removeItem(sIdx, iIdx)} style={{ background: 'none', border: 'none', color: theme.textMuted, cursor: 'pointer', padding: '2px', flexShrink: 0 }}>{Ico.Trash}</button>
                         </div>
                       ))}
-
-                      {/* Add item buttons */}
-                      <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
-                        <button onClick={() => addModuleItem(sIdx)} style={st.addItemBtn('#3B82F6', '#EFF6FF')}>
-                          {Ico.Box} Add Module
-                        </button>
-                        <button onClick={() => addSectionItem(sIdx)} disabled={(config.sections || []).length === 0} title={(config.sections || []).length === 0 ? "Create a section first in the panel on the right" : ""} style={st.addItemBtn('#8B5CF6', '#F5F3FF')}>
-                          {Ico.Grid} Add Section
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-
-          {/* ── RIGHT: Sections Library + Terminology ── */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '16px', minWidth: '300px' }}>
-
-            {/* Section Library */}
-            <div style={{ background: theme.surface, borderRadius: '14px', padding: '18px', border: `1px solid ${theme.border}` }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-                <div>
-                  <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: theme.text }}>Section Library</h3>
-                  <p style={{ margin: '2px 0 0', fontSize: '11px', color: theme.textMuted }}>Create reusable field groups, then add to steps.</p>
-                </div>
-                <button onClick={addSection} disabled={(config.sections || []).length >= 8} style={st.addBtn(theme)}>{Ico.Plus} New</button>
-              </div>
-
-              {(config.sections || []).length === 0 && (
-                <div style={{ textAlign: 'center', padding: '24px', color: theme.textMuted, fontSize: '12px', border: `1.5px dashed ${theme.border}`, borderRadius: '10px' }}>
-                  No sections yet. Click "New" to create one.
-                </div>
-              )}
-
-              {(config.sections || []).map((section, sIdx) => {
-                const isUsed = getUsedSectionIds().has(section.id);
-                return (
-                  <div key={section.id} style={{ marginBottom: '12px', borderRadius: '12px', border: `1.5px solid ${isUsed ? '#DDD6FE' : theme.border}`, background: isUsed ? 'rgba(139,92,246,0.03)' : theme.bg, overflow: 'hidden' }}>
-                    <div style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', gap: '8px', borderBottom: `1px solid ${theme.border}` }}>
-                      <input
-                        value={section.title}
-                        onChange={e => updateSectionTitle(sIdx, e.target.value)}
-                        style={{ flex: 1, background: 'none', border: 'none', outline: 'none', fontWeight: '700', fontSize: '13px', color: theme.text }}
-                      />
-                      {isUsed && <span style={{ fontSize: '9px', background: '#DDD6FE', color: '#6D28D9', padding: '2px 6px', borderRadius: '6px', fontWeight: '800' }}>IN USE</span>}
-                      <button onClick={() => removeSection(sIdx)} style={{ background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer', padding: '2px' }}>{Ico.Trash}</button>
-                    </div>
-                    <div style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      {(section.fields || []).map((field, fIdx) => (
-                        <div key={field.id} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                          <input
-                            value={field.label}
-                            onChange={e => updateField(sIdx, fIdx, 'label', e.target.value)}
-                            placeholder="Question label"
-                            style={{ flex: 1, ...st.inputSm(theme) }}
-                          />
-                          <select value={field.type} onChange={e => updateField(sIdx, fIdx, 'type', e.target.value)} style={st.inputSm(theme)}>
-                            {FIELD_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-                          </select>
-                          <label style={{ display: 'flex', alignItems: 'center', gap: '3px', fontSize: '11px', color: theme.textMuted, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                            <input type="checkbox" checked={field.required} onChange={e => updateField(sIdx, fIdx, 'required', e.target.checked)} /> Req
-                          </label>
-                          <button onClick={() => removeField(sIdx, fIdx)} style={{ background: 'none', border: 'none', color: theme.textMuted, cursor: 'pointer', padding: 0 }}>{Ico.Trash}</button>
-                        </div>
-                      ))}
-                      <button onClick={() => addField(sIdx)} disabled={(section.fields || []).length >= 10} style={{ ...st.addItemBtn('#6B7280', '#F9FAFB'), fontSize: '11px' }}>
-                        {Ico.Plus} Add Question
-                      </button>
                     </div>
                   </div>
-                );
-              })}
-            </div>
-
-            {/* Terminology */}
-            <div style={{ background: theme.surface, borderRadius: '14px', padding: '18px', border: `1px solid ${theme.border}` }}>
-              <h3 style={{ margin: '0 0 4px', fontSize: '15px', fontWeight: '800', color: theme.text }}>Experience Branding</h3>
-              <p style={{ margin: '0 0 14px', fontSize: '11px', color: theme.textMuted }}>Rename system labels to match your industry.</p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <div>
-                  <label style={st.label(theme)}>{getLabel('category_label', 'Program')} Label Override (current: {getLabel('category_label', 'Program')})</label>
-                  <input value={config.terminology?.entity_label || ""} placeholder={getLabel('category_label', 'Program')} onChange={e => updateTerminology('entity_label', e.target.value)} style={st.input(theme)} />
-                </div>
-                <div>
-                  <label style={st.label(theme)}>{getLabel('entity_label', 'Location')} Label Override (current: {getLabel('entity_label', 'Location')})</label>
-                  <input value={config.terminology?.location_label || ""} placeholder={getLabel('entity_label', 'Location')} onChange={e => updateTerminology('location_label', e.target.value)} style={st.input(theme)} />
-                </div>
+                ) : (
+                  <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: theme.textMuted, fontSize: '13px' }}>
+                    Select a template to preview its structure.
+                  </div>
+                )}
               </div>
+            </div>
+            
+            <div style={{ padding: '20px 24px', borderTop: `1px solid ${theme.border}`, display: 'flex', justifyContent: 'flex-end', gap: '12px', background: theme.surface }}>
+              <button onClick={() => setShowGallery(false)} style={{ padding: '10px 20px', borderRadius: '10px', border: `1px solid ${theme.border}`, background: 'none', fontWeight: '700', cursor: 'pointer' }}>Cancel</button>
+              <button 
+                onClick={() => applyTemplate(previewTpl)} 
+                disabled={!previewTpl} 
+                style={{ ...st.btnPrimary(!previewTpl), padding: '10px 24px' }}
+              >
+                Use This Template
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      <style>{`@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }`}</style>
+      {config && (
+        <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start' }}>
+          
+          {/* LEFT COLUMN: Library & Branding */}
+          <div style={{ width: '300px', display: 'flex', flexDirection: 'column', gap: '16px', position: 'sticky', top: '24px' }}>
+            <div style={{ background: theme.surface, borderRadius: '16px', border: `1px solid ${theme.border}`, overflow: 'hidden' }}>
+              <div style={{ padding: '16px', borderBottom: `1px solid ${theme.border}`, background: 'rgba(59,130,246,0.02)' }}>
+                <h3 style={{ margin: 0, fontSize: '14px', fontWeight: '900' }}>Interaction Library</h3>
+              </div>
+              <div style={{ padding: '16px' }}>
+                <div style={{ position: 'relative' }}>
+                  <div style={{ position: 'absolute', left: '10px', top: '10px', color: theme.textMuted }}>{Ico.Search}</div>
+                  <input 
+                    placeholder="Search interactions..." 
+                    value={searchTerm} 
+                    onChange={e => setSearchTerm(e.target.value)} 
+                    style={{ ...st.librarySearch(theme), paddingLeft: '32px' }} 
+                  />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  {MODULE_OPTIONS.map(g => {
+                    const filteredItems = g.items.filter(m => 
+                      m.label.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                      m.desc.toLowerCase().includes(searchTerm.toLowerCase())
+                    );
+                    if (filteredItems.length === 0) return null;
+                    return (
+                      <div key={g.group}>
+                        <span style={{ fontSize: '10px', fontWeight: '900', color: theme.textMuted, display: 'block', marginBottom: '8px' }}>{g.group}</span>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          {filteredItems.map(m => (
+                            <button 
+                              key={m.key} 
+                              draggable={true}
+                              onDragStart={(e) => onLibraryDragStart(e, m.key)}
+                              onClick={() => { 
+                                const firstEnabledIdx = config.steps.findIndex(s => s.enabled);
+                                addModuleItem(firstEnabledIdx === -1 ? 0 : firstEnabledIdx, m.key); 
+                              }} 
+                              style={st.libraryBtn(theme)}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <div style={{ color: 'var(--primary-color)' }}>{m.icon}</div>
+                                <span style={{ fontSize: '11px', fontWeight: '800' }}>{m.label}</span>
+                              </div>
+                              <span style={{ fontSize: '10px', color: theme.textMuted, marginLeft: '22px' }}>{m.desc}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Terminology */}
+            <div style={{ background: theme.surface, borderRadius: '14px', padding: '18px', border: `1px solid ${theme.border}` }}>
+              <h3 style={{ margin: '0 0 10px', fontSize: '14px', fontWeight: '800' }}>Branding</h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <input value={config.terminology?.entity_label || ""} placeholder="Service Label Override" onChange={e => updateTerminology('entity_label', e.target.value)} style={st.input(theme)} />
+                <input value={config.terminology?.location_label || ""} placeholder="Location Label Override" onChange={e => updateTerminology('location_label', e.target.value)} style={st.input(theme)} />
+              </div>
+            </div>
+          </div>
+
+          {/* CENTER COLUMN: Workflow Steps */}
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h2 style={{ fontSize: '16px', fontWeight: '800', color: theme.text }}>Workflow Steps</h2>
+              <button onClick={addStep} style={st.addBtn(theme)}>{Ico.Plus} Add Step</button>
+            </div>
+
+            {config.steps.map((step, sIdx) => {
+              const stepIcon = sIdx === 0 ? Ico.Globe : sIdx === 1 ? Ico.Star : Ico.FileText;
+              const stepGuidance = sIdx === 0 
+                ? "Displays available services to route user feedback correctly."
+                : sIdx === 1 
+                  ? "Add rating or primary evaluation questions here."
+                  : "Optional: Collect additional photos, voice, or final comments.";
+              
+              return (
+                <div 
+                  key={step.id} 
+                  onDragOver={onDragOver}
+                  onDragLeave={onDragLeave}
+                  onDrop={(e) => { onDragLeave(e); onDrop(e, sIdx); }}
+                  style={{ 
+                    borderRadius: '14px', 
+                    border: `2px solid ${selectedItem?.sIdx === sIdx && selectedItem?.itIdx === null ? 'var(--primary-color)' : theme.border}`, 
+                    background: sIdx === 0 ? 'rgba(0,0,0,0.01)' : theme.surface, 
+                    overflow: 'hidden', 
+                    transition: 'all 0.2s ease',
+                    opacity: sIdx === 0 ? 0.9 : 1
+                  }}
+                >
+                  <div 
+                    style={{ 
+                      padding: '12px 16px', 
+                      background: sIdx === 0 ? 'rgba(0,0,0,0.05)' : 'rgba(0,0,0,0.02)', 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '10px', 
+                      cursor: sIdx === 0 ? 'not-allowed' : 'pointer' 
+                    }} 
+                    onClick={() => { if (sIdx > 0) { toggleStepExpand(step.id); setSelectedItem({ sIdx, itIdx: null }); } }}
+                  >
+                     <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                       <span style={{ fontSize: '12px', opacity: 0.8 }}>{stepIcon}</span>
+                       <span style={{ fontSize: '10px', fontWeight: '900', color: theme.textMuted, opacity: 0.5 }}>STEP {sIdx + 1}</span>
+                        <input 
+                          value={step.label} 
+                          disabled={sIdx === 0 || step.locked}
+                          onChange={e => updateStep(sIdx, 'label', e.target.value)} 
+                          onClick={e => e.stopPropagation()} 
+                          style={{ 
+                            background: 'none', border: 'none', fontWeight: '800', fontSize: '14px', 
+                            color: (sIdx === 0 || step.locked) ? theme.textMuted : theme.text, 
+                            outline: 'none', cursor: (sIdx === 0 || step.locked) ? 'not-allowed' : 'text' 
+                          }} 
+                        />
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        {sIdx > 0 && (
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); updateStep(sIdx, 'locked', !step.locked); }} 
+                            style={{ background: 'none', border: 'none', color: step.locked ? 'var(--primary-color)' : theme.textMuted, cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                            title={step.locked ? "Unlock Step" : "Lock Step"}
+                          >
+                            {step.locked ? Ico.Lock : Ico.Unlock}
+                          </button>
+                        )}
+                        {sIdx > 0 && (
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); removeStep(sIdx); }} 
+                            disabled={step.locked}
+                            style={{ background: 'none', border: 'none', color: '#EF4444', opacity: step.locked ? 0.3 : 1, cursor: step.locked ? 'not-allowed' : 'pointer' }}
+                          >
+                            {Ico.Trash}
+                          </button>
+                        )}
+                      </div>
+                  </div>
+                  
+                  {expandedSteps[step.id] !== false && (
+                    <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      <div style={{ fontSize: '11px', fontWeight: '700', color: theme.textMuted, marginBottom: '4px', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <div style={{ width: '4px', height: '4px', borderRadius: '50%', background: 'var(--primary-color)' }}></div>
+                        {stepGuidance}
+                      </div>
+
+                      {sIdx === 0 && (
+                         <div style={{ padding: '24px', borderRadius: '12px', border: `2px dashed ${theme.border}`, background: 'rgba(0,0,0,0.02)', textAlign: 'center' }}>
+                            <div style={{ color: 'var(--primary-color)', marginBottom: '8px' }}>{Ico.Globe}</div>
+                            <div style={{ fontWeight: '800', fontSize: '13px', color: theme.text }}>[ Service Selection Module ]</div>
+                            <div style={{ fontSize: '11px', color: theme.textMuted, marginTop: '4px' }}>Automatically displays your active services to the user.</div>
+                         </div>
+                      )}
+                    {step.items.map((item, iIdx) => {
+                      const mod = MODULE_OPTIONS.flatMap(g => g.items).find(m => m.key === item.key);
+                      return (
+                        <div 
+                          key={item.id} 
+                          draggable={!step.locked}
+                          onDragStart={(e) => !step.locked && onDragStart(e, sIdx, iIdx)}
+                          onDragEnd={onDragEnd}
+                          onDrop={(e) => { e.stopPropagation(); !step.locked && onDrop(e, sIdx, iIdx); }}
+                          style={{ 
+                            display: 'flex', flexDirection: 'column', gap: '10px', padding: '12px', 
+                            background: theme.bg, borderRadius: '12px', border: `1px solid ${theme.border}`, 
+                            cursor: step.locked ? 'default' : 'grab', transition: 'opacity 0.2s',
+                            opacity: step.locked ? 0.8 : 1
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            {!step.locked && (
+                              <div style={{ cursor: 'grab', color: theme.textMuted, opacity: 0.5 }}>
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M8 6h2v2H8V6zm0 4h2v2H8v-2zm0 4h2v2H8v-2zm6-8h2v2h-2V6zm0 4h2v2h-2v-2zm0 4h2v2h-2v-2z"/></svg>
+                              </div>
+                            )}
+                            <div style={{ color: 'var(--primary-color)', display: 'flex', alignItems: 'center', opacity: step.locked ? 0.6 : 1 }}>
+                              {mod?.icon || Ico.Box}
+                            </div>
+                            <input 
+                              value={item.label_override} 
+                              disabled={step.locked}
+                              onChange={e => updateItem(sIdx, iIdx, 'label_override', e.target.value)} 
+                              style={{ flex: 1, background: 'none', border: 'none', fontSize: '13px', fontWeight: '700', color: step.locked ? theme.textMuted : theme.text, outline: 'none', cursor: step.locked ? 'not-allowed' : 'text' }} 
+                            />
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                              <div 
+                                style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: step.locked ? 'not-allowed' : 'pointer', opacity: step.locked ? 0.5 : 1 }}
+                                onClick={() => !step.locked && updateItem(sIdx, iIdx, 'required', !item.required)}
+                              >
+                                <span style={{ fontSize: '10px', fontWeight: '900', color: theme.textMuted }}>REQ</span>
+                                <div style={st.toggle(item.required)}>
+                                  <div style={st.toggleKnob(item.required)}></div>
+                                </div>
+                              </div>
+
+                              <button 
+                                onClick={() => removeItem(sIdx, iIdx)} 
+                                disabled={step.locked}
+                                style={{ background: 'none', border: 'none', color: '#EF4444', cursor: step.locked ? 'not-allowed' : 'pointer', opacity: step.locked ? 0.3 : 1 }}
+                              >
+                                {Ico.Trash}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+          {/* RIGHT COLUMN: Live Simulation */}
+          <div style={{ width: showPreview ? '400px' : '0px', opacity: showPreview ? 1 : 0, transition: 'all 0.3s ease', display: 'flex', flexDirection: 'column', gap: '16px', position: 'sticky', top: '24px', overflow: 'hidden' }}>
+            {showPreview && (
+              <div style={{ background: theme.surface, borderRadius: '24px', border: `10px solid #111827`, overflow: 'hidden', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', height: '650px', display: 'flex', flexDirection: 'column', position: 'relative' }}>
+                {/* Android Punch-hole Camera */}
+                <div style={{ position: 'absolute', top: '12px', left: '50%', transform: 'translateX(-50%)', width: '10px', height: '10px', background: '#111827', borderRadius: '50%', zIndex: 10, border: '1px solid rgba(255,255,255,0.1)' }}></div>
+                
+                <div style={{ padding: '30px 20px 10px', background: 'white', borderBottom: '1px solid #F1F5F9' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <h3 style={{ margin: 0, fontSize: '13px', fontWeight: '900', color: '#111827' }}>Live Simulation</h3>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                       <span style={{ fontSize: '9px', fontWeight: '800', color: '#64748B' }}>STEP {config.steps.length > 0 ? "1 of " + config.steps.length : "0"}</span>
+                       <span style={{ fontSize: '9px', fontWeight: '800', color: '#10B981' }}>ANDROID PREVIEW</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ flex: 1, background: '#F8FAFC', position: 'relative', overflow: 'hidden' }}>
+                  <GeneralFeedback overrideConfig={config} isPreview={true} />
+                </div>
+
+                {/* Android Navigation Bar */}
+                <div style={{ height: '36px', background: 'white', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '40px', borderTop: '1px solid #F1F5F9' }}>
+                   <div style={{ width: '12px', height: '12px', border: '2px solid #94A3B8', borderRadius: '2px', opacity: 0.6 }}></div>
+                   <div style={{ width: '12px', height: '12px', border: '2px solid #94A3B8', borderRadius: '50%', opacity: 0.6 }}></div>
+                   <div style={{ width: '12px', height: '12px', borderLeft: '2px solid #94A3B8', borderBottom: '2px solid #94A3B8', transform: 'rotate(45deg)', opacity: 0.6, marginLeft: '4px' }}></div>
+                </div>
+              </div>
+            )}
+          </div>
+
+        </div>
+      )}
+
+      <CustomModal 
+        isOpen={modal.isOpen} 
+        title={modal.title} 
+        message={modal.message} 
+        type={modal.type} 
+        onConfirm={modal.onConfirm || (() => setModal({ ...modal, isOpen: false }))} 
+        onCancel={modal.onConfirm ? (() => setModal({ ...modal, isOpen: false })) : null}
+      />
+      <style>{`@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }`}</style>
     </div>
   );
-};
-
-// ── Style Helpers ─────────────────────────────────────────────────────────────
-const st = {
-  select:      (t) => ({ padding: '8px 14px', borderRadius: '10px', border: `1.5px solid ${t.border}`, background: t.bg, color: t.text, fontSize: '13px', fontWeight: '600', outline: 'none', cursor: 'pointer' }),
-  selectSm:    (t) => ({ padding: '6px 10px', borderRadius: '8px', border: `1px solid ${t.border}`, background: 'white', color: t.text, fontSize: '12px', outline: 'none' }),
-  input:       (t) => ({ width: '100%', boxSizing: 'border-box', padding: '9px 12px', borderRadius: '9px', border: `1.5px solid ${t.border}`, background: t.bg, color: t.text, fontSize: '13px', outline: 'none' }),
-  inputSm:     (t) => ({ padding: '6px 10px', borderRadius: '7px', border: `1px solid ${t.border}`, background: 'white', color: t.text, fontSize: '12px', outline: 'none' }),
-  label:       (t) => ({ display: 'block', fontSize: '11px', fontWeight: '700', color: t.textMuted, marginBottom: '5px' }),
-  btnPrimary:  (isLoading) => ({ padding: '9px 18px', borderRadius: '10px', background: 'var(--primary-color)', color: 'white', border: 'none', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', opacity: isLoading ? 0.7 : 1 }),
-  btnSecondary:(t) => ({ padding: '9px 16px', borderRadius: '10px', background: t.surface, color: t.text, border: `1.5px solid ${t.border}`, fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px' }),
-  addBtn:      (t) => ({ background: 'none', border: `1.5px dashed ${t.border}`, borderRadius: '9px', padding: '6px 12px', color: 'var(--primary-color)', fontSize: '12px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }),
-  addItemBtn:  (color, bg) => ({ flex: 1, padding: '7px 10px', borderRadius: '8px', border: `1.5px dashed ${color}30`, background: bg, color: color, fontSize: '12px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }),
-  arrowBtn:    (t) => ({ border: 'none', background: 'none', cursor: 'pointer', padding: '1px', color: t.textMuted, display: 'flex' }),
 };
 
 export default AdminFormDesigner;

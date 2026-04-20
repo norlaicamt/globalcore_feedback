@@ -3,10 +3,8 @@
 DEFAULT_FORM_CONFIG = {
     "version": 3,
     "steps": [
-        { "id": "type",    "label": "How can we help?", "enabled": True,  "order": 1, "items": [{ "type": "module", "key": "feedback_type" }] },
-        { "id": "entity",  "label": "Select Service",   "enabled": True,  "order": 2, "items": [{ "type": "module", "key": "entity_picker" }] },
-        { "id": "branch",  "label": "Location",         "enabled": True,  "order": 3, "items": [{ "type": "module", "key": "location_picker" }] },
-        { "id": "details", "label": "Report Details",   "enabled": True,  "order": 4, "items": [{ "type": "module", "key": "message_input" }] }
+        { "id": "step_routing", "label": "Service Selection", "enabled": True, "order": 1, "items": [{ "type": "module", "key": "entity_picker", "label_override": "Select Program / Service", "required": True }] },
+        { "id": "details",      "label": "Interaction Details", "enabled": True, "order": 2, "items": [{ "type": "module", "key": "long_text", "label_override": "Enter your feedback", "required": True }] }
     ],
     "toggles": {
         "staff": { "enabled": True, "label": "Staff Involved" },

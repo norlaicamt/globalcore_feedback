@@ -1720,3 +1720,85 @@ def delete_broadcast_template(tpl_id: int, db: Session = Depends(get_db), admin:
     if crud.delete_broadcast_template(db, tpl_id):
         return {"message": "Deleted"}
     raise HTTPException(status_code=404, detail="Template not found")
+
+# ---------------------------------------------
+#  Workflow Templates (Interaction Studio)
+# ---------------------------------------------
+
+@router.get("/workflow-templates", response_model=List[schemas.WorkflowTemplate])
+def get_workflow_templates(
+    category: Optional[str] = None,
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(get_current_admin)
+):
+    """Fetch available workflow templates, categorized."""
+    query = db.query(models.WorkflowTemplate).filter(models.WorkflowTemplate.is_active == True)
+    
+    if category:
+        query = query.filter(models.WorkflowTemplate.category == category)
+        
+    # Templates are shared across all admins
+    return query.order_by(models.WorkflowTemplate.is_global.desc(), models.WorkflowTemplate.name.asc()).all()
+
+@router.post("/workflow-templates", response_model=schemas.WorkflowTemplate)
+def create_workflow_template(
+    payload: schemas.WorkflowTemplateCreate,
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(get_current_admin)
+):
+    """Save a workflow configuration as a reusable template."""
+    # Only global admins can create system (global) templates
+    is_global = payload.is_global and has_global_admin_access(admin)
+    
+    db_tpl = models.WorkflowTemplate(
+        name=payload.name,
+        description=payload.description,
+        category=payload.category,
+        config=payload.config,
+        version=payload.version,
+        is_global=is_global,
+        created_by_id=admin.id
+    )
+    db.add(db_tpl)
+    db.commit()
+    db.refresh(db_tpl)
+    
+    # Audit Log
+    crud.create_audit_log(
+        db,
+        action_type="create_workflow_template",
+        performed_by_id=admin.id,
+        target_id=str(db_tpl.id),
+        details={"name": payload.name, "category": payload.category, "is_global": is_global}
+    )
+    
+    return db_tpl
+
+@router.delete("/workflow-templates/{tpl_id}")
+def delete_workflow_template(
+    tpl_id: int,
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(get_current_admin)
+):
+    """Deactivate a workflow template."""
+    db_tpl = db.query(models.WorkflowTemplate).filter(models.WorkflowTemplate.id == tpl_id).first()
+    if not db_tpl:
+        raise HTTPException(status_code=404, detail="Template not found")
+        
+    # Security: Only global admins or the creator can delete/deactivate
+    if not has_global_admin_access(admin) and db_tpl.created_by_id != admin.id:
+        raise HTTPException(status_code=403, detail="Access denied: Only the creator or global admin can delete this template")
+        
+    db_tpl.is_active = False
+    db.commit()
+    
+    # Audit Log
+    crud.create_audit_log(
+        db,
+        action_type="delete_workflow_template",
+        performed_by_id=admin.id,
+        target_id=str(tpl_id),
+        details={"name": db_tpl.name}
+    )
+    
+    return {"status": "deactivated"}

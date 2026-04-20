@@ -319,6 +319,24 @@ class BroadcastTemplate(Base):
     entity = relationship("Entity")
     creator = relationship("User")
 
+class WorkflowTemplate(Base):
+    __tablename__ = "workflow_templates"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, index=True)
+    description = Column(Text, nullable=True)
+    category = Column(String, index=True) # "Complaint", "Evaluation", "Survey", etc.
+    config = Column(JSONB) # The workflow JSON
+    version = Column(Integer, default=1)
+    is_global = Column(Boolean, default=False)
+    is_active = Column(Boolean, default=True)
+    tags = Column(JSONB, nullable=True) # e.g. ["⭐ Recommended", "🔒 System"]
+    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=True)
+    created_by_id = Column(Integer, ForeignKey("global_user.id"), nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    creator = relationship("User")
+    organization = relationship("Organization")
+
 class PasswordResetToken(Base):
     __tablename__ = "password_reset_tokens"
     id = Column(Integer, primary_key=True, index=True)
