@@ -9,7 +9,8 @@ const CustomModal = ({
   onCancel,
   confirmText = "OK",
   cancelText = "Cancel",
-  isDestructive = false
+  isDestructive = false,
+  content = null
 }) => {
 
   useEffect(() => {
@@ -36,12 +37,13 @@ const CustomModal = ({
 
   return (
     <div style={styles.overlay} onClick={onCancel || onConfirm}>
-      <div style={styles.content} onClick={e => e.stopPropagation()}>
+      <div style={{ ...styles.content, maxWidth: content ? '420px' : '340px' }} onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
           <div style={{ ...styles.iconBadge, backgroundColor: currentStyle.bg }}>{currentStyle.icon}</div>
           <h3 style={{ ...styles.title, color: currentStyle.title }}>{title}</h3>
         </div>
         <p style={styles.message}>{message}</p>
+        {content && <div style={{ width: '100%', textAlign: 'left', marginBottom: '24px' }}>{content}</div>}
         <div style={styles.actions}>
           {(type === 'confirm' || (type === 'error' && onCancel)) && (
             <button style={styles.cancelBtn} onClick={onCancel}>{cancelText}</button>

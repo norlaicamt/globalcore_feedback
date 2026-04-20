@@ -162,7 +162,10 @@ export const adminGetProfile = () => adminApi.get("/profile").then(r => r.data);
 export const adminUpdateProfile = (payload) => adminApi.put("/profile", payload).then(r => r.data);
 export const adminGetProfileActivity = (limit = 20) => adminApi.get(`/profile/activity?limit=${limit}`).then(r => r.data);
 
-// Moderation
+// Presence
+export const adminUpdatePresence = (currentModule) => adminApi.post("/presence", { current_module: currentModule }).then(r => r.data);
+ 
+ // Moderation
 export const adminGetPendingSuggestions = () => adminApi.get("/pending-suggestions").then(r => r.data);
 export const adminApproveSuggestion = (id, approvedName) => 
   adminApi.post(`/approve-suggestion?feedback_id=${id}&approved_name=${encodeURIComponent(approvedName)}`).then(r => r.data);

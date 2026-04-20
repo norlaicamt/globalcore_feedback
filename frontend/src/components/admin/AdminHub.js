@@ -12,7 +12,7 @@ import AdminAuditLogs from "./pages/AdminAuditLogs";
 import AdminPrograms from "./pages/AdminPrograms";
 import AdminFormDesigner from "./pages/AdminFormDesigner";
 import CustomModal from "../CustomModal";
-import { adminGetPendingSuggestions } from "../../services/adminApi";
+import { adminGetPendingSuggestions, adminUpdatePresence } from "../../services/adminApi";
 
 const NAV_ITEMS = [
   { id: "dashboard",      label: "Insights Hub",        icon: <ChartIcon /> },
@@ -73,9 +73,60 @@ const AdminHub = ({ adminUser, onLogout }) => {
     };
   }, [hasGlobalAdminAccess, view]);
 
+  // --- BRANDING: Primary Color Synchronization ---
+  useEffect(() => {
+    const applyColor = (hex) => {
+      if (!hex) return;
+      const root = document.documentElement;
+      root.style.setProperty('--primary-color', hex);
+      
+      const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+      if (result) {
+        const rgb = `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}`;
+        root.style.setProperty('--primary-rgb', rgb);
+      }
+    };
+
+    const savedColor = localStorage.getItem('admin_primary_color');
+    if (savedColor) applyColor(savedColor);
+
+    const handleStorage = (e) => {
+      if (e.key === 'admin_primary_color' && e.newValue) {
+        applyColor(e.newValue);
+      }
+    };
+
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
+
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.ADMIN_DARK_MODE, darkMode);
   }, [darkMode]);
+ 
+  // Real-time Presence Heartbeat
+  useEffect(() => {
+    const updatePresence = () => {
+      const ACTION_MAP = {
+        dashboard: "Monitoring Insights",
+        users: "Managing Accounts",
+        feedbacks: "Reviewing Submissions",
+        broadcast: "Drafting Announcements",
+        auditlogs: "Reviewing Audit Logs",
+        programs: "Configuring Programs",
+        pendingsuggestions: "Reviewing Approvals",
+        formdesigner: "Designing Forms",
+        settings: "Adjusting Global Settings"
+      };
+      const moduleName = ACTION_MAP[view] || "Active in Portal";
+      adminUpdatePresence(moduleName).catch(err => console.debug("Presence sync failed", err));
+    };
+
+    updatePresence(); // Initial update
+    const presenceInterval = setInterval(updatePresence, 30000); // Every 30 seconds
+    
+    return () => clearInterval(presenceInterval);
+  }, [view]);
 
   const toggleTheme = () => setDarkMode(!darkMode);
 
@@ -142,36 +193,53 @@ const AdminHub = ({ adminUser, onLogout }) => {
   return (
     <div style={{ ...styles.root, backgroundColor: theme.bg, color: theme.text }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
         * { box-sizing: border-box; }
-        .nav-item:hover { background: rgba(255,255,255,0.07) !important; }
-        .nav-item.active { background: rgba(255,255,255,0.12) !important; }
-        .logout-btn:hover { background: rgba(255,255,255,0.08) !important; }
+        .nav-item { transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); position: relative; overflow: hidden; }
+        .nav-item:hover { background: rgba(255,255,255,0.06) !important; color: #fff !important; transform: translateX(4px); }
+        .nav-item.active { background: rgba(255,255,255,0.08) !important; color: #fff !important; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.1); }
+        .nav-item.active::before { content: ''; position: absolute; left: 0; top: 15%; bottom: 15%; width: 4px; background: var(--primary-color); border-radius: 0 4px 4px 0; box-shadow: 2px 0 10px rgba(var(--primary-rgb), 0.5); }
+        .logout-btn:hover { background: rgba(239, 68, 68, 0.1) !important; color: #ef4444 !important; }
+        .sidebar-scroll::-webkit-scrollbar { width: 4px; }
+        .sidebar-scroll::-webkit-scrollbar-track { background: transparent; }
+        .sidebar-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+        @keyframes sidebarPulse {
+          0% { transform: scale(1); opacity: 0.8; }
+          50% { transform: scale(1.5); opacity: 0; }
+          100% { transform: scale(1); opacity: 0; }
+        }
       `}</style>
 
       {/* SIDEBAR (always open) */}
       <aside style={styles.sidebar}>
-        {/* Logo */}
-        <div style={styles.sidebarLogo}>
-          {systemLogo ? (
-            <img src={systemLogo} alt="Logo" style={{ height: '40px', maxWidth: '100px', objectFit: 'contain' }} />
-          ) : (
-            <div style={styles.logoIcon}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2">
-                <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
-              </svg>
-            </div>
-          )}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-            <p style={styles.logoText}>{systemName.split(' ')[0]}</p>
-            <p style={styles.logoSub}>{systemName.split(' ').slice(1).join(' ') || "Feedback Portal"}</p>
-          </div>
+        {/* Logo & Status */}
+        <div style={styles.sidebarHeader}>
+           <div style={styles.sidebarLogo}>
+             {systemLogo ? (
+               <img src={systemLogo} alt="Logo" style={{ height: '36px', maxWidth: '100px', objectFit: 'contain' }} />
+             ) : (
+               <div style={styles.logoIcon}>
+                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
+                   <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
+                 </svg>
+               </div>
+             )}
+             <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+               <p style={styles.logoText}>{systemName.split(' ')[0]}</p>
+               <p style={styles.logoSub}>{systemName.split(' ').slice(1).join(' ') || "Feedback Portal"}</p>
+             </div>
+           </div>
+           
+           <div style={styles.statusIndicator}>
+              <div style={styles.pulseContainer}>
+                 <div style={styles.pulseDot} />
+                 <div style={styles.pulseRing} />
+              </div>
+              <span style={styles.statusText}>Live Oversight</span>
+           </div>
         </div>
 
-        <div style={styles.divider} />
-
-        {/* Nav */}
-        <nav style={styles.nav}>
+        <div className="sidebar-scroll" style={styles.navContainer}>
           {NAV_ITEMS
             .filter(item => {
               // Standard Role Check
@@ -217,40 +285,30 @@ const AdminHub = ({ adminUser, onLogout }) => {
                 </button>
               )
             ))}
-        </nav>
+        </div>
 
         {/* Bottom user info */}
-        <div style={styles.sidebarBottom}>
-          <div style={styles.adminBadge}>
-            <div style={{ ...styles.adminAvatar, background: hasGlobalAdminAccess ? '#9333ea' : 'var(--primary-color)' }}>
-              {localAdminUser?.name?.charAt(0) || "A"}
+        <div style={styles.sidebarFooter}>
+          <div style={styles.profileCard}>
+            <div style={styles.profileMain}>
+               <div style={{ ...styles.adminAvatar, background: hasGlobalAdminAccess ? 'linear-gradient(135deg, #9333ea, #7c3aed)' : 'var(--primary-color)' }}>
+                 {localAdminUser?.name?.charAt(0) || "A"}
+               </div>
+               <div style={{ flex: 1, minWidth: 0 }}>
+                 <p style={styles.adminName} title={localAdminUser?.name}>
+                   {localAdminUser?.name || "Admin"}
+                 </p>
+                 <p style={styles.adminRole}>
+                   {localAdminUser?.position_title || (hasGlobalAdminAccess ? "Global Overseer" : localAdminUser?.department)}
+                 </p>
+               </div>
             </div>
-            <div>
-              <p style={styles.adminName}>
-                {localAdminUser?.name || "Admin"}
-              </p>
-              <p style={styles.adminRole}>
-                <span style={{ 
-                  color: hasGlobalAdminAccess ? '#a855f7' : '#94A3B8', 
-                  fontWeight: '700',
-                  fontSize: '9px',
-                  backgroundColor: 'rgba(255,255,255,0.05)',
-                  padding: '2px 6px',
-                  borderRadius: '4px',
-                  display: 'inline-block',
-                  marginTop: '2px'
-                }}>
-                  {localAdminUser?.position_title || (hasGlobalAdminAccess ? "Head Admin • Global" : `Admin • ${localAdminUser?.department}`)}
-                </span>
-              </p>
-            </div>
+            <button className="logout-btn" onClick={() => setLogoutDialog(true)} style={styles.logoutIconButton}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+              </svg>
+            </button>
           </div>
-          <button className="logout-btn" onClick={() => setLogoutDialog(true)} style={styles.logoutBtn}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
-            </svg>
-            Logout
-          </button>
         </div>
       </aside>
 
@@ -319,23 +377,50 @@ function OrgIcon()      { return <svg width="15" height="15" viewBox="0 0 24 24"
 const SIDEBAR_W = 280;
 const styles = {
   root: { display: "flex", height: "100vh", fontFamily: '"Inter", sans-serif', backgroundColor: "#F1F5F9" },
-  sidebar: { width: SIDEBAR_W, minWidth: SIDEBAR_W, height: "100vh", background: "linear-gradient(180deg, var(--primary-color) 0%, #1a2347 100%)", display: "flex", flexDirection: "column", color: "white", flexShrink: 0, overflowY: "auto" },
-  sidebarLogo: { display: "flex", alignItems: "center", gap: "14px", padding: "24px 20px 20px" },
-  logoIcon: { width: "40px", height: "40px", borderRadius: "10px", background: "rgba(255,255,255,0.12)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 },
-  logoText: { fontSize: "15px", fontWeight: "800", margin: 0, color: "white", lineHeight: 1.2 },
-  logoSub: { fontSize: "11px", color: "rgba(255,255,255,0.5)", margin: 0, fontWeight: "500", letterSpacing: "0.02em" },
-  divider: { height: "1px", background: "rgba(255,255,255,0.07)", margin: "0 16px 10px" },
-  nav: { flex: 1, display: "flex", flexDirection: "column", gap: "1px", padding: "0 10px" },
-  navItem: { display: "flex", alignItems: "center", gap: "10px", padding: "10px 14px", borderRadius: "8px", fontSize: "14px", fontWeight: "600", color: "rgba(255,255,255,0.6)", cursor: "pointer", background: "none", border: "none", width: "100%", textAlign: "left", transition: "all 0.15s", fontFamily: "inherit" },
+  sidebar: { 
+    width: SIDEBAR_W, minWidth: SIDEBAR_W, height: "100vh", 
+    background: "#0F172A", 
+    display: "flex", flexDirection: "column", color: "white", flexShrink: 0, 
+    borderRight: '1px solid rgba(255,255,255,0.05)',
+    zIndex: 100
+  },
+  sidebarHeader: { padding: "24px 20px 20px", display: 'flex', flexDirection: 'column', gap: '16px' },
+  sidebarLogo: { display: "flex", alignItems: "center", gap: "12px" },
+  logoIcon: { width: "36px", height: "36px", borderRadius: "10px", background: "var(--primary-color)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: '0 4px 12px rgba(var(--primary-rgb), 0.3)' },
+  logoText: { fontSize: "14px", fontWeight: "900", margin: 0, color: "white", lineHeight: 1.2, letterSpacing: '0.02em' },
+  logoSub: { fontSize: "10px", color: "rgba(255,255,255,0.4)", margin: 0, fontWeight: "600", textTransform: 'uppercase', letterSpacing: '0.05em' },
+  
+  statusIndicator: { display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: '20px', width: 'fit-content' },
+  pulseContainer: { position: 'relative', width: '6px', height: '6px' },
+  pulseDot: { width: '6px', height: '6px', borderRadius: '50%', background: '#10B981' },
+  pulseRing: { position: 'absolute', inset: -2, borderRadius: '50%', border: '1.5px solid #10B981', animation: 'sidebarPulse 2s infinite' },
+  statusText: { fontSize: '10px', fontWeight: '800', color: '#10B981', textTransform: 'uppercase', letterSpacing: '0.05em' },
+
+  navContainer: { flex: 1, display: "flex", flexDirection: "column", gap: "1px", padding: "0 12px", overflowY: "auto" },
+  navItem: { 
+    display: "flex", alignItems: "center", gap: "12px", padding: "12px 16px", borderRadius: "12px", 
+    fontSize: "13.5px", fontWeight: "600", color: "rgba(255,255,255,0.5)", cursor: "pointer", 
+    background: "none", border: "none", width: "100%", textAlign: "left", fontFamily: "inherit" 
+  },
   navItemActive: { color: "white", fontWeight: "700" },
-  navLabel: { fontSize: "11px", fontWeight: "700", color: "rgba(255,255,255,0.3)", padding: "18px 12px 6px", textTransform: "uppercase", letterSpacing: "0.1em" },
-  navIcon: { width: "18px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 },
-  sidebarBottom: { borderTop: "1px solid rgba(255,255,255,0.07)", padding: "14px" },
-  adminBadge: { display: "flex", alignItems: "center", gap: "10px", marginBottom: "12px" },
-  adminAvatar: { width: "32px", height: "32px", borderRadius: "8px", background: "rgba(255,255,255,0.12)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "13px", fontWeight: "800", flexShrink: 0 },
-  adminName: { fontSize: "13px", fontWeight: "700", margin: 0, color: "white" },
-  adminRole: { fontSize: "10px", color: "rgba(255,255,255,0.4)", margin: 0, textTransform: "uppercase", letterSpacing: "0.06em" },
-  logoutBtn: { display: "flex", alignItems: "center", gap: "8px", width: "100%", padding: "8px 10px", background: "transparent", border: "none", borderRadius: "8px", color: "rgba(255,255,255,0.5)", fontSize: "12px", fontWeight: "600", cursor: "pointer", transition: "all 0.2s", fontFamily: "inherit" },
+  navLabel: { fontSize: "10px", fontWeight: "800", color: "rgba(255,255,255,0.25)", padding: "24px 16px 8px", textTransform: "uppercase", letterSpacing: "0.12em" },
+  navIcon: { width: "18px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, opacity: 0.8 },
+  
+  sidebarFooter: { padding: "20px 12px", borderTop: "1px solid rgba(255,255,255,0.05)" },
+  profileCard: { 
+    display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', 
+    background: 'rgba(255,255,255,0.03)', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)'
+  },
+  profileMain: { flex: 1, display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 },
+  adminAvatar: { width: "36px", height: "36px", borderRadius: "10px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "14px", fontWeight: "900", flexShrink: 0, color: 'white' },
+  adminName: { fontSize: "13px", fontWeight: "700", margin: 0, color: "white", whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
+  adminRole: { fontSize: "10px", color: "rgba(255,255,255,0.4)", margin: '1px 0 0 0', fontWeight: '600' },
+  logoutIconButton: { 
+    width: '32px', height: '32px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', 
+    border: 'none', color: 'rgba(255,255,255,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', 
+    cursor: 'pointer', transition: 'all 0.2s' 
+  },
+
   main: { flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" },
   topBar: { padding: "20px 28px 14px", background: "white", borderBottom: "1px solid #E2E8F0", flexShrink: 0 },
   pageTitle: { fontSize: "16px", fontWeight: "800", color: "#0F172A", margin: "0 0 2px 0" },
@@ -345,12 +430,13 @@ const styles = {
   badge: {
     backgroundColor: "#EF4444",
     color: "white",
-    fontSize: "10px",
-    fontWeight: "800",
-    borderRadius: "10px",
-    padding: "2px 6px",
+    fontSize: "9px",
+    fontWeight: "900",
+    borderRadius: "6px",
+    padding: "2px 5px",
     minWidth: "16px",
     textAlign: "center",
+    marginLeft: 'auto'
   }
 };
 

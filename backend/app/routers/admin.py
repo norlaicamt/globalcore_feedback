@@ -130,6 +130,18 @@ def admin_login(email: str, password: str, db: Session = Depends(get_db)):
             raise HTTPException(status_code=403, detail="Access denied: Not an administrator")
             
     raise HTTPException(status_code=401, detail="Invalid admin credentials")
+ 
+ 
+@router.post("/presence")
+def update_admin_presence(
+    current_module: str = Body(..., embed=True),
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(get_current_admin)
+):
+    admin.last_seen = datetime.now(timezone.utc)
+    admin.current_module = current_module
+    db.commit()
+    return {"status": "success"}
 
 
 # ?????????????????????????????????????????????
@@ -410,6 +422,8 @@ def admin_get_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_d
             "is_active": u.is_active, "avatar_url": u.avatar_url,
             "created_at": str(u.created_at),
             "last_login": str(u.last_login) if u.last_login else None,
+            "last_seen": str(u.last_seen) if u.last_seen else None,
+            "current_module": u.current_module,
             "total_posts": p_cnt,
             "impact_points": round(float(pts), 1)
         })
@@ -430,6 +444,8 @@ def admin_get_staff_list(db: Session = Depends(get_db), admin: models.User = Dep
         "role": s.role,
         "department": s.department,
         "last_login": s.last_login,
+        "last_seen": s.last_seen,
+        "current_module": s.current_module,
         "position_title": s.position_title
     } for s in staff]
 

@@ -303,9 +303,16 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-      {/* Status Workflow Tabs */}
-      <div style={{ display: "flex", gap: "8px", borderBottom: `1px solid ${theme.border}`, paddingBottom: "2px", marginBottom: "8px" }}>
+    <div style={{ 
+      display: "flex", 
+      flexDirection: "column", 
+      gap: "24px",
+      height: "calc(100vh - 140px)",
+      overflow: "hidden",
+      fontSize: 'clamp(11px, 0.85vh + 0.5vw, 14px)'
+    }}>
+      {/* Status Workflow Tabs (Fixed) */}
+      <div style={{ display: "flex", gap: "8px", borderBottom: `1px solid ${theme.border}`, paddingBottom: "2px", marginBottom: "0", flexShrink: 0 }}>
         {[
           { key: "ALL", label: "All Submissions", count: stats.TOTAL },
           { key: "OPEN", label: "New", count: stats.OPEN, color: "#3B82F6" },
@@ -341,8 +348,8 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
         ))}
       </div>
 
-      {/* Actions & Filters */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "16px", marginBottom: "8px" }}>
+      {/* Actions & Filters (Fixed) */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "16px", marginBottom: "0", flexShrink: 0 }}>
         <div style={{ position: "relative", flex: 1, maxWidth: "400px" }}>
           <svg style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: theme.textMuted }} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           <input
@@ -354,8 +361,15 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
         <ExportDropdown onExport={handleExport} theme={theme} darkMode={darkMode} />
       </div>
 
-      {/* Table Section */}
-      <div style={{ background: theme.surface, borderRadius: "16px", border: `1px solid ${theme.border}`, overflow: "hidden", boxShadow: "0 4px 12px rgba(0,0,0,0.03)" }}>
+      {/* Table Section (Scrollable) */}
+      <div style={{ 
+        background: theme.surface, 
+        borderRadius: "16px", 
+        border: `1px solid ${theme.border}`, 
+        overflowY: "auto", 
+        flex: 1,
+        boxShadow: "0 4px 12px rgba(0,0,0,0.03)" 
+      }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
           <thead>
             <tr style={{ background: darkMode ? "rgba(255,255,255,0.02)" : "#F8FAFC", borderBottom: `1px solid ${theme.border}` }}>

@@ -1,5 +1,38 @@
 import React, { useEffect, useState } from "react";
 import { adminGetAuditLogs, adminGetStaffList } from "../../../services/adminApi";
+ 
+ // --- HELPER: Relative Time ---
+ const formatRelativeTime = (dateStr) => {
+   if (!dateStr || dateStr === "None") return "Never";
+   try {
+     const date = new Date(dateStr);
+     if (isNaN(date.getTime())) return "Never";
+     const now = new Date();
+     const diff = Math.floor((now - date) / 1000);
+     
+     if (diff < 60) return "Just now";
+     if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+     if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+     if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
+     return date.toLocaleDateString();
+   } catch (e) {
+     return "Never";
+   }
+ };
+ 
+ const getPresenceInfo = (user) => {
+  if (!user.last_seen || user.last_seen === "None") return { isOnline: false, status: "Offline", label: "Offline", color: "#94A3B8" };
+  const lastSeen = new Date(user.last_seen);
+  const now = new Date();
+  const diffMs = now - lastSeen;
+  
+  if (diffMs < 120000) { // 2 mins
+    return { isOnline: true, isIdle: false, status: user.current_module || "Monitoring Portal", label: "Online", color: "#10B981", lastActive: "Just now" };
+  } else if (diffMs < 600000) { // 10 mins
+    return { isOnline: false, isIdle: true, status: "Away", label: `Idle (${Math.floor(diffMs / 60000)}m)`, color: "#F59E0B", lastActive: formatRelativeTime(user.last_seen) };
+  }
+  return { isOnline: false, isIdle: false, status: "Offline", label: `Last seen: ${formatRelativeTime(user.last_seen)}`, color: "#94A3B8", lastActive: formatRelativeTime(user.last_seen) };
+};
 
 const AdminAuditLogs = ({ theme, darkMode, adminUser }) => {
   const hasGlobalAdminAccess = (adminUser?.role === "superadmin") || (adminUser?.role === "admin" && !adminUser?.entity_id);
@@ -7,8 +40,13 @@ const AdminAuditLogs = ({ theme, darkMode, adminUser }) => {
   const [staff, setStaff] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showRegistry, setShowRegistry] = useState(false);
+  const [expandedId, setExpandedId] = useState(null);
   
-  // Filters
+  // Registry Search & Filters
+  const [regSearch, setRegSearch] = useState("");
+  const [regFilter, setRegFilter] = useState("all"); // all, online, idle, offline
+  
+  // Audit Trail Filters
   const [filterAction, setFilterAction] = useState("");
   const [searchAdmin, setSearchAdmin] = useState("");
 
@@ -194,42 +232,146 @@ const AdminAuditLogs = ({ theme, darkMode, adminUser }) => {
               </div>
               <button onClick={() => setShowRegistry(false)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: "24px", color: theme.textMuted }}>&times;</button>
             </div>
+              {/* 🔍 Registry Filters */}
+            <div style={{ padding: "16px", borderBottom: `1px solid ${theme.border}`, display: "flex", flexDirection: "column", gap: "10px" }}>
+              <div style={{ position: "relative" }}>
+                <input 
+                  type="text" 
+                  placeholder="Search staff..." 
+                  value={regSearch}
+                  onChange={(e) => setRegSearch(e.target.value)}
+                  style={{ width: "100%", padding: "8px 12px 8px 32px", borderRadius: "8px", border: `1px solid ${theme.border}`, background: theme.bg, color: theme.text, fontSize: "12px", outline: "none" }}
+                />
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={theme.textMuted} strokeWidth="2.5" style={{ position: "absolute", left: "10px", top: "50%", transform: "translateY(-50%)" }}><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+              </div>
+              <div style={{ display: "flex", gap: "6px" }}>
+                {["all", "online", "idle", "offline"].map(f => (
+                  <button 
+                    key={f}
+                    onClick={() => setRegFilter(f)}
+                    style={{ 
+                      padding: "4px 10px", borderRadius: "6px", fontSize: "10px", fontWeight: "700", textTransform: "uppercase",
+                      background: regFilter === f ? "var(--primary-color)" : (darkMode ? "rgba(255,255,255,0.05)" : "#F1F5F9"),
+                      color: regFilter === f ? "white" : theme.textMuted,
+                      border: "none", cursor: "pointer"
+                    }}
+                  >
+                    {f}
+                  </button>
+                ))}
+              </div>
+            </div>
             
-            <div style={{ flex: 1, overflowY: "auto", padding: "16px" }}>
-              <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                {staff.map(s => {
-                  const isSuper = s.role === "superadmin";
-                  return (
-                    <div key={s.id} style={{ padding: "16px", borderRadius: "12px", border: `1px solid ${theme.border}`, background: theme.bg }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "8px" }}>
-                        <div style={{ display: "flex", gap: "12px" }}>
-                          <div style={{ width: "40px", height: "40px", borderRadius: "50%", background: isSuper ? "#9333ea20" : "var(--primary-color)20", color: isSuper ? "#9333ea" : "var(--primary-color)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "800" }}>
-                            {s.name.charAt(0)}
+            <div style={{ flex: 1, overflowY: "auto", padding: "12px" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                {staff
+                  .filter(s => {
+                    if (regSearch && !s.name.toLowerCase().includes(regSearch.toLowerCase()) && !s.email.toLowerCase().includes(regSearch.toLowerCase())) return false;
+                    const presence = getPresenceInfo(s);
+                    if (regFilter === "online" && !presence.isOnline) return false;
+                    if (regFilter === "idle" && !presence.isIdle) return false;
+                    if (regFilter === "offline" && (presence.isOnline || presence.isIdle)) return false;
+                    return true;
+                  })
+                  .sort((a, b) => {
+                    // Online first, then idle, then name
+                    const pA = getPresenceInfo(a);
+                    const pB = getPresenceInfo(b);
+                    if (pA.isOnline && !pB.isOnline) return -1;
+                    if (!pA.isOnline && pB.isOnline) return 1;
+                    return a.name.localeCompare(b.name);
+                  })
+                  .map(s => {
+                    const isSuper = s.role === "superadmin";
+                    const presence = getPresenceInfo(s);
+                    const isExpanded = expandedId === s.id;
+                    
+                    return (
+                      <div 
+                        key={s.id} 
+                        style={{ 
+                          borderRadius: "10px", border: `1px solid ${isExpanded ? theme.border : "transparent"}`, 
+                          background: isExpanded ? theme.bg : "transparent", transition: "0.2s", overflow: "hidden" 
+                        }}
+                      >
+                        {/* Compact Header */}
+                        <div 
+                          onClick={() => setExpandedId(isExpanded ? null : s.id)}
+                          style={{ 
+                            padding: "10px 12px", display: "flex", alignItems: "center", justifyContent: "space-between", 
+                            cursor: "pointer", borderRadius: "8px"
+                          }}
+                          onMouseEnter={e => !isExpanded && (e.currentTarget.style.background = darkMode ? "rgba(255,255,255,0.03)" : "#F8FAFC")}
+                          onMouseLeave={e => !isExpanded && (e.currentTarget.style.background = "transparent")}
+                        >
+                          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                            <div style={{ position: 'relative' }}>
+                              <div style={{ width: "32px", height: "32px", borderRadius: "8px", background: isSuper ? "#7C3AED20" : "var(--primary-color)20", color: isSuper ? "#7C3AED" : "var(--primary-color)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "900", fontSize: "12px" }}>
+                                {s.name.charAt(0)}
+                              </div>
+                              <div style={{ position: 'absolute', bottom: '-1px', right: '-1px', width: '9px', height: '9px', borderRadius: '50%', background: presence.color, border: `2px solid ${isExpanded ? theme.bg : theme.surface}` }} />
+                            </div>
+                            <div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <p style={{ margin: 0, fontWeight: "700", fontSize: "13px", color: theme.text }}>{s.name}</p>
+                                <span style={{ fontSize: "8px", fontWeight: "900", textTransform: "uppercase", padding: "1px 4px", borderRadius: "3px", background: isSuper ? "#7C3AED" : "#64748B", color: "white" }}>
+                                  {isSuper ? "Global" : "Program"}
+                                </span>
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', color: theme.textMuted }}>
+                                <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: presence.color }} />
+                                <span>{presence.label} • {presence.lastActive}</span>
+                              </div>
+                            </div>
                           </div>
-                          <div>
-                            <p style={{ margin: 0, fontWeight: "700", fontSize: "14px" }}>{s.name}</p>
-                            <p style={{ margin: 0, fontSize: "12px", color: theme.textMuted }}>{s.email}</p>
+                          <div style={{ transform: isExpanded ? "rotate(180deg)" : "none", transition: "0.2s", color: theme.textMuted }}>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="m6 9 6 6 6-6"/></svg>
                           </div>
                         </div>
-                        <span style={{ fontSize: "9px", fontWeight: "900", textTransform: "uppercase", padding: "3px 8px", borderRadius: "4px", background: isSuper ? "#9333ea" : "#64748B", color: "white" }}>
-                          {isSuper ? "Global" : "Scoped"}
-                        </span>
+
+                        {/* Expanded Details */}
+                        {isExpanded && (
+                          <div style={{ padding: "0 12px 12px 54px", borderTop: `1px solid ${theme.border}10` }}>
+                            <p style={{ margin: "4px 0 8px", fontSize: "11px", color: theme.textMuted }}>{s.email}</p>
+                            
+                            {presence.isOnline && (
+                              <div style={{ marginBottom: "12px" }}>
+                                <p style={{ margin: 0, fontSize: "9px", fontWeight: "800", color: "#94A3B8", textTransform: 'uppercase' }}>Current Activity</p>
+                                <p style={{ margin: "2px 0 0", fontSize: "12px", fontWeight: "600", color: "var(--primary-color)" }}>{presence.status}</p>
+                              </div>
+                            )}
+
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "12px" }}>
+                              <div>
+                                <p style={{ margin: 0, fontSize: "9px", fontWeight: "800", color: "#94A3B8", textTransform: 'uppercase' }}>Scope</p>
+                                <p style={{ margin: "2px 0 0", fontSize: "11px", fontWeight: "600" }}>{s.department || "Global"}</p>
+                              </div>
+                              <div>
+                                <p style={{ margin: 0, fontSize: "9px", fontWeight: "800", color: "#94A3B8", textTransform: 'uppercase' }}>Position</p>
+                                <p style={{ margin: "2px 0 0", fontSize: "11px", fontWeight: "600" }}>{s.position_title || "Staff"}</p>
+                              </div>
+                            </div>
+
+                            <button 
+                              onClick={() => {
+                                setSearchAdmin(s.name);
+                                setShowRegistry(false);
+                              }}
+                              style={{ 
+                                width: "100%", padding: "6px", borderRadius: "6px", border: `1px solid ${theme.border}`, 
+                                background: darkMode ? "rgba(255,255,255,0.05)" : "#F8FAFC", color: theme.text, fontSize: "10px", fontWeight: "700", 
+                                cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px"
+                              }}
+                            >
+                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                              Trace Activity
+                            </button>
+                          </div>
+                        )}
                       </div>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", borderTop: `1px solid ${theme.border}`, paddingTop: "12px", marginTop: "4px" }}>
-                        <div>
-                          <p style={{ margin: 0, fontSize: "9px", fontWeight: "800", color: "#94A3B8" }}>DEPARTMENT</p>
-                          <p style={{ margin: 0, fontSize: "12px", fontWeight: "600" }}>{s.department || "All Programs"}</p>
-                        </div>
-                        <div>
-                          <p style={{ margin: 0, fontSize: "9px", fontWeight: "800", color: "#94A3B8" }}>LAST LOGIN</p>
-                          <p style={{ margin: 0, fontSize: "11px", color: theme.textMuted }}>
-                            {s.last_login ? new Date(s.last_login).toLocaleDateString() : "Never"}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                {staff.length === 0 && <p style={{ textAlign: 'center', padding: '40px', color: theme.textMuted, fontSize: '12px' }}>No staff members found.</p>}
               </div>
             </div>
           </div>

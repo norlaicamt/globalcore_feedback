@@ -33,6 +33,15 @@ const FEEDBACK_TYPES = [
   { id: "Appreciation", label: "Appreciation", color: "#10B981", icon: <Icons.Heart /> },
 ];
 
+const hexToRgb = (hex) => {
+  if (!hex || !hex.startsWith('#')) return "16, 185, 129";
+  const h = hex.replace(/^#/, '');
+  const r = parseInt(h.length === 3 ? h[0]+h[0] : h.substring(0,2), 16);
+  const g = parseInt(h.length === 3 ? h[1]+h[1] : h.substring(2,4), 16);
+  const b = parseInt(h.length === 3 ? h[2]+h[2] : h.substring(4,6), 16);
+  return `${r}, ${g}, ${b}`;
+};
+
 const GeneralFeedback = ({ currentUser, onBack, onSuccess }) => {
   const { getLabel } = useTerminology();
   const [step, setStep] = useState("type");
@@ -71,6 +80,23 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess }) => {
   const [mentionSearch, setMentionSearch] = useState("");
   const [mentionSuggestions, setMentionSuggestions] = useState([]);
   const [selectedMentions, setSelectedMentions] = useState([]);
+
+  useEffect(() => {
+    const savedPublicColor = localStorage.getItem('public_primary_color');
+    if (savedPublicColor) {
+      document.documentElement.style.setProperty('--primary-color', savedPublicColor);
+      document.documentElement.style.setProperty('--primary-rgb', hexToRgb(savedPublicColor));
+    }
+
+    const handleStorageChange = (e) => {
+      if (e.key === 'public_primary_color' && e.newValue) {
+        document.documentElement.style.setProperty('--primary-color', e.newValue);
+        document.documentElement.style.setProperty('--primary-rgb', hexToRgb(e.newValue));
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(branchSearch), 300);

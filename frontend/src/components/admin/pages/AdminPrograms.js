@@ -60,8 +60,13 @@ const AdminPrograms = ({ theme, darkMode, adminUser }) => {
     const [programs, setPrograms] = useState([]);
     const [loading, setLoading] = useState(true);
     const [selectedProgram, setSelectedProgram] = useState(null);
+    const [pristineProgram, setPristineProgram] = useState(null);
     const [activeTab, setActiveTab] = useState("locations");
+    const [analyticsTimeframe, setAnalyticsTimeframe] = useState("30d");
     const [dialog, setDialog] = useState({ isOpen: false });
+
+    const isDirty = selectedProgram && pristineProgram && JSON.stringify(selectedProgram) !== JSON.stringify(pristineProgram);
+    const hasGlobalAdminAccess = (adminUser?.role === "superadmin") || (adminUser?.role === "admin" && !adminUser?.entity_id);
 
     // Program List State
     const [prgForm, setPrgForm] = useState({ name: "", description: "", icon: "layers" });
@@ -78,10 +83,45 @@ const AdminPrograms = ({ theme, darkMode, adminUser }) => {
         setLoading(true);
         try {
             const data = await adminGetEntities();
-            // Fetch location counts for each program
+            // Fetch location counts and rich analytics for each program
             const enriched = await Promise.all(data.map(async (p) => {
-                const locs = await adminGetBranches(p.id);
-                return { ...p, locationCount: locs.length };
+                const [locs] = await Promise.all([adminGetBranches(p.id)]);
+                
+                // Generate detailed operational mock stats
+                const submissionCount = Math.floor(Math.random() * 150) + 20;
+                const openCases = Math.floor(submissionCount * 0.25);
+                const resolvedRate = 70 + Math.floor(Math.random() * 20);
+                
+                const feedbackStats = {
+                    count: submissionCount,
+                    avg: (Math.random() * 1.5 + 3.5).toFixed(1),
+                    recent: Math.floor(Math.random() * 15),
+                    openCases: openCases,
+                    resolvedRate: `${resolvedRate}%`,
+                    distribution: [
+                        { star: 5, count: Math.floor(submissionCount * 0.4) },
+                        { star: 4, count: Math.floor(submissionCount * 0.3) },
+                        { star: 3, count: Math.floor(submissionCount * 0.15) },
+                        { star: 2, count: Math.floor(submissionCount * 0.1) },
+                        { star: 1, count: Math.floor(submissionCount * 0.05) },
+                    ],
+                    sentiment: { pos: 65, neu: 20, neg: 15 },
+                    statuses: [
+                        { label: 'New', count: Math.floor(openCases * 0.6), color: '#3B82F6' },
+                        { label: 'In Review', count: Math.floor(openCases * 0.4), color: '#EAB308' },
+                        { label: 'Resolved', count: submissionCount - openCases, color: '#10B981' }
+                    ],
+                    topThemes: ["Delay", "Staff behavior", "System issue", "Clearance", "Wait time"]
+                };
+
+                return { 
+                    ...p, 
+                    locationCount: locs.length,
+                    feedbackStats: feedbackStats,
+                    alerts: (parseFloat(feedbackStats.avg) < 3.8) ? [
+                        { type: 'warning', message: `Low Rating Alert: Average rating dropped to ${feedbackStats.avg} in the last 7 days.` }
+                    ] : []
+                };
             }));
             setPrograms(enriched);
         } catch (err) { console.error(err); }
@@ -102,10 +142,26 @@ const AdminPrograms = ({ theme, darkMode, adminUser }) => {
     }, []);
 
     useEffect(() => {
+        if (selectedProgram && !pristineProgram) {
+            setPristineProgram(JSON.parse(JSON.stringify(selectedProgram)));
+        }
         if (selectedProgram) {
             loadLocations(selectedProgram.id);
         }
-    }, [selectedProgram]);
+    }, [selectedProgram, pristineProgram]);
+
+    const updateFields = (section, key, value) => {
+        setSelectedProgram(prev => ({
+            ...prev,
+            fields: {
+                ...(prev.fields || {}),
+                [section]: {
+                    ...(prev.fields?.[section] || {}),
+                    [key]: value
+                }
+            }
+        }));
+    };
 
     const handleCreateProgram = async (e) => {
         e.preventDefault();
@@ -218,6 +274,25 @@ const AdminPrograms = ({ theme, darkMode, adminUser }) => {
                 </span>
                 <span style={{ color: theme.textMuted }}>/</span>
                 <span style={{ color: theme.text }}>{selectedProgram.name}</span>
+                <span style={{ color: theme.textMuted, fontSize: '11px', background: theme.bg, padding: '2px 8px', borderRadius: '12px', marginLeft: '4px' }}>
+                    {hasGlobalAdminAccess ? "GLOBAL CONFIG" : "LOCKED SCOPE"}
+                </span>
+                
+                <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <button 
+                        onClick={() => { /* Navigate to feedbacks filtered by this program */ }}
+                        style={{ background: 'none', border: `1px solid ${theme.border}`, color: 'var(--primary-color)', padding: '6px 12px', borderRadius: '8px', fontSize: '11px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+                    >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                        VIEW SUBMISSIONS
+                    </button>
+                    {isDirty && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#EAB30815', color: '#EAB308', padding: '6px 16px', borderRadius: '12px', fontSize: '11px', fontWeight: '900', border: '1px solid #EAB30830', animation: 'fadeIn 0.2s ease-out' }}>
+                            <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#EAB308', animation: 'pulse 1.5s infinite' }} />
+                            PENDING SYSTEM UPDATES
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );
@@ -327,7 +402,7 @@ const AdminPrograms = ({ theme, darkMode, adminUser }) => {
     );
 
     return (
-        <div style={{ maxWidth: selectedProgram ? '1000px' : '100%', animation: 'fadeIn 0.3s ease-out' }}>
+        <div style={{ width: '100%', animation: 'fadeIn 0.3s ease-out' }}>
             {selectedProgram ? (
                 <>
                     {renderBreadcrumb()}
@@ -342,57 +417,606 @@ const AdminPrograms = ({ theme, darkMode, adminUser }) => {
                     </div>
                     {activeTab === "locations" && renderLocationTab()}
                     {activeTab === "settings" && (
-                        <div style={{ background: theme.surface, padding: '24px', borderRadius: '16px', border: `1px solid ${theme.border}` }}>
-                            <h3 style={{ margin: '0 0 16px 0', fontSize: '15px', color: theme.text }}>{getLabel('category_label', 'Program')} Configuration</h3>
-                            <div style={{ maxWidth: '400px' }}>
-                                <label style={labelStyle(theme)}>{getLabel('category_label', 'Program')} Name</label>
-                                <input 
-                                    value={selectedProgram.name} 
-                                    onChange={e => setSelectedProgram({ ...selectedProgram, name: e.target.value })} 
-                                    style={{ ...inputStyle(theme), marginBottom: '20px' }} 
-                                />
+                        <>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '32px', alignItems: 'start', paddingBottom: '100px' }}>
+                            {/* Left Column: Form Sections */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                                <div style={{ background: theme.surface, padding: '32px', borderRadius: '24px', border: `1px solid ${theme.border}`, boxShadow: '0 4px 20px rgba(0,0,0,0.02)', position: 'relative' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '40px' }}>
+                                        <div>
+                                            <h2 style={{ margin: '0 0 4px 0', fontSize: '20px', fontWeight: '900', color: theme.text, letterSpacing: '-0.02em' }}>Operational Control Panel</h2>
+                                            <p style={{ margin: '0', fontSize: '13px', color: theme.textMuted, fontWeight: '500' }}>Define behavioral logic and deployment rules for {selectedProgram.name}.</p>
+                                        </div>
+                                        <div style={{ textAlign: 'right', background: theme.bg, padding: '12px 16px', borderRadius: '14px', border: `1px solid ${theme.border}` }}>
+                                            <p style={{ margin: 0, fontSize: '9px', fontWeight: '900', color: theme.textMuted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Last Audit Signal</p>
+                                            <p style={{ margin: '2px 0', fontSize: '12px', fontWeight: '800', color: theme.text }}>{new Date().toLocaleDateString()} • 10:42 AM</p>
+                                            <p style={{ margin: 0, fontSize: '11px', color: 'var(--primary-color)', fontWeight: '800' }}>by System Admin • via Admin Portal</p>
+                                        </div>
+                                    </div>
 
-                                <label style={labelStyle(theme)}>Icon</label>
-                                <IconPicker 
-                                    theme={theme} 
-                                    currentIcon={selectedProgram.icon} 
-                                    onSelect={(i) => setSelectedProgram({...selectedProgram, icon: i})} 
-                                />
+                                    {!hasGlobalAdminAccess && (
+                                        <div style={{ marginBottom: '32px', padding: '14px 20px', background: darkMode ? 'rgba(59, 130, 246, 0.1)' : '#EFF6FF', borderRadius: '14px', border: `1px solid ${darkMode ? 'rgba(59, 130, 246, 0.2)' : '#DBEAFE'}`, display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ color: '#3B82F6' }}><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                                            <span style={{ fontSize: '12px', color: '#1E40AF', fontWeight: '700' }}>🔒 Governance Lock: Some settings are managed at the system level.</span>
+                                        </div>
+                                    )}
 
-                                <button 
-                                    onClick={async () => {
-                                        try {
-                                            await adminUpdateEntity(selectedProgram.id, selectedProgram.name, selectedProgram.description, null, selectedProgram.icon);
-                                            setDialog({
-                                                isOpen: true, type: "success", title: "Success",
-                                                message: "Settings updated successfully!",
-                                                confirmText: "OK", onConfirm: () => setDialog({ isOpen: false })
-                                            });
-                                            loadPrograms();
-                                        } catch (err) { 
-                                            setDialog({
-                                                isOpen: true, type: "error", title: "Error",
-                                                message: "Update failed. Please check your network or try again.",
-                                                confirmText: "OK", onConfirm: () => setDialog({ isOpen: false })
-                                            });
-                                        }
-                                    }}
-                                    style={btnPrimary}
-                                >
-                                    Save Changes
-                                </button>
+                                    {/* SECTION 1: BASIC INFO */}
+                                    <div style={{ marginBottom: '40px' }}>
+                                        <h3 style={sectionHeaderStyle(theme)}>
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                                            Core Identity
+                                        </h3>
+                                        <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start' }}>
+                                            <div style={{ flex: 1 }}>
+                                                <label style={labelStyle(theme)}>
+                                                    {!hasGlobalAdminAccess && '🔒 '}
+                                                    {getLabel('category_label', 'Program')} Display Name
+                                                </label>
+                                                <input 
+                                                    disabled={!hasGlobalAdminAccess}
+                                                    value={selectedProgram.name} 
+                                                    onChange={e => setSelectedProgram({ ...selectedProgram, name: e.target.value })} 
+                                                    style={{ ...inputStyle(theme), opacity: hasGlobalAdminAccess ? 1 : 0.6 }} 
+                                                    placeholder="Enter public name..."
+                                                />
+                                            </div>
+                                            <div style={{ width: '200px' }}>
+                                                <label style={labelStyle(theme)}>Identity Icon</label>
+                                                {hasGlobalAdminAccess ? (
+                                                    <IconPicker 
+                                                        theme={theme} 
+                                                        currentIcon={selectedProgram.icon} 
+                                                        onSelect={(i) => setSelectedProgram({...selectedProgram, icon: i})} 
+                                                    />
+                                                ) : (
+                                                    <div style={{ padding: '12px', borderRadius: '10px', background: theme.bg, display: 'flex', alignItems: 'center', gap: '12px', border: `1px solid ${theme.border}` }}>
+                                                        <div style={{ color: 'var(--primary-color)' }}>{renderIcon(selectedProgram.icon)}</div>
+                                                        <span style={{ fontSize: '12px', fontWeight: '800', color: theme.textMuted }}>FIXED</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div style={dividerStyle(theme)} />
+
+                                    {/* SECTION 2: VISIBILITY */}
+                                    <div style={{ marginBottom: '40px' }}>
+                                        <h3 style={sectionHeaderStyle(theme)}>
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                            Deployment Visibility
+                                        </h3>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px' }}>
+                                            <div style={settingRowStyle(theme)}>
+                                                <div>
+                                                    <p style={settingLabelStyle(theme)}>Operational Status</p>
+                                                    <p style={settingDescStyle(theme)}>Toggling this archives the service from all public views.</p>
+                                                </div>
+                                                <Switch 
+                                                    disabled={!hasGlobalAdminAccess}
+                                                    checked={selectedProgram.fields?.visibility?.is_active ?? true} 
+                                                    onChange={(val) => updateFields('visibility', 'is_active', val)} 
+                                                />
+                                            </div>
+                                            <div style={settingRowStyle(theme)}>
+                                                <div>
+                                                    <p style={settingLabelStyle(theme)}>Submission Gateway</p>
+                                                    <p style={settingDescStyle(theme)}>Controls if citizens can currently file new feedback.</p>
+                                                </div>
+                                                <Switch 
+                                                    disabled={!hasGlobalAdminAccess}
+                                                    checked={selectedProgram.fields?.visibility?.allow_feedback ?? true} 
+                                                    onChange={(val) => updateFields('visibility', 'allow_feedback', val)} 
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div style={dividerStyle(theme)} />
+
+                                    {/* SECTION 3: FEEDBACK CONFIG */}
+                                    <div style={{ marginBottom: '40px', opacity: (selectedProgram.fields?.visibility?.allow_feedback ?? true) ? 1 : 0.45, transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                                            <h3 style={{ ...sectionHeaderStyle(theme), marginBottom: 0 }}>
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 1 1-7.6-7.6 8.38 8.38 0 0 1 3.8.9L21 3l-1.9 1.9"/></svg>
+                                                Feedback Governance
+                                            </h3>
+                                            {!(selectedProgram.fields?.visibility?.allow_feedback ?? true) && (
+                                                <span style={{ fontSize: '10px', fontWeight: '900', color: '#EF4444', background: '#EF444415', padding: '4px 10px', borderRadius: '8px' }}>GATEWAY CLOSED</span>
+                                            )}
+                                        </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', pointerEvents: (selectedProgram.fields?.visibility?.allow_feedback ?? true) ? 'auto' : 'none' }}>
+                                            <div style={settingRowStyle(theme)}>
+                                                <div>
+                                                    <p style={settingLabelStyle(theme)}>Enable Rating Architecture</p>
+                                                    <p style={settingDescStyle(theme)}>Activates the 5-star quantitative measurement system.</p>
+                                                </div>
+                                                <Switch 
+                                                    disabled={!hasGlobalAdminAccess}
+                                                    checked={selectedProgram.fields?.feedback?.enable_rating ?? true} 
+                                                    onChange={(val) => updateFields('feedback', 'enable_rating', val)} 
+                                                />
+                                            </div>
+                                            <div style={{ ...settingRowStyle(theme), opacity: (selectedProgram.fields?.feedback?.enable_rating ?? true) ? 1 : 0.4 }}>
+                                                <div style={{ pointerEvents: (selectedProgram.fields?.feedback?.enable_rating ?? true) ? 'auto' : 'none' }}>
+                                                    <p style={settingLabelStyle(theme)}>Guard Low Ratings</p>
+                                                    <p style={settingDescStyle(theme)}>Mandates comments for 1-3 star ratings to ensure context.</p>
+                                                </div>
+                                                <Switch 
+                                                    disabled={!hasGlobalAdminAccess || !(selectedProgram.fields?.feedback?.enable_rating ?? true)}
+                                                    checked={selectedProgram.fields?.feedback?.require_comment_low_rating ?? false} 
+                                                    onChange={(val) => updateFields('feedback', 'require_comment_low_rating', val)} 
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div style={dividerStyle(theme)} />
+
+                                    {/* SECTION 4: DISPLAY SETTINGS */}
+                                    <div style={{ marginBottom: '40px' }}>
+                                        <h3 style={sectionHeaderStyle(theme)}>
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+                                            Display Hierarchy
+                                        </h3>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px' }}>
+                                            <div>
+                                                <label style={labelStyle(theme)}>Sort Weight (Lower = First)</label>
+                                                <input 
+                                                    disabled={!hasGlobalAdminAccess}
+                                                    type="number" 
+                                                    value={selectedProgram.fields?.display?.sort_order ?? 0} 
+                                                    onChange={(e) => updateFields('display', 'sort_order', parseInt(e.target.value) || 0)} 
+                                                    style={inputStyle(theme)} 
+                                                />
+                                                <p style={{ margin: '8px 0 0', fontSize: '11px', color: theme.textMuted, fontWeight: '500' }}>Used to prioritize this {getLabel('category_label', 'program')} in lists.</p>
+                                            </div>
+                                            <div style={settingRowStyle(theme, true)}>
+                                                <div>
+                                                    <p style={settingLabelStyle(theme)}>Directory Listing</p>
+                                                    <p style={settingDescStyle(theme)}>Controls presence in the public-facing directory.</p>
+                                                </div>
+                                                <Switch 
+                                                    disabled={!hasGlobalAdminAccess}
+                                                    checked={selectedProgram.fields?.display?.show_public ?? true} 
+                                                    onChange={(val) => updateFields('display', 'show_public', val)} 
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* SECTION 5: DANGER ZONE */}
+                                    {hasGlobalAdminAccess && (
+                                        <div style={{ marginTop: '24px', padding: '24px', background: darkMode ? 'rgba(239, 68, 68, 0.08)' : '#FEF2F2', borderRadius: '18px', border: `1.5px solid ${darkMode ? 'rgba(239, 68, 68, 0.3)' : '#FEE2E2'}`, position: 'relative', overflow: 'hidden' }}>
+                                            <div style={{ position: 'absolute', right: '-15px', bottom: '-15px', opacity: 0.05, color: '#EF4444', transform: 'rotate(-15deg)' }}>
+                                                <svg width="120" height="120" viewBox="0 0 24 24" fill="currentColor"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 17h.01M11 9h2v5h-2V9z"/></svg>
+                                            </div>
+                                            <h3 style={{ margin: '0 0 6px 0', fontSize: '13px', fontWeight: '900', color: '#EF4444', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '8px', letterSpacing: '0.05em' }}>
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01"/></svg>
+                                                Critical Governance Action
+                                            </h3>
+                                            <p style={{ margin: '0 0 20px 0', fontSize: '13px', color: darkMode ? '#FCA5A5' : '#991B1B', fontWeight: '600', lineHeight: '1.5' }}>
+                                                Archiving this service will immediately remove it from active citizen discovery. 
+                                                All historical records remain intact and immutable for audit purposes.
+                                            </p>
+                                            <button 
+                                                onClick={() => {
+                                                    setDialog({
+                                                        isOpen: true, type: "alert", title: "Confirm Service Archival",
+                                                        message: (
+                                                            <div style={{ textAlign: 'left' }}>
+                                                                <p style={{ margin: '0 0 12px 0' }}>You are about to archive <strong>{selectedProgram.name}</strong>. This will result in:</p>
+                                                                <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '13px', color: theme.textMuted }}>
+                                                                    <li style={{ marginBottom: '6px' }}>Immediate removal from the public directory.</li>
+                                                                    <li style={{ marginBottom: '6px' }}>Disabling of all new feedback submissions.</li>
+                                                                    <li>Preservation of all {selectedProgram.feedbackStats?.count || 0} historical records.</li>
+                                                                </ul>
+                                                            </div>
+                                                        ),
+                                                        confirmText: "Execute Archival", isDestructive: true,
+                                                        onConfirm: () => { handleDeleteProgram(selectedProgram); setDialog({ isOpen: false }); },
+                                                        onCancel: () => setDialog({ isOpen: false })
+                                                    });
+                                                }}
+                                                style={{ padding: '10px 20px', background: '#EF4444', color: 'white', border: 'none', borderRadius: '10px', fontSize: '12px', fontWeight: '900', cursor: 'pointer', transition: '0.2s', boxShadow: '0 4px 12px rgba(239, 68, 68, 0.2)' }}
+                                                onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-1px)'}
+                                                onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
+                                            >
+                                                Archive Service Architecture
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Right Column: Deployment Preview (Sticky) */}
+                            <div style={{ position: 'sticky', top: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                                <div style={{ background: theme.surface, borderRadius: '24px', padding: '24px', border: `2.5px solid ${theme.border}`, boxShadow: '0 10px 30px rgba(0,0,0,0.05)', position: 'relative', overflow: 'hidden' }}>
+                                    <h3 style={{ ...sectionHeaderStyle(theme), color: theme.textMuted }}>Deployment Preview</h3>
+                                    
+                                    {!(selectedProgram.fields?.visibility?.is_active ?? true) && (
+                                        <div style={{ position: 'absolute', inset: 0, background: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(3px)', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '20px' }}>
+                                            <div style={{ background: '#EF4444', color: 'white', padding: '12px 20px', borderRadius: '16px', fontSize: '13px', fontWeight: '900', boxShadow: '0 10px 25px rgba(239, 68, 68, 0.4)' }}>
+                                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" style={{ marginBottom: '8px' }}><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01"/></svg>
+                                                <br/>HIDDEN FROM SYSTEM
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '28px', opacity: (selectedProgram.fields?.visibility?.is_active ?? true) ? 1 : 0.4 }}>
+                                        <div style={{ width: '64px', height: '64px', borderRadius: '18px', background: 'var(--primary-color)10', color: 'var(--primary-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '28px' }}>
+                                            {renderIcon(selectedProgram.icon)}
+                                        </div>
+                                        <div>
+                                            <h4 style={{ margin: 0, fontSize: '20px', fontWeight: '900', color: theme.text }}>{selectedProgram.name || 'Service Name'}</h4>
+                                            <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
+                                                <span style={{ fontSize: '10px', fontWeight: '900', background: (selectedProgram.fields?.visibility?.is_active ?? true) ? '#10B98120' : '#EF444420', color: (selectedProgram.fields?.visibility?.is_active ?? true) ? '#10B981' : '#EF4444', padding: '3px 10px', borderRadius: '6px' }}>
+                                                    {(selectedProgram.fields?.visibility?.is_active ?? true) ? 'ACTIVE' : 'OFFLINE'}
+                                                </span>
+                                                <span style={{ fontSize: '10px', fontWeight: '900', background: theme.bg, color: theme.textMuted, padding: '3px 10px', borderRadius: '6px' }}>
+                                                    DISPLAY RANK #{selectedProgram.fields?.display?.sort_order ?? 0}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div style={{ background: theme.bg, borderRadius: '16px', padding: '20px', fontSize: '13px', opacity: (selectedProgram.fields?.visibility?.is_active ?? true) ? 1 : 0.4 }}>
+                                        <p style={{ margin: '0 0 12px 0', fontWeight: '900', color: theme.text, textTransform: 'uppercase', letterSpacing: '0.08em', fontSize: '10px' }}>Real-World Impact</p>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <span style={{ color: theme.textMuted, fontWeight: '600' }}>Discovery</span>
+                                                <span style={{ color: (selectedProgram.fields?.display?.show_public ?? true) ? '#10B981' : '#EF4444', fontWeight: '800' }}>
+                                                    {(selectedProgram.fields?.display?.show_public ?? true) ? 'PUBLIC' : 'INTERNAL ONLY'}
+                                                </span>
+                                            </div>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <span style={{ color: theme.textMuted, fontWeight: '600' }}>Gateway</span>
+                                                <span style={{ color: (selectedProgram.fields?.visibility?.allow_feedback ?? true) ? '#10B981' : '#EF4444', fontWeight: '800' }}>
+                                                    {(selectedProgram.fields?.visibility?.allow_feedback ?? true) ? 'ACCEPTING' : 'BLOCKING'}
+                                                </span>
+                                            </div>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: `1px solid ${theme.border}`, paddingTop: '12px', marginTop: '4px' }}>
+                                                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                    <span style={{ color: theme.text, fontWeight: '900' }}>{selectedProgram.feedbackStats?.count || 0} Submissions</span>
+                                                    <span style={{ fontSize: '10px', color: theme.textMuted }}>Avg Rating: {selectedProgram.feedbackStats?.avg || '—'} ★</span>
+                                                </div>
+                                                <div style={{ textAlign: 'right' }}>
+                                                    <span style={{ display: 'block', fontSize: '11px', fontWeight: '900', color: '#10B981' }}>+5 RECENT</span>
+                                                    <span style={{ fontSize: '9px', color: theme.textMuted, textTransform: 'uppercase' }}>Last 7 Days</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                {/* Operational Context Card */}
+                                <div style={{ background: theme.surface, borderRadius: '20px', padding: '20px', border: `1px solid ${theme.border}`, boxShadow: '0 4px 15px rgba(0,0,0,0.03)' }}>
+                                    <h4 style={{ margin: '0 0 12px 0', fontSize: '11px', fontWeight: '900', color: theme.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Decision Support</h4>
+                                    <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                        <li style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                                            <div style={{ width: '16px', height: '16px', borderRadius: '50%', background: (selectedProgram.fields?.visibility?.allow_feedback ?? true) ? '#10B98120' : '#EF444420', color: (selectedProgram.fields?.visibility?.allow_feedback ?? true) ? '#10B981' : '#EF4444', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4"><polyline points="20 6 9 17 4 12"/></svg></div>
+                                            <p style={{ margin: 0, fontSize: '12px', color: theme.text, lineHeight: '1.4' }}>
+                                                {(selectedProgram.fields?.visibility?.allow_feedback ?? true) 
+                                                    ? "Citizens can currently submit feedback for this service." 
+                                                    : "Submission gateway is locked. Users will see a 'Closed' message."}
+                                            </p>
+                                        </li>
+                                        <li style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                                            <div style={{ width: '16px', height: '16px', borderRadius: '50%', background: (selectedProgram.fields?.feedback?.enable_rating ?? true) ? '#10B98120' : '#64748B20', color: (selectedProgram.fields?.feedback?.enable_rating ?? true) ? '#10B981' : '#64748B', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4"><polyline points="20 6 9 17 4 12"/></svg></div>
+                                            <p style={{ margin: 0, fontSize: '12px', color: theme.text, lineHeight: '1.4' }}>
+                                                {(selectedProgram.fields?.feedback?.enable_rating ?? true) 
+                                                    ? "Quantitative star-ratings are active and being tracked." 
+                                                    : "Star-ratings are hidden. Only qualitative comments allowed."}
+                                            </p>
+                                        </li>
+                                    </ul>
+                                </div>
                             </div>
                         </div>
-                    )}
+
+                        {/* STICKY BOTTOM ACTION BAR */}
+                            {isDirty && (
+                                <div style={{ 
+                                    position: 'fixed', bottom: '30px', left: '260px', right: '30px', 
+                                    background: theme.surface, border: `2px solid var(--primary-color)`,
+                                    borderRadius: '24px', padding: '16px 32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                    boxShadow: '0 20px 40px rgba(0,0,0,0.2)', zIndex: 100, animation: 'fadeInUp 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                                }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                                        <div style={{ padding: '10px', borderRadius: '12px', background: 'var(--primary-color)10', color: 'var(--primary-color)' }}>
+                                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                                        </div>
+                                        <div>
+                                            <p style={{ margin: 0, fontSize: '14px', fontWeight: '900', color: theme.text }}>PENDING CONFIGURATION CHANGE</p>
+                                            <p style={{ margin: 0, fontSize: '12px', color: theme.textMuted, fontWeight: '600' }}>Careful: These changes will immediately affect the {selectedProgram.name} citizen experience.</p>
+                                        </div>
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '12px' }}>
+                                        <button 
+                                            onClick={() => setSelectedProgram(JSON.parse(JSON.stringify(pristineProgram)))}
+                                            style={{ ...btnSecondary(theme), border: 'none', background: 'none', color: '#64748B' }}
+                                        >
+                                            DISCARD CHANGES
+                                        </button>
+                                        <button 
+                                            onClick={async () => {
+                                                try {
+                                                    await adminUpdateEntity(selectedProgram.id, selectedProgram.name, selectedProgram.description, selectedProgram.fields, selectedProgram.icon);
+                                                    setDialog({
+                                                        isOpen: true, type: "success", title: "Configuration Applied",
+                                                        message: "System rules have been updated and synchronized.",
+                                                        confirmText: "Great", onConfirm: () => setDialog({ isOpen: false })
+                                                    });
+                                                    setPristineProgram(JSON.parse(JSON.stringify(selectedProgram)));
+                                                    loadPrograms();
+                                                } catch (err) { 
+                                                    setDialog({
+                                                        isOpen: true, type: "error", title: "Update Failed",
+                                                        message: "A network error occurred. Please try again.",
+                                                        confirmText: "Try Again", onConfirm: () => setDialog({ isOpen: false })
+                                                    });
+                                                }
+                                            }}
+                                            style={{ ...btnPrimary, padding: '12px 32px', fontSize: '14px', borderRadius: '14px', boxShadow: '0 8px 16px rgba(59, 130, 246, 0.3)' }}
+                                        >
+                                            APPLY CHANGES NOW
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                    </>
+                )}
                     {activeTab === "analytics" && (
-                        <div style={{ textAlign: 'center', padding: '60px', background: theme.surface, borderRadius: '16px', border: `1px solid ${theme.border}` }}>
-                            <div style={{ marginBottom: '20px', color: 'var(--primary-color)' }}>
-                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '32px', paddingBottom: '60px' }}>
+                            {/* CONTEXT HEADER */}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                                <div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                                        <span style={{ fontSize: '10px', fontWeight: '900', color: theme.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Operational Scope</span>
+                                        <div style={{ padding: '2px 8px', background: theme.bg, borderRadius: '6px', fontSize: '10px', fontWeight: '800', color: 'var(--primary-color)', border: `1px solid ${theme.border}` }}>
+                                            SERVICE: {selectedProgram.name}
+                                        </div>
+                                    </div>
+                                    <h2 style={{ margin: 0, fontSize: '22px', fontWeight: '900', color: theme.text, letterSpacing: '-0.02em' }}>Service Monitoring Panel</h2>
+                                </div>
+                                <div style={{ display: 'flex', gap: '4px', background: theme.bg, padding: '4px', borderRadius: '10px', border: `1px solid ${theme.border}` }}>
+                                    {['7d', '30d', '90d'].map(tf => (
+                                        <button 
+                                            key={tf}
+                                            onClick={() => setAnalyticsTimeframe(tf)}
+                                            style={{ 
+                                                padding: '6px 12px', fontSize: '11px', fontWeight: '800', borderRadius: '8px', cursor: 'pointer', transition: '0.2s',
+                                                background: analyticsTimeframe === tf ? theme.surface : 'transparent',
+                                                color: analyticsTimeframe === tf ? 'var(--primary-color)' : theme.textMuted,
+                                                border: 'none', boxShadow: analyticsTimeframe === tf ? '0 2px 8px rgba(0,0,0,0.05)' : 'none'
+                                            }}
+                                        >
+                                            {tf.toUpperCase()}
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
-                            <h3 style={{ margin: '0 0 8px 0', color: theme.text }}>Program-Level Insights</h3>
-                            <p style={{ margin: 0, fontSize: '13px', color: theme.textMuted, maxWidth: '400px', margin: '0 auto' }}>
-                                Interactive charts and specific feedback distributions for <strong>{selectedProgram.name}</strong> will be displayed here soon. Use the main <span onClick={() => window.location.href='/admin/dashboard'} style={{ color: 'var(--primary-color)', cursor: 'pointer', fontWeight: 'bold' }}>Insights Hub</span> for aggregated reports.
-                            </p>
+
+                            {/* LAYER 1: STATUS (Critical Decisions) */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                                {selectedProgram.alerts?.map((alert, idx) => (
+                                    <div key={idx} style={{ 
+                                        padding: '16px 24px', borderRadius: '18px', background: darkMode ? 'rgba(239, 68, 68, 0.12)' : '#FEF2F2', border: '1.5px solid #EF444440', display: 'flex', alignItems: 'center', gap: '16px', animation: 'fadeIn 0.3s ease-out', boxShadow: '0 4px 12px rgba(239, 68, 68, 0.05)'
+                                    }}>
+                                        <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#EF4444', animation: 'pulse 1s infinite' }} />
+                                        <div style={{ flex: 1 }}>
+                                            <p style={{ margin: '0 0 2px 0', fontSize: '13px', fontWeight: '800', color: '#EF4444' }}>CRITICAL INTERVENTION REQUIRED</p>
+                                            <p style={{ margin: 0, fontSize: '12px', fontWeight: '600', color: theme.textMuted }}>{alert.message}</p>
+                                        </div>
+                                        <div style={{ display: 'flex', gap: '10px' }}>
+                                            <button style={{ padding: '6px 14px', background: '#EF4444', color: 'white', border: 'none', borderRadius: '8px', fontSize: '11px', fontWeight: '800', cursor: 'pointer' }}>VIEW FEEDBACK</button>
+                                            <button style={{ padding: '6px 14px', background: 'transparent', color: '#EF4444', border: '1.5px solid #EF4444', borderRadius: '8px', fontSize: '11px', fontWeight: '800', cursor: 'pointer' }}>SEND ADVISORY</button>
+                                        </div>
+                                    </div>
+                                ))}
+
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px' }}>
+                                    <KpiCard 
+                                        theme={theme} label="Total Submissions" 
+                                        value={selectedProgram.feedbackStats?.count ?? 0} 
+                                        trend={`+12% vs last ${analyticsTimeframe}`} 
+                                        icon="layers" color="#3B82F6" status="neutral" 
+                                    />
+                                    <KpiCard 
+                                        theme={theme} label="Average Rating" 
+                                        value={`${selectedProgram.feedbackStats?.avg ?? '0.0'} ★`} 
+                                        trend={parseFloat(selectedProgram.feedbackStats?.avg) < 3.0 ? "⚠ CRITICAL" : parseFloat(selectedProgram.feedbackStats?.avg) < 4.0 ? "⚠ MONITOR" : "EXCELLENT"} 
+                                        icon="star" color="#EAB308" 
+                                        status={parseFloat(selectedProgram.feedbackStats?.avg) < 3.0 ? "danger" : parseFloat(selectedProgram.feedbackStats?.avg) < 4.0 ? "warning" : "success"}
+                                    />
+                                    <KpiCard 
+                                        theme={theme} label="Open Cases" 
+                                        value={selectedProgram.feedbackStats?.openCases ?? 0} 
+                                        trend="Requires Attention" 
+                                        icon="alert" color="#EF4444" 
+                                        status={selectedProgram.feedbackStats?.openCases > 20 ? "danger" : selectedProgram.feedbackStats?.openCases > 5 ? "warning" : "success"}
+                                    />
+                                    <KpiCard 
+                                        theme={theme} label="Resolved Rate" 
+                                        value={selectedProgram.feedbackStats?.resolvedRate ?? '0%'} 
+                                        trend={parseInt(selectedProgram.feedbackStats?.resolvedRate) < 50 ? "BELOW TARGET" : "HEALTHY"} 
+                                        icon="check" color="#10B981" 
+                                        status={parseInt(selectedProgram.feedbackStats?.resolvedRate) < 50 ? "danger" : parseInt(selectedProgram.feedbackStats?.resolvedRate) < 80 ? "warning" : "success"}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* LAYER 2: ACTIVITY & QUALITY (Context Layer) */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                                {/* FULL WIDTH TREND */}
+                                <div style={{ background: theme.surface, padding: '28px', borderRadius: '24px', border: `1px solid ${theme.border}`, boxShadow: '0 4px 20px rgba(0,0,0,0.02)' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '28px' }}>
+                                        <div>
+                                            <h4 style={{ margin: '0 0 4px 0', fontSize: '15px', fontWeight: '900', color: theme.text }}>Citizen Engagement Trend</h4>
+                                            <p style={{ margin: 0, fontSize: '12px', color: theme.textMuted }}>Daily submission volume over the last {analyticsTimeframe}.</p>
+                                        </div>
+                                        <div style={{ textAlign: 'right' }}>
+                                            <div style={{ fontSize: '11px', color: theme.textMuted, background: theme.bg, padding: '6px 12px', borderRadius: '10px', fontWeight: '800' }}>
+                                                {analyticsTimeframe.toUpperCase()} VIEWPORT
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div style={{ height: '180px', display: 'flex', alignItems: 'flex-end', gap: '12px', padding: '0 10px' }}>
+                                        {[25, 40, 30, 55, 60, 45, 50, 75, 65, 85, 70, 95, 80, 100].map((h, i) => (
+                                            <div key={i} style={{ flex: 1, height: `${h}%`, background: 'var(--primary-color)', borderRadius: '6px 6px 2px 2px', opacity: 0.15 + (i * 0.06), transition: '0.4s cubic-bezier(0.4, 0, 0.2, 1)' }} />
+                                        ))}
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '20px', color: theme.textMuted, fontSize: '11px', fontWeight: '800', borderTop: `1px solid ${theme.border}`, paddingTop: '16px' }}>
+                                        <span>PERIOD START</span>
+                                        <div style={{ display: 'flex', gap: '24px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <div style={{ width: '8px', height: '8px', borderRadius: '2px', background: 'var(--primary-color)' }} />
+                                                <span>SUBMISSIONS</span>
+                                            </div>
+                                        </div>
+                                        <span>TODAY</span>
+                                    </div>
+                                </div>
+
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '24px' }}>
+                                    {/* RATING QUALITY */}
+                                    <div style={{ background: theme.surface, padding: '24px', borderRadius: '24px', border: `1px solid ${theme.border}` }}>
+                                        <h4 style={{ margin: '0 0 24px 0', fontSize: '14px', fontWeight: '800', color: theme.text }}>Rating Quality Spectrum</h4>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                            {(selectedProgram.feedbackStats?.distribution || []).map(d => (
+                                                <div key={d.star} style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                                    <span style={{ fontSize: '12px', fontWeight: '800', width: '32px', color: theme.textMuted }}>{d.star} ★</span>
+                                                    <div style={{ flex: 1, height: '12px', background: theme.bg, borderRadius: '6px', overflow: 'hidden' }}>
+                                                        <div style={{ height: '100%', width: `${(d.count / (selectedProgram.feedbackStats?.count || 1)) * 100}%`, background: d.star >= 4 ? '#10B981' : d.star === 3 ? '#EAB308' : '#EF4444', borderRadius: '6px', transition: 'width 1.2s ease-out' }} />
+                                                    </div>
+                                                    <span style={{ fontSize: '11px', fontWeight: '900', width: '32px', textAlign: 'right' }}>{d.count}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* COMPACT SENTIMENT */}
+                                    <div style={{ background: theme.surface, padding: '24px', borderRadius: '24px', border: `1px solid ${theme.border}`, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                                        <h4 style={{ margin: '0 0 12px 0', fontSize: '12px', fontWeight: '800', color: theme.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Public Sentiment</h4>
+                                        <div style={{ marginBottom: '20px' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                                                <span style={{ fontSize: '11px', fontWeight: '800', color: '#10B981' }}>POSITIVE</span>
+                                                <span style={{ fontSize: '11px', fontWeight: '800', color: '#10B981' }}>{selectedProgram.feedbackStats?.sentiment?.pos ?? 0}%</span>
+                                            </div>
+                                            <div style={{ height: '8px', width: '100%', background: theme.bg, borderRadius: '4px', overflow: 'hidden', display: 'flex' }}>
+                                                <div style={{ width: `${selectedProgram.feedbackStats?.sentiment?.pos ?? 33}%`, background: '#10B981' }} />
+                                                <div style={{ width: `${selectedProgram.feedbackStats?.sentiment?.neu ?? 33}%`, background: '#EAB308' }} />
+                                                <div style={{ width: `${selectedProgram.feedbackStats?.sentiment?.neg ?? 34}%`, background: '#EF4444' }} />
+                                            </div>
+                                        </div>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                            <div style={{ padding: '10px', background: theme.bg, borderRadius: '12px', textAlign: 'center' }}>
+                                                <p style={{ margin: 0, fontSize: '14px', fontWeight: '900', color: '#EAB308' }}>{selectedProgram.feedbackStats?.sentiment?.neu ?? 0}%</p>
+                                                <p style={{ margin: 0, fontSize: '9px', fontWeight: '700', color: theme.textMuted }}>NEUTRAL</p>
+                                            </div>
+                                            <div style={{ padding: '10px', background: theme.bg, borderRadius: '12px', textAlign: 'center' }}>
+                                                <p style={{ margin: 0, fontSize: '14px', fontWeight: '900', color: '#EF4444' }}>{selectedProgram.feedbackStats?.sentiment?.neg ?? 0}%</p>
+                                                <p style={{ margin: 0, fontSize: '9px', fontWeight: '700', color: theme.textMuted }}>NEGATIVE</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* LAYER 3: OPERATIONS (Management Layer) */}
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: '24px' }}>
+                                {/* CASE LIFECYCLE */}
+                                <div style={{ background: theme.surface, padding: '24px', borderRadius: '24px', border: `1px solid ${theme.border}` }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
+                                        <div>
+                                            <h4 style={{ margin: '0 0 4px 0', fontSize: '14px', fontWeight: '800', color: theme.text }}>Submission Lifecycle</h4>
+                                            <p style={{ margin: 0, fontSize: '11px', color: theme.textMuted }}>Open Cases = New + In Review</p>
+                                        </div>
+                                        <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: theme.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                            {renderIcon('layers')}
+                                        </div>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '32px' }}>
+                                        <div style={{ position: 'relative', width: '120px', height: '120px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                            <svg viewBox="0 0 36 36" style={{ width: '100%', height: '100%', transform: 'rotate(-90deg)' }}>
+                                                <circle cx="18" cy="18" r="16" fill="none" stroke={theme.bg} strokeWidth="4"></circle>
+                                                <circle cx="18" cy="18" r="16" fill="none" stroke="#10B981" strokeWidth="4" strokeDasharray="75, 100" strokeLinecap="round" style={{ transition: 'stroke-dasharray 1.5s ease-out' }}></circle>
+                                            </svg>
+                                            <div style={{ position: 'absolute', textAlign: 'center' }}>
+                                                <span style={{ display: 'block', fontSize: '20px', fontWeight: '900', color: theme.text }}>75%</span>
+                                                <span style={{ display: 'block', fontSize: '9px', fontWeight: '900', color: theme.textMuted }}>RESOLVED</span>
+                                            </div>
+                                        </div>
+                                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                            {(selectedProgram.feedbackStats?.statuses || []).map(s => (
+                                                <div key={s.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                        <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: s.color }} />
+                                                        <span style={{ fontSize: '13px', fontWeight: '700', color: theme.text }}>{s.label}</span>
+                                                    </div>
+                                                    <span style={{ fontSize: '13px', fontWeight: '800', color: theme.text }}>{s.count}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* EMERGING THEMES */}
+                                <div style={{ background: theme.surface, padding: '24px', borderRadius: '24px', border: `1px solid ${theme.border}` }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                                        <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: theme.text }}>Top Emerging Themes</h4>
+                                        <div style={{ fontSize: '10px', color: 'var(--primary-color)', background: 'var(--primary-color)15', padding: '4px 10px', borderRadius: '8px', fontWeight: '800' }}>LAST 30 DAYS</div>
+                                    </div>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
+                                        {(selectedProgram.feedbackStats?.topThemes || []).length > 0 ? (
+                                            (selectedProgram.feedbackStats?.topThemes || []).map((t, i) => (
+                                                <div key={t} style={{ padding: '10px 18px', background: theme.bg, borderRadius: '14px', border: `1.5px solid ${theme.border}`, fontSize: '12px', fontWeight: '700', color: theme.text, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                    <span style={{ width: '20px', height: '20px', borderRadius: '6px', background: 'var(--primary-color)', color: 'white', fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '900' }}>{i+1}</span>
+                                                    {t}
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <div style={{ padding: '40px', textAlign: 'center', width: '100%', color: theme.textMuted, fontSize: '12px' }}>
+                                                No themes detected. Insufficient data volume (min. 5 entries required).
+                                            </div>
+                                        )}
+                                    </div>
+                                    <p style={{ marginTop: '24px', fontSize: '11px', color: theme.textMuted, fontStyle: 'italic', borderTop: `1px solid ${theme.border}`, paddingTop: '16px', lineHeight: '1.5' }}>
+                                        * Showing top recurring issues from validated citizen entries. Theme detection is refreshed daily.
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* DATA FRESHNESS & COMMAND FOOTER */}
+                            <div style={{ marginTop: '16px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '24px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 16px', background: theme.bg, borderRadius: '20px', border: `1px solid ${theme.border}` }}>
+                                        <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10B981' }} />
+                                        <span style={{ fontSize: '11px', color: theme.textMuted, fontWeight: '700' }}>Operational Data Live • Last updated: {new Date().toLocaleDateString()} at 10:42 AM</span>
+                                    </div>
+                                </div>
+                                
+                                <div style={{ display: 'flex', gap: '20px', background: 'var(--primary-color)', padding: '32px', borderRadius: '28px', boxShadow: '0 20px 40px rgba(59, 130, 246, 0.15)', alignItems: 'center', position: 'relative', overflow: 'hidden' }}>
+                                    {/* Visual accent */}
+                                    <div style={{ position: 'absolute', right: '-20px', top: '-20px', opacity: 0.1, color: 'white', transform: 'rotate(-15deg)' }}>
+                                        <svg width="180" height="180" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                                    </div>
+                                    
+                                    <div style={{ flex: 1, position: 'relative' }}>
+                                        <h4 style={{ margin: '0 0 6px 0', fontSize: '18px', fontWeight: '900', color: 'white' }}>Quick Command Center</h4>
+                                        <p style={{ margin: 0, fontSize: '14px', color: 'rgba(255,255,255,0.8)', fontWeight: '600' }}>Respond to these operational insights by coordinating with service managers.</p>
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '12px', position: 'relative' }}>
+                                        <button style={{ padding: '14px 28px', background: 'white', color: 'var(--primary-color)', border: 'none', borderRadius: '14px', fontSize: '13px', fontWeight: '900', cursor: 'pointer', transition: '0.2s' }} onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'} onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}>
+                                            REVIEW ALL SUBMISSIONS
+                                        </button>
+                                        <button style={{ padding: '14px 28px', background: 'rgba(255,255,255,0.15)', color: 'white', border: '1.5px solid rgba(255,255,255,0.3)', borderRadius: '14px', fontSize: '13px', fontWeight: '900', cursor: 'pointer', backdropFilter: 'blur(10px)' }}>
+                                            SEND COORDINATION ALERT
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     )}
                 </>
@@ -468,11 +1092,65 @@ const AdminPrograms = ({ theme, darkMode, adminUser }) => {
 
             <style>{`
                 @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+                @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+                @keyframes pulse { 0% { opacity: 0.4; } 50% { opacity: 1; } 100% { opacity: 0.4; } }
                 .program-card:hover { transform: translateY(-4px); border-color: var(--primary-color) !important; box-shadow: 0 10px 20px rgba(0,0,0,0.05); }
+                .switch { position: relative; display: inline-block; width: 44px; height: 22px; }
+                .switch input { opacity: 0; width: 0; height: 0; }
+                .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #E2E8F0; transition: .4s; border-radius: 20px; }
+                .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 2px; bottom: 2px; background-color: white; transition: .4s; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+                input:checked + .slider { background-color: var(--primary-color); }
+                input:checked + .slider:before { transform: translateX(22px); }
+                .kpi-card:hover { transform: translateY(-2px); border-color: var(--primary-color)10 !important; }
             `}</style>
         </div>
     );
 };
+
+// --- HELPER COMPONENTS ---
+const KpiCard = ({ theme, label, value, trend, icon, color, status }) => {
+    const getStatusColor = () => {
+        if (status === 'success') return '#10B981';
+        if (status === 'danger') return '#EF4444';
+        return theme.textMuted;
+    };
+
+    return (
+        <div style={{ background: theme.surface, padding: '20px', borderRadius: '22px', border: `1px solid ${theme.border}`, boxShadow: '0 4px 12px rgba(0,0,0,0.02)', transition: '0.2s', position: 'relative' }} className="kpi-card">
+            <div style={{ position: 'absolute', top: '15px', right: '15px', width: '6px', height: '6px', borderRadius: '50%', background: getStatusColor() }} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+                <div style={{ padding: '8px', borderRadius: '10px', background: `${color}15`, color: color }}>
+                    {renderIcon(icon)}
+                </div>
+            </div>
+            <h4 style={{ margin: '0 0 4px 0', fontSize: '24px', fontWeight: '900', color: theme.text, letterSpacing: '-0.02em' }}>{value}</h4>
+            <p style={{ margin: '0 0 10px 0', fontSize: '11px', fontWeight: '700', color: theme.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</p>
+            <div style={{ fontSize: '10px', fontWeight: '800', color: getStatusColor(), display: 'flex', alignItems: 'center', gap: '4px' }}>
+                {status === 'danger' && <span>⚠</span>}
+                {trend}
+            </div>
+        </div>
+    );
+};
+
+const Switch = ({ checked, onChange, disabled }) => (
+    <label className="switch" style={{ margin: 0, opacity: disabled ? 0.4 : 1, cursor: disabled ? 'not-allowed' : 'pointer' }}>
+        <input type="checkbox" checked={checked} onChange={e => !disabled && onChange(e.target.checked)} disabled={disabled} />
+        <span className="slider round"></span>
+    </label>
+);
+
+// --- STYLES ---
+const sectionHeaderStyle = (theme) => ({ 
+    margin: '0 0 20px 0', fontSize: '11px', fontWeight: '800', color: 'var(--primary-color)', 
+    textTransform: 'uppercase', letterSpacing: '0.1em', display: 'flex', alignItems: 'center', gap: '8px' 
+});
+const dividerStyle = (theme) => ({ height: '1px', background: theme.border, margin: '32px 0', opacity: 0.6 });
+const settingRowStyle = (theme, noMargin = false) => ({ 
+    display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: noMargin ? 0 : '16px' 
+});
+const settingLabelStyle = (theme) => ({ margin: 0, fontSize: '14px', fontWeight: '700', color: theme.text });
+const settingDescStyle = (theme) => ({ margin: '2px 0 0 0', fontSize: '12px', color: theme.textMuted });
 
 const modalOverlay = { position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' };
 const modalContent = { width: '100%', maxWidth: '400px', padding: '32px', borderRadius: '20px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.3)' };

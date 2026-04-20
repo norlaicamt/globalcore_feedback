@@ -36,6 +36,8 @@ class UserBase(BaseModel):
     profile_completed: Optional[bool] = False
     completed_at: Optional[datetime] = None
     last_login: Optional[datetime] = None
+    last_seen: Optional[datetime] = None
+    current_module: Optional[str] = None
     onboarding_completed: Optional[bool] = False
     two_factor_enabled: Optional[bool] = False
     role: Optional[str] = "user"
@@ -140,6 +142,8 @@ class UserSearchEntry(BaseModel):
     role_identity: Optional[str] = None
     avatar_url: Optional[str] = None
     role: Optional[str] = None
+    last_seen: Optional[datetime] = None
+    current_module: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)
 
 class UserProfile(BaseModel):

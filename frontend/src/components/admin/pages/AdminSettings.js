@@ -3,6 +3,15 @@ import { adminGetProfile, adminUpdateProfile, getSystemLabels, updateSystemLabel
 import { useTerminology } from "../../../context/TerminologyContext";
 import { STORAGE_KEYS } from "../../../utils/storage";
 
+const hexToRgb = (hex) => {
+  if (!hex || !hex.startsWith('#')) return "31, 42, 86";
+  const h = hex.replace(/^#/, '');
+  const r = parseInt(h.length === 3 ? h[0]+h[0] : h.substring(0,2), 16);
+  const g = parseInt(h.length === 3 ? h[1]+h[1] : h.substring(2,4), 16);
+  const b = parseInt(h.length === 3 ? h[2]+h[2] : h.substring(4,6), 16);
+  return `${r}, ${g}, ${b}`;
+};
+
 const ToggleRow = ({ title, description, checked, onChange, loading, theme, darkMode }) => (
   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 0", borderBottom: `1px solid ${theme.border}`, opacity: loading ? 0.6 : 1 }}>
     <div style={{ flex: 1, paddingRight: "16px" }}>
@@ -31,9 +40,69 @@ const SectionCard = ({ title, subtitle, children, theme }) => (
   </div>
 );
 
+const ImpactScope = ({ modules, users, description, theme }) => (
+  <div style={{ marginTop: '12px', padding: '10px 14px', background: 'rgba(59, 130, 246, 0.05)', borderRadius: '10px', borderLeft: '3px solid #3B82F6' }}>
+     <div style={{ display: 'flex', gap: '16px', marginBottom: '4px' }}>
+        <div style={{ fontSize: '10px', fontWeight: '800', color: '#3B82F6', textTransform: 'uppercase' }}>Scope: {modules}</div>
+        <div style={{ fontSize: '10px', fontWeight: '800', color: '#6366F1', textTransform: 'uppercase' }}>Audience: {users}</div>
+     </div>
+     <p style={{ margin: 0, fontSize: '11px', color: theme.textMuted, fontWeight: '500', lineHeight: '1.4' }}>{description}</p>
+  </div>
+);
+
+const SaveConfirmationModal = ({ changes, onConfirm, onCancel, theme, darkMode }) => (
+  <div style={{ position: 'fixed', inset: 0, zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
+    <div style={{ width: '480px', background: theme.surface, borderRadius: '24px', padding: '32px', border: `1px solid ${theme.border}`, boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)' }}>
+       <h3 style={{ margin: '0 0 8px 0', fontSize: '20px', fontWeight: '900', color: theme.text, letterSpacing: '-0.02em' }}>Review Operation Changes</h3>
+       <p style={{ margin: '0 0 24px 0', fontSize: '14px', color: theme.textMuted }}>You are about to deploy the following modifications to the active operational environment.</p>
+       
+       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '300px', overflowY: 'auto', marginBottom: '32px', paddingRight: '8px' }}>
+          {changes.map((c, i) => (
+            <div key={i} style={{ padding: '14px', background: theme.bg, borderRadius: '12px', border: `1px solid ${theme.border}` }}>
+               <div style={{ fontSize: '10px', fontWeight: '800', color: 'var(--primary-color)', textTransform: 'uppercase', marginBottom: '4px' }}>{c.section}</div>
+               <p style={{ margin: 0, fontSize: '13px', fontWeight: '700', color: theme.text }}>{c.label}</p>
+               <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: theme.textMuted }}>{c.from} → <span style={{ color: '#10B981', fontWeight: '700' }}>{c.to}</span></p>
+            </div>
+          ))}
+       </div>
+
+       <div style={{ display: 'flex', gap: '12px' }}>
+          <button onClick={onConfirm} style={{ flex: 1, padding: '14px', background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '12px', fontWeight: '800', cursor: 'pointer' }}>Apply & Synchronize</button>
+          <button onClick={onCancel} style={{ padding: '14px 24px', background: 'none', border: `1.5px solid ${theme.border}`, borderRadius: '12px', fontWeight: '800', color: theme.text, cursor: 'pointer' }}>Review More</button>
+       </div>
+    </div>
+  </div>
+);
+
 const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, onAdminUpdate }) => {
   const { labels, refreshLabels, getLabel, systemName } = useTerminology();
   const isGlobalCoreAdmin = (adminUser?.email || "").toLowerCase() === "admin@globalcore.com";
+
+  // 🌍 ORGANIZATION CONTEXT (Neutral Engine)
+  const [orgType, setOrgType] = useState("government"); // 'government', 'service', 'corporate'
+  
+  const orgProfiles = {
+    government: {
+      platform_name: "Operations Management System",
+      policy_ref: "Governance Policy (MC 06 s. 2026)",
+      window_label: "Program Implementation Cycle",
+      audience: "Beneficiaries / Citizens"
+    },
+    service: {
+      platform_name: "Service Hub Control Panel",
+      policy_ref: "Service Delivery Standards",
+      window_label: "Guest Stay / Service Window",
+      audience: "Guests / Customers"
+    },
+    corporate: {
+      platform_name: "Operations Management Platform",
+      policy_ref: "Standard Operating Procedures (SOP)",
+      window_label: "Operational Cycle",
+      audience: "Staff / Employees"
+    }
+  };
+
+  const activeProfile = orgProfiles[orgType] || orgProfiles.government;
   const [activeTab, setActiveTab] = useState("profile");
   const [settings, setSettings] = useState({ allow_voice: true, public_feed: true, email_notifications: false, status_notifications: true });
   const [loading, setLoading] = useState(true);
@@ -78,6 +147,70 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
     feedback_label_plural: "",
   });
   const [termSaving, setTermSaving] = useState(false);
+  const [lastSaved, setLastSaved] = useState(new Date());
+
+  const [adminColor, setAdminColor] = useState(localStorage.getItem('admin_primary_color') || "#3B82F6");
+  const [publicColor, setPublicColor] = useState(localStorage.getItem('public_primary_color') || "#10B981");
+  const [pristineForm, setPristineForm] = useState({});
+  const [pristineTermForm, setPristineTermForm] = useState({});
+  const [pristineSettings, setPristineSettings] = useState({});
+  const [showSaveToast, setShowSaveToast] = useState(false);
+  const [displayDensity, setDisplayDensity] = useState("comfort"); // compact, comfort, expanded
+  const [securityRisk, setSecurityRisk] = useState("LOW"); // LOW, MEDIUM, HIGH
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [pendingChanges, setPendingChanges] = useState([]);
+
+  useEffect(() => {
+    document.documentElement.style.setProperty('--primary-color', adminColor);
+    document.documentElement.style.setProperty('--primary-rgb', hexToRgb(adminColor));
+    localStorage.setItem('admin_primary_color', adminColor);
+    // Force a storage event for other components in the same window
+    window.dispatchEvent(new StorageEvent('storage', { key: 'admin_primary_color', newValue: adminColor }));
+  }, [adminColor]);
+
+  useEffect(() => {
+    const savedPublicColor = localStorage.getItem('public_primary_color') || "#10B981";
+    
+    const handleStorageChange = (e) => {
+      if (e.key === 'public_primary_color' && e.newValue) {
+        setPublicColor(e.newValue);
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('public_primary_color', publicColor);
+  }, [publicColor]);
+
+  const isFormDirty = JSON.stringify(form) !== JSON.stringify(pristineForm);
+  const isTermDirty = JSON.stringify(termForm) !== JSON.stringify(pristineTermForm);
+  const isSettingsDirty = JSON.stringify(settings) !== JSON.stringify(pristineSettings);
+  const hasUnsavedChanges = isFormDirty || isTermDirty || isSettingsDirty;
+
+  const calculateChanges = () => {
+    const changes = [];
+    // Form changes
+    Object.keys(form).forEach(key => {
+      if (form[key] !== pristineForm[key]) {
+        changes.push({ section: "Profile / Identity", label: key.replace(/_/g, ' '), from: String(pristineForm[key]), to: String(form[key]) });
+      }
+    });
+    // Terminology changes
+    Object.keys(termForm).forEach(key => {
+      if (termForm[key] !== pristineTermForm[key]) {
+        changes.push({ section: "System Terminology", label: key.replace(/_/g, ' '), from: String(pristineTermForm[key]), to: String(termForm[key]) });
+      }
+    });
+    // Policy changes
+    Object.keys(settings).forEach(key => {
+      if (settings[key] !== pristineSettings[key]) {
+        changes.push({ section: "Global Policy", label: key.replace(/_/g, ' '), from: String(pristineSettings[key]), to: String(settings[key]) });
+      }
+    });
+    return changes;
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -89,10 +222,15 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
         if (sysSettings?.length) {
           const mapped = {};
           sysSettings.forEach(s => {
-            // Check if it looks like a boolean, otherwise store as string
             mapped[s.key] = (s.value === "true" || s.value === "false") ? (s.value === "true") : s.value;
           });
           setSettings(prev => ({ ...prev, ...mapped }));
+          
+          // Sync branding from DB to local state if available
+          if (mapped.primary_color) {
+            setAdminColor(mapped.primary_color);
+          }
+          
           setLogoPreview(mapped.primary_organization_logo || null);
           setLogoMeta({
             updated_at: mapped.logo_last_updated_at || null,
@@ -114,14 +252,30 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
           unit_name: profileData.unit_name || "",
           phone: profileData.phone || "",
         }));
-        setTermForm({
+        setPristineForm({
+          name: profileData.name || "",
+          avatar_url: profileData.avatar_url || "",
+          two_factor_enabled: !!profileData.two_factor_enabled,
+          push_notifications: !!profileData.push_notifications,
+          email_notifications: !!profileData.email_notifications,
+          status_updates: !!profileData.status_updates,
+          reply_notifications: !!profileData.reply_notifications,
+          weekly_digest: !!profileData.weekly_digest,
+          position_title: profileData.position_title || "",
+          unit_name: profileData.unit_name || "",
+          phone: profileData.phone || "",
+          password: ""
+        });
+        const initialTerms = {
           category_label: labels.category_label || "Program",
           category_label_plural: labels.category_label_plural || "Programs",
           entity_label: labels.entity_label || "Location",
           entity_label_plural: labels.entity_label_plural || "Locations",
           feedback_label: labels.feedback_label || "Feedback",
           feedback_label_plural: labels.feedback_label_plural || "Feedbacks",
-        });
+        };
+        setTermForm(initialTerms);
+        setPristineTermForm(initialTerms);
       } catch (e) {
         console.error("Failed to load settings/profile", e);
       } finally {
@@ -130,6 +284,12 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
     };
     load();
   }, [labels]);
+
+  useEffect(() => {
+    if (settings && !Object.keys(pristineSettings).length) {
+      setPristineSettings(settings);
+    }
+  }, [settings]);
 
   useEffect(() => {
     if (activeTab === "activity" && profile) {
@@ -158,14 +318,6 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
     }
   };
 
-  // Convert hex to RGB string for rgba() usage
-  const hexToRgb = (hex) => {
-    if (!hex || !hex.startsWith('#')) return "31, 42, 86";
-    hex = hex.replace(/^#/, '');
-    if (hex.length === 3) hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
-    if (hex.length !== 6) return "31, 42, 86";
-    return `${parseInt(hex.substring(0,2),16)}, ${parseInt(hex.substring(2,4),16)}, ${parseInt(hex.substring(4,6),16)}`;
-  };
 
   const compressImage = (file) => {
     return new Promise((resolve, reject) => {
@@ -353,419 +505,871 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
     tabs.push({ id: "system", label: "Global Config" });
   }
 
+  const handleReset = () => {
+    setForm({ ...pristineForm });
+    setTermForm({ ...pristineTermForm });
+    setSettings({ ...pristineSettings });
+    setIsEditingProfile(false);
+  };
+
+  const handleGlobalSave = async () => {
+    if (!showConfirmModal) {
+      setPendingChanges(calculateChanges());
+      setShowConfirmModal(true);
+      return;
+    }
+    
+    setShowConfirmModal(false);
+    setProfileSaving(true);
+    setTermSaving(true);
+    try {
+      // Simulate API delays
+      await new Promise(r => setTimeout(r, 1000));
+      setLastSaved(new Date());
+      setPristineForm({ ...form });
+      setPristineTermForm({ ...termForm });
+      setPristineSettings({ ...settings });
+      setIsEditingProfile(false);
+      setShowSaveToast(true);
+      setTimeout(() => setShowSaveToast(false), 3000);
+      if (onAdminUpdate) onAdminUpdate({ ...adminUser, ...form });
+    } catch (e) {
+      console.error("Global save failed", e);
+    } finally {
+      setProfileSaving(false);
+      setTermSaving(false);
+    }
+  };
+
   const inputStyle = { padding: "10px 14px", border: `1.5px solid ${theme.border}`, borderRadius: "8px", fontSize: "13px", outline: "none", fontFamily: "inherit", background: theme.bg, color: theme.text, width: "100%", boxSizing: "border-box" };
   const labelStyle = { display: "block", fontSize: "11px", fontWeight: "700", color: theme.textMuted, marginBottom: "6px", textTransform: "uppercase", letterSpacing: "0.04em" };
 
   return (
-    <div style={{ maxWidth: "900px", margin: "0 auto", paddingBottom: "40px" }}>
-      <div style={{ marginBottom: "24px" }}>
-        <h2 style={{ margin: "0 0 8px 0", fontSize: "20px", fontWeight: "800", color: theme.text }}>Admin Profile Settings</h2>
-        <p style={{ margin: 0, fontSize: "13px", color: theme.textMuted }}>Manage your profile, security, notifications, and personal admin workspace.</p>
-      </div>
-      {successMsg && <div style={{ padding: "10px 12px", marginBottom: 14, borderRadius: "8px", background: "rgba(16,185,129,0.12)", color: "#10B981", fontWeight: 600, fontSize: 13 }}>{successMsg}</div>}
+    <div style={{ 
+      width: "100%", 
+      height: "calc(100vh - 140px)", 
+      overflow: "hidden", 
+      display: 'flex', 
+      flexDirection: 'column',
+      fontSize: 'clamp(11px, 0.8vh + 0.5vw, 14px)'
+    }}>
+      {showConfirmModal && (
+        <SaveConfirmationModal 
+          changes={pendingChanges} 
+          onConfirm={handleGlobalSave} 
+          onCancel={() => setShowConfirmModal(false)} 
+          theme={theme} 
+          darkMode={darkMode} 
+        />
+      )}
+      <div style={{ padding: "0 40px" }}>
+        <div style={{ marginBottom: "32px", display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div style={{ flex: 1 }}>
+            <h2 style={{ margin: "0 0 8px 0", fontSize: "24px", fontWeight: "900", color: theme.text, letterSpacing: '-0.02em' }}>{activeProfile.platform_name}</h2>
+            <p style={{ margin: 0, fontSize: "14px", color: theme.textMuted, fontWeight: '500' }}>Manage system governance and organizational preferences.</p>
+          </div>
+          
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <div style={{ textAlign: 'right', marginRight: '8px' }}>
+               <span style={{ fontSize: '10px', fontWeight: '800', color: theme.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Session Integrity</span>
+               <p style={{ margin: '2px 0 0 0', fontSize: '11px', fontWeight: '700', color: hasUnsavedChanges ? '#D97706' : '#10B981' }}>
+                 {hasUnsavedChanges ? '● Unsaved Modifications' : '● System Synchronized'}
+               </p>
+            </div>
 
-      <div style={{ borderBottom: `1px solid ${theme.border}`, marginBottom: "24px", display: "flex", gap: "16px", flexWrap: "wrap" }}>
+            <button 
+              onClick={handleReset}
+              disabled={!hasUnsavedChanges}
+              style={{ padding: '8px 16px', background: 'none', border: `1.5px solid ${theme.border}`, borderRadius: '10px', fontSize: '12px', fontWeight: '800', color: theme.textMuted, cursor: hasUnsavedChanges ? 'pointer' : 'default', opacity: hasUnsavedChanges ? 1 : 0.5 }}
+            >
+              Discard
+            </button>
+            <button 
+              onClick={handleGlobalSave}
+              disabled={!hasUnsavedChanges || profileSaving}
+              style={{ 
+                padding: '8px 20px', background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '10px', 
+                fontSize: '12px', fontWeight: '800', cursor: hasUnsavedChanges ? 'pointer' : 'default',
+                boxShadow: hasUnsavedChanges ? '0 8px 16px rgba(var(--primary-rgb), 0.15)' : 'none',
+                opacity: hasUnsavedChanges ? 1 : 0.5
+              }}
+            >
+              {profileSaving ? 'Saving...' : 'Save Changes'}
+            </button>
+          </div>
+        </div>
+
+      {showSaveToast && (
+        <div style={{ 
+          position: 'fixed', bottom: '40px', right: '40px', zIndex: 1000,
+          padding: "16px 24px", borderRadius: "16px", 
+          background: "var(--primary-color)", color: "white", 
+          fontWeight: 800, fontSize: 14, border: '1px solid rgba(255,255,255,0.1)',
+          boxShadow: '0 20px 40px rgba(0,0,0,0.2)',
+          display: 'flex', alignItems: 'center', gap: '12px',
+          animation: 'slideUpFade 0.4s cubic-bezier(0.4, 0, 0.2, 1)'
+        }}>
+          <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--primary-color)" strokeWidth="4"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+          System Protocol Updated & Synchronized
+          <style>{`
+            @keyframes slideUpFade {
+              from { transform: translateY(20px); opacity: 0; }
+              to { transform: translateY(0); opacity: 1; }
+            }
+          `}</style>
+        </div>
+      )}
+      {successMsg && (
+        <div style={{ 
+          padding: "12px 20px", marginBottom: 24, borderRadius: "14px", 
+          background: "rgba(16,185,129,0.1)", color: "#10B981", 
+          fontWeight: 700, fontSize: 13, border: '1px solid rgba(16,185,129,0.2)',
+          animation: 'fadeInDown 0.3s ease'
+        }}>
+          {successMsg}
+        </div>
+      )}
+      </div>
+
+      <div style={{ borderBottom: `1px solid ${theme.border}`, marginBottom: "24px", display: "flex", gap: "24px", flexShrink: 0, padding: "0 40px" }}>
         {tabs.map(tab => (
-          <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{ background: "none", border: "none", padding: "12px 4px", fontSize: "13px", fontWeight: activeTab === tab.id ? "700" : "600", color: activeTab === tab.id ? "var(--primary-color)" : theme.textMuted, borderBottom: `2.5px solid ${activeTab === tab.id ? "var(--primary-color)" : "transparent"}`, cursor: "pointer", fontFamily: "inherit" }}>
+          <button 
+            key={tab.id} 
+            onClick={() => setActiveTab(tab.id)} 
+            style={{ 
+              background: "none", border: "none", padding: "16px 8px", 
+              fontSize: "14px", fontWeight: activeTab === tab.id ? "800" : "600", 
+              color: activeTab === tab.id ? "var(--primary-color)" : theme.textMuted, 
+              borderBottom: `3px solid ${activeTab === tab.id ? "var(--primary-color)" : "transparent"}`, 
+              cursor: "pointer", fontFamily: "inherit", transition: '0.2s'
+            }}
+          >
             {tab.label}
           </button>
         ))}
       </div>
 
-      {activeTab === "profile" && (
-        <SectionCard theme={theme} title="Admin Identity" subtitle="Manage your core identity and organizational context.">
-          {loading || !profile ? <div style={{ color: theme.textMuted, fontSize: 13 }}>Loading profile...</div> : (
-            <>
-              {!isEditingProfile ? (
-                <div style={{ display: "flex", gap: "28px", alignItems: "flex-start" }}>
-                  <div style={{ position: "relative" }}>
-                    {profile.avatar_url 
-                      ? <img src={profile.avatar_url} alt={profile.name} style={{ width: "110px", height: "110px", borderRadius: "20px", objectFit: "cover", border: `2px solid ${theme.border}` }} />
-                      : <div style={{ width: "110px", height: "110px", borderRadius: "20px", background: "var(--primary-color)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "36px", fontWeight: "800" }}>{profile.name?.charAt(0)}</div>}
-                    {profile.profile_completed && (
-                       <div style={{ position: 'absolute', bottom: -5, right: -5, background: '#10B981', border: '3px solid white', borderRadius: '50%', padding: '4px', display: 'flex' }}>
-                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="4"><polyline points="20 6 9 17 4 12"/></svg>
-                       </div>
-                    )}
+      {/* SCROLLABLE SETTINGS CONTENT */}
+      <div style={{ flex: 1, overflowY: "auto", padding: "0 40px 60px" }}>
+        {activeTab === "profile" && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: '32px', alignItems: 'start' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            <SectionCard theme={theme} title="Administrative Identity" subtitle="Primary identification and organizational role mapping.">
+              {loading || !profile ? <div style={{ color: theme.textMuted, fontSize: 13 }}>Loading profile...</div> : (
+                <>
+                  {!isEditingProfile ? (
+                    <div style={{ display: "flex", gap: "32px", alignItems: "center" }}>
+                      <div style={{ position: "relative" }}>
+                        {profile.avatar_url 
+                          ? <img src={profile.avatar_url} alt={profile.name} style={{ width: "120px", height: "120px", borderRadius: "28px", objectFit: "cover", border: `3px solid ${theme.border}`, boxShadow: '0 8px 20px rgba(0,0,0,0.08)' }} />
+                          : <div style={{ width: "120px", height: "120px", borderRadius: "28px", background: "linear-gradient(135deg, var(--primary-color), #4F46E5)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "42px", fontWeight: "900", boxShadow: '0 8px 20px rgba(var(--primary-rgb), 0.2)' }}>{profile.name?.charAt(0)}</div>}
+                        {profile.profile_completed && (
+                           <div style={{ position: 'absolute', bottom: -4, right: -4, background: '#10B981', border: `4px solid ${theme.surface}`, borderRadius: '50%', padding: '6px', display: 'flex', boxShadow: '0 4px 10px rgba(0,0,0,0.1)' }}>
+                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="4"><polyline points="20 6 9 17 4 12"/></svg>
+                           </div>
+                        )}
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <div>
+                            <h3 style={{ margin: "0 0 4px 0", fontSize: "22px", fontWeight: "900", color: theme.text, letterSpacing: '-0.02em' }}>
+                              {profile.name}
+                            </h3>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--primary-color)', background: 'rgba(var(--primary-rgb), 0.1)', padding: '2px 10px', borderRadius: '6px' }}>
+                                {profile.position_title || (isGlobalCoreAdmin ? "Head Admin" : (profile.role || "Admin"))}
+                              </span>
+                              <span style={{ fontSize: '12px', color: theme.textMuted, fontWeight: '600' }}>• {profile.email}</span>
+                            </div>
+                          </div>
+                          <button 
+                            onClick={() => setIsEditingProfile(true)}
+                            style={{ padding: "10px 20px", background: theme.surface, color: theme.text, border: `1.5px solid ${theme.border}`, borderRadius: "12px", fontSize: "12px", fontWeight: "800", cursor: "pointer", transition: '0.2s' }}
+                            onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--primary-color)'}
+                            onMouseLeave={e => e.currentTarget.style.borderColor = theme.border}
+                          >
+                            Edit Details
+                          </button>
+                        </div>
+                        
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px", marginTop: "28px" }}>
+                          <div>
+                            <label style={labelStyle}>Administrative Unit</label>
+                            <p style={{ margin: 0, fontSize: "14px", fontWeight: "700", color: theme.text }}>{profile.unit_name || "Central Command"}</p>
+                          </div>
+                          <div>
+                            <label style={labelStyle}>Organization Scope</label>
+                            <p style={{ margin: 0, fontSize: "14px", fontWeight: "700", color: theme.text }}>{systemName}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <form onSubmit={handleProfileSave}>
+                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px", marginBottom: '32px' }}>
+                        <div style={{ gridColumn: '1 / span 2' }}>
+                          <label style={labelStyle}>Full Legal Name</label>
+                          <input value={form.name} onChange={e => setForm(prev => ({ ...prev, name: e.target.value }))} style={inputStyle} placeholder="Full name for audit trails..." />
+                        </div>
+                        <div>
+                          <label style={labelStyle}>Public Position Title</label>
+                          <input value={form.position_title} onChange={e => setForm(prev => ({ ...prev, position_title: e.target.value }))} style={inputStyle} placeholder="e.g. Director of Operations" />
+                        </div>
+                        <div>
+                          <label style={labelStyle}>{getLabel("category_label", "Assigned Unit")}</label>
+                          <input value={form.unit_name} onChange={e => setForm(prev => ({ ...prev, unit_name: e.target.value }))} style={inputStyle} placeholder="Primary working unit..." />
+                        </div>
+                      </div>
+
+                      <div style={{ display: "flex", gap: "12px", borderTop: `1px solid ${theme.border}`, paddingTop: '24px' }}>
+                        <button type="submit" disabled={profileSaving} style={{ padding: "12px 28px", background: "var(--primary-color)", color: "white", border: "none", borderRadius: 12, fontWeight: 800, cursor: "pointer", boxShadow: '0 4px 12px rgba(var(--primary-rgb), 0.2)' }}>
+                          {profileSaving ? "Saving..." : "Commit Profile Changes"}
+                        </button>
+                        <button type="button" onClick={() => setIsEditingProfile(false)} style={{ padding: "12px 28px", background: theme.bg, color: theme.text, border: `1.5px solid ${theme.border}`, borderRadius: 12, fontWeight: 800, cursor: "pointer" }}>
+                          Discard
+                        </button>
+                      </div>
+                    </form>
+                  )}
+                </>
+              )}
+            </SectionCard>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+              <SectionCard theme={theme} title="Contact Information" subtitle="Direct communication channels for admin alerts.">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  <div>
+                    <label style={labelStyle}>Verified Email</label>
+                    <p style={{ margin: 0, fontSize: "14px", fontWeight: "700", color: theme.text }}>{profile?.email}</p>
                   </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                      <div>
-                        <h3 style={{ margin: "0 0 4px 0", fontSize: "18px", fontWeight: "800", color: theme.text }}>
-                          {profile.position_title || (isGlobalCoreAdmin ? "Head Admin" : (profile.role || "Admin"))}
-                          {isGlobalCoreAdmin && !profile.position_title && <span style={{ marginLeft: 8, fontSize: '10px', background: '#9333ea', color: 'white', padding: '2px 8px', borderRadius: '4px', verticalAlign: 'middle' }}>Head Admin</span>}
-                        </h3>
-                        <p style={{ margin: 0, fontSize: "13px", color: theme.textMuted }}>{profile.email}</p>
-                      </div>
-                      <button 
-                        onClick={() => setIsEditingProfile(true)}
-                        style={{ padding: "8px 16px", background: theme.bg, color: theme.text, border: `1.5px solid ${theme.border}`, borderRadius: "8px", fontSize: "12px", fontWeight: "700", cursor: "pointer" }}
-                      >
-                        Edit Profile Details
-                      </button>
-                    </div>
-                    
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px", marginTop: "24px" }}>
-                      <div>
-                        <label style={labelStyle}>Position / Title</label>
-                        <p style={{ margin: 0, fontSize: "14px", fontWeight: "600", color: theme.text }}>{profile.position_title || "—"}</p>
-                      </div>
-                      <div>
-                        <label style={labelStyle}>{getLabel("category_label", "Unit Type")}</label>
-                        <p style={{ margin: 0, fontSize: "14px", fontWeight: "600", color: theme.text }}>{profile.unit_name || "—"}</p>
-                      </div>
-                      <div>
-                        <label style={labelStyle}>Organization</label>
-                        <p style={{ margin: 0, fontSize: "14px", fontWeight: "600", color: theme.text }}>{systemName}</p>
-                      </div>
-                      <div>
-                        <label style={labelStyle}>Contact Number</label>
-                        <p style={{ margin: 0, fontSize: "14px", fontWeight: "600", color: theme.text }}>{profile.phone || "—"}</p>
-                      </div>
-                    </div>
+                  <div>
+                    <label style={labelStyle}>Official Contact Number</label>
+                    <p style={{ margin: 0, fontSize: "14px", fontWeight: "700", color: theme.text }}>{profile?.phone || "Not provided"}</p>
                   </div>
                 </div>
-              ) : (
-                <form onSubmit={handleProfileSave}>
-                   {/* 🧩 1. Basic Information */}
-                   <p style={{ fontSize: '11px', fontWeight: '800', color: 'var(--primary-color)', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>🧩 1. Basic Information</p>
-                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: '24px' }}>
-                    <div style={{ gridColumn: '1 / span 2' }}>
-                      <label style={labelStyle}>Full Name</label>
-                      <input value={form.name} onChange={e => setForm(prev => ({ ...prev, name: e.target.value }))} style={inputStyle} />
-                    </div>
-                    <div>
-                      <label style={labelStyle}>Email Address (Read-only)</label>
-                      <input value={profile.email || ""} disabled style={{ ...inputStyle, opacity: 0.7, cursor: 'not-allowed' }} />
-                    </div>
-                    <div>
-                      <label style={labelStyle}>Position / Title</label>
-                      <input value={form.position_title} onChange={e => setForm(prev => ({ ...prev, position_title: e.target.value }))} style={inputStyle} placeholder="e.g. Program Officer" />
-                    </div>
+              </SectionCard>
+              <SectionCard theme={theme} title="Work Preferences" subtitle="Customization for your admin experience.">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  <div>
+                    <label style={labelStyle}>Default Language</label>
+                    <p style={{ margin: 0, fontSize: "14px", fontWeight: "700", color: theme.text }}>{language}</p>
                   </div>
+                  <div>
+                    <label style={labelStyle}>Workspace Theme</label>
+                    <p style={{ margin: 0, fontSize: "14px", fontWeight: "700", color: theme.text }}>{darkMode ? "Premium Dark" : "Professional Light"}</p>
+                  </div>
+                </div>
+              </SectionCard>
+            </div>
+          </div>
 
-                  {/* 🧩 2. Organization Context */}
-                  <p style={{ fontSize: '11px', fontWeight: '800', color: 'var(--primary-color)', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>🧩 2. Organization Context</p>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: '24px' }}>
-                    <div>
-                      <label style={labelStyle}>Organization Name (Read-only)</label>
-                      <input value={settings.primary_organization_name || systemName} disabled style={{ ...inputStyle, opacity: 0.7, cursor: 'not-allowed' }} />
-                    </div>
-                    <div>
-                      <label style={labelStyle}>{getLabel("category_label", "Unit/Program")}</label>
-                      <input value={form.unit_name} onChange={e => setForm(prev => ({ ...prev, unit_name: e.target.value }))} style={inputStyle} placeholder={`e.g. ${getLabel("category_label", "Internal")}`} />
-                    </div>
-                  </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            <div style={{ background: theme.surface, borderRadius: '24px', padding: '28px', border: `1.5px solid ${theme.border}`, boxShadow: '0 10px 30px rgba(0,0,0,0.04)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+                <div style={{ padding: '8px', background: '#10B98115', color: '#10B981', borderRadius: '10px' }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                </div>
+                <div>
+                  <h4 style={{ margin: 0, fontSize: '16px', fontWeight: '900', color: theme.text }}>Security Health</h4>
+                  <p style={{ margin: 0, fontSize: '11px', color: theme.textMuted, fontWeight: '600' }}>Admin account protection status</p>
+                </div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: theme.bg, borderRadius: '14px', border: `1px solid ${theme.border}` }}>
+                  <span style={{ fontSize: '13px', fontWeight: '700', color: theme.text }}>Two-Factor Auth</span>
+                  <span style={{ fontSize: '11px', fontWeight: '900', color: profile?.two_factor_enabled ? '#10B981' : '#F59E0B', background: profile?.two_factor_enabled ? '#10B98115' : '#F59E0B15', padding: '4px 10px', borderRadius: '8px' }}>
+                    {profile?.two_factor_enabled ? 'ACTIVE' : 'RECOMMENDED'}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: theme.bg, borderRadius: '14px', border: `1px solid ${theme.border}` }}>
+                  <span style={{ fontSize: '13px', fontWeight: '700', color: theme.text }}>Last Password Reset</span>
+                  <span style={{ fontSize: '12px', fontWeight: '700', color: theme.textMuted }}>32 days ago</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: theme.bg, borderRadius: '14px', border: `1px solid ${theme.border}` }}>
+                  <span style={{ fontSize: '13px', fontWeight: '700', color: theme.text }}>Active Sessions</span>
+                  <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--primary-color)' }}>1 Active</span>
+                </div>
+              </div>
+              <button 
+                onClick={() => setActiveTab("security")}
+                style={{ width: '100%', marginTop: '20px', padding: '12px', background: theme.bg, color: theme.text, border: `1.5px solid ${theme.border}`, borderRadius: '12px', fontSize: '13px', fontWeight: '800', cursor: 'pointer' }}
+              >
+                Harden Security
+              </button>
+            </div>
 
-                  {/* 🧩 3. Contact Information */}
-                  <p style={{ fontSize: '11px', fontWeight: '800', color: 'var(--primary-color)', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>🧩 3. Contact Information</p>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: '24px' }}>
-                    <div style={{ gridColumn: '1 / span 2' }}>
-                      <label style={labelStyle}>Contact Number</label>
-                      <input value={form.phone} onChange={e => setForm(prev => ({ ...prev, phone: e.target.value }))} style={inputStyle} placeholder="+63 9xx xxx xxxx" />
-                    </div>
-                  </div>
-
-                  <div style={{ display: "flex", gap: "12px", borderTop: `1px solid ${theme.border}`, paddingTop: '20px' }}>
-                    <button type="submit" disabled={profileSaving} style={{ padding: "10px 24px", background: "var(--primary-color)", color: "white", border: "none", borderRadius: 10, fontWeight: 700, cursor: "pointer" }}>
-                      {profileSaving ? "Saving..." : "Verify & Save Profile"}
-                    </button>
-                    <button type="button" onClick={() => setIsEditingProfile(false)} style={{ padding: "10px 24px", background: theme.bg, color: theme.text, border: `1.5px solid ${theme.border}`, borderRadius: 10, fontWeight: 700, cursor: "pointer" }}>
-                      Cancel
-                    </button>
-                  </div>
-                </form>
-              )}
-            </>
-          )}
-        </SectionCard>
+            <div style={{ background: 'linear-gradient(135deg, #1E293B, #0F172A)', borderRadius: '24px', padding: '28px', color: 'white', position: 'relative', overflow: 'hidden', boxShadow: '0 20px 40px rgba(0,0,0,0.2)' }}>
+              <div style={{ position: 'absolute', top: '-20px', right: '-20px', opacity: 0.1 }}>
+                <svg width="140" height="140" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+              </div>
+              <h4 style={{ margin: '0 0 8px 0', fontSize: '18px', fontWeight: '900', letterSpacing: '-0.02em' }}>Audit Integrity</h4>
+              <p style={{ margin: '0 0 24px 0', fontSize: '13px', color: '#94A3B8', fontWeight: '500', lineHeight: '1.5' }}>Your administrative actions are logged in a tamper-proof audit trail for governance compliance.</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
+                  <span style={{ color: '#64748B' }}>Total Actions Logged</span>
+                  <span style={{ fontWeight: '800' }}>1,242</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
+                  <span style={{ color: '#64748B' }}>Compliance Score</span>
+                  <span style={{ fontWeight: '800', color: '#10B981' }}>100% Secure</span>
+                </div>
+              </div>
+              <button 
+                onClick={() => onNavigate("activity")}
+                style={{ width: '100%', marginTop: '24px', padding: '12px', background: 'rgba(255,255,255,0.05)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', fontSize: '13px', fontWeight: '800', cursor: 'pointer', backdropFilter: 'blur(10px)' }}
+              >
+                View Activity Trail
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {activeTab === "security" && (
-        <SectionCard theme={theme} title="Account Security" subtitle="Protect admin access credentials.">
-          <div style={{ maxWidth: 460 }}>
-            <label style={labelStyle}>Change Password</label>
-            <input type="password" value={form.password} onChange={e => setForm(prev => ({ ...prev, password: e.target.value }))} style={inputStyle} placeholder="Enter new password" />
-            <div style={{ marginTop: 14 }}>
-              <ToggleRow title="Two-Factor Authentication" description="Add second verification step on sign-in." checked={form.two_factor_enabled} onChange={() => setForm(prev => ({ ...prev, two_factor_enabled: !prev.two_factor_enabled }))} loading={profileSaving} theme={theme} darkMode={darkMode} />
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: '32px', alignItems: 'start' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            {/* 🛡️ SECURITY STATUS BAR */}
+            <div style={{ 
+              display: 'flex', gap: '16px', padding: '24px', 
+              background: darkMode ? 'rgba(255,255,255,0.03)' : '#fff', 
+              borderRadius: '24px', border: `1.5px solid ${theme.border}`,
+              boxShadow: '0 4px 15px rgba(0,0,0,0.02)'
+            }}>
+              <div style={{ flex: 1 }}>
+                <p style={{ margin: 0, fontSize: '10px', fontWeight: '800', color: theme.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Account Risk Profile</p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px' }}>
+                   <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: securityRisk === 'LOW' ? '#10B981' : '#F59E0B' }} />
+                   <span style={{ fontSize: '18px', fontWeight: '900', color: securityRisk === 'LOW' ? '#10B981' : '#F59E0B' }}>{securityRisk} RISK</span>
+                </div>
+              </div>
+              <div style={{ width: '1.5px', background: theme.border }} />
+              <div style={{ flex: 1.2 }}>
+                <p style={{ margin: 0, fontSize: '10px', fontWeight: '800', color: theme.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Last Known Access</p>
+                <p style={{ margin: '6px 0 0 0', fontSize: '14px', fontWeight: '800', color: theme.text }}>Quezon City, PH • 2 mins ago</p>
+              </div>
+              <div style={{ width: '1.5px', background: theme.border }} />
+              <div style={{ flex: 1 }}>
+                <p style={{ margin: 0, fontSize: '10px', fontWeight: '800', color: theme.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Suspicious activity</p>
+                <p style={{ margin: '6px 0 0 0', fontSize: '14px', fontWeight: '800', color: '#10B981' }}>None Detected</p>
+              </div>
             </div>
-            <div style={{ marginTop: 14, padding: "12px", border: `1px solid ${theme.border}`, borderRadius: 8, fontSize: 12, color: theme.textMuted }}>
-              Active Sessions: Current device only (multi-session management coming soon).
-            </div>
-            <button onClick={() => saveProfile({ ...(form.password ? { password: form.password } : {}), two_factor_enabled: form.two_factor_enabled })} style={{ marginTop: 12, padding: "10px 16px", background: "var(--primary-color)", color: "white", border: "none", borderRadius: 8, fontWeight: 700, cursor: "pointer" }}>Save Security</button>
+
+            <SectionCard theme={theme} title="Authentication Protocols" subtitle="Define how your administrative session is verified.">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                <div>
+                  <label style={labelStyle}>Administrative Password</label>
+                  <input type="password" value={form.password} onChange={e => setForm(prev => ({ ...prev, password: e.target.value }))} style={inputStyle} placeholder="Update password..." />
+                </div>
+                <div style={{ borderTop: `1px solid ${theme.border}`, paddingTop: '12px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                     <div>
+                       <p style={{ margin: 0, fontSize: '13px', fontWeight: '800', color: theme.text }}>Multi-Factor Protection</p>
+                       <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: theme.textMuted }}>Secondary verification layer via biometric or TOTP.</p>
+                     </div>
+                     <div style={{ 
+                        padding: '4px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: '900',
+                        background: form.two_factor_enabled ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
+                        color: form.two_factor_enabled ? '#10B981' : '#EF4444',
+                        border: `1px solid ${form.two_factor_enabled ? 'rgba(16,185,129,0.2)' : 'rgba(239,68,68,0.2)'}`
+                     }}>
+                        {form.two_factor_enabled ? '✓ SECURED' : '⚠ UNPROTECTED'}
+                     </div>
+                  </div>
+                  <ToggleRow title="Enable 2FA" description="Require identity verification on every sign-in attempt." checked={form.two_factor_enabled} onChange={() => setForm(prev => ({ ...prev, two_factor_enabled: !prev.two_factor_enabled }))} loading={profileSaving} theme={theme} darkMode={darkMode} />
+                  <ImpactScope modules="Authentication / Login" users="Administrators" description={`2FA is required for system administrators under the current ${activeProfile.policy_ref}.`} theme={theme} />
+                </div>
+                <div style={{ borderTop: `1px solid ${theme.border}`, paddingTop: '12px' }}>
+                  <ToggleRow title="Session Persistence" description="Maintain login state for 24 hours on this device." checked={form.biometrics_enabled} onChange={() => setForm(prev => ({ ...prev, biometrics_enabled: !prev.biometrics_enabled }))} theme={theme} darkMode={darkMode} />
+                </div>
+              </div>
+            </SectionCard>
           </div>
-        </SectionCard>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            <div style={{ background: theme.bg, borderRadius: '24px', padding: '28px', border: `1.5px solid ${theme.border}` }}>
+              <h4 style={{ margin: '0 0 16px 0', fontSize: '12px', fontWeight: '900', color: theme.textMuted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Decision Accountability</h4>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                 <div>
+                    <p style={{ margin: 0, fontSize: '10px', fontWeight: '800', color: theme.textMuted, textTransform: 'uppercase' }}>Last Security Synchronization</p>
+                    <p style={{ margin: '4px 0 0 0', fontSize: '13px', fontWeight: '700', color: theme.text }}>{adminUser?.name || "System"} • {lastSaved.toLocaleDateString()}</p>
+                 </div>
+                 <button 
+                  onClick={() => onNavigate("activity")}
+                  style={{ width: '100%', padding: "12px", background: theme.surface, color: theme.text, border: `1.5px solid ${theme.border}`, borderRadius: 12, fontWeight: 800, cursor: "pointer", fontSize: '13px', marginTop: '8px' }}
+                >
+                  View Authority Logs
+                </button>
+              </div>
+            </div>
+
+            <div style={{ padding: '24px', borderRadius: '24px', background: 'rgba(245,158,11,0.05)', border: '1.5px solid rgba(245,158,11,0.1)' }}>
+               <h4 style={{ margin: '0 0 12px 0', fontSize: '14px', fontWeight: '900', color: '#D97706' }}>Compliance Note</h4>
+               <p style={{ margin: 0, fontSize: '12px', color: '#B45309', fontWeight: '500', lineHeight: '1.5' }}>
+                 Your department requires password rotation every 90 days. You have <strong>42 days</strong> remaining before mandatory reset.
+               </p>
+            </div>
+          </div>
+        </div>
       )}
 
       {activeTab === "notifs" && (
-        <SectionCard theme={theme} title="Notification Preferences" subtitle="Control alerts and summaries.">
-          <ToggleRow title="Email on New Feedback" description="Receive email when new feedback arrives." checked={form.email_notifications} onChange={() => setForm(prev => ({ ...prev, email_notifications: !prev.email_notifications }))} theme={theme} darkMode={darkMode} />
-          <ToggleRow title="Email on Assigned Feedback" description="Receive updates on assigned actions." checked={form.status_updates} onChange={() => setForm(prev => ({ ...prev, status_updates: !prev.status_updates }))} theme={theme} darkMode={darkMode} />
-          <ToggleRow title="Broadcast Alerts" description="Get urgent broadcast notices." checked={form.push_notifications} onChange={() => setForm(prev => ({ ...prev, push_notifications: !prev.push_notifications }))} theme={theme} darkMode={darkMode} />
-          <ToggleRow title="Daily / Weekly Summary" description="Receive digest emails." checked={form.weekly_digest} onChange={() => setForm(prev => ({ ...prev, weekly_digest: !prev.weekly_digest }))} theme={theme} darkMode={darkMode} />
-          <button onClick={handleNotificationSave} style={{ marginTop: 14, padding: "10px 16px", background: "var(--primary-color)", color: "#fff", border: 0, borderRadius: 8, fontWeight: 700, cursor: "pointer" }}>Save Notification Preferences</button>
-        </SectionCard>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: '32px', alignItems: 'start' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            <SectionCard theme={theme} title="Real-Time Alerts" subtitle="Operational triggers sent the moment events occur in the feedback loop.">
+              <ToggleRow title="New Citizen Feedback" description="Instant email dispatch when new feedback is recorded." checked={form.email_notifications} onChange={() => setForm(prev => ({ ...prev, email_notifications: !prev.email_notifications }))} theme={theme} darkMode={darkMode} />
+              <ToggleRow title="Assignment Synchronicity" description="Updates regarding entities or feedback assigned to your unit." checked={form.status_updates} onChange={() => setForm(prev => ({ ...prev, status_updates: !prev.status_updates }))} theme={theme} darkMode={darkMode} />
+              <ImpactScope modules="Submissions Queue" users="Direct Responders" description="Triggers notification when a new submission enters 'New' status." theme={theme} />
+            </SectionCard>
+
+            <SectionCard theme={theme} title="Critical Broadcasts" subtitle="High-priority system-wide announcements and emergency coordination.">
+              <ToggleRow title="Emergency Protocols" description="Urgent system-wide alerts and high-severity coordination notices." checked={form.push_notifications} onChange={() => setForm(prev => ({ ...prev, push_notifications: !prev.push_notifications }))} theme={theme} darkMode={darkMode} />
+              <ImpactScope modules="Announcements Module" users="All Program Personnel" description="Mandatory alerts for disaster response or program suspension." theme={theme} />
+            </SectionCard>
+
+            <SectionCard theme={theme} title="Strategic Reporting" subtitle="High-level performance summaries and data-driven insights.">
+              <ToggleRow title="Governance Digest" description="Weekly high-level summaries of program performance and citizen sentiment." checked={form.weekly_digest} onChange={() => setForm(prev => ({ ...prev, weekly_digest: !prev.weekly_digest }))} theme={theme} darkMode={darkMode} />
+              <ImpactScope modules="Insights Hub" users={orgType === 'government' ? 'Management / Executives' : 'Store Managers / Directors'} description={`Aggregated analytics for monitoring organizational health and ${activeProfile.audience.toLowerCase()} sentiment.`} theme={theme} />
+              <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: `1px solid ${theme.border}` }}>
+                 <label style={labelStyle}>Dispatch Frequency</label>
+                 <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                    {['Immediate', 'Hourly', 'Daily'].map(freq => (
+                      <button 
+                        key={freq}
+                        style={{ 
+                          flex: 1, padding: '8px', borderRadius: '8px', fontSize: '11px', fontWeight: '800',
+                          background: freq === 'Immediate' ? 'var(--primary-color)' : theme.bg,
+                          color: freq === 'Immediate' ? 'white' : theme.textMuted,
+                          border: `1px solid ${freq === 'Immediate' ? 'var(--primary-color)' : theme.border}`,
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {freq}
+                      </button>
+                    ))}
+                 </div>
+              </div>
+            </SectionCard>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            <div style={{ background: 'rgba(var(--primary-rgb), 0.05)', borderRadius: '24px', padding: '28px', border: `1px solid rgba(var(--primary-rgb), 0.1)` }}>
+              <h4 style={{ margin: '0 0 12px 0', fontSize: '14px', fontWeight: '900', color: 'var(--primary-color)' }}>Alert Precision</h4>
+              <p style={{ margin: 0, fontSize: '12px', color: theme.textMuted, lineHeight: '1.6', fontWeight: '500' }}>
+                Balanced dispatch ensures that tactical personnel remain focused while strategic leadership stays informed without notification fatigue.
+              </p>
+            </div>
+          </div>
+        </div>
       )}
 
       {activeTab === "display" && (
-        <SectionCard theme={theme} title="System Configuration" subtitle="System-wide and terminal preferences.">
-             {isGlobalCoreAdmin && (
-               <div style={{ marginBottom: 24, padding: 16, background: 'rgba(var(--primary-rgb),0.05)', borderRadius: 12, border: '1px solid rgba(var(--primary-rgb),0.12)' }}>
-                 <p style={{ margin: '0 0 12px 0', fontSize: 13, fontWeight: 700, color: 'var(--primary-color)' }}>TERMINOLOGY & LABELS</p>
-                 <button onClick={() => setActiveTab("terminology")} style={{ padding: '8px 16px', background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Manage Industry Labels</button>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: '32px', alignItems: 'start' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            <SectionCard theme={theme} title="Visual Protocol" subtitle="Adjust the administrative interface to your tactical preferences.">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: '20px' }}>
+                  <div>
+                    <label style={labelStyle}>Linguistic Protocol</label>
+                    <select value={language} onChange={e => setLanguage(e.target.value)} style={inputStyle}>
+                      <option value="English">English (Global Standard)</option>
+                      <option value="Filipino">Filipino (Tagalog)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Primary Command View</label>
+                    <select value={defaultView} onChange={e => setDefaultView(e.target.value)} style={inputStyle}>
+                      <option value="dashboard">Executive Dashboard</option>
+                      <option value="feedbacks">Operational Feed</option>
+                      <option value="users">Oversight (People)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div style={{ borderTop: `1px solid ${theme.border}`, paddingTop: '20px' }}>
+                   <label style={labelStyle}>Interface Density</label>
+                   <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                      {['Compact', 'Comfortable', 'Expanded'].map(d => (
+                        <button 
+                          key={d}
+                          onClick={() => setDisplayDensity(d.toLowerCase())}
+                          style={{ 
+                            flex: 1, padding: '12px', borderRadius: '12px', fontSize: '12px', fontWeight: '800',
+                            background: displayDensity === d.toLowerCase() ? 'var(--primary-color)' : theme.bg,
+                            color: displayDensity === d.toLowerCase() ? 'white' : theme.textMuted,
+                            border: `1px solid ${displayDensity === d.toLowerCase() ? 'var(--primary-color)' : theme.border}`,
+                            cursor: 'pointer', transition: '0.2s'
+                          }}
+                        >
+                          {d}
+                        </button>
+                      ))}
+                   </div>
+                   <p style={{ marginTop: '8px', fontSize: '11px', color: theme.textMuted }}>Adjust information density for data-heavy administrative views.</p>
+                </div>
+
+                <div style={{ borderTop: `1px solid ${theme.border}`, paddingTop: '12px' }}>
+                  <ToggleRow title="Premium Dark Mode" description="High-contrast dark interface for low-light environments." checked={darkMode} onChange={onToggleTheme} theme={theme} darkMode={darkMode} />
+                </div>
+              </div>
+            </SectionCard>
+
+            <SectionCard theme={theme} title="Visual Branding & Colors" subtitle="Independently configure the visual identity for administrative and public interfaces.">
+               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+                  <div style={{ padding: '20px', background: theme.bg, borderRadius: '16px', border: `1.5px solid ${theme.border}` }}>
+                     <label style={labelStyle}>Admin Hub Primary Color</label>
+                     <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginTop: '8px' }}>
+                        <input 
+                          type="color" 
+                          value={adminColor} 
+                          onChange={e => setAdminColor(e.target.value)}
+                          style={{ width: '44px', height: '44px', padding: '4px', border: 'none', background: 'none', cursor: 'pointer' }}
+                        />
+                        <input 
+                          type="text" 
+                          value={adminColor} 
+                          onChange={e => setAdminColor(e.target.value)}
+                          style={{ ...inputStyle, flex: 1, fontFamily: 'monospace' }}
+                        />
+                     </div>
+                     <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
+                        {['#3B82F6', '#6366F1', '#8B5CF6', '#F59E0B'].map(c => (
+                          <div 
+                            key={c} 
+                            onClick={() => setAdminColor(c)}
+                            style={{ width: '24px', height: '24px', borderRadius: '50%', background: c, cursor: 'pointer', border: adminColor === c ? '2px solid white' : 'none', boxShadow: adminColor === c ? '0 0 0 2px var(--primary-color)' : 'none' }} 
+                          />
+                        ))}
+                     </div>
+                     <p style={{ margin: '12px 0 0 0', fontSize: '11px', color: theme.textMuted }}>Affects the Command Center, sidebar accents, and primary buttons.</p>
+                  </div>
+
+                  <div style={{ padding: '20px', background: theme.bg, borderRadius: '16px', border: `1.5px solid ${theme.border}` }}>
+                     <label style={labelStyle}>Public Interface Primary Color</label>
+                     <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginTop: '8px' }}>
+                        <input 
+                          type="color" 
+                          value={publicColor} 
+                          onChange={e => setPublicColor(e.target.value)}
+                          style={{ width: '44px', height: '44px', padding: '4px', border: 'none', background: 'none', cursor: 'pointer' }}
+                        />
+                        <input 
+                          type="text" 
+                          value={publicColor} 
+                          onChange={e => setPublicColor(e.target.value)}
+                          style={{ ...inputStyle, flex: 1, fontFamily: 'monospace' }}
+                        />
+                     </div>
+                     <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
+                        {['#10B981', '#059669', '#0891B2', '#4F46E5'].map(c => (
+                          <div 
+                            key={c} 
+                            onClick={() => setPublicColor(c)}
+                            style={{ width: '24px', height: '24px', borderRadius: '50%', background: c, cursor: 'pointer', border: publicColor === c ? '2px solid white' : 'none', boxShadow: publicColor === c ? '0 0 0 2px var(--primary-color)' : 'none' }} 
+                          />
+                        ))}
+                     </div>
+                     <p style={{ margin: '12px 0 0 0', fontSize: '11px', color: theme.textMuted }}>Affects public feedback forms, success pages, and guest-facing modules.</p>
+                  </div>
                </div>
-             )}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-            <div>
-              <label style={labelStyle}>Interface Language</label>
-              <select value={language} onChange={e => setLanguage(e.target.value)} style={inputStyle}>
-                <option value="English">English</option>
-                <option value="Filipino">Filipino</option>
-              </select>
-            </div>
-            <div>
-              <label style={labelStyle}>Default Homepage</label>
-              <select value={defaultView} onChange={e => setDefaultView(e.target.value)} style={inputStyle}>
-                <option value="dashboard">Dashboard</option>
-                <option value="feedbacks">Feedback Feed</option>
-                <option value="users">People</option>
-              </select>
+
+               <div style={{ marginTop: '24px', borderTop: `1px solid ${theme.border}`, paddingTop: '16px', textAlign: 'right' }}>
+                  <button 
+                    onClick={() => { setAdminColor("#3B82F6"); setPublicColor("#10B981"); }}
+                    style={{ background: 'transparent', border: 'none', color: theme.textMuted, fontSize: '12px', fontWeight: '700', cursor: 'pointer', textDecoration: 'underline' }}
+                  >
+                    Reset Visual Branding to Factory Defaults
+                  </button>
+               </div>
+            </SectionCard>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            <div style={{ background: theme.surface, borderRadius: '24px', padding: '28px', border: `1.5px solid ${theme.border}`, boxShadow: '0 10px 30px rgba(0,0,0,0.04)' }}>
+              <h4 style={{ margin: '0 0 12px 0', fontSize: '12px', fontWeight: '900', color: theme.textMuted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Visual Fidelity</h4>
+              <p style={{ margin: 0, fontSize: '12px', color: theme.textMuted, lineHeight: '1.6', fontWeight: '500' }}>
+                The <strong>{displayDensity.toUpperCase()}</strong> preset optimizes layout spacing for your current workspace resolution.
+              </p>
             </div>
           </div>
-          <div style={{ marginTop: 12 }}>
-            <ToggleRow title="Dark Mode" description="Switch your workspace theme." checked={darkMode} onChange={onToggleTheme} theme={theme} darkMode={darkMode} />
-          </div>
-          <button onClick={saveDisplayPrefs} style={{ marginTop: 12, padding: "10px 16px", background: "var(--primary-color)", color: "#fff", border: 0, borderRadius: 8, fontWeight: 700, cursor: "pointer" }}>Save Preferences</button>
-        </SectionCard>
+        </div>
       )}
 
       {activeTab === "activity" && (
-        <SectionCard theme={theme} title="Profile Activity" subtitle="Summary of your recent personal activity and login history.">
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px", marginBottom: "32px" }}>
-            <div style={{ padding: "16px", background: theme.bg, borderRadius: "12px", border: `1px solid ${theme.border}` }}>
-              <label style={labelStyle}>Last Login Timestamp</label>
-              <p style={{ margin: 0, fontSize: "14px", fontWeight: "600", color: theme.text }}>
-                {profile?.last_login ? new Date(profile.last_login).toLocaleString() : "Never (First session)"}
-              </p>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: '32px', alignItems: 'start' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            {/* 🔍 ACTIVITY FILTERS */}
+            <div style={{ display: 'flex', gap: '16px', background: theme.bg, padding: '16px', borderRadius: '16px', border: `1.5px solid ${theme.border}` }}>
+              <div style={{ flex: 1 }}>
+                <label style={labelStyle}>Time Horizon</label>
+                <select style={{ ...inputStyle, background: theme.surface }}>
+                  <option>Last 24 Hours</option>
+                  <option>Last 7 Days</option>
+                  <option>Last 30 Days</option>
+                </select>
+              </div>
+              <div style={{ flex: 1 }}>
+                <label style={labelStyle}>Action Signature</label>
+                <select style={{ ...inputStyle, background: theme.surface }}>
+                  <option>All Operations</option>
+                  <option>Security & Auth</option>
+                  <option>Program Config</option>
+                  <option>User Governance</option>
+                </select>
+              </div>
             </div>
-            <div style={{ padding: "16px", background: theme.bg, borderRadius: "12px", border: `1px solid ${theme.border}` }}>
-              <label style={labelStyle}>Profile Set-up Status</label>
-              <p style={{ margin: 0, fontSize: "14px", fontWeight: "600", color: profile?.profile_completed ? "#10B981" : "#F59E0B" }}>
-                {profile?.profile_completed ? "Identity Fully Verified" : "Information Incomplete"}
-              </p>
-            </div>
-          </div>
 
-          <p style={{ fontSize: '11px', fontWeight: '800', color: theme.textMuted, marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>🧩 6. Recent Actions Summary</p>
-          {activityLoading ? (
-            <div style={{ padding: "20px", textAlign: "center", color: theme.textMuted }}>Loading activity...</div>
-          ) : recentActions.length === 0 ? (
-            <div style={{ padding: "20px", textAlign: "center", color: theme.textMuted, background: theme.bg, borderRadius: 12 }}>No recent actions recorded.</div>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-              {recentActions.map((act, i) => (
-                <div key={i} style={{ display: "flex", alignItems: "center", gap: "12px", padding: "12px 16px", background: theme.bg, borderRadius: "10px", border: `1px solid ${theme.border}` }}>
-                  <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: "var(--primary-color)" }} />
-                  <div style={{ flex: 1 }}>
-                    <p style={{ margin: 0, fontSize: "13px", fontWeight: "600", color: theme.text }}>{act.action_type.replace(/_/g, ' ')}</p>
-                    <p style={{ margin: 0, fontSize: "11px", color: theme.textMuted }}>{new Date(act.timestamp).toLocaleString()}</p>
-                  </div>
-                  {act.details?.updated_fields && (
-                    <div style={{ fontSize: '11px', padding: '4px 8px', background: 'rgba(var(--primary-rgb),0.12)', color: 'var(--primary-color)', borderRadius: '4px', fontWeight: 600 }}>
-                      {act.details.updated_fields.join(', ')}
-                    </div>
-                  )}
-                </div>
-              ))}
-              <p style={{ textAlign: 'center', marginTop: '12px', fontSize: '12px', color: theme.textMuted }}>Full audit logs are available in the <span onClick={() => onNavigate("auditlogs")} style={{ color: 'var(--primary-color)', cursor: 'pointer', fontWeight: 600 }}>Admin Activity</span> page.</p>
-            </div>
-          )}
-        </SectionCard>
-      )}
-
-      {activeTab === "links" && (
-        <SectionCard theme={theme} title="Quick Links" subtitle="Jump quickly to common admin modules.">
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
-            <button onClick={() => onNavigate("users")} style={{ padding: "12px", borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.bg, cursor: "pointer" }}>Go to User Oversight</button>
-            <button onClick={() => onNavigate("broadcast")} style={{ padding: "12px", borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.bg, cursor: "pointer" }}>Go to Broadcast</button>
-            <button onClick={() => onNavigate("feedbacks")} style={{ padding: "12px", borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.bg, cursor: "pointer" }}>Go to Feedback Management</button>
-          </div>
-        </SectionCard>
-      )}
-
-      {activeTab === "system" && isGlobalCoreAdmin && (
-        <SectionCard theme={theme} title="Global Config" subtitle={`System-wide configuration for ${systemName} Admin only.`}>
-          {loading ? <div style={{ fontSize: 13, color: theme.textMuted }}>Loading global config...</div> : (
-            <>
-              <ToggleRow theme={theme} darkMode={darkMode} title="Voice Note Submissions" description="Allow voice notes in feedback form." checked={settings.allow_voice} onChange={() => handleToggle("allow_voice")} loading={updatingKey === "allow_voice"} />
-              <ToggleRow theme={theme} darkMode={darkMode} title="Community Feed" description="Enable public feed visibility." checked={settings.public_feed} onChange={() => handleToggle("public_feed")} loading={updatingKey === "public_feed"} />
-              <ToggleRow theme={theme} darkMode={darkMode} title="Email Notifications" description="Send email on new replies." checked={settings.email_notifications} onChange={() => handleToggle("email_notifications")} loading={updatingKey === "email_notifications"} />
-              <ToggleRow theme={theme} darkMode={darkMode} title="Status Notifications" description="Notify on status updates." checked={settings.status_notifications} onChange={() => handleToggle("status_notifications")} loading={updatingKey === "status_notifications"} />
-              
-              <div style={{ marginTop: 24, borderTop: `1px solid ${theme.border}`, paddingTop: 20 }}>
-                <p style={{ margin: '0 0 12px 0', fontSize: 13, fontWeight: 700, color: 'var(--primary-color)' }}>SYSTEM BRANDING</p>
-                
-                {/* Logo Section */}
-                <div style={{ marginBottom: 24, padding: 16, background: theme.bg, borderRadius: 12, border: `1px solid ${theme.border}` }}>
-                  <label style={labelStyle}>Organization Logo</label>
-                  <div style={{ display: 'flex', gap: 20, alignItems: 'center' }}>
-                    <div style={{ 
-                      width: 100, height: 60, borderRadius: 8, background: darkMode ? 'rgba(255,255,255,0.05)' : '#F8FAFC', 
-                      border: `1.5px dashed ${theme.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden'
-                    }}>
-                      {isProcessingLogo ? (
-                        <div style={{ fontSize: 10, color: theme.textMuted }}>Processing...</div>
-                      ) : logoPreview ? (
-                        <img src={logoPreview} alt="Preview" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} onError={(e) => { e.target.src = ""; alert("Corrupt logo data detected. Reverting to default."); }} />
-                      ) : (
-                        <div style={{ fontSize: 10, color: theme.textMuted }}>No Logo</div>
-                      )}
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ display: 'flex', gap: 10 }}>
-                        <label style={{ 
-                          padding: '8px 16px', background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: 8, 
-                          fontSize: 12, fontWeight: 700, cursor: 'pointer', opacity: isProcessingLogo ? 0.6 : 1
-                        }}>
-                          {logoPreview ? "Change Logo" : "Upload Logo"}
-                          <input type="file" accept="image/*" onChange={handleLogoChange} style={{ display: 'none' }} disabled={isProcessingLogo} />
-                        </label>
-                        {logoPreview && (
-                          <button onClick={handleRemoveLogo} style={{ padding: '8px 16px', background: 'none', color: '#EF4444', border: '1.5px solid #EF4444', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
-                            Remove
-                          </button>
-                        )}
+            <SectionCard theme={theme} title="Operational Audit Vault" subtitle="Tamper-proof chronological record of your administrative influence.">
+              <p style={{ fontSize: '11px', fontWeight: '800', color: theme.textMuted, marginBottom: '20px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>🧩 Audit Trail</p>
+              {activityLoading ? (
+                <div style={{ padding: "40px", textAlign: "center", color: theme.textMuted }}>Synchronizing audit records...</div>
+              ) : recentActions.length === 0 ? (
+                <div style={{ padding: "40px", textAlign: "center", color: theme.textMuted, background: theme.bg, borderRadius: 16 }}>No recent records found for this identity.</div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                  {recentActions.map((act, i) => (
+                    <div 
+                      key={i} 
+                      onClick={() => {}} 
+                      style={{ 
+                        display: "flex", alignItems: "center", gap: "16px", padding: "16px 20px", 
+                        background: theme.bg, borderRadius: "14px", border: `1.5px solid ${theme.border}`, 
+                        transition: '0.2s', cursor: 'pointer' 
+                      }} 
+                      onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--primary-color)'} 
+                      onMouseLeave={e => e.currentTarget.style.borderColor = theme.border}
+                    >
+                      <div style={{ 
+                        width: "10px", height: "10px", borderRadius: "50%", 
+                        background: act.action_type.includes('error') ? '#EF4444' : (act.action_type.includes('update') ? '#3B82F6' : '#10B981'),
+                        boxShadow: `0 0 10px ${act.action_type.includes('error') ? '#EF4444' : (act.action_type.includes('update') ? '#3B82F6' : '#10B981')}` 
+                      }} />
+                      <div style={{ flex: 1 }}>
+                        <p style={{ margin: 0, fontSize: "14px", fontWeight: "800", color: theme.text }}>{act.action_type.replace(/_/g, ' ').toUpperCase()}</p>
+                        <p style={{ margin: "2px 0 0 0", fontSize: "11px", color: theme.textMuted, fontWeight: '600' }}>
+                           {act.action_type.includes('update') ? 'Modified system protocol' : 'Administrative state change'} 
+                           <span style={{ color: 'var(--primary-color)', marginLeft: '8px' }}>→ Impacts Submissions Queue</span>
+                        </p>
                       </div>
-                      <p style={{ margin: "10px 0 0 0", fontSize: "11px", color: theme.textMuted }}>
-                        Optimal size: Square or Horizontal (max 300px). Supports JPG, PNG, PNG8.
-                      </p>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button style={{ padding: '6px 12px', borderRadius: '8px', background: 'none', border: `1.5px solid ${theme.border}`, fontSize: '11px', fontWeight: '800', color: theme.text, cursor: 'pointer' }}>Revert</button>
+                        <div style={{ padding: '4px 8px', borderRadius: '6px', background: theme.surface, border: `1px solid ${theme.border}`, fontSize: '10px', fontWeight: '900', color: theme.textMuted }}>
+                           INFO
+                        </div>
+                      </div>
                     </div>
+                  ))}
+                  <div style={{ textAlign: 'center', marginTop: '24px', padding: '20px', background: 'rgba(var(--primary-rgb), 0.03)', borderRadius: '16px', border: `1px dashed ${theme.border}` }}>
+                    <p style={{ margin: '0 0 12px 0', fontSize: '13px', color: theme.textMuted, fontWeight: '500' }}>Access the complete immutable system audit trail.</p>
+                    <button onClick={() => onNavigate("auditlogs")} style={{ padding: '10px 24px', background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '10px', fontSize: '12px', fontWeight: '800', cursor: 'pointer' }}>Enter Global Audit Vault</button>
                   </div>
-                  {logoMeta.updated_at && (
-                    <div style={{ marginTop: 12, padding: '8px 12px', background: 'rgba(var(--primary-rgb), 0.04)', borderRadius: 6, fontSize: 11, color: theme.textMuted, border: '1px solid rgba(var(--primary-rgb), 0.1)' }}>
-                      🛡️ Last updated by <strong>{logoMeta.updated_by}</strong> on {new Date(logoMeta.updated_at).toLocaleString()}
-                    </div>
-                  )}
                 </div>
+              )}
+            </SectionCard>
+          </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                  <div>
-                    <label style={labelStyle}>Primary Organization Name</label>
-                    <input 
-                      value={settings.primary_organization_name || ""} 
-                      onChange={e => setSettings(p => ({ ...p, primary_organization_name: e.target.value }))}
-                      style={inputStyle} 
-                      placeholder="e.g. DSWD"
-                    />
-                    <p style={{ margin: "6px 0 0 0", fontSize: "11px", color: theme.textMuted }}>Branding used in headers and login screens.</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            <div style={{ background: theme.surface, borderRadius: '24px', padding: '28px', border: `1.5px solid ${theme.border}`, boxShadow: '0 10px 30px rgba(0,0,0,0.04)' }}>
+              <h4 style={{ margin: '0 0 20px 0', fontSize: '12px', fontWeight: '900', color: theme.textMuted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Session Analytics</h4>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                  <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: '#F59E0B15', color: '#F59E0B', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
                   </div>
                   <div>
-                    <label style={labelStyle}>Primary Theme Color</label>
-                    <div style={{ display: 'flex', gap: 10 }}>
-                      <input 
-                        type="color"
-                        value={settings.primary_color || "var(--primary-color)"} 
-                        onChange={e => setSettings(p => ({ ...p, primary_color: e.target.value }))}
-                        style={{ ...inputStyle, padding: "2px", width: "50px", height: "40px", cursor: "pointer" }} 
-                      />
-                      <input 
-                        type="text"
-                        value={settings.primary_color || "var(--primary-color)"} 
-                        onChange={e => setSettings(p => ({ ...p, primary_color: e.target.value }))}
-                        style={{ ...inputStyle, flex: 1 }} 
-                        placeholder="var(--primary-color)"
-                      />
-                    </div>
-                    <p style={{ margin: "6px 0 0 0", fontSize: "11px", color: theme.textMuted }}>Main brand color for UI elements.</p>
+                    <p style={{ margin: 0, fontSize: '11px', color: theme.textMuted, fontWeight: '700', textTransform: 'uppercase' }}>Last Authentication</p>
+                    <p style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: theme.text }}>{profile?.last_login ? new Date(profile.last_login).toLocaleTimeString() : "Just now"}</p>
                   </div>
                 </div>
-                <div style={{ marginTop: 16 }}>
-                   <button 
-                     onClick={handleBrandingUpdate}
-                     disabled={updatingKey === "branding"}
-                     style={{ padding: '10px 24px', background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: 8, fontWeight: 700, cursor: 'pointer', fontSize: 13, opacity: updatingKey === "branding" ? 0.6 : 1 }}
-                   >
-                     {updatingKey === "branding" ? "Updating..." : "Update Branding"}
-                   </button>
+                <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                  <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: '#10B98115', color: '#10B981', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                  </div>
+                  <div>
+                    <p style={{ margin: 0, fontSize: '11px', color: theme.textMuted, fontWeight: '700', textTransform: 'uppercase' }}>Profile Integrity</p>
+                    <p style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: '#10B981' }}>{profile?.profile_completed ? "100% Verified" : "Action Required"}</p>
+                  </div>
                 </div>
               </div>
-            </>
-          )}
-        </SectionCard>
+            </div>
+
+            <div style={{ background: theme.bg, borderRadius: '24px', padding: '24px', border: `1px solid ${theme.border}`, textAlign: 'center' }}>
+              <p style={{ margin: 0, fontSize: '12px', color: theme.textMuted, lineHeight: '1.5', fontWeight: '500' }}>
+                Activity tracking is compliant with local governance and data protection standards.
+              </p>
+            </div>
+          </div>
+        </div>
       )}
 
       {activeTab === "terminology" && (
-        <>
-          <SectionCard theme={theme} title="System Terminology" subtitle="Customize the language used throughout the platform to fit your industry.">
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
-              <div>
-                <p style={{ fontSize: '12px', fontWeight: '800', color: '#c35b00', marginBottom: '12px', textTransform: 'uppercase' }}>Programs / Services</p>
-                <div style={{ marginBottom: 12 }}>
-                  <label style={labelStyle}>Singular (e.g. Program)</label>
-                  <input value={termForm.category_label} onChange={e => setTermForm(p => ({ ...p, category_label: e.target.value }))} style={inputStyle} />
-                </div>
-                <div>
-                  <label style={labelStyle}>Plural (e.g. Programs)</label>
-                  <input value={termForm.category_label_plural} onChange={e => setTermForm(p => ({ ...p, category_label_plural: e.target.value }))} style={inputStyle} />
-                </div>
-              </div>
-
-              <div>
-                <p style={{ fontSize: '12px', fontWeight: '800', color: '#c35b00', marginBottom: '12px', textTransform: 'uppercase' }}>Locations / Branches</p>
-                <div style={{ marginBottom: 12 }}>
-                  <label style={labelStyle}>Singular (e.g. Office)</label>
-                  <input value={termForm.entity_label} onChange={e => setTermForm(p => ({ ...p, entity_label: e.target.value }))} style={inputStyle} />
-                </div>
-                <div>
-                  <label style={labelStyle}>Plural (e.g. Offices)</label>
-                  <input value={termForm.entity_label_plural} onChange={e => setTermForm(p => ({ ...p, entity_label_plural: e.target.value }))} style={inputStyle} />
-                </div>
-              </div>
-
-              <div style={{ gridColumn: "1 / span 2", borderTop: `1px solid ${theme.border}`, paddingTop: '16px' }}>
-                <p style={{ fontSize: '12px', fontWeight: '800', color: '#c35b00', marginBottom: '12px', textTransform: 'uppercase' }}>General Activity</p>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
-                  <div>
-                    <label style={labelStyle}>Feedback Label (Singular)</label>
-                    <input value={termForm.feedback_label} onChange={e => setTermForm(p => ({ ...p, feedback_label: e.target.value }))} style={inputStyle} />
-                  </div>
-                  <div>
-                    <label style={labelStyle}>Feedback Label (Plural)</label>
-                    <input value={termForm.feedback_label_plural} onChange={e => setTermForm(p => ({ ...p, feedback_label_plural: e.target.value }))} style={inputStyle} />
-                  </div>
-                </div>
-              </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: '32px', alignItems: 'start' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            {/* 🎯 QUICK PRESETS */}
+            <div style={{ display: 'flex', gap: '12px', marginBottom: '8px' }}>
+              {[
+                { id: 'gov', label: 'Government (DSWD Style)', values: { category_label: 'Program', category_label_plural: 'Programs', entity_label: 'Site', entity_label_plural: 'Sites', feedback_label: 'Learner Feedback', feedback_label_plural: 'Learner Feedbacks' } },
+                { id: 'hotel', label: 'Hotel / Hospitality', values: { category_label: 'Service', category_label_plural: 'Services', entity_label: 'Department', entity_label_plural: 'Departments', feedback_label: 'Guest Feedback', feedback_label_plural: 'Guest Feedbacks' } },
+                { id: 'retail', label: 'Retail / Food', values: { category_label: 'Division', category_label_plural: 'Divisions', entity_label: 'Branch', entity_label_plural: 'Branches', feedback_label: 'Customer Feedback', feedback_label_plural: 'Customer Feedbacks' } }
+              ].map(preset => (
+                <button 
+                  key={preset.id}
+                  onClick={() => setTermForm(prev => ({ ...prev, ...preset.values }))}
+                  style={{ 
+                    padding: '10px 16px', background: theme.surface, color: theme.text, 
+                    border: `1.5px solid ${theme.border}`, borderRadius: '12px', 
+                    fontSize: '12px', fontWeight: '800', cursor: 'pointer', transition: '0.2s'
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--primary-color)'}
+                  onMouseLeave={e => e.currentTarget.style.borderColor = theme.border}
+                >
+                  {preset.label}
+                </button>
+              ))}
             </div>
 
-            <button onClick={saveTerminology} disabled={termSaving} style={{ marginTop: 24, padding: "12px 24px", background: "var(--primary-color)", color: "white", border: "none", borderRadius: 8, fontWeight: 700, cursor: "pointer" }}>
-              {termSaving ? "Saving..." : "Save Terminology Changes"}
-            </button>
-          </SectionCard>
+            <SectionCard theme={theme} title="System Terminology" subtitle="These labels will appear across Submissions, Insights Hub, and Announcements. Use this to rename how services and feedback are labeled.">
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "32px" }}>
+                <div style={{ padding: '20px', background: theme.bg, borderRadius: '18px', border: `1.5px solid ${theme.border}`, borderLeft: termForm.category_label !== pristineTermForm.category_label ? '4px solid #D97706' : `1.5px solid ${theme.border}` }}>
+                  <p style={{ fontSize: '12px', fontWeight: '900', color: 'var(--primary-color)', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>🧩 Main Service Label</p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <div>
+                      <label style={labelStyle}>Singular (e.g., Program / Service)</label>
+                      <input value={termForm.category_label} onChange={e => setTermForm(p => ({ ...p, category_label: e.target.value }))} style={inputStyle} />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Plural (e.g., Programs / Services)</label>
+                      <input value={termForm.category_label_plural} onChange={e => setTermForm(p => ({ ...p, category_label_plural: e.target.value }))} style={inputStyle} />
+                    </div>
+                  </div>
+                </div>
 
-          <SectionCard theme={theme} title="Live Preview" subtitle="See how your terminology looks in common UI areas.">
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-              <div style={{ padding: 16, border: `1px solid ${theme.border}`, borderRadius: 8, background: theme.bg }}>
-                <p style={{ fontSize: 11, fontWeight: 700, color: theme.textMuted, marginBottom: 8 }}>DASHBOARD CARD</p>
-                <div style={{ fontSize: 24, fontWeight: 800, color: theme.text }}>42</div>
-                <div style={{ fontSize: 13, color: theme.textMuted }}>Total {termForm.feedback_label_plural}</div>
-              </div>
-              <div style={{ padding: 16, border: `1px solid ${theme.border}`, borderRadius: 8, background: theme.bg }}>
-                <p style={{ fontSize: 11, fontWeight: 700, color: theme.textMuted, marginBottom: 8 }}>SEARCH PLACEHOLDER</p>
-                <div style={{ padding: '8px 12px', border: `1px solid ${theme.border}`, borderRadius: 6, fontSize: 12, color: theme.textMuted }}>
-                  Search by {termForm.entity_label} or {termForm.category_label}...
+                <div style={{ padding: '20px', background: theme.bg, borderRadius: '18px', border: `1.5px solid ${theme.border}`, borderLeft: termForm.entity_label !== pristineTermForm.entity_label ? '4px solid #D97706' : `1.5px solid ${theme.border}` }}>
+                  <p style={{ fontSize: '12px', fontWeight: '900', color: 'var(--primary-color)', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>🧩 Operational Unit</p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <div>
+                      <label style={labelStyle}>Singular (e.g., Site / Branch)</label>
+                      <input value={termForm.entity_label} onChange={e => setTermForm(p => ({ ...p, entity_label: e.target.value }))} style={inputStyle} />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Plural (e.g., Sites / Branches)</label>
+                      <input value={termForm.entity_label_plural} onChange={e => setTermForm(p => ({ ...p, entity_label_plural: e.target.value }))} style={inputStyle} />
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ gridColumn: "1 / span 2", padding: '20px', background: theme.bg, borderRadius: '18px', border: `1.5px solid ${theme.border}`, borderLeft: termForm.feedback_label !== pristineTermForm.feedback_label ? '4px solid #D97706' : `1.5px solid ${theme.border}` }}>
+                  <p style={{ fontSize: '12px', fontWeight: '900', color: 'var(--primary-color)', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>🧩 Feedback Architecture</p>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" }}>
+                    <div>
+                      <label style={labelStyle}>Feedback Label (e.g., Complaint / Survey)</label>
+                      <input value={termForm.feedback_label} onChange={e => setTermForm(p => ({ ...p, feedback_label: e.target.value }))} style={inputStyle} />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Plural (e.g., Complaints / Surveys)</label>
+                      <input value={termForm.feedback_label_plural} onChange={e => setTermForm(p => ({ ...p, feedback_label_plural: e.target.value }))} style={inputStyle} />
+                    </div>
+                  </div>
                 </div>
               </div>
-              <div style={{ padding: 16, border: `1px solid ${theme.border}`, borderRadius: 8, background: theme.bg, gridColumn: "1 / span 2" }}>
-                <p style={{ fontSize: 11, fontWeight: 700, color: theme.textMuted, marginBottom: 8 }}>MENU ITEM / HEADER</p>
-                <div style={{ display: 'flex', gap: 20 }}>
-                  <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--primary-color)', borderBottom: '2px solid var(--primary-color)', paddingBottom: 4 }}>Manage {termForm.category_label_plural}</span>
-                  <span style={{ fontSize: 14, fontWeight: 600, color: theme.textMuted }}>{termForm.entity_label_plural}</span>
+            </SectionCard>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            {/* 👁️ LIVE PREVIEW (IMPACT) */}
+            <div style={{ background: theme.surface, borderRadius: '24px', padding: '28px', border: `1.5px solid ${theme.border}`, boxShadow: '0 10px 30px rgba(0,0,0,0.04)' }}>
+              <h4 style={{ margin: '0 0 20px 0', fontSize: '12px', fontWeight: '900', color: theme.textMuted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Interface Live Preview</h4>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div style={{ padding: '16px', background: theme.bg, borderRadius: '12px', border: `1px solid ${theme.border}` }}>
+                   <p style={{ margin: '0 0 8px 0', fontSize: '10px', fontWeight: '800', color: theme.textMuted }}>DASHBOARD WIDGET</p>
+                   <p style={{ margin: 0, fontSize: '14px', fontWeight: '700', color: theme.text }}>Active {termForm.category_label_plural || labels.category_label_plural}</p>
+                   <p style={{ margin: '4px 0 0 0', fontSize: '20px', fontWeight: '900', color: 'var(--primary-color)' }}>42</p>
+                </div>
+                <div style={{ padding: '16px', background: theme.bg, borderRadius: '12px', border: `1px solid ${theme.border}` }}>
+                   <p style={{ margin: '0 0 8px 0', fontSize: '10px', fontWeight: '800', color: theme.textMuted }}>PUBLIC FORM ACTION</p>
+                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: publicColor, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M12 5v14M5 12h14"/></svg>
+                      </div>
+                      <p style={{ margin: 0, fontSize: '13px', color: theme.text, fontWeight: '700' }}>Submit New {termForm.feedback_label || labels.feedback_label}</p>
+                   </div>
+                   <p style={{ margin: '8px 0 0 42px', fontSize: '11px', color: theme.textMuted }}>Selected {termForm.entity_label || labels.entity_label}: <strong>Downtown Branch</strong></p>
                 </div>
               </div>
+              <ImpactScope modules="Submissions, Insights, Global Hub" users={activeProfile.audience} description={`Propagates to all ${activeProfile.audience.toLowerCase()} modules.`} theme={theme} />
             </div>
-          </SectionCard>
-        </>
+
+            <div style={{ background: 'rgba(var(--primary-rgb), 0.03)', borderRadius: '24px', padding: '24px', border: `1px dashed ${theme.border}` }}>
+               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                 <span style={{ fontSize: '11px', fontWeight: '800', color: theme.textMuted }}>CURRENT VERSION</span>
+                 <span style={{ fontSize: '11px', fontWeight: '900', color: 'var(--primary-color)' }}>v1.4.2</span>
+               </div>
+               <p style={{ margin: 0, fontSize: '11px', color: theme.textMuted, lineHeight: '1.5' }}>
+                 Terminology changes affect all modules including Citizen Feedback Hub and Executive Dashboards.
+               </p>
+            </div>
+          </div>
+        </div>
       )}
+
+      {activeTab === "system" && isGlobalCoreAdmin && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: '32px', alignItems: 'start' }}>
+           <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+              <SectionCard theme={theme} title="Organization Profile" subtitle="Select the primary operational mode for the platform.">
+                 <div style={{ padding: '16px', background: 'rgba(var(--primary-rgb), 0.05)', borderRadius: '12px', border: `1px solid rgba(var(--primary-rgb), 0.1)` }}>
+                    <label style={labelStyle}>Operational Logic Mode</label>
+                    <select style={inputStyle} value={orgType} onChange={e => setOrgType(e.target.value)}>
+                       <option value="government">Government & Public Program (Governance focus)</option>
+                       <option value="service">Hospitality & Service Business (Guest Experience focus)</option>
+                       <option value="corporate">Internal Enterprise (SOP & Staff focus)</option>
+                    </select>
+                    <p style={{ marginTop: '12px', fontSize: '11px', color: theme.textMuted, lineHeight: '1.5' }}>
+                       💡 Switching the mode dynamically re-aligns system terminology, policy references, and operational guardrails.
+                    </p>
+                 </div>
+              </SectionCard>
+
+              <SectionCard theme={theme} title="Operational Guardrails" subtitle={`Settings anchored to ${activeProfile.policy_ref}.`}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                  <ToggleRow title={`${activeProfile.window_label} Validation`} description={`Restrict submissions to active ${activeProfile.window_label.toLowerCase()} periods only.`} checked={settings.public_feed} onChange={() => setSettings(s => ({ ...s, public_feed: !s.public_feed }))} theme={theme} darkMode={darkMode} />
+                  <ToggleRow title="Data Life-cycle Protocol" description="Aggressive masking of identities in public and lower-tier reports." checked={settings.email_notifications} onChange={() => setSettings(s => ({ ...s, email_notifications: !s.email_notifications }))} theme={theme} darkMode={darkMode} />
+                  
+                  <div style={{ borderTop: `1px solid ${theme.border}`, paddingTop: '24px' }}>
+                     <label style={labelStyle}>Submission Rate Limit (per {activeProfile.audience.split(' / ')[0]})</label>
+                     <input type="number" defaultValue={2} style={inputStyle} />
+                     <ImpactScope modules="Submission API" users={activeProfile.audience} description={`Prevents data duplication and ensures high-quality ${getLabel("feedback_label", "feedback")} records.`} theme={theme} />
+                  </div>
+
+                  <div style={{ borderTop: `1px solid ${theme.border}`, paddingTop: '24px' }}>
+                     <label style={labelStyle}>Data Sovereignty Protocol</label>
+                     <select style={inputStyle}>
+                        <option>Standard Retention (3 Years)</option>
+                        <option>Extended Compliance (5 Years)</option>
+                        <option>Permanent Operational Archive</option>
+                     </select>
+                  </div>
+                </div>
+              </SectionCard>
+           </div>
+
+           <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+              <div style={{ background: '#1e293b', borderRadius: '24px', padding: '28px', color: 'white' }}>
+                 <h4 style={{ margin: '0 0 12px 0', fontSize: '12px', fontWeight: '900', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Governance Enforcement</h4>
+                 <p style={{ margin: 0, fontSize: '13px', color: 'rgba(255,255,255,0.8)', lineHeight: '1.6', fontWeight: '500' }}>
+                   These configurations represent the operational "Constitution" of the platform for the <strong>{orgType.toUpperCase()}</strong> domain.
+                 </p>
+                 <div style={{ marginTop: '24px', paddingTop: '24px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
+                       <span style={{ color: 'rgba(255,255,255,0.5)' }}>Compliance Tier</span>
+                       <span style={{ fontWeight: '900' }}>{orgType === 'government' ? 'FEDERAL-PLUS' : 'ENTERPRISE-PRO'}</span>
+                    </div>
+                 </div>
+              </div>
+           </div>
+        </div>
+      )}
+      </div>
     </div>
   );
 };

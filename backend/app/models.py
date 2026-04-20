@@ -86,6 +86,8 @@ class User(Base):
     profile_completed = Column(Boolean, default=False)
     completed_at = Column(DateTime, nullable=True)
     last_login = Column(DateTime, nullable=True)
+    last_seen = Column(DateTime, nullable=True)
+    current_module = Column(String, nullable=True)
     
     deactivated_until = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))

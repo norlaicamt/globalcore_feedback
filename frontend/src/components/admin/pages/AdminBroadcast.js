@@ -201,10 +201,19 @@ const AdminBroadcast = ({ theme, darkMode, adminUser }) => {
   const lastLog = history.find(h => h.status === 'sent');
 
   return (
-    <div style={{ maxWidth: "1400px", margin: "0 auto", display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '24px', padding: '10px' }}>
+    <div style={{ 
+      width: "100%", 
+      height: "calc(100vh - 140px)", // Locks height to viewport minus topbar/padding
+      display: 'grid', 
+      gridTemplateColumns: '1.5fr 1fr', 
+      gap: '24px', 
+      padding: '0', 
+      overflow: 'hidden',
+      fontSize: 'clamp(11px, 0.85vh + 0.5vw, 14px)', // Dynamic font scaling
+    }}>
       
       {/* Left Column: Command Center (Compose) */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', height: '100%', overflow: 'hidden' }}>
         
         {/* Header Context Bar */}
         <div style={{ background: theme.surface, borderRadius: "16px", padding: "16px 24px", border: `1px solid ${theme.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 2px 10px rgba(0,0,0,0.02)' }}>
@@ -224,7 +233,15 @@ const AdminBroadcast = ({ theme, darkMode, adminUser }) => {
           </div>
         </div>
 
-        <div style={{ background: theme.surface, borderRadius: "20px", padding: "40px", border: `1px solid ${theme.border}`, boxShadow: '0 10px 30px rgba(0,0,0,0.04)' }}>
+        <div style={{ 
+          background: theme.surface, 
+          borderRadius: "20px", 
+          padding: "24px 40px", 
+          border: `1px solid ${theme.border}`, 
+          boxShadow: '0 10px 30px rgba(0,0,0,0.04)',
+          flex: 1,
+          overflowY: 'auto' // Internal scroll for the form if height is restricted
+        }}>
           <form onSubmit={(e) => { e.preventDefault(); setShowPreview(true); }} style={{ display: "flex", flexDirection: "column", gap: "28px" }}>
             
             {/* ROW 1: Audience & Priority */}
@@ -313,7 +330,7 @@ const AdminBroadcast = ({ theme, darkMode, adminUser }) => {
       </div>
 
       {/* Right Column: Active Intelligence (Activity & Templates) */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', height: '100%', overflow: 'hidden' }}>
         
         {/* Last Broadcast Stats Widget */}
         <div style={{ background: theme.surface, borderRadius: "20px", padding: "24px", border: `1px solid ${theme.border}`, boxShadow: '0 4px 15px rgba(0,0,0,0.02)' }}>
