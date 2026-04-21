@@ -189,4 +189,5 @@ export const updateEntityFormConfig = (ent_id, config) => adminApi.put(`/entitie
 // Workflow Templates
 export const adminGetWorkflowTemplates = (category = "") => adminApi.get(`/workflow-templates${category ? `?category=${category}` : ""}`).then(r => r.data);
 export const adminCreateWorkflowTemplate = (payload) => adminApi.post("/workflow-templates", payload).then(r => r.data);
+export const adminUpdateWorkflowTemplate = (id, payload) => adminApi.put(`/workflow-templates/${id}`, payload).then(r => r.data);
 export const adminDeleteWorkflowTemplate = (id) => adminApi.delete(`/workflow-templates/${id}`).then(r => r.data);

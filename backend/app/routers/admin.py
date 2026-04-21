@@ -1737,8 +1737,22 @@ def get_workflow_templates(
     if category:
         query = query.filter(models.WorkflowTemplate.category == category)
         
-    # Templates are shared across all admins
-    return query.order_by(models.WorkflowTemplate.is_global.desc(), models.WorkflowTemplate.name.asc()).all()
+    # Scoping: 
+    # 1. System templates (is_system=True)
+    # 2. Global templates (is_global=True)
+    # 3. Workspace templates (entity_id matches current admin)
+    if not has_global_admin_access(admin):
+        from sqlalchemy import or_
+        query = query.filter(
+            or_(
+                models.WorkflowTemplate.is_system == True,
+                models.WorkflowTemplate.is_global == True,
+                models.WorkflowTemplate.entity_id == admin.entity_id,
+                models.WorkflowTemplate.created_by_id == admin.id
+            )
+        )
+        
+    return query.order_by(models.WorkflowTemplate.is_system.desc(), models.WorkflowTemplate.is_global.desc(), models.WorkflowTemplate.name.asc()).all()
 
 @router.post("/workflow-templates", response_model=schemas.WorkflowTemplate)
 def create_workflow_template(
@@ -1749,6 +1763,7 @@ def create_workflow_template(
     """Save a workflow configuration as a reusable template."""
     # Only global admins can create system (global) templates
     is_global = payload.is_global and has_global_admin_access(admin)
+    is_system = payload.is_system and has_global_admin_access(admin)
     
     db_tpl = models.WorkflowTemplate(
         name=payload.name,
@@ -1757,6 +1772,8 @@ def create_workflow_template(
         config=payload.config,
         version=payload.version,
         is_global=is_global,
+        is_system=is_system,
+        entity_id=payload.entity_id or admin.entity_id,
         created_by_id=admin.id
     )
     db.add(db_tpl)
@@ -1785,7 +1802,12 @@ def delete_workflow_template(
     if not db_tpl:
         raise HTTPException(status_code=404, detail="Template not found")
         
-    # Security: Only global admins or the creator can delete/deactivate
+    # Security: 
+    # 1. System templates are protected
+    if db_tpl.is_system and not has_global_admin_access(admin):
+        raise HTTPException(status_code=403, detail="System templates are protected and cannot be deleted")
+
+    # 2. Only global admins or the creator can delete/deactivate
     if not has_global_admin_access(admin) and db_tpl.created_by_id != admin.id:
         raise HTTPException(status_code=403, detail="Access denied: Only the creator or global admin can delete this template")
         
@@ -1802,3 +1824,47 @@ def delete_workflow_template(
     )
     
     return {"status": "deactivated"}
+    
+@router.put("/workflow-templates/{tpl_id}", response_model=schemas.WorkflowTemplate)
+def update_workflow_template(
+    tpl_id: int,
+    payload: schemas.WorkflowTemplateUpdate,
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(get_current_admin)
+):
+    """Update an existing workflow template."""
+    db_tpl = db.query(models.WorkflowTemplate).filter(models.WorkflowTemplate.id == tpl_id).first()
+    if not db_tpl:
+        raise HTTPException(status_code=404, detail="Template not found")
+        
+    # Security:
+    # 1. System templates are protected
+    if db_tpl.is_system and not has_global_admin_access(admin):
+        raise HTTPException(status_code=403, detail="System templates are protected and cannot be modified")
+
+    # 2. Only global admins or the creator can update
+    if not has_global_admin_access(admin) and db_tpl.created_by_id != admin.id:
+        raise HTTPException(status_code=403, detail="Access denied: Only the creator or global admin can edit this template")
+        
+    if payload.name is not None: db_tpl.name = payload.name
+    if payload.description is not None: db_tpl.description = payload.description
+    if payload.category is not None: db_tpl.category = payload.category
+    if payload.config is not None: db_tpl.config = payload.config
+    if payload.is_global is not None:
+        db_tpl.is_global = payload.is_global and has_global_admin_access(admin)
+    if payload.is_system is not None:
+        db_tpl.is_system = payload.is_system and has_global_admin_access(admin)
+        
+    db.commit()
+    db.refresh(db_tpl)
+    
+    # Audit Log
+    crud.create_audit_log(
+        db,
+        action_type="update_workflow_template",
+        performed_by_id=admin.id,
+        target_id=str(tpl_id),
+        details={"name": db_tpl.name}
+    )
+    
+    return db_tpl

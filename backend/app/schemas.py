@@ -569,12 +569,24 @@ class WorkflowTemplateBase(BaseModel):
     config: dict
     version: int = 1
     is_global: bool = False
+    is_system: bool = False
+    entity_id: Optional[int] = None
 
 class WorkflowTemplateCreate(WorkflowTemplateBase):
     pass
+
+class WorkflowTemplateUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    category: Optional[str] = None
+    config: Optional[dict] = None
+    is_global: Optional[bool] = None
+    is_system: Optional[bool] = None
 
 class WorkflowTemplate(WorkflowTemplateBase):
     id: int
     created_by_id: Optional[int] = None
     created_at: datetime
+    updated_at: Optional[datetime] = None
+    creator: Optional[UserSearchEntry] = None
     model_config = ConfigDict(from_attributes=True)

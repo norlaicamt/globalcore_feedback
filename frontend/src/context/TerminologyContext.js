@@ -19,17 +19,31 @@ export const TerminologyProvider = ({ children }) => {
 
   // Helper to convert hex to rgb for rgba() usage
   const hexToRgb = (hex) => {
-    let defaultRgb = "31, 42, 86"; // fallback navy blue
-    if (!hex) return defaultRgb;
-    hex = hex.replace(/^#/, '');
-    if (hex.length === 3) {
-      hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
-    }
-    if (hex.length !== 6) return defaultRgb;
-    const r = parseInt(hex.substring(0, 2), 16);
-    const g = parseInt(hex.substring(2, 4), 16);
-    const b = parseInt(hex.substring(4, 6), 16);
+    let defaultRgb = "31, 42, 86";
+    if (!hex || !hex.startsWith('#')) return defaultRgb;
+    const h = hex.replace(/^#/, '');
+    const r = parseInt(h.length === 3 ? h[0] + h[0] : h.substring(0, 2), 16);
+    const g = parseInt(h.length === 3 ? h[1] + h[1] : h.substring(2, 4), 16);
+    const b = parseInt(h.length === 3 ? h[2] + h[2] : h.substring(4, 6), 16);
     return `${r}, ${g}, ${b}`;
+  };
+
+  const getContrastColor = (hex) => {
+    if (!hex || !hex.startsWith('#')) return '#ffffff';
+    const h = hex.replace(/^#/, '');
+    const r = parseInt(h.length === 3 ? h[0] + h[0] : h.substring(0, 2), 16);
+    const g = parseInt(h.length === 3 ? h[1] + h[1] : h.substring(2, 4), 16);
+    const b = parseInt(h.length === 3 ? h[2] + h[2] : h.substring(4, 6), 16);
+    const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+    return brightness > 155 ? '#1e293b' : '#ffffff';
+  };
+
+  const adjustBrightness = (hex, percent) => {
+    const h = (hex || '#3B82F6').replace(/^#/, '');
+    const r = Math.min(255, Math.max(0, parseInt(h.substring(0, 2), 16) + percent));
+    const g = Math.min(255, Math.max(0, parseInt(h.substring(2, 4), 16) + percent));
+    const b = Math.min(255, Math.max(0, parseInt(h.substring(4, 6), 16) + percent));
+    return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
   };
 
   const refreshLabels = useCallback(async () => {
@@ -93,8 +107,12 @@ export const TerminologyProvider = ({ children }) => {
       const root = document.documentElement;
       const primaryHex = mappedSettings.primary_color;
       if (primaryHex && primaryHex.startsWith('#')) {
+        const rgb = hexToRgb(primaryHex);
         root.style.setProperty('--primary-color', primaryHex);
-        root.style.setProperty('--primary-rgb', hexToRgb(primaryHex));
+        root.style.setProperty('--primary-rgb', rgb);
+        root.style.setProperty('--primary-contrast', getContrastColor(primaryHex));
+        root.style.setProperty('--primary-hover', adjustBrightness(primaryHex, -20));
+        root.style.setProperty('--primary-soft', `rgba(${rgb}, 0.1)`);
       }
       // Note: we intentionally do NOT override dark mode background colors.
       // Only --primary-color drives buttons, highlights, sidebar gradient, and focus rings.
@@ -112,7 +130,7 @@ export const TerminologyProvider = ({ children }) => {
 
   const systemName = systemSettings.primary_organization_name || "GlobalCore Feedback";
   const systemLogo = systemSettings.primary_organization_logo || null;
-  
+
   // Refined defaults for mental model clarity
   const defaultLabels = {
     category_label: "Program",

@@ -328,14 +328,18 @@ class WorkflowTemplate(Base):
     config = Column(JSONB) # The workflow JSON
     version = Column(Integer, default=1)
     is_global = Column(Boolean, default=False)
+    is_system = Column(Boolean, default=False) # Locked templates created by system
     is_active = Column(Boolean, default=True)
     tags = Column(JSONB, nullable=True) # e.g. ["⭐ Recommended", "🔒 System"]
     organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=True)
+    entity_id = Column(Integer, ForeignKey("entities.id"), nullable=True) # Workspace scoping
     created_by_id = Column(Integer, ForeignKey("global_user.id"), nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     creator = relationship("User")
     organization = relationship("Organization")
+    entity = relationship("Entity")
 
 class PasswordResetToken(Base):
     __tablename__ = "password_reset_tokens"

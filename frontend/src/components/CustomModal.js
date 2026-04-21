@@ -36,7 +36,7 @@ const CustomModal = ({
   const currentStyle = typeStyles[type] || typeStyles.info;
 
   return (
-    <div style={styles.overlay} onClick={onCancel || onConfirm}>
+    <div style={styles.overlay} onClick={onCancel}>
       <div style={{ ...styles.content, maxWidth: content ? '420px' : '340px' }} onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
           <div style={{ ...styles.iconBadge, backgroundColor: currentStyle.bg }}>{currentStyle.icon}</div>
