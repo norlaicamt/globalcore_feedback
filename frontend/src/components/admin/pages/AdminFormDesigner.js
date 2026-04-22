@@ -263,6 +263,7 @@ function normalizeConfig(config) {
   config.sections = config.sections || [];
   config.toggles = config.toggles || {};
   config.terminology = config.terminology || {};
+  config.layout_mode = config.layout_mode || 'custom';
   return config;
 }
 
@@ -602,12 +603,31 @@ function AdminFormDesigner({ theme, darkMode, adminUser }) {
     setConfig({ ...config, terminology: { ...config.terminology, [key]: val } });
   };
 
+  const handleLayoutModeChange = (mode) => {
+    if (mode === 'smart') {
+      setModal({
+        isOpen: true,
+        title: "Switch to Smart Layout?",
+        message: "Smart Layout automatically reorganizes modules into logical groups (Experience, Feedback, Info) to improve the user journey. Your original configuration remains untouched.",
+        type: "confirm",
+        confirmText: "Apply Smart Layout",
+        onConfirm: () => {
+          setConfig({ ...config, layout_mode: 'smart' });
+          setModal({ isOpen: false });
+        }
+      });
+    } else {
+      setConfig({ ...config, layout_mode: 'custom' });
+    }
+  };
+
   const handleUseTemplate = async () => {
     await fetchTemplates();
     setShowGallery(true);
   };
 
   const fetchTemplates = async () => {
+    setIsLoadingTpl(true);
     try {
       const data = await adminGetWorkflowTemplates();
       setTemplates(data);
@@ -975,7 +995,7 @@ function AdminFormDesigner({ theme, darkMode, adminUser }) {
             {Ico.Layers}
           </div>
           <div>
-            <h1 style={{ margin: 0, fontSize: '20px', fontWeight: '900', color: theme.text, letterSpacing: '-0.02em' }}>Interaction Studio</h1>
+            <h1 style={{ margin: 0, fontSize: '20px', fontWeight: '900', color: theme.text, letterSpacing: '-0.02em' }}>Studio</h1>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
               <span style={{ fontSize: '11px', fontWeight: '800', color: theme.textMuted }}>Editing:</span>
               <span style={{ fontSize: '11px', fontWeight: '900', color: 'var(--primary-color)', display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -990,32 +1010,40 @@ function AdminFormDesigner({ theme, darkMode, adminUser }) {
           </div>
         </div>
 
-        {/* CENTER: Mode & Tools */}
-        <div style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', display: 'flex', alignItems: 'center', gap: '24px' }}>
+        {/* CENTER: Context Toggles */}
+        <div style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div style={st.segmentedControl(theme)}>
             <button onClick={() => setShowPreview(false)} style={st.segment(!showPreview, theme)}>Design</button>
             <button onClick={() => setShowPreview(true)} style={st.segment(showPreview, theme)}>Preview</button>
           </div>
 
-          <div style={{ width: '1.5px', height: '24px', background: theme.border }} />
+          <div style={{ width: '1px', height: '24px', background: theme.border, opacity: 0.6, margin: '0 8px' }} />
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <button onClick={saveAsTemplate} disabled={isSavingTpl} style={st.btnOutline(theme)}>
-              {Ico.Save} {isSavingTpl ? "Saving..." : "Save as Template"}
-            </button>
-            <button onClick={handleUseTemplate} disabled={isLoadingTpl} style={st.btnTertiary(theme)}>
-              {Ico.Layers} {isLoadingTpl ? "..." : "Start from Template"}
-            </button>
-            {isDirty && (
-              <button onClick={handleDiscard} style={st.btnGhost(theme)} onMouseEnter={e => e.currentTarget.style.color = '#EF4444'} onMouseLeave={e => e.currentTarget.style.color = theme.textMuted}>
-                {Ico.X} Discard
-              </button>
-            )}
+          <div style={st.segmentedControl(theme)}>
+            <button onClick={() => handleLayoutModeChange('custom')} style={st.segment(config?.layout_mode === 'custom', theme)}>Custom</button>
+            <button onClick={() => handleLayoutModeChange('smart')} style={st.segment(config?.layout_mode === 'smart', theme)}>Smart</button>
           </div>
         </div>
 
-        {/* RIGHT: Context & Finalize */}
+        {/* RIGHT: Library & Finalize */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          {isDirty && (
+            <button onClick={handleDiscard} style={{ ...st.btnGhost(theme), padding: '0 8px', height: '36px' }} onMouseEnter={e => e.currentTarget.style.color = '#EF4444'} onMouseLeave={e => e.currentTarget.style.color = theme.textMuted}>
+              {Ico.X} Discard
+            </button>
+          )}
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button onClick={saveAsTemplate} disabled={isSavingTpl} style={{ ...st.btnOutline(theme), height: '36px', padding: '0 12px' }}>
+              {Ico.Save} <span style={{ marginLeft: '4px' }}>{isSavingTpl ? "..." : "Save"}</span>
+            </button>
+            <button onClick={handleUseTemplate} disabled={isLoadingTpl} style={{ ...st.btnOutline(theme), height: '36px', padding: '0 12px' }}>
+              {Ico.Layers} <span style={{ marginLeft: '4px' }}>{isLoadingTpl ? "..." : "Template"}</span>
+            </button>
+          </div>
+
+          <div style={{ width: '1px', height: '32px', background: theme.border, opacity: 0.6 }} />
+
           <PremiumEntitySelector
             entities={entities}
             selectedId={selectedEntId}
@@ -1195,7 +1223,7 @@ function AdminFormDesigner({ theme, darkMode, adminUser }) {
           <div style={{ width: '300px', display: 'flex', flexDirection: 'column', gap: '16px', position: 'sticky', top: '24px' }}>
             <div style={{ background: theme.surface, borderRadius: '16px', border: `1px solid ${theme.border}`, overflow: 'hidden' }}>
               <div style={{ padding: '16px', borderBottom: `1px solid ${theme.border}`, background: 'rgba(59,130,246,0.02)' }}>
-                <h3 style={{ margin: 0, fontSize: '14px', fontWeight: '900' }}>Interaction Library</h3>
+                <h3 style={{ margin: 0, fontSize: '14px', fontWeight: '900' }}>Library</h3>
               </div>
               <div style={{ padding: '16px' }}>
                 <div style={{ position: 'relative' }}>

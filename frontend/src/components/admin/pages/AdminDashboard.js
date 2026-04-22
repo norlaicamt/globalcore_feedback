@@ -173,7 +173,9 @@ const AdminDashboard = ({ onNavigate, theme, darkMode, adminUser }) => {
     const fetchAnalytics = async (isInitial = false) => {
       if (isInitial) setLoading(true);
       try {
+        console.log("DEBUG DASHBOARD: Fetching with filter:", deptFilter);
         const data = await getAnalyticsSnapshot(deptFilter, days);
+        console.log("DEBUG DASHBOARD: Received data:", data);
         setSummary(data.summary);
         setVolume(data.volume);
         setByEntity(data.by_entity);
@@ -232,7 +234,48 @@ const AdminDashboard = ({ onNavigate, theme, darkMode, adminUser }) => {
         <TimeFilter value={days} onChange={setDays} theme={theme} />
       </div>
 
-      {/* 🔷 SECTION 1: CASE MANAGEMENT (OPERATIONAL) */}
+      {/* 🔷 SECTION 1: USER OVERVIEW */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <SectionHeader 
+          title="User Overview" 
+          icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>} 
+          theme={theme} 
+        />
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "16px" }}>
+          <KpiCard 
+            label="Total Citizens" 
+            value={summary?.global_total_users ?? 0} 
+            sub="Total Organization Reach" 
+            theme={theme} 
+          />
+          <KpiCard 
+            label={!selectedDept ? "Engaged Citizens" : "Program Users"} 
+            value={summary?.total_users ?? 0} 
+            sub={!selectedDept ? "Interaction-based" : "Participating in service"} 
+            theme={theme} 
+            color="#3B82F6"
+          />
+          <KpiCard 
+            label="Cross-Program Reach" 
+            value={summary?.cross_program_reach ?? 0} 
+            sub="Users in 2+ services" 
+            theme={theme} 
+            color="var(--primary-color)"
+          />
+          <KpiCard 
+            label="Average Experience" 
+            value={
+              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                {summary?.avg_rating ?? 0}
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="#FBBF24" stroke="#FBBF24" strokeWidth="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+              </div>
+            } 
+            sub="Based on ratings" theme={theme} 
+          />
+        </div>
+      </div>
+
+      {/* 🔷 SECTION 2: CASE MANAGEMENT (OPERATIONAL) */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         <SectionHeader 
           title="Case Management" 
@@ -274,30 +317,6 @@ const AdminDashboard = ({ onNavigate, theme, darkMode, adminUser }) => {
               </>
             );
           })()}
-        </div>
-      </div>
-
-      {/* 🔷 SECTION 2: USER OVERVIEW */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        <SectionHeader 
-          title="User Overview" 
-          icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>} 
-          theme={theme} 
-        />
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "16px" }}>
-          <KpiCard label="Total Registered Users" value={summary?.total_users ?? 0} sub="Community size" theme={theme} />
-          <KpiCard label="Active Users (7 Days)" value={summary?.active_citizens_7d ?? 0} sub="Recent engagement" theme={theme} />
-          <KpiCard label="New Users (7 Days)" value={summary?.new_signups_7d ?? 0} sub="Weekly growth" theme={theme} />
-          <KpiCard 
-            label="Average Experience" 
-            value={
-              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                {summary?.avg_rating ?? 0}
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="#FBBF24" stroke="#FBBF24" strokeWidth="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
-              </div>
-            } 
-            sub="Last 30 days" theme={theme} 
-          />
         </div>
       </div>
 

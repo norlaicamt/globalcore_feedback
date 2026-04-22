@@ -148,6 +148,7 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
   const [form, setForm] = useState({
     name: "",
     avatar_url: "",
+    current_password: "",
     password: "",
     two_factor_enabled: false,
     push_notifications: true,
@@ -183,6 +184,13 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
   const [securityRisk, setSecurityRisk] = useState("LOW"); // LOW, MEDIUM, HIGH
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [pendingChanges, setPendingChanges] = useState([]);
+  
+  const [timeConfig, setTimeConfig] = useState({
+    timezone: "Asia/Manila (UTC+8)",
+    time_format: "12h",
+    date_format: "MMMM DD, YYYY",
+    week_start: "Monday"
+  });
 
   useEffect(() => {
     if (settings.primary_color) {
@@ -467,13 +475,14 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
       avatar_url: form.avatar_url || null,
       position_title: form.position_title || null,
       unit_name: form.unit_name || null,
-      phone: form.phone || null,
+      phone: form.phone,
+      ...(form.current_password ? { current_password: form.current_password } : {}),
       ...(form.password ? { password: form.password } : {}),
       two_factor_enabled: form.two_factor_enabled
     };
     await saveProfile(payload);
-    setIsEditingProfile(false);
-    setForm(prev => ({ ...prev, password: "" }));
+    setPristineForm(JSON.parse(JSON.stringify(form)));
+    setForm(prev => ({ ...prev, current_password: "", password: "" }));
   };
 
   const handleNotificationSave = async () => {
@@ -879,8 +888,29 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
               <SectionCard theme={theme} title="Authentication Protocols" subtitle="Define how your administrative session is verified.">
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                   <div>
-                    <label style={labelStyle}>Administrative Password</label>
-                    <input type="password" value={form.password} onChange={e => setForm(prev => ({ ...prev, password: e.target.value }))} style={inputStyle} placeholder="Update password..." />
+                    <p style={{ margin: '0 0 16px 0', fontSize: '13px', fontWeight: '800', color: theme.text }}>Administrative Password</p>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                      <div>
+                        <label style={labelStyle}>Current Password</label>
+                        <input 
+                          type="password" 
+                          value={form.current_password || ""} 
+                          onChange={e => setForm(prev => ({ ...prev, current_password: e.target.value }))} 
+                          style={inputStyle} 
+                          placeholder="Verify identity..." 
+                        />
+                      </div>
+                      <div>
+                        <label style={labelStyle}>New Password</label>
+                        <input 
+                          type="password" 
+                          value={form.password || ""} 
+                          onChange={e => setForm(prev => ({ ...prev, password: e.target.value }))} 
+                          style={inputStyle} 
+                          placeholder="Enter new password..." 
+                        />
+                      </div>
+                    </div>
                   </div>
                   <div style={{ borderTop: `1px solid ${theme.border}`, paddingTop: '12px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
@@ -1394,6 +1424,50 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
                   <p style={{ marginTop: '12px', fontSize: '11px', color: theme.textMuted, lineHeight: '1.5' }}>
                     💡 Switching the mode dynamically re-aligns system terminology, policy references, and operational guardrails.
                   </p>
+                </div>
+              </SectionCard>
+
+              <SectionCard theme={theme} title="Time & Regional Strategy" subtitle="Standardize temporal governance across all programs and interactions.">
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+                  <div style={{ padding: '16px', background: theme.bg, borderRadius: '16px', border: `1.5px solid ${theme.border}` }}>
+                    <label style={labelStyle}>Primary Timezone</label>
+                    <select style={inputStyle} value={timeConfig.timezone} onChange={e => setTimeConfig(s => ({ ...s, timezone: e.target.value }))}>
+                      <option>Asia/Manila (UTC+8)</option>
+                      <option>UTC (Coordinated Universal Time)</option>
+                      <option>America/New_York (UTC-5)</option>
+                    </select>
+                    <p style={{ marginTop: '8px', fontSize: '10px', color: theme.textMuted }}>Used for audit trails and scheduled broadcasts.</p>
+                  </div>
+
+                  <div style={{ padding: '16px', background: theme.bg, borderRadius: '16px', border: `1.5px solid ${theme.border}` }}>
+                    <label style={labelStyle}>Time Display Format</label>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                       {['12h', '24h'].map(f => (
+                         <button 
+                           key={f}
+                           onClick={() => setTimeConfig(s => ({ ...s, time_format: f }))}
+                           style={{ 
+                             flex: 1, padding: '10px', borderRadius: '8px', fontSize: '11px', fontWeight: '800',
+                             background: timeConfig.time_format === f ? 'var(--primary-color)' : theme.surface,
+                             color: timeConfig.time_format === f ? 'white' : theme.text,
+                             border: `1.5px solid ${timeConfig.time_format === f ? 'var(--primary-color)' : theme.border}`,
+                             cursor: 'pointer'
+                           }}
+                         >
+                           {f === '12h' ? '12-Hour (02:00 PM)' : '24-Hour (14:00)'}
+                         </button>
+                       ))}
+                    </div>
+                  </div>
+
+                  <div style={{ gridColumn: '1 / span 2', padding: '16px', background: theme.bg, borderRadius: '16px', border: `1.5px solid ${theme.border}` }}>
+                    <label style={labelStyle}>Date Visualization Format</label>
+                    <select style={inputStyle} value={timeConfig.date_format} onChange={e => setTimeConfig(s => ({ ...s, date_format: e.target.value }))}>
+                      <option>MMMM DD, YYYY (April 22, 2026)</option>
+                      <option>DD/MM/YYYY (22/04/2026)</option>
+                      <option>YYYY-MM-DD (2026-04-22)</option>
+                    </select>
+                  </div>
                 </div>
               </SectionCard>
 

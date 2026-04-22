@@ -145,7 +145,25 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, overrideConfig = null
 
   const enabledSteps = React.useMemo(() => {
     if (!formConfig || !formConfig.steps) return [];
-    
+
+    const mode = formConfig.layout_mode || "custom";
+
+    if (mode === "custom") {
+      return formConfig.steps
+        .filter(s => s.enabled)
+        .sort((a, b) => a.order - b.order)
+        .map(s => ({
+          ...s,
+          items: (s.items || []).map(it => ({
+            ...it,
+            label_override: it.label_override || SMART_DEFAULTS[it.key] || it.key,
+            helper: it.helper || SMART_HELPERS[it.key]
+          }))
+        }))
+        .filter(s => s.items.length > 0);
+    }
+
+    // Smart Grouping (Original logic)
     const allItems = [...formConfig.steps]
       .filter(s => s.enabled)
       .sort((a, b) => a.order - b.order)
@@ -252,15 +270,20 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, overrideConfig = null
     }
     try {
       await createFeedback({
+        sender_id: currentUser?.id,
         feedback_type: feedbackType,
         entity_id: selectedEntity.id,
         branch_id: selectedBranch?.id,
         description: idea,
         rating,
+        is_anonymous: isAnonymous,
         custom_data: { ...customFields, matrix_evaluations: matrixRatings, routing_method: selectionMethod }
       });
       setModal({ isOpen: true, title: "Success", message: "Submitted successfully!", type: "success", onConfirm: () => { if (typeof onSuccess === 'function') onSuccess(); setModal({ isOpen: false }); } });
-    } catch (e) { setModal({ isOpen: true, title: "Error", message: "Submission failed.", type: "error" }); }
+    } catch (e) { 
+      const errMsg = e.response?.data?.detail || e.message || "Submission failed.";
+      setModal({ isOpen: true, title: "Error", message: errMsg, type: "error" }); 
+    }
     finally { setIsSubmitting(false); }
   };
 
@@ -404,7 +427,7 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, overrideConfig = null
         </div>
         <div style={{ position: 'relative' }}>
           {content}
-          {itemValue && !['message_input', 'long_text', 'short_text'].includes(key) && (
+          {!!itemValue && !['message_input', 'long_text', 'short_text'].includes(key) && (
             <div style={{ marginTop: '16px', fontSize: '12px', fontWeight: '800', color: 'var(--primary-color)', display: 'flex', alignItems: 'center', gap: '8px', animation: 'fadeIn 0.3s ease' }}>
               <LocalIcons.CheckCircle size={14} strokeWidth={3} />
               <span>Response captured</span>

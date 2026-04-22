@@ -133,10 +133,10 @@ export const TerminologyProvider = ({ children }) => {
 
   // Refined defaults for mental model clarity
   const defaultLabels = {
-    category_label: "Program",
-    category_label_plural: "Programs",
-    entity_label: "Location",
-    entity_label_plural: "Locations",
+    category_label: "Workspace",
+    category_label_plural: "Workspaces",
+    entity_label: "Service Site",
+    entity_label_plural: "Service Sites",
     feedback_label: "Feedback",
     feedback_label_plural: "Feedbacks"
   };

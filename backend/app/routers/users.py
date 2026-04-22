@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session
 from typing import List
 
@@ -124,6 +124,20 @@ def forgot_password(request: schemas.ForgotPasswordRequest, db: Session = Depend
 def reset_password(request: schemas.PasswordResetConfirm, db: Session = Depends(get_db)):
     """Verifies the reset token and updates the user's password."""
     success = crud.reset_password_with_token(db, token=request.token, new_password=request.new_password)
-    if not success:
-        raise HTTPException(status_code=400, detail="Invalid or expired reset token")
     return {"message": "Password reset successfully. You can now log in with your new credentials."}
+    
+@router.post("/{user_id}/presence")
+def update_user_presence(
+    user_id: int, 
+    current_module: str = Body(..., embed=True),
+    db: Session = Depends(get_db)
+):
+    db_user = crud.get_user(db, user_id=user_id)
+    if not db_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    from datetime import datetime, timezone
+    db_user.last_seen = datetime.now(timezone.utc)
+    db_user.current_module = current_module
+    db.commit()
+    return {"status": "success"}

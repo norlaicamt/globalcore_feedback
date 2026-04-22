@@ -93,6 +93,58 @@ def update_user(db: Session, user_id: int, updates: schemas.UserUpdate):
         db.refresh(db_user)
     return db_user
 
+def merge_users(db: Session, target_user_id: int, duplicate_user_id: int, admin_id: Optional[int] = None, reason: Optional[str] = "Consolidation"):
+    """
+    Merges a duplicate user into a target master user.
+    Reassigns all feedback, replies, reactions, and contexts.
+    """
+    master = db.query(models.User).filter(models.User.id == target_user_id).first()
+    duplicate = db.query(models.User).filter(models.User.id == duplicate_user_id).first()
+    
+    if not master or not duplicate:
+        return False
+        
+    # 1. Reassign Feedbacks
+    db.query(models.Feedback).filter(models.Feedback.sender_id == duplicate_user_id).update({"sender_id": target_user_id})
+    
+    # 2. Reassign Replies/Comments
+    db.query(models.Reply).filter(models.Reply.user_id == duplicate_user_id).update({"user_id": target_user_id})
+    
+    # 3. Reassign Reactions
+    db.query(models.Reaction).filter(models.Reaction.user_id == duplicate_user_id).update({"user_id": target_user_id})
+    
+    # 4. Consolidate Contexts
+    dup_contexts = db.query(models.UserContext).filter(models.UserContext.user_id == duplicate_user_id).all()
+    for ctx in dup_contexts:
+        exists = db.query(models.UserContext).filter(
+            models.UserContext.user_id == target_user_id,
+            models.UserContext.entity_id == ctx.entity_id
+        ).first()
+        
+        if not exists:
+            ctx.user_id = target_user_id
+        else:
+            db.delete(ctx)
+            
+    # 5. Create Audit Log
+    log = models.UserMergeLog(
+        master_user_id=target_user_id,
+        merged_user_id=duplicate_user_id,
+        merged_by_id=admin_id,
+        reason=reason
+    )
+    db.add(log)
+            
+    # 6. Soft-delete duplicate user
+    duplicate.is_active = False
+    duplicate.email = f"merged_{duplicate.id}_{duplicate.email}"
+    if duplicate.username:
+        duplicate.username = f"merged_{duplicate.id}_{duplicate.username}"
+        
+    db.commit()
+    return True
+
+
 def delete_user(db: Session, user_id: int):
     db_user = db.query(models.User).filter(models.User.id == user_id).first()
     if db_user:
@@ -394,7 +446,59 @@ def create_feedback(db: Session, feedback: schemas.FeedbackCreate):
                     if val is None or (isinstance(val, str) and not val.strip()):
                         raise ValueError(f"Field '{field.get('label')}' is required")
 
-    # 2. Branch Validation & Snapshot logic
+    # 2. Identity Resolution & Deduplication (Priority Matching)
+    custom_data = data.get("custom_data") or {}
+    email = custom_data.get("email_address")
+    phone = custom_data.get("contact_number")
+    name = custom_data.get("full_name") or "Guest User"
+    
+    match_type = "new"
+    existing_user = None
+    
+    if email and phone:
+        # Priority 1: Exact match on both
+        existing_user = db.query(models.User).filter(
+            models.User.email.ilike(email),
+            models.User.phone == phone
+        ).first()
+        if existing_user: match_type = "exact"
+        
+    if not existing_user and email:
+        # Priority 2: Email match
+        existing_user = db.query(models.User).filter(models.User.email.ilike(email)).first()
+        if existing_user: match_type = "email"
+        
+    if not existing_user and phone:
+        # Priority 3: Phone match
+        existing_user = db.query(models.User).filter(models.User.phone == phone).first()
+        if existing_user: match_type = "phone"
+        
+    if existing_user:
+        # Reuse existing global ID
+        data["sender_id"] = existing_user.id
+        data["identity_match_type"] = match_type
+    elif not data.get("sender_id") or data["sender_id"] <= 0:
+        # Create new global user if at least one identity marker is present
+        if email or phone or name != "Guest User":
+            import uuid
+            new_user = models.User(
+                name=name,
+                email=email or f"guest_{uuid.uuid4().hex[:8]}@hotel.system",
+                phone=phone,
+                username=email or f"guest_{uuid.uuid4().hex[:8]}",
+                password=uuid.uuid4().hex,
+                role="user",
+                organization_id=entity.organization_id
+            )
+            db.add(new_user)
+            db.flush() 
+            data["sender_id"] = new_user.id
+            data["identity_match_type"] = "new"
+        else:
+            # Strictly anonymous fallback
+            data["identity_match_type"] = "anonymous"
+
+    # 3. Branch Validation & Snapshot logic
     branch_id = data.get("branch_id")
     entity_id = data.get("entity_id")
     
@@ -413,6 +517,24 @@ def create_feedback(db: Session, feedback: schemas.FeedbackCreate):
     
     db_feedback = models.Feedback(**data)
     db.add(db_feedback)
+    
+    # 2.5 Maintain UserContext (Unified Identity Layer)
+    # Ensure the user has a context for this entity
+    existing_context = db.query(models.UserContext).filter(
+        models.UserContext.user_id == db_feedback.sender_id,
+        models.UserContext.entity_id == db_feedback.entity_id
+    ).first()
+    
+    if not existing_context:
+        # Get user's role/identity for initial context
+        sender = db.query(models.User).filter(models.User.id == db_feedback.sender_id).first()
+        new_context = models.UserContext(
+            user_id=db_feedback.sender_id,
+            entity_id=db_feedback.entity_id,
+            role=sender.role_identity if sender else "user"
+        )
+        db.add(new_context)
+    
     db.commit()
     db.refresh(db_feedback)
     
@@ -907,28 +1029,37 @@ def get_analytics_summary(db: Session, dept_name: Optional[str] = None, entity_i
     c_q = db.query(models.Reply)
     r_q = db.query(models.Reaction)
 
+    # VIEW SCOPING
     if entity_id:
         fb_q = fb_q.filter(models.Feedback.entity_id == entity_id)
-        u_q = u_q.filter(models.User.entity_id == entity_id)
+        # Engagement-based OR Context-based user count for Entity View
+        # A user belongs to an entity if they have a feedback interaction OR a registered context
+        u_q = db.query(models.User).outerjoin(models.Feedback, models.Feedback.sender_id == models.User.id)\
+            .outerjoin(models.UserContext, models.UserContext.user_id == models.User.id)\
+            .filter((models.Feedback.entity_id == entity_id) | (models.UserContext.entity_id == entity_id))
+        
         c_q = c_q.join(models.Feedback).filter(models.Feedback.entity_id == entity_id)
         r_q = r_q.join(models.Feedback).filter(models.Feedback.entity_id == entity_id)
     elif dept_name:
-        dept_exists = db.query(models.Department.id).filter(models.Department.name == dept_name).first() is not None
-        if dept_exists:
-            dept_filter = db.query(models.Department.id).filter(models.Department.name == dept_name).scalar_subquery()
-            fb_q = fb_q.filter(models.Feedback.recipient_dept_id == dept_filter)
-            u_q = u_q.filter(models.User.unit_name == dept_name)
-            c_q = c_q.join(models.Feedback).filter(models.Feedback.recipient_dept_id == dept_filter)
-            r_q = r_q.join(models.Feedback).filter(models.Feedback.recipient_dept_id == dept_filter)
+        # Resolve entity_id from dept_name if it matches an entity
+        entity = db.query(models.Entity).filter(models.Entity.name == dept_name).first()
+        if entity:
+            fb_q = fb_q.filter(models.Feedback.entity_id == entity.id)
+            u_q = db.query(models.User).outerjoin(models.Feedback, models.Feedback.sender_id == models.User.id)\
+                .outerjoin(models.UserContext, models.UserContext.user_id == models.User.id)\
+                .filter((models.Feedback.entity_id == entity.id) | (models.UserContext.entity_id == entity.id))
+            
+            c_q = c_q.join(models.Feedback).filter(models.Feedback.entity_id == entity.id)
+            r_q = r_q.join(models.Feedback).filter(models.Feedback.entity_id == entity.id)
         else:
-            fb_q = fb_q.join(models.Entity, models.Feedback.entity_id == models.Entity.id).filter(models.Entity.name == dept_name)
-            c_q = c_q.join(models.Feedback).join(models.Entity, models.Feedback.entity_id == models.Entity.id).filter(models.Entity.name == dept_name)
-            r_q = r_q.join(models.Feedback).join(models.Entity, models.Feedback.entity_id == models.Entity.id).filter(models.Entity.name == dept_name)
-            u_q = u_q.filter(
-                (models.User.unit_name == dept_name) |
-                (models.User.program == dept_name) |
-                (models.User.department == dept_name)
-            )
+            # Fallback for old department-based logic
+            dept_exists = db.query(models.Department.id).filter(models.Department.name == dept_name).first() is not None
+            if dept_exists:
+                dept_filter = db.query(models.Department.id).filter(models.Department.name == dept_name).scalar_subquery()
+                fb_q = fb_q.filter(models.Feedback.recipient_dept_id == dept_filter)
+                u_q = u_q.filter(models.User.unit_name == dept_name)
+                c_q = c_q.join(models.Feedback).filter(models.Feedback.recipient_dept_id == dept_filter)
+                r_q = r_q.join(models.Feedback).filter(models.Feedback.recipient_dept_id == dept_filter)
 
     # Filter out administrative accounts from metrics
     u_q = u_q.filter(models.User.role.notin_(["admin", "superadmin"]))
@@ -940,8 +1071,10 @@ def get_analytics_summary(db: Session, dept_name: Optional[str] = None, entity_i
     total_comments = c_q.filter(models.Reply.created_at >= cutoff).count()
     total_reactions = r_q.filter(models.Reaction.created_at >= cutoff).count()
     
-    # Lifetime/Scoped users (not filtered by 'days' to show total community size)
-    total_users = u_q.count()
+    # Lifetime/Scoped users (Distinct Users)
+    total_users = db.query(func.count(models.User.id))\
+        .filter(models.User.id.in_(u_q.with_entities(models.User.id)))\
+        .scalar() or 0
 
     # New: Active Citizens (Interacted in last 7 days)
     cutoff_7d = datetime.now(timezone.utc) - timedelta(days=7)
@@ -957,6 +1090,15 @@ def get_analytics_summary(db: Session, dept_name: Optional[str] = None, entity_i
         )\
         .filter(models.User.role.notin_(["admin", "superadmin"])).scalar() or 0
 
+    # Cross-Program Reach: Users interacting with multiple distinct entities
+    cross_program_count = db.query(models.Feedback.sender_id)\
+        .group_by(models.Feedback.sender_id)\
+        .having(func.count(models.Feedback.entity_id.distinct()) > 1).count()
+
+    # Global metrics (Ignoring scope)
+    global_total_users = db.query(func.count(models.User.id.distinct()))\
+        .filter(models.User.role.notin_(["admin", "superadmin"])).scalar() or 0
+    
     # New: Reports this Week (last 7 days)
     new_reports_7d = fb_q.filter(models.Feedback.created_at >= cutoff_7d).count()
 
@@ -969,14 +1111,12 @@ def get_analytics_summary(db: Session, dept_name: Optional[str] = None, entity_i
     anon_count = fb_q.filter(models.Feedback.created_at >= cutoff, models.Feedback.is_anonymous == True).count()
     anon_rate = round((anon_count / total_feedback * 100), 1) if total_feedback else 0
 
-    # User Engagement Status (Last 7 Days)
-    # Active: Interacted in last 7d
-    # Inactive: Registered users with no interaction in last 7d
     inactive_7d_count = max(0, total_users - active_citizens_7d)
 
-    return {
+    res = {
         "total_feedback": total_feedback,
         "total_users": total_users,
+        "global_total_users": global_total_users,
         "active_users": active_citizens_7d,
         "inactive_users": inactive_7d_count,
         "new_signups_7d": new_signups_7d,
@@ -986,11 +1126,14 @@ def get_analytics_summary(db: Session, dept_name: Optional[str] = None, entity_i
         "anonymous_rate": anon_rate,
         "active_citizens_7d": active_citizens_7d,
         "new_reports_7d": new_reports_7d,
+        "cross_program_reach": cross_program_count,
         "user_engagement_status": [
             {"name": "Active", "value": active_citizens_7d},
             {"name": "Inactive", "value": inactive_7d_count}
         ]
     }
+    print(f"DEBUG ANALYTICS: total_users={total_users}, global={global_total_users}, feedback={total_feedback}")
+    return res
 
 def get_program_rankings(db: Session, entity_id: Optional[int] = None, days: int = 30):
     """Returns top performing and lowest rated programs with a statistical threshold."""
@@ -1171,6 +1314,31 @@ def get_broadcast_logs(db: Session, entity_id: Optional[int] = None):
         
     return logs
 
+def get_broadcast_drafts(db: Session, entity_id: Optional[int] = None):
+    query = db.query(models.BroadcastLog).filter(models.BroadcastLog.status == "draft")
+    if entity_id:
+        query = query.filter(models.BroadcastLog.entity_id == entity_id)
+    return query.order_by(models.BroadcastLog.created_at.desc()).all()
+
+def update_broadcast_log(db: Session, broadcast_id: int, updates: dict):
+    log = db.query(models.BroadcastLog).filter(models.BroadcastLog.id == broadcast_id).first()
+    if log:
+        for key, value in updates.items():
+            if hasattr(log, key):
+                setattr(log, key, value)
+        db.commit()
+        db.refresh(log)
+        return log
+    return None
+
+def delete_broadcast_log(db: Session, broadcast_id: int):
+    log = db.query(models.BroadcastLog).filter(models.BroadcastLog.id == broadcast_id).first()
+    if log:
+        db.delete(log)
+        db.commit()
+        return True
+    return False
+
 # Broadcast Templates
 def get_broadcast_templates(db: Session, entity_id: Optional[int] = None):
     query = db.query(models.BroadcastTemplate)
@@ -1178,11 +1346,12 @@ def get_broadcast_templates(db: Session, entity_id: Optional[int] = None):
         query = query.filter(models.BroadcastTemplate.entity_id == entity_id)
     return query.order_by(models.BroadcastTemplate.name.asc()).all()
 
-def create_broadcast_template(db: Session, name: str, title: str, message: str, entity_id: Optional[int] = None, created_by_id: Optional[int] = None):
+def create_broadcast_template(db: Session, name: str, title: str, message: str, entity_id: Optional[int] = None, created_by_id: Optional[int] = None, category: str = "advisory"):
     tpl = models.BroadcastTemplate(
         name=name, 
         title=title, 
         message=message,
+        category=category,
         entity_id=entity_id,
         created_by_id=created_by_id
     )
@@ -1191,12 +1360,13 @@ def create_broadcast_template(db: Session, name: str, title: str, message: str, 
     db.refresh(tpl)
     return tpl
 
-def update_broadcast_template(db: Session, tpl_id: int, name: str, title: str, message: str):
+def update_broadcast_template(db: Session, tpl_id: int, name: str, title: str, message: str, category: str = "advisory"):
     tpl = db.query(models.BroadcastTemplate).filter(models.BroadcastTemplate.id == tpl_id).first()
     if tpl:
         tpl.name = name
         tpl.title = title
         tpl.message = message
+        tpl.category = category
         db.commit()
         db.refresh(tpl)
         return tpl

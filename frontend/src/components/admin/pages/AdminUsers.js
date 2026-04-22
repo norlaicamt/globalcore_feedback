@@ -377,7 +377,7 @@ const AdminUsers = ({ theme, darkMode, adminUser }) => {
 
   const handleExport = async (format) => {
     const headers = ["Name", "Email", "Role", "Last Active", "Feedback", "Points", "Status"];
-    const data = filteredAndSorted.map(u => [u.name, u.email, u.role, formatRelativeTime(u.last_login), u.total_posts, u.impact_points, u.is_active ? "Active" : "Inactive"]);
+    const data = filteredAndSorted.map(u => [u.name, u.email, u.role, formatRelativeTime(u.last_seen || u.last_login), u.total_posts, u.impact_points, u.is_active ? "Active" : "Inactive"]);
     
     const scopeSlug = activeScope.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
     const dateStr = new Date().toISOString().split('T')[0];
@@ -598,7 +598,7 @@ const AdminUsers = ({ theme, darkMode, adminUser }) => {
                     </div>
                   </div>
                 </td>
-                <td style={{ padding: "12px 20px", fontSize: "12px", color: "#64748B" }}>{formatRelativeTime(u.last_login)}</td>
+                <td style={{ padding: "12px 20px", fontSize: "12px", color: "#64748B" }}>{formatRelativeTime(u.last_seen || u.last_login)}</td>
                 <td style={{ padding: "12px 20px" }}>
                   <p style={{ margin: 0, fontSize: "11px", fontWeight: "800", color: u.role === 'superadmin' ? '#7C3AED' : (u.role === 'admin' ? 'var(--primary-color)' : '#64748B'), textTransform: 'uppercase' }}>
                     {u.role || 'USER'}
@@ -652,6 +652,7 @@ const AdminUsers = ({ theme, darkMode, adminUser }) => {
                  <div style={profileStatStyle(theme)}><p style={statLabel}>Assigned Program</p><p style={statVal}>{profileUser.program || "None"}</p></div>
                  <div style={profileStatStyle(theme)}><p style={statLabel}>Total Reports</p><p style={statVal}>{profileUser.total_posts}</p></div>
                  <div style={profileStatStyle(theme)}><p style={statLabel}>Joined Date</p><p style={statVal}>{new Date(profileUser.created_at).toLocaleDateString()}</p></div>
+                 <div style={profileStatStyle(theme)}><p style={statLabel}>Last Active</p><p style={statVal}>{formatRelativeTime(profileUser.last_seen || profileUser.last_login)}</p></div>
              </div>
              
              <div style={{ textAlign: "center", padding: "16px", background: theme.bg, borderRadius: "12px", border: `1px dashed ${theme.border}` }}>

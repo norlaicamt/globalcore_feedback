@@ -138,7 +138,10 @@ const DotsMenu = ({ onUpdateStatus, onDelete, theme, darkMode, currentStatus }) 
         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
       </button>
       {open && (
-        <div style={{ position: "absolute", right: 0, top: "34px", background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: "10px", boxShadow: "0 8px 24px rgba(0,0,0,0.1)", zIndex: 100, minWidth: "160px", padding: "6px" }}>
+        <div 
+          onClick={(e) => e.stopPropagation()}
+          style={{ position: "absolute", right: 0, top: "34px", background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: "10px", boxShadow: "0 8px 24px rgba(0,0,0,0.1)", zIndex: 100, minWidth: "160px", padding: "6px" }}
+        >
           <p style={{ margin: "4px 8px 8px", fontSize: "9px", fontWeight: "800", color: theme.textMuted, textTransform: "uppercase" }}>Change Status</p>
           {Object.entries(STATUSES).map(([key, cfg]) => (
             <button

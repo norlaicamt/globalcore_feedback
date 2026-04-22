@@ -21,7 +21,7 @@ const NAV_ITEMS = [
   { id: "broadcast", label: "Announcements", icon: <BellIcon /> },
   { id: "auditlogs", label: "System Audit Trail", icon: <ClockIcon />, superOnly: true },
   { type: "label", label: "ORGANIZATION" },
-  { id: "programs", label: "Program Hub", icon: <OrgIcon /> },
+  { id: "programs", label: "Workspaces", icon: <OrgIcon /> },
   { id: "pendingsuggestions", label: "Approval Queue", icon: <ClockIcon />, isSub: true, superOnly: true },
   { id: "formdesigner", label: "Form Layout", icon: <OrgIcon /> },
   { type: "label", label: "PREFERENCES" },
@@ -30,7 +30,7 @@ const NAV_ITEMS = [
 
 const AdminHub = ({ adminUser, onLogout }) => {
   const { systemName, systemLogo, getLabel } = useTerminology();
-  const programsLabel = `${getLabel('category_label', 'Program')} Hub`;
+  const programsLabel = "Workspaces Hub";
   const [localAdminUser, setLocalAdminUser] = useState(adminUser);
   const hasGlobalAdminAccess = ["admin", "superadmin"].includes(localAdminUser?.role) && !localAdminUser?.department;
   const getViewFromUrl = () => {
@@ -285,7 +285,7 @@ const AdminHub = ({ adminUser, onLogout }) => {
                   }}
                 >
                   <span style={styles.navIcon}>{item.icon}</span>
-                  <span style={{ flex: 1 }}>{item.id === 'programs' ? programsLabel : item.label}</span>
+                  <span style={{ flex: 1 }}>{item.label}</span>
                   {item.id === "pendingsuggestions" && pendingCount > 0 && (
                     <div style={styles.badge}>{pendingCount}</div>
                   )}
@@ -408,23 +408,23 @@ const styles = {
   sidebarHeader: { padding: "24px 20px 20px", display: 'flex', flexDirection: 'column', gap: '16px' },
   sidebarLogo: { display: "flex", alignItems: "center", gap: "12px" },
   logoIcon: { width: "38px", height: "38px", borderRadius: "12px", background: "var(--primary-color)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: '0 4px 12px rgba(var(--primary-rgb), 0.3)', border: '1px solid rgba(255,255,255,0.1)' },
-  logoText: { 
-    fontSize: "17px", 
-    fontWeight: "900", 
-    margin: 0, 
-    color: "white", 
-    lineHeight: 1.2, 
-    letterSpacing: '-0.04em', 
+  logoText: {
+    fontSize: "17px",
+    fontWeight: "900",
+    margin: 0,
+    color: "white",
+    lineHeight: 1.2,
+    letterSpacing: '-0.04em',
     fontFamily: "'Outfit', sans-serif",
     textShadow: '0 2px 4px rgba(0,0,0,0.3)'
   },
-  logoSub: { 
-    fontSize: "9px", 
-    color: "var(--primary-color)", 
-    margin: "2px 0 0 0", 
-    fontWeight: "900", 
-    textTransform: 'uppercase', 
-    letterSpacing: '0.15em', 
+  logoSub: {
+    fontSize: "9px",
+    color: "var(--primary-color)",
+    margin: "2px 0 0 0",
+    fontWeight: "900",
+    textTransform: 'uppercase',
+    letterSpacing: '0.15em',
     fontFamily: "'Outfit', sans-serif",
     opacity: 0.8
   },
@@ -441,10 +441,10 @@ const styles = {
     fontSize: "13.5px", fontWeight: "600", color: "rgba(255,255,255,0.5)", cursor: "pointer",
     background: "none", border: "none", width: "100%", textAlign: "left", fontFamily: "inherit"
   },
-  navItemActive: { 
-    color: "white", 
-    fontWeight: "700", 
-    background: 'rgba(var(--primary-rgb), 0.1)', 
+  navItemActive: {
+    color: "white",
+    fontWeight: "700",
+    background: 'rgba(var(--primary-rgb), 0.1)',
     boxShadow: 'inset 4px 0 0 0 var(--primary-color)'
   },
   navLabel: { fontSize: "10px", fontWeight: "800", color: "rgba(255,255,255,0.25)", padding: "24px 16px 8px", textTransform: "uppercase", letterSpacing: "0.12em" },

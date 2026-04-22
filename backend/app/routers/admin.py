@@ -1148,6 +1148,7 @@ def admin_broadcast(
     status: str = "sent", # draft, scheduled, sent
     require_ack: bool = False,
     scheduled_at: Optional[datetime] = None,
+    broadcast_id: Optional[int] = None,
     db: Session = Depends(get_db), 
     admin: models.User = Depends(get_current_admin)
 ):
@@ -1181,18 +1182,37 @@ def admin_broadcast(
 
     recipient_count = query.count()
     
-    # 2. Log the broadcast record (Always created)
-    broadcast_log = crud.create_broadcast_log(
-        db, 
-        subject=official_subject, 
-        message=message, 
-        count=recipient_count,
-        entity_id=admin.entity_id if not is_global else None,
-        priority=priority,
-        status=status,
-        require_ack=require_ack,
-        scheduled_at=scheduled_at
-    )
+    # 2. Log logic: Update if broadcast_id provided, else Create
+    if broadcast_id:
+        broadcast_log = db.query(models.BroadcastLog).filter(models.BroadcastLog.id == broadcast_id).first()
+        if not broadcast_log:
+            raise HTTPException(status_code=404, detail="Original broadcast log not found")
+        
+        # Scope check
+        if not is_global and broadcast_log.entity_id != admin.entity_id:
+            raise HTTPException(status_code=403, detail="Unauthorized to update this broadcast")
+            
+        broadcast_log.subject = official_subject
+        broadcast_log.message = message
+        broadcast_log.sent_to_count = recipient_count
+        broadcast_log.priority = priority
+        broadcast_log.status = status
+        broadcast_log.require_ack = require_ack
+        broadcast_log.scheduled_at = scheduled_at
+        db.commit()
+        db.refresh(broadcast_log)
+    else:
+        broadcast_log = crud.create_broadcast_log(
+            db, 
+            subject=official_subject, 
+            message=message, 
+            count=recipient_count,
+            entity_id=admin.entity_id if not is_global else None,
+            priority=priority,
+            status=status,
+            require_ack=require_ack,
+            scheduled_at=scheduled_at
+        )
     
     # 3. Deliver Notifications (ONLY if status is 'sent')
     if status == "sent":
@@ -1301,6 +1321,31 @@ def resend_broadcast(
     db.commit()
     
     return {"resent_to": len(users)}
+
+@router.get("/broadcasts/drafts", response_model=List[schemas.BroadcastLog])
+def get_broadcast_drafts(
+    db: Session = Depends(get_db), 
+    admin: models.User = Depends(get_current_admin)
+):
+    entity_id = admin.entity_id if not has_global_admin_access(admin) else None
+    return crud.get_broadcast_drafts(db, entity_id=entity_id)
+
+@router.delete("/broadcasts/{broadcast_id}")
+def delete_broadcast(
+    broadcast_id: int, 
+    db: Session = Depends(get_db), 
+    admin: models.User = Depends(get_current_admin)
+):
+    log = db.query(models.BroadcastLog).filter(models.BroadcastLog.id == broadcast_id).first()
+    if not log:
+        raise HTTPException(status_code=404, detail="Broadcast not found")
+    
+    if not has_global_admin_access(admin) and log.entity_id != admin.entity_id:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+    
+    if crud.delete_broadcast_log(db, broadcast_id):
+        return {"status": "deleted"}
+    raise HTTPException(status_code=500, detail="Failed to delete")
 @router.get("/profile")
 def get_admin_profile(db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
     db_admin = db.query(models.User).filter(models.User.id == admin.id).first()
@@ -1348,6 +1393,13 @@ def update_admin_profile(payload: dict = Body(...), db: Session = Depends(get_db
         "position_title", "unit_name", "phone"
     }
     changed = {}
+    
+    # Security: Verify current password if a new password is being set
+    if "password" in payload:
+        current_password = payload.get("current_password")
+        if not current_password or db_admin.password != current_password:
+            raise HTTPException(status_code=403, detail="Verification Failed: Current password is incorrect.")
+
     for key, value in payload.items():
         if key in allowed_fields:
             setattr(db_admin, key, value)
@@ -1554,65 +1606,6 @@ def admin_log_action(action_type: str, details: dict = Body(...), db: Session = 
 #  Broadcast & Communications
 # ---------------------------------------------
 
-@router.post("/broadcast")
-def admin_broadcast(
-    subject: str,
-    message: str,
-    broadcast_type: str = "announcement",
-    target_group: str = "all",
-    priority: str = "normal",
-    status: str = "sent",
-    require_ack: bool = False,
-    scheduled_at: Optional[datetime] = None,
-    db: Session = Depends(get_db),
-    admin: models.User = Depends(get_current_admin)
-):
-    """
-    Dispatch a broadcast announcement or save as draft/scheduled.
-    """
-    # Create the log
-    log = crud.create_broadcast_log(
-        db, subject, message, count=0, entity_id=admin.entity_id,
-        priority=priority, status=status, require_ack=require_ack, scheduled_at=scheduled_at
-    )
-    
-    # If status is "sent", create notifications for all users
-    sent_count = 0
-    if status == "sent":
-        # Identify target users
-        query = db.query(models.User).filter(models.User.is_active == True)
-        # Filter by program/entity if admin is not global
-        if admin.entity_id:
-            query = query.filter(models.User.entity_id == admin.entity_id)
-        
-        target_users = query.all()
-        
-        for user in target_users:
-            # Create notification
-            db_notif = models.Notification(
-                user_id=user.id,
-                actor_id=admin.id,
-                subject=subject,
-                message=message,
-                type=models.NotificationType.broadcast,
-                priority=priority,
-                require_ack=require_ack,
-                broadcast_id=log.id
-            )
-            db.add(db_notif)
-            sent_count += 1
-        
-        # Update log count
-        log.sent_to_count = sent_count
-        db.commit()
-
-        # Audit Log
-        crud.create_audit_log(
-            db, action_type="broadcast_sent", performed_by_id=admin.id,
-            target_id=str(log.id), details={"subject": subject, "sent_to": sent_count}
-        )
-
-    return {"message": "Success", "sent_to": sent_count, "log_id": log.id}
 
 @router.get("/broadcasts", response_model=List[schemas.BroadcastLog])
 def admin_get_broadcasts(db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
@@ -1687,6 +1680,7 @@ def create_broadcast_template(
         name=payload.name, 
         title=payload.title, 
         message=payload.message,
+        category=payload.category,
         entity_id=admin.entity_id,
         created_by_id=admin.id
     )
@@ -1704,7 +1698,7 @@ def update_broadcast_template(
         if not target or target.entity_id != admin.entity_id:
             raise HTTPException(status_code=403, detail="Cannot edit other program's template")
 
-    res = crud.update_broadcast_template(db, tpl_id, name=payload.name, title=payload.title, message=payload.message)
+    res = crud.update_broadcast_template(db, tpl_id, name=payload.name, title=payload.title, message=payload.message, category=payload.category)
     if res:
         return res
     raise HTTPException(status_code=404, detail="Template not found")

@@ -128,7 +128,7 @@ export const adminUpdateBranch = (id, data) => adminApi.put(`/branches/${id}`, d
 export const adminDeleteBranch = (id) => adminApi.delete(`/branches/${id}`);
 
 // Broadcast
-export const adminBroadcast = (subject, message, broadcast_type = "announcement", target_group = "all", priority = "normal", status = "sent", require_ack = false, scheduled_at = null) => {
+export const adminBroadcast = (subject, message, broadcast_type = "announcement", target_group = "all", priority = "normal", status = "sent", require_ack = false, scheduled_at = null, broadcast_id = null) => {
   const q = new URLSearchParams({
     subject,
     message,
@@ -139,18 +139,21 @@ export const adminBroadcast = (subject, message, broadcast_type = "announcement"
     require_ack: !!require_ack
   });
   if (scheduled_at) q.set("scheduled_at", scheduled_at);
+  if (broadcast_id) q.set("broadcast_id", broadcast_id);
   return adminApi.post(`/broadcast?${q.toString()}`).then(r => r.data);
 };
 export const adminGetBroadcastLogs = () => adminApi.get("/broadcasts").then(r => r.data);
+export const adminGetBroadcastDrafts = () => adminApi.get("/broadcasts/drafts").then(r => r.data);
+export const adminDeleteBroadcast = (id) => adminApi.delete(`/broadcasts/${id}`).then(r => r.data);
 export const adminArchiveBroadcast = (id) => adminApi.post(`/broadcasts/${id}/archive`).then(r => r.data);
 export const adminResendBroadcast = (id) => adminApi.post(`/broadcasts/${id}/resend`).then(r => r.data);
 
 // Broadcast Templates
 export const adminGetBroadcastTemplates = () => adminApi.get("/broadcast-templates").then(r => r.data);
-export const adminCreateBroadcastTemplate = (name, title, message) => 
-  adminApi.post("/broadcast-templates", { name, title, message }).then(r => r.data);
-export const adminUpdateBroadcastTemplate = (id, name, title, message) => 
-  adminApi.put(`/broadcast-templates/${id}`, { name, title, message }).then(r => r.data);
+export const adminCreateBroadcastTemplate = (payload) => 
+  adminApi.post("/broadcast-templates", payload).then(r => r.data);
+export const adminUpdateBroadcastTemplate = (id, payload) => 
+  adminApi.put(`/broadcast-templates/${id}`, payload).then(r => r.data);
 export const adminDeleteBroadcastTemplate = (id) => adminApi.delete(`/broadcast-templates/${id}`).then(r => r.data);
 
 // Audit

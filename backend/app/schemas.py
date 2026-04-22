@@ -298,8 +298,8 @@ class Mention(MentionBase):
 
 # --- FEEDBACK SCHEMAS ---
 class FeedbackBase(BaseModel):
-    title: str
-    description: str
+    title: Optional[str] = "Feedback Entry"
+    description: Optional[str] = ""
     entity_id: int
     recipient_dept_id: Optional[int] = None
     recipient_user_id: Optional[int] = None
@@ -322,7 +322,7 @@ class FeedbackBase(BaseModel):
     feedback_type: Optional[str] = None # Complaint, Suggestion, Appreciation, Inquiry
 
 class FeedbackCreate(FeedbackBase):
-    sender_id: int
+    sender_id: Optional[int] = None
 
 class FeedbackUpdate(BaseModel):
     status: Optional[FeedbackStatus] = None
@@ -457,6 +457,7 @@ class BroadcastTemplateBase(BaseModel):
     name: str
     title: str
     message: str
+    category: Optional[str] = "advisory"
 
 class BroadcastTemplateCreate(BroadcastTemplateBase):
     entity_id: Optional[int] = None

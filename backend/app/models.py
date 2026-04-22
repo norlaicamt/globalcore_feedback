@@ -27,7 +27,7 @@ class User(Base):
     email = Column(String, unique=True, index=True)
     is_active = Column(Boolean, default=True)
     username = Column(String, unique=True, index=True, nullable=True)
-    phone = Column(String, nullable=True)
+    phone = Column(String, index=True, nullable=True)
     first_name = Column(String, nullable=True)
     middle_name = Column(String, nullable=True)
     last_name = Column(String, nullable=True)
@@ -95,6 +95,21 @@ class User(Base):
     # Relationships
     organization = relationship("Organization", back_populates="users")
     entity = relationship("Entity", foreign_keys=[entity_id])
+    contexts = relationship("UserContext", back_populates="user", cascade="all, delete-orphan")
+
+
+class UserContext(Base):
+    __tablename__ = "user_contexts"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("global_user.id"))
+    entity_id = Column(Integer, ForeignKey("entities.id"))
+    role = Column(String, nullable=True) # e.g. beneficiary, parent, guest
+    first_engaged_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    
+    __table_args__ = (UniqueConstraint('user_id', 'entity_id', name='_user_entity_uc'),)
+    
+    user = relationship("User", back_populates="contexts")
+    entity = relationship("Entity")
 
 class Department(Base):
     __tablename__ = "departments"
@@ -157,10 +172,11 @@ class Feedback(Base):
     title = Column(String, index=True)
     description = Column(Text)
     
-    sender_id = Column(Integer, ForeignKey("global_user.id"))
+    sender_id = Column(Integer, ForeignKey("global_user.id"), index=True)
+    identity_match_type = Column(String, nullable=True) # email, phone, exact, new
     recipient_user_id = Column(Integer, ForeignKey("global_user.id"), nullable=True)
     recipient_dept_id = Column(Integer, ForeignKey("departments.id"), nullable=True)
-    entity_id = Column(Integer, ForeignKey("entities.id"))
+    entity_id = Column(Integer, ForeignKey("entities.id"), index=True)
     rating = Column(Integer, nullable=True) # 1-5 stars
     address = Column(String, nullable=True)
     region = Column(String, nullable=True)
@@ -314,6 +330,7 @@ class BroadcastTemplate(Base):
     message = Column(String) # Detailed Message
     entity_id = Column(Integer, ForeignKey("entities.id"), nullable=True) # Scoped templates
     created_by_id = Column(Integer, ForeignKey("global_user.id"), nullable=True)
+    category = Column(String, default="advisory")
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     entity = relationship("Entity")
@@ -394,3 +411,16 @@ class FormField(Base):
     created_at  = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     section = relationship("FormSection", back_populates="fields")
+
+class UserMergeLog(Base):
+    __tablename__ = "user_merge_logs"
+    id = Column(Integer, primary_key=True, index=True)
+    master_user_id = Column(Integer, ForeignKey("global_user.id"))
+    merged_user_id = Column(Integer, ForeignKey("global_user.id"))
+    merged_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    merged_by_id = Column(Integer, ForeignKey("global_user.id"), nullable=True)
+    reason = Column(String, nullable=True)
+    
+    master_user = relationship("User", foreign_keys=[master_user_id])
+    merged_user = relationship("User", foreign_keys=[merged_user_id])
+    merged_by = relationship("User", foreign_keys=[merged_by_id])

@@ -219,4 +219,11 @@ export const getFormFields = async () => {
   return response.data;
 };
 
+export const updateUserPresence = async (userId, currentModule) => {
+  const response = await axios.post(`${API_BASE}/users/${userId}/presence`, {
+    current_module: currentModule
+  });
+  return response.data;
+};
+
 // (Update functions migrated to adminApi.js for authentication)

@@ -15,7 +15,7 @@ import NotificationsView from './NotificationsView';
 import CustomModal from './CustomModal';
 import GeneralFeedback from './GeneralFeedback';
 import ActivityView from './ActivityView';
-import { getFeedbacks, getUserById, getUserNotifications, getFeedbackReplies, createFeedbackReply, updateFeedbackReply, deleteFeedbackReply, toggleReaction, toggleReplyReaction, getReactionsSummary, markNotificationsAsRead, updateFeedback, deleteFeedback, getAdminSettings, getEntities, acknowledgeBroadcast } from "../services/api";
+import { getFeedbacks, getUserById, getUserNotifications, getFeedbackReplies, createFeedbackReply, updateFeedbackReply, deleteFeedbackReply, toggleReaction, toggleReplyReaction, getReactionsSummary, markNotificationsAsRead, updateFeedback, deleteFeedback, getAdminSettings, getEntities, acknowledgeBroadcast, updateUserPresence } from "../services/api";
 import { useTerminology } from "../context/TerminologyContext";
 import { IconRegistry } from "./IconRegistry";
 import { QRCodeCanvas } from "qrcode.react";
@@ -231,6 +231,32 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
       fetchUserProfile();
     }
   }, [view, localUser?.id]);
+
+  // Real-time Presence Heartbeat
+  useEffect(() => {
+    if (!localUser?.id) return;
+
+    const updatePresence = () => {
+      const ACTION_MAP = {
+        home: "Browsing Dashboard",
+        history: "Reviewing History",
+        mentioned: "Checking Mentions",
+        drafts: "Managing Drafts",
+        activity: "Viewing Activity Feed",
+        notifications: "Reading Notifications",
+        profile: "Updating Profile",
+        notifs_settings: "Configuring Notifications",
+        privacy: "Managing Security"
+      };
+      const moduleName = ACTION_MAP[view] || "Active in Portal";
+      updateUserPresence(localUser.id, moduleName).catch(err => console.debug("Presence sync failed", err));
+    };
+
+    updatePresence(); // Initial
+    const presenceInterval = setInterval(updatePresence, 45000); // Every 45 seconds
+
+    return () => clearInterval(presenceInterval);
+  }, [localUser?.id, view]);
 
   const navigateTo = (newView) => {
     setView(newView);
@@ -1187,7 +1213,10 @@ const FeedCard = ({ item: initialItem, currentUser, onShowToast, onOpenComments,
             ⋮
           </button>
           {showOptions && (
-            <div style={{ position: 'absolute', right: 0, top: '100%', backgroundColor: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', zIndex: 10 }}>
+            <div 
+              onClick={(e) => e.stopPropagation()}
+              style={{ position: 'absolute', right: 0, top: '100%', backgroundColor: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', zIndex: 10 }}
+            >
               {isOwner ? (
                 <>
                   <button onClick={() => { setIsEditing(true); setShowOptions(false); setEditTitle(item.title); setEditDesc(item.description); }} style={{ display: 'block', width: '100%', padding: '8px 16px', background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer', borderBottom: '1px solid #E2E8F0', color: '#1E293B' }}>Edit</button>

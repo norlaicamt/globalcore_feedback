@@ -102,8 +102,13 @@ def login(email: str, password: str, db: Session = Depends(get_db)):
     if not user.is_active or user.deactivated_until:
         user.is_active = True
         user.deactivated_until = None
-        db.commit()
-        db.refresh(user)
+    
+    # Update tracking fields
+    user.last_login = datetime.now(timezone.utc)
+    user.last_seen = datetime.now(timezone.utc)
+    
+    db.commit()
+    db.refresh(user)
         
     return user
 
