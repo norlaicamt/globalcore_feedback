@@ -12,13 +12,13 @@ class FeedbackStatus(str, enum.Enum):
     CLOSED = "CLOSED"
 
 class NotificationType(str, enum.Enum):
-    REPLY = "reply"
-    COMMENT = "comment"
-    MENTION = "mention"
-    LIKE = "like"
-    ANNOUNCEMENT = "announcement"
-    NEW_FEEDBACK = "new_feedback"
-    ASSIGNED = "assigned"
+    REPLY = "REPLY"
+    COMMENT = "COMMENT"
+    MENTION = "MENTION"
+    LIKE = "LIKE"
+    ANNOUNCEMENT = "ANNOUNCEMENT"
+    NEW_FEEDBACK = "NEW_FEEDBACK"
+    ASSIGNED = "ASSIGNED"
 
 class User(Base):
     __tablename__ = "global_user"
@@ -172,7 +172,7 @@ class Feedback(Base):
     title = Column(String, index=True)
     description = Column(Text)
     
-    sender_id = Column(Integer, ForeignKey("global_user.id"), index=True)
+    sender_id = Column(Integer, ForeignKey("global_user.id"), index=True, nullable=True)
     identity_match_type = Column(String, nullable=True) # email, phone, exact, new
     recipient_user_id = Column(Integer, ForeignKey("global_user.id"), nullable=True)
     recipient_dept_id = Column(Integer, ForeignKey("departments.id"), nullable=True)

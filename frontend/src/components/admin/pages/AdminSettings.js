@@ -98,7 +98,7 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
   const isGlobalCoreAdmin = (adminUser?.email || "").toLowerCase() === "admin@globalcore.com";
 
   // 🌍 ORGANIZATION CONTEXT (Neutral Engine)
-  const [orgType, setOrgType] = useState("government"); // 'government', 'service', 'corporate'
+  // org_type is now managed within the settings state for backend persistence
 
   const orgProfiles = {
     government: {
@@ -121,16 +121,31 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
     }
   };
 
-  const activeProfile = orgProfiles[orgType] || orgProfiles.government;
-  const [activeTab, setActiveTab] = useState("profile");
   const [settings, setSettings] = useState({ 
     allow_voice: true, 
     public_feed: true, 
     email_notifications: false, 
     status_notifications: true,
     primary_color: "#3B82F6",
-    font_family: "'Outfit', sans-serif"
+    font_family: "'Outfit', sans-serif",
+    org_type: "government",
+    timezone: "Asia/Manila (UTC+8)",
+    time_format: "12h",
+    date_format: "MMMM DD, YYYY",
+    week_start: "Monday",
+    submission_rate_limit: 5,
+    data_sovereignty: "on-premise",
+    primary_organization_name: "",
+    general_report_title: "",
+    general_report_title_fil: "",
+    form_show_staff: true,
+    form_show_rating: true,
+    form_show_attachments: true,
+    form_show_voice: true
   });
+
+  const activeProfile = orgProfiles[settings.org_type || "government"] || orgProfiles.government;
+  const [activeTab, setActiveTab] = useState("profile");
   const [loading, setLoading] = useState(true);
   const [updatingKey, setUpdatingKey] = useState(null);
   const [profile, setProfile] = useState(null);
@@ -153,8 +168,8 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
     two_factor_enabled: false,
     push_notifications: true,
     email_notifications: false,
-    status_updates: true,
-    reply_notifications: true,
+    notify_announcements: true,
+    notify_replies: true,
     weekly_digest: false,
     biometrics_enabled: true,
     position_title: "",
@@ -185,12 +200,7 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [pendingChanges, setPendingChanges] = useState([]);
   
-  const [timeConfig, setTimeConfig] = useState({
-    timezone: "Asia/Manila (UTC+8)",
-    time_format: "12h",
-    date_format: "MMMM DD, YYYY",
-    week_start: "Monday"
-  });
+  // timeConfig is now merged into settings
 
   useEffect(() => {
     if (settings.primary_color) {
@@ -247,17 +257,14 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
           getAdminSettings().catch(() => []),
           adminGetProfile()
         ]);
+        let mergedSettings = { ...settings };
         if (sysSettings?.length) {
           const mapped = {};
           sysSettings.forEach(s => {
             mapped[s.key] = (s.value === "true" || s.value === "false") ? (s.value === "true") : s.value;
           });
-          setSettings(prev => ({ ...prev, ...mapped }));
-
-          // Sync branding from DB to local state
-          if (mapped.primary_color) {
-            setSettings(prev => ({ ...prev, primary_color: mapped.primary_color }));
-          }
+          mergedSettings = { ...settings, ...mapped };
+          setSettings(mergedSettings);
 
           setLogoPreview(mapped.primary_organization_logo || null);
           setLogoMeta({
@@ -265,35 +272,26 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
             updated_by: mapped.logo_updated_by || null
           });
         }
+        
         setProfile(profileData);
-        setForm(prev => ({
-          ...prev,
+        const currentForm = {
+          ...form,
           name: profileData.name || "",
           avatar_url: profileData.avatar_url || "",
           two_factor_enabled: !!profileData.two_factor_enabled,
           push_notifications: !!profileData.push_notifications,
           email_notifications: !!profileData.email_notifications,
-          status_updates: !!profileData.status_updates,
-          reply_notifications: !!profileData.reply_notifications,
+          notify_announcements: !!profileData.notify_announcements,
+          notify_replies: !!profileData.notify_replies,
           weekly_digest: !!profileData.weekly_digest,
           position_title: profileData.position_title || "",
           unit_name: profileData.unit_name || "",
           phone: profileData.phone || "",
-        }));
-        setPristineForm({
-          name: profileData.name || "",
-          avatar_url: profileData.avatar_url || "",
-          two_factor_enabled: !!profileData.two_factor_enabled,
-          push_notifications: !!profileData.push_notifications,
-          email_notifications: !!profileData.email_notifications,
-          status_updates: !!profileData.status_updates,
-          reply_notifications: !!profileData.reply_notifications,
-          weekly_digest: !!profileData.weekly_digest,
-          position_title: profileData.position_title || "",
-          unit_name: profileData.unit_name || "",
-          phone: profileData.phone || "",
-          password: ""
-        });
+          biometrics_enabled: !!profileData.biometrics_enabled,
+        };
+        setForm(currentForm);
+        setPristineForm({ ...currentForm, current_password: "", password: "" });
+
         const initialTerms = {
           category_label: labels.category_label || "Program",
           category_label_plural: labels.category_label_plural || "Programs",
@@ -304,6 +302,9 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
         };
         setTermForm(initialTerms);
         setPristineTermForm(initialTerms);
+        
+        // 🚀 CRITICAL: Set pristine settings AFTER backend load
+        setPristineSettings(mergedSettings);
       } catch (e) {
         console.error("Failed to load settings/profile", e);
       } finally {
@@ -313,11 +314,7 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
     load();
   }, [labels]);
 
-  useEffect(() => {
-    if (settings && !Object.keys(pristineSettings).length) {
-      setPristineSettings(settings);
-    }
-  }, [settings]);
+  // Pristine tracking is now handled inside the load effect to ensure it captures backend data
 
   useEffect(() => {
     if (activeTab === "activity" && profile) {
@@ -551,9 +548,34 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
     setShowConfirmModal(false);
     setProfileSaving(true);
     setTermSaving(true);
+    
     try {
-      // Simulate API delays
-      await new Promise(r => setTimeout(r, 1000));
+      const promises = [];
+
+      // 1. Profile Update
+      const profileChanged = Object.keys(form).some(k => form[k] !== pristineForm[k]);
+      if (profileChanged) {
+        promises.push(adminUpdateProfile(form));
+      }
+
+      // 2. Terminology Update
+      const termChanged = Object.keys(termForm).some(k => termForm[k] !== pristineTermForm[k]);
+      if (termChanged) {
+        promises.push(updateSystemLabelsBulk(termForm));
+      }
+
+      // 3. Settings Update (Sequential patches as backend only supports per-key)
+      for (const key of Object.keys(settings)) {
+        if (settings[key] !== pristineSettings[key]) {
+          promises.push(updateAdminSetting(key, String(settings[key])));
+        }
+      }
+
+      await Promise.all(promises);
+
+      localStorage.setItem('admin_time_format', settings.time_format || "12h");
+      localStorage.setItem('admin_date_format', settings.date_format || "MMMM DD, YYYY");
+      
       setLastSaved(new Date());
       setPristineForm({ ...form });
       setPristineTermForm({ ...termForm });
@@ -561,9 +583,14 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
       setIsEditingProfile(false);
       setShowSaveToast(true);
       setTimeout(() => setShowSaveToast(false), 3000);
-      if (onAdminUpdate) onAdminUpdate({ ...adminUser, ...form });
+      
+      if (onAdminUpdate) {
+        const updatedProfile = await adminGetProfile();
+        onAdminUpdate(updatedProfile);
+      }
     } catch (e) {
       console.error("Global save failed", e);
+      alert("System synchronization failed. Please check your network connection.");
     } finally {
       setProfileSaving(false);
       setTermSaving(false);
@@ -980,7 +1007,7 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
 
                   <div style={{ position: 'relative' }}>
                     <div style={{ position: 'absolute', top: '14px', right: '48px', zIndex: 1, background: '#10B98115', color: '#10B981', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: '900' }}>RECOMMENDED</div>
-                    <ToggleRow title="Task Assignments" description="Receive an alert whenever a case or location is assigned to your unit." checked={form.status_updates} onChange={() => setForm(prev => ({ ...prev, status_updates: !prev.status_updates }))} theme={theme} darkMode={darkMode} />
+                    <ToggleRow title="Task Assignments" description="Receive an alert whenever a case or location is assigned to your unit." checked={form.notify_announcements} onChange={() => setForm(prev => ({ ...prev, notify_announcements: !prev.notify_announcements }))} theme={theme} darkMode={darkMode} />
                   </div>
                   <div style={{ padding: '0 0 16px 0', display: 'flex', gap: '16px' }}>
                      <div style={{ fontSize: '10px', color: theme.textMuted }}><strong>Sent to:</strong> Assigned Responders</div>
@@ -1416,7 +1443,7 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
               <SectionCard theme={theme} title="Organization Profile" subtitle="Select the primary operational mode for the platform.">
                 <div style={{ padding: '16px', background: 'rgba(var(--primary-rgb), 0.05)', borderRadius: '12px', border: `1px solid rgba(var(--primary-rgb), 0.1)` }}>
                   <label style={labelStyle}>Operational Logic Mode</label>
-                  <select style={inputStyle} value={orgType} onChange={e => setOrgType(e.target.value)}>
+                  <select style={inputStyle} value={settings.org_type || "government"} onChange={e => setSettings(s => ({...s, org_type: e.target.value}))}>
                     <option value="government">Government & Public Program (Governance focus)</option>
                     <option value="service">Hospitality & Service Business (Guest Experience focus)</option>
                     <option value="corporate">Internal Enterprise (SOP & Staff focus)</option>
@@ -1431,7 +1458,7 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
                   <div style={{ padding: '16px', background: theme.bg, borderRadius: '16px', border: `1.5px solid ${theme.border}` }}>
                     <label style={labelStyle}>Primary Timezone</label>
-                    <select style={inputStyle} value={timeConfig.timezone} onChange={e => setTimeConfig(s => ({ ...s, timezone: e.target.value }))}>
+                    <select style={inputStyle} value={settings.timezone} onChange={e => setSettings(s => ({ ...s, timezone: e.target.value }))}>
                       <option>Asia/Manila (UTC+8)</option>
                       <option>UTC (Coordinated Universal Time)</option>
                       <option>America/New_York (UTC-5)</option>
@@ -1445,12 +1472,12 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
                        {['12h', '24h'].map(f => (
                          <button 
                            key={f}
-                           onClick={() => setTimeConfig(s => ({ ...s, time_format: f }))}
+                           onClick={() => setSettings(s => ({ ...s, time_format: f }))}
                            style={{ 
                              flex: 1, padding: '10px', borderRadius: '8px', fontSize: '11px', fontWeight: '800',
-                             background: timeConfig.time_format === f ? 'var(--primary-color)' : theme.surface,
-                             color: timeConfig.time_format === f ? 'white' : theme.text,
-                             border: `1.5px solid ${timeConfig.time_format === f ? 'var(--primary-color)' : theme.border}`,
+                             background: settings.time_format === f ? 'var(--primary-color)' : theme.surface,
+                             color: settings.time_format === f ? 'white' : theme.text,
+                             border: `1.5px solid ${settings.time_format === f ? 'var(--primary-color)' : theme.border}`,
                              cursor: 'pointer'
                            }}
                          >
@@ -1462,11 +1489,36 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
 
                   <div style={{ gridColumn: '1 / span 2', padding: '16px', background: theme.bg, borderRadius: '16px', border: `1.5px solid ${theme.border}` }}>
                     <label style={labelStyle}>Date Visualization Format</label>
-                    <select style={inputStyle} value={timeConfig.date_format} onChange={e => setTimeConfig(s => ({ ...s, date_format: e.target.value }))}>
+                    <select style={inputStyle} value={settings.date_format} onChange={e => setSettings(s => ({ ...s, date_format: e.target.value }))}>
                       <option>MMMM DD, YYYY (April 22, 2026)</option>
                       <option>DD/MM/YYYY (22/04/2026)</option>
                       <option>YYYY-MM-DD (2026-04-22)</option>
                     </select>
+                  </div>
+                </div>
+              </SectionCard>
+
+              <SectionCard theme={theme} title="System Labeling & Visibility" subtitle="Configure localized branding and form element visibility.">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                    <div>
+                      <label style={labelStyle}>General Report Title (English)</label>
+                      <input value={settings.general_report_title || ""} onChange={e => setSettings(s => ({ ...s, general_report_title: e.target.value }))} style={inputStyle} placeholder="e.g. Department of Social Welfare..." />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>General Report Title (Filipino)</label>
+                      <input value={settings.general_report_title_fil || ""} onChange={e => setSettings(s => ({ ...s, general_report_title_fil: e.target.value }))} style={inputStyle} placeholder="e.g. Kagawaran ng Kagalingan..." />
+                    </div>
+                  </div>
+
+                  <div style={{ borderTop: `1px solid ${theme.border}`, paddingTop: '12px' }}>
+                    <p style={{ margin: '0 0 16px 0', fontSize: '11px', fontWeight: '800', color: theme.textMuted, textTransform: 'uppercase' }}>Public Form Controls</p>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                      <ToggleRow title="Display Staff Names" description="Show responder identity on feedback threads." checked={settings.form_show_staff} onChange={() => setSettings(s => ({ ...s, form_show_staff: !s.form_show_staff }))} theme={theme} darkMode={darkMode} />
+                      <ToggleRow title="Enable Rating System" description="Allow users to rate service quality (1-5 stars)." checked={settings.form_show_rating} onChange={() => setSettings(s => ({ ...s, form_show_rating: !s.form_show_rating }))} theme={theme} darkMode={darkMode} />
+                      <ToggleRow title="Allow Attachments" description="Permit users to upload photo/document evidence." checked={settings.form_show_attachments} onChange={() => setSettings(s => ({ ...s, form_show_attachments: !s.form_show_attachments }))} theme={theme} darkMode={darkMode} />
+                      <ToggleRow title="Voice Feedback" description="Enable audio recording for accessible submissions." checked={settings.form_show_voice} onChange={() => setSettings(s => ({ ...s, form_show_voice: !s.form_show_voice }))} theme={theme} darkMode={darkMode} />
+                    </div>
                   </div>
                 </div>
               </SectionCard>
@@ -1478,16 +1530,25 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
 
                   <div style={{ borderTop: `1px solid ${theme.border}`, paddingTop: '24px' }}>
                     <label style={labelStyle}>Submission Rate Limit (per {activeProfile.audience.split(' / ')[0]})</label>
-                    <input type="number" defaultValue={2} style={inputStyle} />
+                    <input 
+                      type="number" 
+                      value={settings.submission_rate_limit || 5} 
+                      onChange={e => setSettings(s => ({ ...s, submission_rate_limit: parseInt(e.target.value) }))}
+                      style={inputStyle} 
+                    />
                     <ImpactScope modules="Submission API" users={activeProfile.audience} description={`Prevents data duplication and ensures high-quality ${getLabel("feedback_label", "feedback")} records.`} theme={theme} />
                   </div>
 
                   <div style={{ borderTop: `1px solid ${theme.border}`, paddingTop: '24px' }}>
                     <label style={labelStyle}>Data Sovereignty Protocol</label>
-                    <select style={inputStyle}>
-                      <option>Standard Retention (3 Years)</option>
-                      <option>Extended Compliance (5 Years)</option>
-                      <option>Permanent Operational Archive</option>
+                    <select 
+                      style={inputStyle} 
+                      value={settings.data_sovereignty || "on-premise"}
+                      onChange={e => setSettings(s => ({ ...s, data_sovereignty: e.target.value }))}
+                    >
+                      <option value="on-premise">On-Premise Infrastructure</option>
+                      <option value="cloud-gov">Government Cloud (Secured)</option>
+                      <option value="hybrid">Hybrid Deployment</option>
                     </select>
                   </div>
                 </div>
@@ -1498,12 +1559,12 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
               <div style={{ background: '#1e293b', borderRadius: '24px', padding: '28px', color: 'white' }}>
                 <h4 style={{ margin: '0 0 12px 0', fontSize: '12px', fontWeight: '900', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Governance Enforcement</h4>
                 <p style={{ margin: 0, fontSize: '13px', color: 'rgba(255,255,255,0.8)', lineHeight: '1.6', fontWeight: '500' }}>
-                  These configurations represent the operational "Constitution" of the platform for the <strong>{orgType.toUpperCase()}</strong> domain.
+                  These configurations represent the operational "Constitution" of the platform for the <strong>{(settings.org_type || "government").toUpperCase()}</strong> domain.
                 </p>
                 <div style={{ marginTop: '24px', paddingTop: '24px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
                     <span style={{ color: 'rgba(255,255,255,0.5)' }}>Compliance Tier</span>
-                    <span style={{ fontWeight: '900' }}>{orgType === 'government' ? 'FEDERAL-PLUS' : 'ENTERPRISE-PRO'}</span>
+                    <span style={{ fontWeight: '900' }}>{settings.org_type === 'government' ? 'FEDERAL-PLUS' : 'ENTERPRISE-PRO'}</span>
                   </div>
                 </div>
               </div>

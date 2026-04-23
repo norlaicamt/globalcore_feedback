@@ -34,4 +34,4 @@ def simulate_admin_login(email, password):
         db.close()
 
 if __name__ == "__main__":
-    simulate_admin_login("user@lyka.com", "YOUR_ADMIN_PASSWORD")
+    simulate_admin_login("user@lyka.com", os.getenv("ADMIN_PASSWORD"))

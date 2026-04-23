@@ -52,23 +52,24 @@ export const getAnalyticsSnapshot = (dept_name = "", days = 30) => {
   return adminApi.get(`/analytics/snapshot?${q.toString()}`).then(r => r.data);
 };
 
-export const getAnalyticsSummary = (dept_name = "", days = 30) => {
+export const getAnalyticsSummary = (dept_name = "", days = 30, entity_id = null) => {
   const q = new URLSearchParams({ days });
   if (dept_name) q.set("dept_name", dept_name);
+  if (entity_id) q.set("entity_id", entity_id);
   return adminApi.get(`/analytics/summary?${q.toString()}`).then(r => r.data);
 };
-export const getAnalyticsVolume = (days = 30, dept_name = "") => adminApi.get(`/analytics/volume?days=${days}${dept_name ? `&dept_name=${encodeURIComponent(dept_name)}` : ""}`).then(r => r.data);
-export const getAnalyticsByEntity = (dept_name = "", days = 30) => adminApi.get(`/analytics/by-entity?days=${days}${dept_name ? `&dept_name=${encodeURIComponent(dept_name)}` : ""}`).then(r => r.data);
+export const getAnalyticsVolume = (days = 30, dept_name = "", entity_id = null) => adminApi.get(`/analytics/volume?days=${days}${dept_name ? `&dept_name=${encodeURIComponent(dept_name)}` : ""}${entity_id ? `&entity_id=${entity_id}` : ""}`).then(r => r.data);
+export const getAnalyticsByEntity = (dept_name = "", days = 30, entity_id = null) => adminApi.get(`/analytics/by-entity?days=${days}${dept_name ? `&dept_name=${encodeURIComponent(dept_name)}` : ""}${entity_id ? `&entity_id=${entity_id}` : ""}`).then(r => r.data);
 export const getAnalyticsByDepartment = () => adminApi.get("/analytics/by-department").then(r => r.data);
-export const getAnalyticsByStatus = (dept_name = "", days = 30) => adminApi.get(`/analytics/by-status?days=${days}${dept_name ? `&dept_name=${encodeURIComponent(dept_name)}` : ""}`).then(r => r.data);
-export const getAnalyticsRatings = (dept_name = "", days = 30) => adminApi.get(`/analytics/ratings?days=${days}${dept_name ? `&dept_name=${encodeURIComponent(dept_name)}` : ""}`).then(r => r.data);
+export const getAnalyticsByStatus = (dept_name = "", days = 30, entity_id = null) => adminApi.get(`/analytics/by-status?days=${days}${dept_name ? `&dept_name=${encodeURIComponent(dept_name)}` : ""}${entity_id ? `&entity_id=${entity_id}` : ""}`).then(r => r.data);
+export const getAnalyticsRatings = (dept_name = "", days = 30, entity_id = null) => adminApi.get(`/analytics/ratings?days=${days}${dept_name ? `&dept_name=${encodeURIComponent(dept_name)}` : ""}${entity_id ? `&entity_id=${entity_id}` : ""}`).then(r => r.data);
 export const getTopUsers = (limit = 10) => adminApi.get(`/analytics/top-users?limit=${limit}`).then(r => r.data);
 export const getAnalyticsEngagement = (days = 30) => adminApi.get(`/analytics/engagement?days=${days}`).then(r => r.data);
 export const getAnalyticsByLocation = (dept_name = "") => adminApi.get(`/analytics/by-location${dept_name ? `?dept_name=${encodeURIComponent(dept_name)}` : ""}`).then(r => r.data);
-export const getAnalyticsSentiment = (dept_name = "", days = 30) => adminApi.get(`/analytics/sentiment?days=${days}${dept_name ? `&dept_name=${encodeURIComponent(dept_name)}` : ""}`).then(r => r.data);
+export const getAnalyticsSentiment = (dept_name = "", days = 30, entity_id = null) => adminApi.get(`/analytics/sentiment?days=${days}${dept_name ? `&dept_name=${encodeURIComponent(dept_name)}` : ""}${entity_id ? `&entity_id=${entity_id}` : ""}`).then(r => r.data);
 
 // Users
-export const adminGetUsers = () => adminApi.get("/users").then(r => r.data);
+export const adminGetUsers = (entity_id = null) => adminApi.get(`/users${entity_id ? `?entity_id=${entity_id}` : ""}`).then(r => r.data);
 export const adminToggleUserStatus = (id, isActive) => adminApi.put(`/users/${id}/status?is_active=${isActive}`).then(r => r.data);
 export const adminUpdateUserRole = (id, role) => adminApi.put(`/users/${id}/role?role=${encodeURIComponent(role)}`).then(r => r.data);
 export const adminResetPassword = (id) => adminApi.post(`/users/${id}/reset-password`).then(r => r.data);
@@ -180,7 +181,7 @@ export const updateSystemLabelsBulk = (payload) => adminApi.post("/labels/bulk",
 
 // Settings
 export const getAdminSettings = () => adminApi.get("/settings").then(r => r.data);
-export const updateAdminSetting = (key, value) => adminApi.patch(`/settings/${key}?value=${encodeURIComponent(value)}`).then(r => r.data);
+export const updateAdminSetting = (key, value) => adminApi.patch(`/settings/${key}`, { value }).then(r => r.data);
 
 // Form Fields
 export const getFormFields = () => adminApi.get("/form-fields").then(r => r.data);

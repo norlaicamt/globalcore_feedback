@@ -8,7 +8,7 @@ load_dotenv()
 def seed_admin():
     db = SessionLocal()
     email = os.getenv("ADMIN_EMAIL", "admin@globalcore.com")
-    password = os.getenv("ADMIN_PASSWORD", "YOUR_ADMIN_PASSWORD")
+    password = os.getenv("ADMIN_PASSWORD")
     
     # Check if admin exists
     admin = db.query(models.User).filter(models.User.email == email).first()

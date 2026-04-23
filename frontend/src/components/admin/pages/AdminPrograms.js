@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from "react";
 import {
     adminGetEntities, adminCreateEntity, adminUpdateEntity, adminDeleteEntity,
-    adminGetBranches, adminCreateBranch, adminUpdateBranch, adminDeleteBranch
+    adminGetBranches, adminCreateBranch, adminUpdateBranch, adminDeleteBranch,
+    getAnalyticsSummary, getAnalyticsSentiment, getAnalyticsVolume, getAnalyticsRatings,
+    adminGetUsers
 } from "../../../services/adminApi";
 import { useTerminology } from "../../../context/TerminologyContext";
 import CustomModal from "../../CustomModal";
@@ -55,15 +57,62 @@ const IconPicker = ({ currentIcon, onSelect, theme }) => {
     );
 };
 
-const AdminPrograms = ({ theme, darkMode, adminUser }) => {
+const AdminPrograms = ({ theme, darkMode, adminUser, onNavigate }) => {
     const { getLabel } = useTerminology();
     const [programs, setPrograms] = useState([]);
     const [loading, setLoading] = useState(true);
     const [selectedProgram, setSelectedProgram] = useState(null);
+    const [teamUsers, setTeamUsers] = useState([]);
+    const [teamLoading, setTeamLoading] = useState(false);
     const [pristineProgram, setPristineProgram] = useState(null);
     const [activeTab, setActiveTab] = useState("locations");
     const [analyticsTimeframe, setAnalyticsTimeframe] = useState("30d");
+    const [detailedAnalytics, setDetailedAnalytics] = useState(null);
+    const [analyticsLoading, setAnalyticsLoading] = useState(false);
     const [dialog, setDialog] = useState({ isOpen: false });
+
+    const loadDetailedAnalytics = async () => {
+        if (!selectedProgram || activeTab !== "analytics") return;
+        setAnalyticsLoading(true);
+        try {
+            const days = parseInt(analyticsTimeframe) || 30;
+            const [summary, sentiment, volume, ratings] = await Promise.all([
+                getAnalyticsSummary("", days, selectedProgram.id),
+                getAnalyticsSentiment("", days, selectedProgram.id),
+                getAnalyticsVolume(days, "", selectedProgram.id),
+                getAnalyticsRatings("", days, selectedProgram.id)
+            ]);
+
+            // Map ratings to distribution
+            const distribution = [5, 4, 3, 2, 1].map(star => {
+                const r = ratings.find(x => x.rating === star);
+                return { star, count: r ? r.count : 0 };
+            });
+
+            setDetailedAnalytics({
+                summary,
+                sentiment,
+                volume,
+                distribution,
+                avg: summary.avg_rating || 0,
+                count: summary.total_feedback || 0,
+                openCases: summary.total_feedback - summary.total_comments,
+                resolvedRate: summary.total_feedback > 0 ? `${Math.round(((summary.total_feedback - summary.total_comments) / summary.total_feedback) * 100)}%` : "0%",
+                statuses: [
+                    { label: 'Feedback', count: summary.total_feedback, color: '#3B82F6' },
+                    { label: 'Comments', count: summary.total_comments, color: '#EAB308' },
+                    { label: 'Reactions', count: summary.total_reactions, color: '#10B981' }
+                ]
+            });
+        } catch (err) {
+            console.error("Failed to load detailed analytics:", err);
+        }
+        setAnalyticsLoading(false);
+    };
+
+    useEffect(() => {
+        loadDetailedAnalytics();
+    }, [selectedProgram, activeTab, analyticsTimeframe]);
 
     const isDirty = selectedProgram && pristineProgram && JSON.stringify(selectedProgram) !== JSON.stringify(pristineProgram);
     const hasGlobalAdminAccess = (adminUser?.role === "superadmin") || (adminUser?.role === "admin" && !adminUser?.entity_id);
@@ -83,45 +132,41 @@ const AdminPrograms = ({ theme, darkMode, adminUser }) => {
         setLoading(true);
         try {
             const data = await adminGetEntities();
-            // Fetch location counts and rich analytics for each program
+            // Fetch location counts and real analytics for each program
             const enriched = await Promise.all(data.map(async (p) => {
-                const [locs] = await Promise.all([adminGetBranches(p.id)]);
+                try {
+                    const [locs, stats] = await Promise.all([
+                        adminGetBranches(p.id),
+                        getAnalyticsSummary("", 30, p.id)
+                    ]);
 
-                // Generate detailed operational mock stats
-                const submissionCount = Math.floor(Math.random() * 150) + 20;
-                const openCases = Math.floor(submissionCount * 0.25);
-                const resolvedRate = 70 + Math.floor(Math.random() * 20);
+                    const feedbackStats = {
+                        count: stats.total_feedback || 0,
+                        avg: (stats.avg_rating || 0).toFixed(1),
+                        recent: stats.new_reports_7d || 0,
+                        openCases: stats.total_feedback - stats.total_comments, // Simplified proxy for open cases
+                        resolvedRate: stats.total_feedback > 0 ? `${Math.round(((stats.total_feedback - stats.total_comments) / stats.total_feedback) * 100)}%` : "0%",
+                        distribution: [], // Will load detailed stats in the analytics tab
+                        sentiment: { pos: 50, neu: 30, neg: 20 }, // Placeholder for list view
+                        statuses: [
+                            { label: 'Total', count: stats.total_feedback, color: '#3B82F6' },
+                            { label: 'Active', count: stats.active_users, color: '#10B981' }
+                        ],
+                        topThemes: []
+                    };
 
-                const feedbackStats = {
-                    count: submissionCount,
-                    avg: (Math.random() * 1.5 + 3.5).toFixed(1),
-                    recent: Math.floor(Math.random() * 15),
-                    openCases: openCases,
-                    resolvedRate: `${resolvedRate}%`,
-                    distribution: [
-                        { star: 5, count: Math.floor(submissionCount * 0.4) },
-                        { star: 4, count: Math.floor(submissionCount * 0.3) },
-                        { star: 3, count: Math.floor(submissionCount * 0.15) },
-                        { star: 2, count: Math.floor(submissionCount * 0.1) },
-                        { star: 1, count: Math.floor(submissionCount * 0.05) },
-                    ],
-                    sentiment: { pos: 65, neu: 20, neg: 15 },
-                    statuses: [
-                        { label: 'New', count: Math.floor(openCases * 0.6), color: '#3B82F6' },
-                        { label: 'In Review', count: Math.floor(openCases * 0.4), color: '#EAB308' },
-                        { label: 'Resolved', count: submissionCount - openCases, color: '#10B981' }
-                    ],
-                    topThemes: ["Delay", "Staff behavior", "System issue", "Clearance", "Wait time"]
-                };
-
-                return {
-                    ...p,
-                    locationCount: locs.length,
-                    feedbackStats: feedbackStats,
-                    alerts: (parseFloat(feedbackStats.avg) < 3.8) ? [
-                        { type: 'warning', message: `Low Rating Alert: Average rating dropped to ${feedbackStats.avg} in the last 7 days.` }
-                    ] : []
-                };
+                    return {
+                        ...p,
+                        locationCount: locs.length,
+                        feedbackStats: feedbackStats,
+                        alerts: (parseFloat(feedbackStats.avg) < 3.8 && feedbackStats.count > 0) ? [
+                            { type: 'warning', message: `Low Rating Alert: Average rating dropped to ${feedbackStats.avg} in the last 7 days.` }
+                        ] : []
+                    };
+                } catch (err) {
+                    console.error(`Error loading stats for program ${p.id}:`, err);
+                    return { ...p, locationCount: 0, feedbackStats: { count: 0, avg: "0.0" }, alerts: [] };
+                }
             }));
             setPrograms(enriched);
         } catch (err) { console.error(err); }
@@ -137,6 +182,15 @@ const AdminPrograms = ({ theme, darkMode, adminUser }) => {
         setLocLoading(false);
     };
 
+    const loadTeam = async (programId) => {
+        setTeamLoading(true);
+        try {
+            const data = await adminGetUsers(programId);
+            setTeamUsers(data);
+        } catch (err) { console.error(err); }
+        setTeamLoading(false);
+    };
+
     useEffect(() => {
         loadPrograms();
     }, []);
@@ -147,6 +201,7 @@ const AdminPrograms = ({ theme, darkMode, adminUser }) => {
         }
         if (selectedProgram) {
             loadLocations(selectedProgram.id);
+            loadTeam(selectedProgram.id);
         }
     }, [selectedProgram, pristineProgram]);
 
@@ -843,7 +898,7 @@ const AdminPrograms = ({ theme, darkMode, adminUser }) => {
                         </>
                     )}
                     {activeTab === "analytics" && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '32px', paddingBottom: '60px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '60px' }}>
                             {/* CONTEXT HEADER */}
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
                                 <div>
@@ -873,260 +928,321 @@ const AdminPrograms = ({ theme, darkMode, adminUser }) => {
                                 </div>
                             </div>
 
-                            {/* LAYER 1: STATUS (Critical Decisions) */}
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                                {selectedProgram.alerts?.map((alert, idx) => (
-                                    <div key={idx} style={{
-                                        padding: '16px 24px', borderRadius: '18px', background: darkMode ? 'rgba(239, 68, 68, 0.12)' : '#FEF2F2', border: '1.5px solid #EF444440', display: 'flex', alignItems: 'center', gap: '16px', animation: 'fadeIn 0.3s ease-out', boxShadow: '0 4px 12px rgba(239, 68, 68, 0.05)'
-                                    }}>
-                                        <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#EF4444', animation: 'pulse 1s infinite' }} />
-                                        <div style={{ flex: 1 }}>
-                                            <p style={{ margin: '0 0 2px 0', fontSize: '13px', fontWeight: '800', color: '#EF4444' }}>CRITICAL INTERVENTION REQUIRED</p>
-                                            <p style={{ margin: 0, fontSize: '12px', fontWeight: '600', color: theme.textMuted }}>{alert.message}</p>
-                                        </div>
-                                        <div style={{ display: 'flex', gap: '10px' }}>
-                                            <button style={{ padding: '6px 14px', background: '#EF4444', color: 'white', border: 'none', borderRadius: '8px', fontSize: '11px', fontWeight: '800', cursor: 'pointer' }}>VIEW FEEDBACK</button>
-                                            <button style={{ padding: '6px 14px', background: 'transparent', color: '#EF4444', border: '1.5px solid #EF4444', borderRadius: '8px', fontSize: '11px', fontWeight: '800', cursor: 'pointer' }}>SEND ADVISORY</button>
-                                        </div>
-                                    </div>
-                                ))}
-
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px' }}>
-                                    <KpiCard
-                                        theme={theme} label="Total Submissions"
-                                        value={selectedProgram.feedbackStats?.count ?? 0}
-                                        trend={`+12% vs last ${analyticsTimeframe}`}
-                                        icon="layers" color="#3B82F6" status="neutral"
-                                    />
-                                    <KpiCard
-                                        theme={theme} label="Average Rating"
-                                        value={`${selectedProgram.feedbackStats?.avg ?? '0.0'} ★`}
-                                        trend={parseFloat(selectedProgram.feedbackStats?.avg) < 3.0 ? "⚠ CRITICAL" : parseFloat(selectedProgram.feedbackStats?.avg) < 4.0 ? "⚠ MONITOR" : "EXCELLENT"}
-                                        icon="star" color="#EAB308"
-                                        status={parseFloat(selectedProgram.feedbackStats?.avg) < 3.0 ? "danger" : parseFloat(selectedProgram.feedbackStats?.avg) < 4.0 ? "warning" : "success"}
-                                    />
-                                    <KpiCard
-                                        theme={theme} label="Open Cases"
-                                        value={selectedProgram.feedbackStats?.openCases ?? 0}
-                                        trend="Requires Attention"
-                                        icon="alert" color="#EF4444"
-                                        status={selectedProgram.feedbackStats?.openCases > 20 ? "danger" : selectedProgram.feedbackStats?.openCases > 5 ? "warning" : "success"}
-                                    />
-                                    <KpiCard
-                                        theme={theme} label="Resolved Rate"
-                                        value={selectedProgram.feedbackStats?.resolvedRate ?? '0%'}
-                                        trend={parseInt(selectedProgram.feedbackStats?.resolvedRate) < 50 ? "BELOW TARGET" : "HEALTHY"}
-                                        icon="check" color="#10B981"
-                                        status={parseInt(selectedProgram.feedbackStats?.resolvedRate) < 50 ? "danger" : parseInt(selectedProgram.feedbackStats?.resolvedRate) < 80 ? "warning" : "success"}
-                                    />
-                                </div>
-                            </div>
-
-                            {/* LAYER 2: ACTIVITY & QUALITY (Context Layer) */}
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                                {/* FULL WIDTH TREND */}
-                                <div style={{ background: theme.surface, padding: '28px', borderRadius: '24px', border: `1px solid ${theme.border}`, boxShadow: '0 4px 20px rgba(0,0,0,0.02)' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '28px' }}>
-                                        <div>
-                                            <h4 style={{ margin: '0 0 4px 0', fontSize: '15px', fontWeight: '900', color: theme.text }}>Citizen Engagement Trend</h4>
-                                            <p style={{ margin: 0, fontSize: '12px', color: theme.textMuted }}>Daily submission volume over the last {analyticsTimeframe}.</p>
-                                        </div>
-                                        <div style={{ textAlign: 'right' }}>
-                                            <div style={{ fontSize: '11px', color: theme.textMuted, background: theme.bg, padding: '6px 12px', borderRadius: '10px', fontWeight: '800' }}>
-                                                {analyticsTimeframe.toUpperCase()} VIEWPORT
+                            {analyticsLoading ? (
+                                <div style={{ padding: '60px', textAlign: 'center', color: theme.textMuted }}>Syncing Real-time Data...</div>
+                            ) : detailedAnalytics ? (
+                                <>
+                                    {/* LAYER 1: STATUS (Critical Decisions) */}
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                                        {selectedProgram.alerts?.map((alert, idx) => (
+                                            <div key={idx} style={{
+                                                padding: '16px 24px', borderRadius: '18px', background: darkMode ? 'rgba(239, 68, 68, 0.12)' : '#FEF2F2', border: '1.5px solid #EF444440', display: 'flex', alignItems: 'center', gap: '16px', animation: 'fadeIn 0.3s ease-out', boxShadow: '0 4px 12px rgba(239, 68, 68, 0.05)'
+                                            }}>
+                                                <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#EF4444', animation: 'pulse 1s infinite' }} />
+                                                <div style={{ flex: 1 }}>
+                                                    <p style={{ margin: '0 0 2px 0', fontSize: '13px', fontWeight: '800', color: '#EF4444' }}>CRITICAL INTERVENTION REQUIRED</p>
+                                                    <p style={{ margin: 0, fontSize: '12px', fontWeight: '600', color: theme.textMuted }}>{alert.message}</p>
+                                                </div>
                                             </div>
-                                        </div>
-                                    </div>
-                                    <div style={{ height: '180px', display: 'flex', alignItems: 'flex-end', gap: '12px', padding: '0 10px' }}>
-                                        {[25, 40, 30, 55, 60, 45, 50, 75, 65, 85, 70, 95, 80, 100].map((h, i) => (
-                                            <div key={i} style={{ flex: 1, height: `${h}%`, background: 'var(--primary-color)', borderRadius: '6px 6px 2px 2px', opacity: 0.15 + (i * 0.06), transition: '0.4s cubic-bezier(0.4, 0, 0.2, 1)' }} />
                                         ))}
-                                    </div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '20px', color: theme.textMuted, fontSize: '11px', fontWeight: '800', borderTop: `1px solid ${theme.border}`, paddingTop: '16px' }}>
-                                        <span>PERIOD START</span>
-                                        <div style={{ display: 'flex', gap: '24px' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                <div style={{ width: '8px', height: '8px', borderRadius: '2px', background: 'var(--primary-color)' }} />
-                                                <span>SUBMISSIONS</span>
-                                            </div>
-                                        </div>
-                                        <span>TODAY</span>
-                                    </div>
-                                </div>
 
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '24px' }}>
-                                    {/* RATING QUALITY */}
-                                    <div style={{ background: theme.surface, padding: '24px', borderRadius: '24px', border: `1px solid ${theme.border}` }}>
-                                        <h4 style={{ margin: '0 0 24px 0', fontSize: '14px', fontWeight: '800', color: theme.text }}>Rating Quality Spectrum</h4>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                            {(selectedProgram.feedbackStats?.distribution || []).map(d => (
-                                                <div key={d.star} style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                                                    <span style={{ fontSize: '12px', fontWeight: '800', width: '32px', color: theme.textMuted }}>{d.star} ★</span>
-                                                    <div style={{ flex: 1, height: '12px', background: theme.bg, borderRadius: '6px', overflow: 'hidden' }}>
-                                                        <div style={{ height: '100%', width: `${(d.count / (selectedProgram.feedbackStats?.count || 1)) * 100}%`, background: d.star >= 4 ? '#10B981' : d.star === 3 ? '#EAB308' : '#EF4444', borderRadius: '6px', transition: 'width 1.2s ease-out' }} />
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px' }}>
+                                            <KpiCard
+                                                theme={theme} label="Total Submissions"
+                                                value={detailedAnalytics.count}
+                                                trend={`Scoped to last ${analyticsTimeframe}`}
+                                                icon="layers" color="#3B82F6" status="neutral"
+                                            />
+                                            <KpiCard
+                                                theme={theme} label="Average Rating"
+                                                value={`${(detailedAnalytics.avg || 0).toFixed(1)} ★`}
+                                                trend={detailedAnalytics.avg < 3.0 ? "⚠ CRITICAL" : detailedAnalytics.avg < 4.0 ? "⚠ MONITOR" : "EXCELLENT"}
+                                                icon="star" color="#EAB308"
+                                                status={detailedAnalytics.avg < 3.0 ? "danger" : detailedAnalytics.avg < 4.0 ? "warning" : "success"}
+                                            />
+                                            <KpiCard
+                                                theme={theme} label="Open Cases"
+                                                value={detailedAnalytics.openCases}
+                                                trend="Requires Attention"
+                                                icon="alert" color="#EF4444"
+                                                status={detailedAnalytics.openCases > 20 ? "danger" : detailedAnalytics.openCases > 5 ? "warning" : "success"}
+                                            />
+                                            <KpiCard
+                                                theme={theme} label="Resolved Rate"
+                                                value={detailedAnalytics.resolvedRate}
+                                                trend={parseInt(detailedAnalytics.resolvedRate) < 50 ? "BELOW TARGET" : "HEALTHY"}
+                                                icon="check" color="#10B981"
+                                                status={parseInt(detailedAnalytics.resolvedRate) < 50 ? "danger" : parseInt(detailedAnalytics.resolvedRate) < 80 ? "warning" : "success"}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* LAYER 2: ACTIVITY & QUALITY (Context Layer) */}
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                        {/* FULL WIDTH TREND */}
+                                        <div style={{ background: theme.surface, padding: '14px', borderRadius: '24px', border: `1px solid ${theme.border}`, boxShadow: '0 4px 20px rgba(0,0,0,0.02)' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                                                <div>
+                                                    <h4 style={{ margin: '0 0 4px 0', fontSize: '15px', fontWeight: '900', color: theme.text }}>Citizen Engagement Trend</h4>
+                                                    <p style={{ margin: 0, fontSize: '12px', color: theme.textMuted }}>Daily submission volume over the last {analyticsTimeframe}.</p>
+                                                </div>
+                                            </div>
+                                            <div style={{ height: '100px', display: 'flex', alignItems: 'flex-end', gap: '6px', padding: '0 10px' }}>
+                                                {(detailedAnalytics.volume || []).map((v, i) => (
+                                                    <div key={i} title={`${v.day}: ${v.count} submissions`} style={{ flex: 1, height: `${Math.min(100, (v.count / (detailedAnalytics.count || 1)) * 500)}%`, background: 'var(--primary-color)', borderRadius: '6px 6px 2px 2px', opacity: 0.3 + (i * 0.02), transition: '0.4s' }} />
+                                                ))}
+                                                {(detailedAnalytics.volume || []).length === 0 && <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: theme.textMuted }}>No trend data available for this period.</div>}
+                                            </div>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '20px', color: theme.textMuted, fontSize: '11px', fontWeight: '800', borderTop: `1px solid ${theme.border}`, paddingTop: '16px' }}>
+                                                <span>PERIOD START</span>
+                                                <div style={{ display: 'flex', gap: '24px' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                        <div style={{ width: '8px', height: '8px', borderRadius: '2px', background: 'var(--primary-color)' }} />
+                                                        <span>SUBMISSIONS</span>
                                                     </div>
-                                                    <span style={{ fontSize: '11px', fontWeight: '900', width: '32px', textAlign: 'right' }}>{d.count}</span>
                                                 </div>
-                                            ))}
+                                                <span>TODAY</span>
+                                            </div>
                                         </div>
-                                    </div>
 
-                                    {/* COMPACT SENTIMENT */}
-                                    <div style={{ background: theme.surface, padding: '24px', borderRadius: '24px', border: `1px solid ${theme.border}`, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                                        <h4 style={{ margin: '0 0 12px 0', fontSize: '12px', fontWeight: '800', color: theme.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Public Sentiment</h4>
-                                        <div style={{ marginBottom: '20px' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                                                <span style={{ fontSize: '11px', fontWeight: '800', color: '#10B981' }}>POSITIVE</span>
-                                                <span style={{ fontSize: '11px', fontWeight: '800', color: '#10B981' }}>{selectedProgram.feedbackStats?.sentiment?.pos ?? 0}%</span>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: '20px' }}>
+                                            {/* RATING QUALITY */}
+                                            <div style={{ background: theme.surface, padding: '14px', borderRadius: '24px', border: `1px solid ${theme.border}` }}>
+                                                <h4 style={{ margin: '0 0 24px 0', fontSize: '14px', fontWeight: '800', color: theme.text }}>Rating Quality Spectrum</h4>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                                    {detailedAnalytics.distribution.map(d => (
+                                                        <div key={d.star} style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                                            <span style={{ fontSize: '12px', fontWeight: '800', width: '32px', color: theme.textMuted }}>{d.star} ★</span>
+                                                            <div style={{ flex: 1, height: '8px', background: theme.bg, borderRadius: '4px', overflow: 'hidden' }}>
+                                                                <div style={{ height: '100%', width: `${detailedAnalytics.count > 0 ? (d.count / detailedAnalytics.count) * 100 : 0}%`, background: d.star >= 4 ? '#10B981' : d.star === 3 ? '#EAB308' : '#EF4444', borderRadius: '6px', transition: 'width 1.2s ease-out' }} />
+                                                            </div>
+                                                            <span style={{ fontSize: '11px', fontWeight: '900', width: '32px', textAlign: 'right' }}>{d.count}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
                                             </div>
-                                            <div style={{ height: '8px', width: '100%', background: theme.bg, borderRadius: '4px', overflow: 'hidden', display: 'flex' }}>
-                                                <div style={{ width: `${selectedProgram.feedbackStats?.sentiment?.pos ?? 33}%`, background: '#10B981' }} />
-                                                <div style={{ width: `${selectedProgram.feedbackStats?.sentiment?.neu ?? 33}%`, background: '#EAB308' }} />
-                                                <div style={{ width: `${selectedProgram.feedbackStats?.sentiment?.neg ?? 34}%`, background: '#EF4444' }} />
-                                            </div>
-                                        </div>
-                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                                            <div style={{ padding: '10px', background: theme.bg, borderRadius: '12px', textAlign: 'center' }}>
-                                                <p style={{ margin: 0, fontSize: '14px', fontWeight: '900', color: '#EAB308' }}>{selectedProgram.feedbackStats?.sentiment?.neu ?? 0}%</p>
-                                                <p style={{ margin: 0, fontSize: '9px', fontWeight: '700', color: theme.textMuted }}>NEUTRAL</p>
-                                            </div>
-                                            <div style={{ padding: '10px', background: theme.bg, borderRadius: '12px', textAlign: 'center' }}>
-                                                <p style={{ margin: 0, fontSize: '14px', fontWeight: '900', color: '#EF4444' }}>{selectedProgram.feedbackStats?.sentiment?.neg ?? 0}%</p>
-                                                <p style={{ margin: 0, fontSize: '9px', fontWeight: '700', color: theme.textMuted }}>NEGATIVE</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
 
-                            {/* LAYER 3: OPERATIONS (Management Layer) */}
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: '24px' }}>
-                                {/* CASE LIFECYCLE */}
-                                <div style={{ background: theme.surface, padding: '24px', borderRadius: '24px', border: `1px solid ${theme.border}` }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
-                                        <div>
-                                            <h4 style={{ margin: '0 0 4px 0', fontSize: '14px', fontWeight: '800', color: theme.text }}>Submission Lifecycle</h4>
-                                            <p style={{ margin: 0, fontSize: '11px', color: theme.textMuted }}>Open Cases = New + In Review</p>
-                                        </div>
-                                        <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: theme.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                            {renderIcon('layers')}
-                                        </div>
-                                    </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '32px' }}>
-                                        <div style={{ position: 'relative', width: '120px', height: '120px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                            <svg viewBox="0 0 36 36" style={{ width: '100%', height: '100%', transform: 'rotate(-90deg)' }}>
-                                                <circle cx="18" cy="18" r="16" fill="none" stroke={theme.bg} strokeWidth="4"></circle>
-                                                <circle cx="18" cy="18" r="16" fill="none" stroke="#10B981" strokeWidth="4" strokeDasharray="75, 100" strokeLinecap="round" style={{ transition: 'stroke-dasharray 1.5s ease-out' }}></circle>
-                                            </svg>
-                                            <div style={{ position: 'absolute', textAlign: 'center' }}>
-                                                <span style={{ display: 'block', fontSize: '20px', fontWeight: '900', color: theme.text }}>75%</span>
-                                                <span style={{ display: 'block', fontSize: '9px', fontWeight: '900', color: theme.textMuted }}>RESOLVED</span>
-                                            </div>
-                                        </div>
-                                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                            {(selectedProgram.feedbackStats?.statuses || []).map(s => (
-                                                <div key={s.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                        <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: s.color }} />
-                                                        <span style={{ fontSize: '13px', fontWeight: '700', color: theme.text }}>{s.label}</span>
+                                            {/* COMPACT SENTIMENT */}
+                                            <div style={{ background: theme.surface, padding: '14px', borderRadius: '24px', border: `1px solid ${theme.border}`, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                                                <h4 style={{ margin: '0 0 12px 0', fontSize: '12px', fontWeight: '800', color: theme.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Public Sentiment</h4>
+                                                <div style={{ marginBottom: '20px' }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                                                        <span style={{ fontSize: '11px', fontWeight: '800', color: '#10B981' }}>POSITIVE</span>
+                                                        <span style={{ fontSize: '11px', fontWeight: '800', color: '#10B981' }}>{detailedAnalytics.sentiment?.positive_pct || 0}%</span>
                                                     </div>
-                                                    <span style={{ fontSize: '13px', fontWeight: '800', color: theme.text }}>{s.count}</span>
+                                                    {/* Sentiment breakdown logic */}
+                                                    {(() => {
+                                                        const s = detailedAnalytics.sentiment || {};
+                                                        const total = (s.positive || 0) + (s.neutral || 0) + (s.frustrated || 0) || 1;
+                                                        const pos = Math.round((s.positive || 0) / total * 100);
+                                                        const neu = Math.round((s.neutral || 0) / total * 100);
+                                                        const neg = 100 - pos - neu;
+                                                        return (
+                                                            <>
+                                                                <div style={{ height: '6px', width: '100%', background: theme.bg, borderRadius: '3px', overflow: 'hidden', display: 'flex' }}>
+                                                                    <div style={{ width: `${pos}%`, background: '#10B981' }} />
+                                                                    <div style={{ width: `${neu}%`, background: '#EAB308' }} />
+                                                                    <div style={{ width: `${neg}%`, background: '#EF4444' }} />
+                                                                </div>
+                                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '20px' }}>
+                                                                    <div style={{ padding: '10px', background: theme.bg, borderRadius: '12px', textAlign: 'center' }}>
+                                                                        <p style={{ margin: 0, fontSize: '14px', fontWeight: '900', color: '#EAB308' }}>{neu}%</p>
+                                                                        <p style={{ margin: 0, fontSize: '9px', fontWeight: '700', color: theme.textMuted }}>NEUTRAL</p>
+                                                                    </div>
+                                                                    <div style={{ padding: '10px', background: theme.bg, borderRadius: '12px', textAlign: 'center' }}>
+                                                                        <p style={{ margin: 0, fontSize: '14px', fontWeight: '900', color: '#EF4444' }}>{neg}%</p>
+                                                                        <p style={{ margin: 0, fontSize: '9px', fontWeight: '700', color: theme.textMuted }}>NEG/FRUST</p>
+                                                                    </div>
+                                                                </div>
+                                                            </>
+                                                        );
+                                                    })()}
                                                 </div>
-                                            ))}
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
 
-                                {/* EMERGING THEMES */}
-                                <div style={{ background: theme.surface, padding: '24px', borderRadius: '24px', border: `1px solid ${theme.border}` }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                                        <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: theme.text }}>Top Emerging Themes</h4>
-                                        <div style={{ fontSize: '10px', color: 'var(--primary-color)', background: 'var(--primary-color)15', padding: '4px 10px', borderRadius: '8px', fontWeight: '800' }}>LAST 30 DAYS</div>
-                                    </div>
-                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
-                                        {(selectedProgram.feedbackStats?.topThemes || []).length > 0 ? (
-                                            (selectedProgram.feedbackStats?.topThemes || []).map((t, i) => (
-                                                <div key={t} style={{ padding: '10px 18px', background: theme.bg, borderRadius: '14px', border: `1.5px solid ${theme.border}`, fontSize: '12px', fontWeight: '700', color: theme.text, display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                    <span style={{ width: '20px', height: '20px', borderRadius: '6px', background: 'var(--primary-color)', color: 'white', fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '900' }}>{i + 1}</span>
-                                                    {t}
+                                    {/* LAYER 3: OPERATIONS (Management Layer) */}
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: '16px' }}>
+                                        {/* CASE LIFECYCLE */}
+                                        <div style={{ background: theme.surface, padding: '14px', borderRadius: '24px', border: `1px solid ${theme.border}` }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
+                                                <div>
+                                                    <h4 style={{ margin: '0 0 4px 0', fontSize: '14px', fontWeight: '800', color: theme.text }}>Submission Lifecycle</h4>
+                                                    <p style={{ margin: 0, fontSize: '11px', color: theme.textMuted }}>Engagement breakdown by type</p>
                                                 </div>
-                                            ))
-                                        ) : (
-                                            <div style={{ padding: '40px', textAlign: 'center', width: '100%', color: theme.textMuted, fontSize: '12px' }}>
-                                                No themes detected. Insufficient data volume (min. 5 entries required).
                                             </div>
-                                        )}
-                                    </div>
-                                    <p style={{ marginTop: '24px', fontSize: '11px', color: theme.textMuted, fontStyle: 'italic', borderTop: `1px solid ${theme.border}`, paddingTop: '16px', lineHeight: '1.5' }}>
-                                        * Showing top recurring issues from validated citizen entries. Theme detection is refreshed daily.
-                                    </p>
-                                </div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '32px' }}>
+                                                <div style={{ position: 'relative', width: '120px', height: '120px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                    <svg viewBox="0 0 36 36" style={{ width: '100%', height: '100%', transform: 'rotate(-90deg)' }}>
+                                                        <circle cx="18" cy="18" r="16" fill="none" stroke={theme.bg} strokeWidth="4"></circle>
+                                                        <circle cx="18" cy="18" r="16" fill="none" stroke="#3B82F6" strokeWidth="4" strokeDasharray={`${detailedAnalytics.resolvedRate.replace('%', '')}, 100`} strokeLinecap="round"></circle>
+                                                    </svg>
+                                                    <div style={{ position: 'absolute', textAlign: 'center' }}>
+                                                        <span style={{ display: 'block', fontSize: '20px', fontWeight: '900', color: theme.text }}>{detailedAnalytics.resolvedRate}</span>
+                                                        <span style={{ display: 'block', fontSize: '9px', fontWeight: '900', color: theme.textMuted }}>ACTIVE</span>
+                                                    </div>
+                                                </div>
+                                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                                    {detailedAnalytics.statuses.map(s => (
+                                                        <div key={s.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                                <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: s.color }} />
+                                                                <span style={{ fontSize: '13px', fontWeight: '700', color: theme.text }}>{s.label}</span>
+                                                            </div>
+                                                            <span style={{ fontSize: '13px', fontWeight: '800', color: theme.text }}>{s.count}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </div>
 
-                                {/* SITE-LEVEL PERFORMANCE (Only if Multi-Site is ON) */}
-                                {(selectedProgram.fields?.operational?.enable_locations ?? true) ? (
-                                    <div style={{ background: theme.surface, padding: '24px', borderRadius: '24px', border: `1px solid ${theme.border}`, animation: 'fadeIn 0.4s ease-out' }}>
+                                        {/* TEAM / USERS SECTION */}
+                                        <div style={{ background: theme.surface, padding: '14px', borderRadius: '24px', border: `1px solid ${theme.border}` }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                                                <div>
+                                                    <h4 style={{ margin: '0 0 4px 0', fontSize: '14px', fontWeight: '800', color: theme.text }}>Workforce & Personnel</h4>
+                                                    <p style={{ margin: 0, fontSize: '11px', color: theme.textMuted }}>Assigned team members for this {getLabel('category_label', 'workspace').toLowerCase()}.</p>
+                                                </div>
+                                                <button
+                                                    onClick={() => onNavigate("users")}
+                                                    style={{ padding: '6px 12px', background: 'var(--primary-color)15', color: 'var(--primary-color)', border: 'none', borderRadius: '8px', fontSize: '10px', fontWeight: '800', cursor: 'pointer' }}
+                                                >
+                                                    MANAGE ALL
+                                                </button>
+                                            </div>
+
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                                {teamLoading ? (
+                                                    <div style={{ padding: '20px', textAlign: 'center', fontSize: '12px', color: theme.textMuted }}>Loading team members...</div>
+                                                ) : teamUsers.length > 0 ? (
+                                                    teamUsers.slice(0, 4).map(user => (
+                                                        <div key={user.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px', background: theme.bg, borderRadius: '12px', border: `1px solid ${theme.border}` }}>
+                                                            <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--primary-color)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: '800' }}>
+                                                                {user.name.charAt(0)}
+                                                            </div>
+                                                            <div style={{ flex: 1 }}>
+                                                                <p style={{ margin: 0, fontSize: '12px', fontWeight: '800', color: theme.text }}>{user.name}</p>
+                                                                <p style={{ margin: 0, fontSize: '10px', color: theme.textMuted }}>{user.position_title || 'Staff member'}</p>
+                                                            </div>
+                                                            <div style={{ fontSize: '10px', fontWeight: '800', color: 'var(--primary-color)', padding: '4px 8px', background: 'var(--primary-color)10', borderRadius: '6px' }}>
+                                                                COORDINATE
+                                                            </div>
+                                                        </div>
+                                                    ))
+                                                ) : (
+                                                    <div style={{ padding: '20px', textAlign: 'center', fontSize: '12px', color: theme.textMuted }}>No users assigned to this workspace.</div>
+                                                )}
+                                                {teamUsers.length > 4 && (
+                                                    <div style={{ textAlign: 'center', marginTop: '4px' }}>
+                                                        <span style={{ fontSize: '11px', color: theme.textMuted, cursor: 'pointer', fontWeight: '700' }} onClick={() => onNavigate("users")}>
+                                                            + {teamUsers.length - 4} more personnel
+                                                        </span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+
+
+
+
+                                    {/* EMERGING THEMES */}
+                                    <div style={{ background: theme.surface, padding: '14px', borderRadius: '24px', border: `1px solid ${theme.border}` }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                                            <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: theme.text }}>{getLabel('entity_label', 'Site')} Performance Matrix</h4>
-                                            <span style={{ fontSize: '10px', color: theme.textMuted, fontWeight: '700' }}>COMPARATIVE ANALYSIS</span>
+                                            <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: theme.text }}>Top Emerging Themes</h4>
+                                            <div style={{ fontSize: '10px', color: 'var(--primary-color)', background: 'var(--primary-color)15', padding: '4px 10px', borderRadius: '8px', fontWeight: '800' }}>LAST 30 DAYS</div>
                                         </div>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                            {locations.slice(0, 3).map((l, i) => (
-                                                <div key={l.id} style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '12px', background: theme.bg, borderRadius: '12px', border: `1px solid ${theme.border}` }}>
-                                                    <div style={{ width: '24px', height: '24px', borderRadius: '6px', background: 'var(--primary-color)15', color: 'var(--primary-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: '900' }}>{i + 1}</div>
-                                                    <div style={{ flex: 1 }}>
-                                                        <p style={{ margin: 0, fontSize: '13px', fontWeight: '700', color: theme.text }}>{l.name}</p>
-                                                        <p style={{ margin: 0, fontSize: '10px', color: theme.textMuted }}>{l.city || 'Area Scope'}</p>
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
+                                            {(selectedProgram.feedbackStats?.topThemes || []).length > 0 ? (
+                                                (selectedProgram.feedbackStats?.topThemes || []).map((t, i) => (
+                                                    <div key={t} style={{ padding: '10px 18px', background: theme.bg, borderRadius: '14px', border: `1.5px solid ${theme.border}`, fontSize: '12px', fontWeight: '700', color: theme.text, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                        <span style={{ width: '20px', height: '20px', borderRadius: '6px', background: 'var(--primary-color)', color: 'white', fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '900' }}>{i + 1}</span>
+                                                        {t}
                                                     </div>
-                                                    <div style={{ textAlign: 'right' }}>
-                                                        <p style={{ margin: 0, fontSize: '13px', fontWeight: '800', color: theme.text }}>{(Math.random() * 1.5 + 3.5).toFixed(1)} ★</p>
-                                                        <p style={{ margin: 0, fontSize: '9px', color: '#10B981', fontWeight: '800' }}>HEALTHY</p>
-                                                    </div>
+                                                ))
+                                            ) : (
+                                                <div style={{ padding: '40px', textAlign: 'center', width: '100%', color: theme.textMuted, fontSize: '12px' }}>
+                                                    No themes detected. Insufficient data volume (min. 5 entries required).
                                                 </div>
-                                            ))}
-                                            {locations.length > 3 && <p style={{ textAlign: 'center', fontSize: '11px', color: 'var(--primary-color)', fontWeight: '700', marginTop: '8px', cursor: 'pointer' }}>View all {locations.length} {getLabel('entity_label_plural', 'sites')} in performance dashboard →</p>}
-                                            {locations.length === 0 && <p style={{ textAlign: 'center', fontSize: '12px', color: theme.textMuted, padding: '20px' }}>No {getLabel('entity_label_plural', 'sites')} registered yet.</p>}
+                                            )}
+                                        </div>
+                                        <p style={{ marginTop: '16px', fontSize: '11px', color: theme.textMuted, fontStyle: 'italic', borderTop: `1px solid ${theme.border}`, paddingTop: '12px', lineHeight: '1.5' }}>
+                                            * Showing top recurring issues from validated citizen entries. Theme detection is refreshed daily.
+                                        </p>
+                                    </div>
+
+                                    {/* SITE-LEVEL PERFORMANCE (Only if Multi-Site is ON) */}
+                                    {(selectedProgram.fields?.operational?.enable_locations ?? true) ? (
+                                        <div style={{ background: theme.surface, padding: '14px', borderRadius: '24px', border: `1px solid ${theme.border}`, animation: 'fadeIn 0.4s ease-out' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                                                <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: theme.text }}>{getLabel('entity_label', 'Site')} Performance Matrix</h4>
+                                                <span style={{ fontSize: '10px', color: theme.textMuted, fontWeight: '700' }}>COMPARATIVE ANALYSIS</span>
+                                            </div>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                                {locations.slice(0, 3).map((l, i) => (
+                                                    <div key={l.id} style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '12px', background: theme.bg, borderRadius: '12px', border: `1px solid ${theme.border}` }}>
+                                                        <div style={{ width: '24px', height: '24px', borderRadius: '6px', background: 'var(--primary-color)15', color: 'var(--primary-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: '900' }}>{i + 1}</div>
+                                                        <div style={{ flex: 1 }}>
+                                                            <p style={{ margin: 0, fontSize: '13px', fontWeight: '700', color: theme.text }}>{l.name}</p>
+                                                            <p style={{ margin: 0, fontSize: '10px', color: theme.textMuted }}>{l.city || 'Area Scope'}</p>
+                                                        </div>
+                                                        <div style={{ textAlign: 'right' }}>
+                                                            <p style={{ margin: 0, fontSize: '13px', fontWeight: '800', color: theme.text }}>{(Math.random() * 1.5 + 3.5).toFixed(1)} ★</p>
+                                                            <p style={{ margin: 0, fontSize: '9px', color: '#10B981', fontWeight: '800' }}>HEALTHY</p>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                                {locations.length > 3 && <p style={{ textAlign: 'center', fontSize: '11px', color: 'var(--primary-color)', fontWeight: '700', marginTop: '8px', cursor: 'pointer' }}>View all {locations.length} {getLabel('entity_label_plural', 'sites')} in performance dashboard →</p>}
+                                                {locations.length === 0 && <p style={{ textAlign: 'center', fontSize: '12px', color: theme.textMuted, padding: '20px' }}>No {getLabel('entity_label_plural', 'sites')} registered yet.</p>}
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div style={{ background: theme.surface, padding: '32px', borderRadius: '24px', border: `1px dashed ${theme.border}`, textAlign: 'center' }}>
+                                            <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: theme.bg, color: theme.textMuted, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
+                                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>
+                                            </div>
+                                            <p style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: theme.text }}>Single-Site Operational Mode</p>
+                                            <p style={{ margin: '4px 0 0', fontSize: '12px', color: theme.textMuted }}>Granular site-level comparisons are disabled for this workspace.</p>
+                                        </div>
+                                    )}
+
+
+                                    {/* DATA FRESHNESS & COMMAND FOOTER */}
+                                    <div style={{ marginTop: '16px' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '24px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 16px', background: theme.bg, borderRadius: '20px', border: `1px solid ${theme.border}` }}>
+                                                <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10B981' }} />
+                                                <span style={{ fontSize: '11px', color: theme.textMuted, fontWeight: '700' }}>
+                                                    Operational Data Live • Last updated: {new Date().toLocaleDateString()} at {new Date().toLocaleTimeString("en-US", { hour: '2-digit', minute: '2-digit', hour12: localStorage.getItem('admin_time_format') !== '24h' })}
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        <div style={{ display: 'flex', gap: '16px', background: 'var(--primary-color)', padding: '20px 24px', borderRadius: '20px', boxShadow: '0 10px 25px rgba(59, 130, 246, 0.12)', alignItems: 'center', position: 'relative', overflow: 'hidden' }}>
+                                            {/* Visual accent */}
+                                            <div style={{ position: 'absolute', right: '-15px', top: '-15px', opacity: 0.1, color: 'white', transform: 'rotate(-15deg)' }}>
+                                                <svg width="120" height="120" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" /></svg>
+                                            </div>
+
+                                            <div style={{ flex: 1, position: 'relative' }}>
+                                                <h4 style={{ margin: '0 0 2px 0', fontSize: '15px', fontWeight: '900', color: 'white' }}>Quick Command Center</h4>
+                                                <p style={{ margin: 0, fontSize: '12px', color: 'rgba(255,255,255,0.85)', fontWeight: '600' }}>Respond to operational insights by coordinating with service managers.</p>
+                                            </div>
+                                            <div style={{ display: 'flex', gap: '10px', position: 'relative' }}>
+                                                <button style={{ padding: '10px 18px', background: 'white', color: 'var(--primary-color)', border: 'none', borderRadius: '10px', fontSize: '12px', fontWeight: '800', cursor: 'pointer', transition: '0.2s' }} onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'} onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}>
+                                                    REVIEW SUBMISSIONS
+                                                </button>
+                                                <button style={{ padding: '10px 18px', background: 'rgba(255,255,255,0.15)', color: 'white', border: '1.5px solid rgba(255,255,255,0.3)', borderRadius: '10px', fontSize: '12px', fontWeight: '800', cursor: 'pointer', backdropFilter: 'blur(10px)' }}>
+                                                    COORDINATE NOW
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
-                                ) : (
-                                    <div style={{ background: theme.surface, padding: '32px', borderRadius: '24px', border: `1px dashed ${theme.border}`, textAlign: 'center' }}>
-                                        <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: theme.bg, color: theme.textMuted, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
-                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>
-                                        </div>
-                                        <p style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: theme.text }}>Single-Site Operational Mode</p>
-                                        <p style={{ margin: '4px 0 0', fontSize: '12px', color: theme.textMuted }}>Granular site-level comparisons are disabled for this workspace.</p>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* DATA FRESHNESS & COMMAND FOOTER */}
-                            <div style={{ marginTop: '16px' }}>
-                                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '24px' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 16px', background: theme.bg, borderRadius: '20px', border: `1px solid ${theme.border}` }}>
-                                        <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10B981' }} />
-                                        <span style={{ fontSize: '11px', color: theme.textMuted, fontWeight: '700' }}>Operational Data Live • Last updated: {new Date().toLocaleDateString()} at 10:42 AM</span>
-                                    </div>
-                                </div>
-
-                                <div style={{ display: 'flex', gap: '20px', background: 'var(--primary-color)', padding: '32px', borderRadius: '28px', boxShadow: '0 20px 40px rgba(59, 130, 246, 0.15)', alignItems: 'center', position: 'relative', overflow: 'hidden' }}>
-                                    {/* Visual accent */}
-                                    <div style={{ position: 'absolute', right: '-20px', top: '-20px', opacity: 0.1, color: 'white', transform: 'rotate(-15deg)' }}>
-                                        <svg width="180" height="180" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" /></svg>
-                                    </div>
-
-                                    <div style={{ flex: 1, position: 'relative' }}>
-                                        <h4 style={{ margin: '0 0 6px 0', fontSize: '18px', fontWeight: '900', color: 'white' }}>Quick Command Center</h4>
-                                        <p style={{ margin: 0, fontSize: '14px', color: 'rgba(255,255,255,0.8)', fontWeight: '600' }}>Respond to these operational insights by coordinating with service managers.</p>
-                                    </div>
-                                    <div style={{ display: 'flex', gap: '12px', position: 'relative' }}>
-                                        <button style={{ padding: '14px 28px', background: 'white', color: 'var(--primary-color)', border: 'none', borderRadius: '14px', fontSize: '13px', fontWeight: '900', cursor: 'pointer', transition: '0.2s' }} onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'} onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}>
-                                            REVIEW ALL SUBMISSIONS
-                                        </button>
-                                        <button style={{ padding: '14px 28px', background: 'rgba(255,255,255,0.15)', color: 'white', border: '1.5px solid rgba(255,255,255,0.3)', borderRadius: '14px', fontSize: '13px', fontWeight: '900', cursor: 'pointer', backdropFilter: 'blur(10px)' }}>
-                                            SEND COORDINATION ALERT
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
+                                </>
+                            ) : (
+                                <div style={{ padding: '60px', textAlign: 'center', color: theme.textMuted }}>No detailed analytics available.</div>
+                            )}
                         </div>
                     )}
                 </>
@@ -1238,16 +1354,11 @@ const KpiCard = ({ theme, label, value, trend, icon, color, status }) => {
     };
 
     return (
-        <div style={{ background: theme.surface, padding: '20px', borderRadius: '22px', border: `1px solid ${theme.border}`, boxShadow: '0 4px 12px rgba(0,0,0,0.02)', transition: '0.2s', position: 'relative' }} className="kpi-card">
-            <div style={{ position: 'absolute', top: '15px', right: '15px', width: '6px', height: '6px', borderRadius: '50%', background: getStatusColor() }} />
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
-                <div style={{ padding: '8px', borderRadius: '10px', background: `${color}15`, color: color }}>
-                    {renderIcon(icon)}
-                </div>
-            </div>
-            <h4 style={{ margin: '0 0 4px 0', fontSize: '24px', fontWeight: '900', color: theme.text, letterSpacing: '-0.02em' }}>{value}</h4>
-            <p style={{ margin: '0 0 10px 0', fontSize: '11px', fontWeight: '700', color: theme.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</p>
-            <div style={{ fontSize: '10px', fontWeight: '800', color: getStatusColor(), display: 'flex', alignItems: 'center', gap: '4px' }}>
+        <div style={{ background: theme.surface, padding: '12px 14px', borderRadius: '16px', border: `1px solid ${theme.border}`, boxShadow: '0 2px 8px rgba(0,0,0,0.02)', transition: '0.2s', position: 'relative' }} className="kpi-card">
+            <div style={{ position: 'absolute', top: '10px', right: '10px', width: '4px', height: '4px', borderRadius: '50%', background: getStatusColor() }} />
+            <p style={{ margin: '0 0 2px 0', fontSize: '9px', fontWeight: '800', color: theme.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</p>
+            <h4 style={{ margin: '0 0 4px 0', fontSize: '18px', fontWeight: '900', color: theme.text, letterSpacing: '-0.02em' }}>{value}</h4>
+            <div style={{ fontSize: '8.5px', fontWeight: '800', color: getStatusColor(), display: 'flex', alignItems: 'center', gap: '4px', opacity: 0.8 }}>
                 {status === 'danger' && <span>⚠</span>}
                 {trend}
             </div>

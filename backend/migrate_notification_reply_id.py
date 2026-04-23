@@ -1,6 +1,9 @@
 import psycopg2
 
-DATABASE_URL = "YOUR_DATABASE_URL"
+import os
+from dotenv import load_dotenv
+load_dotenv()
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 def migrate():
     try:

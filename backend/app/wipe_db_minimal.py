@@ -33,7 +33,7 @@ def wipe_and_minimal_seed():
         superadmin = User(
             name="Global Admin",
             email="admin@globalcore.com",
-            password="YOUR_ADMIN_PASSWORD", # Plain text as per current system design for this demo/dev environment
+            password=os.getenv("ADMIN_PASSWORD"), # Plain text as per current system design for this demo/dev environment
             role="superadmin",
             is_active=True,
             onboarding_completed=True

@@ -42,30 +42,21 @@ const HorizontalSentimentBar = ({ data, theme }) => {
   );
 };
 
-const KpiCard = ({ label, value, sub, onClick, theme, icon, color }) => (
+const KpiCard = ({ label, value, sub, onClick, theme, color }) => (
   <div 
     onClick={onClick}
     style={{ 
-      background: theme.surface, borderRadius: "12px", padding: "18px 20px", border: `1px solid ${theme.border}`, 
-      boxShadow: "0 1px 4px rgba(0,0,0,0.03)", cursor: onClick ? "pointer" : "default",
+      background: theme.surface, borderRadius: "12px", padding: "12px 14px", border: `1px solid ${theme.border}`, 
+      boxShadow: "0 1px 4px rgba(0,0,0,0.02)", cursor: onClick ? "pointer" : "default",
       transition: "transform 0.1s, border-color 0.15s",
       position: 'relative', overflow: 'hidden'
     }}
     onMouseEnter={e => { if(onClick) { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.borderColor = color || '#3B82F6'; } }}
     onMouseLeave={e => { if(onClick) { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = theme.border; } }}
   >
-    {icon && typeof icon === 'string' ? (
-      <div style={{ position: 'absolute', right: '12px', top: '12px', fontSize: '20px', opacity: 0.8 }}>
-        {icon}
-      </div>
-    ) : icon && (
-      <div style={{ position: 'absolute', right: '-10px', bottom: '-10px', opacity: 0.05, transform: 'rotate(-15deg)' }}>
-        {icon}
-      </div>
-    )}
-    <p style={{ fontSize: "11px", color: theme.textMuted, margin: "0 0 6px 0", fontWeight: "600", textTransform: "uppercase", letterSpacing: "0.05em" }}>{label}</p>
-    <p style={{ fontSize: "24px", fontWeight: "800", color: color || theme.text, margin: "0 0 3px 0" }}>{value}</p>
-    {sub && <p style={{ fontSize: "11px", color: theme.textMuted, margin: 0 }}>{sub}</p>}
+    <p style={{ fontSize: "9px", color: theme.textMuted, margin: "0 0 2px 0", fontWeight: "800", textTransform: "uppercase", letterSpacing: "0.05em" }}>{label}</p>
+    <p style={{ fontSize: "18px", fontWeight: "900", color: color || theme.text, margin: "0 0 2px 0", letterSpacing: "-0.02em" }}>{value}</p>
+    {sub && <p style={{ fontSize: "9px", color: theme.textMuted, margin: 0, fontWeight: "600" }}>{sub}</p>}
   </div>
 );
 

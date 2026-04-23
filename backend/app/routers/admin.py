@@ -17,7 +17,7 @@ load_dotenv()
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "admin@globalcore.com")
-ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "YOUR_ADMIN_PASSWORD")
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
 ADMIN_NAME = os.getenv("ADMIN_NAME", "GlobalCore Admin")
 
 # Dependency to get admin user from session token
@@ -77,7 +77,8 @@ def apply_data_scope(query, model, admin_user: models.User):
             # Scoped admins can see their own staff OR anyone explicitly marked as a "global user" (beneficiaries)
             query = query.filter(
                 (models.User.entity_id == admin_user.entity_id) |
-                (models.User.is_global_user == True)
+                (models.User.is_global_user == True) |
+                (models.User.entity_id == None)
             )
         elif model == models.Feedback:
             query = query.filter(models.Feedback.entity_id == admin_user.entity_id)
@@ -170,20 +171,25 @@ def analytics_snapshot(days: int = 30, dept_name: Optional[str] = None, db: Sess
     }
 
 @router.get("/analytics/summary")
-def analytics_summary(days: int = 30, dept_name: Optional[str] = None, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
-    target_entity_id = admin.entity_id if not has_global_admin_access(admin) else None
+def analytics_summary(days: int = 30, dept_name: Optional[str] = None, entity_id: Optional[int] = None, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
+    target_entity_id = entity_id if has_global_admin_access(admin) else admin.entity_id
     return crud.get_analytics_summary(db, entity_id=target_entity_id, dept_name=dept_name if has_global_admin_access(admin) else None, days=days)
 
 
 @router.get("/analytics/volume")
-def analytics_volume(days: int = 30, dept_name: Optional[str] = None, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
+def analytics_volume(days: int = 30, dept_name: Optional[str] = None, entity_id: Optional[int] = None, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
     since = datetime.now(timezone.utc) - timedelta(days=days)
     q = db.query(
         cast(models.Feedback.created_at, Date).label("day"),
         func.count(models.Feedback.id).label("count")
     ).filter(models.Feedback.created_at >= since)
     
-    q = apply_data_scope(q, models.Feedback, admin)
+    # Security: Scoped admins can only see their own entity, Global admins can filter by any entity_id
+    target_entity_id = entity_id if has_global_admin_access(admin) else admin.entity_id
+    if target_entity_id:
+        q = q.filter(models.Feedback.entity_id == target_entity_id)
+    elif dept_name:
+         q = q.filter(models.Feedback.recipient_dept_id == db.query(models.Department.id).filter(models.Department.name == dept_name).scalar_subquery())
         
     rows = q.group_by(cast(models.Feedback.created_at, Date))\
             .order_by(cast(models.Feedback.created_at, Date)).all()
@@ -191,7 +197,7 @@ def analytics_volume(days: int = 30, dept_name: Optional[str] = None, db: Sessio
 
 
 @router.get("/analytics/by-entity")
-def analytics_by_entity(days: int = 30, dept_name: Optional[str] = None, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
+def analytics_by_entity(days: int = 30, dept_name: Optional[str] = None, entity_id: Optional[int] = None, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
     since = datetime.now(timezone.utc) - timedelta(days=days)
     q = db.query(
         models.Entity.name,
@@ -200,7 +206,11 @@ def analytics_by_entity(days: int = 30, dept_name: Optional[str] = None, db: Ses
      .filter(models.Feedback.created_at >= since)
     
     # Apply scoping
-    q = apply_data_scope(q, models.Feedback, admin)
+    target_entity_id = entity_id if has_global_admin_access(admin) else admin.entity_id
+    if target_entity_id:
+        q = q.filter(models.Feedback.entity_id == target_entity_id)
+    elif dept_name:
+         q = q.filter(models.Feedback.recipient_dept_id == db.query(models.Department.id).filter(models.Department.name == dept_name).scalar_subquery())
         
     rows = q.group_by(models.Entity.name)\
             .order_by(func.count(models.Feedback.id).desc()).all()
@@ -219,25 +229,35 @@ def analytics_by_department(db: Session = Depends(get_db), admin: models.User = 
 
 
 @router.get("/analytics/by-status")
-def analytics_by_status(days: int = 30, dept_name: Optional[str] = None, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
+def analytics_by_status(days: int = 30, dept_name: Optional[str] = None, entity_id: Optional[int] = None, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
     since = datetime.now(timezone.utc) - timedelta(days=days)
     q = db.query(
         models.Feedback.status,
         func.count(models.Feedback.id).label("count")
     ).filter(models.Feedback.created_at >= since)
-    q = apply_data_scope(q, models.Feedback, admin)
+    
+    target_entity_id = entity_id if has_global_admin_access(admin) else admin.entity_id
+    if target_entity_id:
+        q = q.filter(models.Feedback.entity_id == target_entity_id)
+    elif dept_name:
+         q = q.filter(models.Feedback.recipient_dept_id == db.query(models.Department.id).filter(models.Department.name == dept_name).scalar_subquery())
     rows = q.group_by(models.Feedback.status).all()
     return [{"status": str(r.status).replace("FeedbackStatus.", ""), "count": r.count} for r in rows]
 
 
 @router.get("/analytics/ratings")
-def analytics_ratings(days: int = 30, dept_name: Optional[str] = None, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
+def analytics_ratings(days: int = 30, dept_name: Optional[str] = None, entity_id: Optional[int] = None, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
     since = datetime.now(timezone.utc) - timedelta(days=days)
     q = db.query(
         models.Feedback.rating,
         func.count(models.Feedback.id).label("count")
     ).filter(models.Feedback.rating != None, models.Feedback.created_at >= since)
-    q = apply_data_scope(q, models.Feedback, admin)
+    
+    target_entity_id = entity_id if has_global_admin_access(admin) else admin.entity_id
+    if target_entity_id:
+        q = q.filter(models.Feedback.entity_id == target_entity_id)
+    elif dept_name:
+         q = q.filter(models.Feedback.recipient_dept_id == db.query(models.Department.id).filter(models.Department.name == dept_name).scalar_subquery())
     rows = q.group_by(models.Feedback.rating)\
             .order_by(models.Feedback.rating).all()
     return [{"rating": r.rating, "count": r.count} for r in rows]
@@ -347,17 +367,17 @@ def analytics_by_location(dept_name: Optional[str] = None, db: Session = Depends
 
 
 @router.get("/analytics/sentiment")
-def analytics_sentiment(dept_name: Optional[str] = None, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
+def analytics_sentiment(dept_name: Optional[str] = None, entity_id: Optional[int] = None, days: int = 30, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
     """Analyze overall mood of user feedback."""
-    target_entity_id = admin.entity_id if not has_global_admin_access(admin) else None
-    return crud.get_sentiment_summary(db, entity_id=target_entity_id, dept_name=dept_name if has_global_admin_access(admin) else None)
+    target_entity_id = entity_id if has_global_admin_access(admin) else admin.entity_id
+    return crud.get_sentiment_summary(db, entity_id=target_entity_id, dept_name=dept_name if has_global_admin_access(admin) else None, days=days)
 
 # ?????????????????????????????????????????????
 # USER MANAGEMENT
 # ?????????????????????????????????????????????
 
 @router.get("/users")
-def admin_get_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
+def admin_get_users(entity_id: Optional[int] = None, skip: int = 0, limit: int = 100, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
     from sqlalchemy import select, func, literal_column
     
     # 1. Post count (Approved only)
@@ -396,6 +416,9 @@ def admin_get_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_d
     
     # Apply program-based scoping
     query = apply_data_scope(query, models.User, admin)
+    
+    if entity_id:
+        query = query.filter(models.User.entity_id == entity_id)
     
     # EXCLUSION: Hide global admins from account management list
     query = query.filter(models.User.role != "superadmin")
@@ -1101,7 +1124,8 @@ def get_admin_settings(db: Session = Depends(get_db)):
 
 
 @router.patch("/settings/{key}")
-def update_admin_setting(key: str, value: str, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
+def update_admin_setting(key: str, payload: dict = Body(...), db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
+    value = payload.get("value")
     if not has_global_admin_access(admin):
         raise HTTPException(status_code=403, detail="Only global admins can change system settings")
     

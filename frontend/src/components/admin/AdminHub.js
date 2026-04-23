@@ -354,7 +354,12 @@ const AdminHub = ({ adminUser, onLogout }) => {
                 <span style={styles.liveLabel}>LIVE</span>
                 <span style={{ color: '#E2E8F0', margin: '0 4px' }}>•</span>
                 <span style={{ ...styles.systemTime, color: theme.text }}>
-                  {currentTime.toLocaleTimeString("en-US", { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })}
+                  {currentTime.toLocaleTimeString("en-US", { 
+                    hour: '2-digit', 
+                    minute: '2-digit', 
+                    second: '2-digit', 
+                    hour12: localStorage.getItem('admin_time_format') !== '24h' 
+                  })}
                 </span>
                 <span style={styles.timezoneLabel}>Manila (GMT+8)</span>
               </div>

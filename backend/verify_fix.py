@@ -30,4 +30,4 @@ def simulate_admin_login(email, password):
 
 if __name__ == "__main__":
     # Test with mixed case email
-    simulate_admin_login("User@Lyka.com", "YOUR_ADMIN_PASSWORD")
+    simulate_admin_login("User@Lyka.com", os.getenv("ADMIN_PASSWORD"))

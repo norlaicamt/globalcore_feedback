@@ -333,7 +333,7 @@ class FeedbackUpdateFull(BaseModel):
 
 class Feedback(FeedbackBase):
     id: int
-    sender_id: int
+    sender_id: Optional[int] = None
     status: FeedbackStatus
     mentions: List[Mention] = []
     is_approved: bool # Moderation status

@@ -14,7 +14,7 @@ load_dotenv()
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "admin@globalcore.com")
-ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "YOUR_ADMIN_PASSWORD")
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
 ADMIN_NAME = os.getenv("ADMIN_NAME", "GlobalCore Admin")
 
 # Dependency to get admin context from headers (simulating JWT for prototype)

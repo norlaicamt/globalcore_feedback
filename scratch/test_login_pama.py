@@ -9,7 +9,10 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from app.models import User
 
-DATABASE_URL = "YOUR_DATABASE_URL"
+import os
+from dotenv import load_dotenv
+load_dotenv()
+DATABASE_URL = os.getenv("DATABASE_URL")
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(bind=engine)
 
@@ -36,4 +39,4 @@ if __name__ == "__main__":
     # The user didn't give a password, but I can check if standard one works or just inform them the system is back up.
     # Actually, if they are getting "Invalid email or password", it means the backend DID reply.
     # If the backend crashed, it would probably return 500.
-    test_login('pama@user.com', 'YOUR_PAMA_PASSWORD') # Guessing password might be same as username if they just created it
+    test_login('pama@user.com', os.getenv("PAMA_PASSWORD")) # Guessing password might be same as username if they just created it

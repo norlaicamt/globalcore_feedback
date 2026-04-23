@@ -180,6 +180,7 @@ const AdminUsers = ({ theme, darkMode, adminUser }) => {
   const [profileUser, setProfileUser] = useState(null);
   const [dialog, setDialog] = useState({ isOpen: false });
   const [scopeOptions, setScopeOptions] = useState([]);
+  const [entityFilter, setEntityFilter] = useState("all");
 
   // Reset bulk mode on filter/search change
   useEffect(() => {
@@ -193,7 +194,8 @@ const AdminUsers = ({ theme, darkMode, adminUser }) => {
 
   const load = () => {
     setLoading(true);
-    Promise.all([adminGetUsers(), adminGetEntities()])
+    const targetEntity = entityFilter === "all" ? null : entityFilter;
+    Promise.all([adminGetUsers(targetEntity), adminGetEntities()])
       .then(([userData, entityData]) => {
         setUsers(userData);
         setScopeOptions(entityData.map(e => ({ id: e.id, label: e.name })));
@@ -202,7 +204,7 @@ const AdminUsers = ({ theme, darkMode, adminUser }) => {
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [entityFilter]);
 
   const filteredAndSorted = useMemo(() => {
     let result = users.filter(u => {
@@ -437,13 +439,30 @@ const AdminUsers = ({ theme, darkMode, adminUser }) => {
       <div style={{ background: theme.surface, padding: "20px", borderRadius: "16px", border: `1px solid ${theme.border}`, display: "flex", flexDirection: "column", gap: "16px", flexShrink: 0 }}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: "16px", flexWrap: "wrap" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-             <h2 style={{ margin: 0, fontSize: "18px", fontWeight: "800", color: theme.text }}>Citizen Account Management</h2>
+             <h2 style={{ margin: 0, fontSize: "18px", fontWeight: "800", color: theme.text }}>
+               Citizen Account Management 
+               <span style={{ marginLeft: '12px', fontSize: '12px', color: 'var(--primary-color)', background: 'var(--primary-color)10', padding: '4px 10px', borderRadius: '12px' }}>
+                 {users.length} TOTAL
+               </span>
+             </h2>
           </div>
           <div style={{ display: "flex", gap: "12px", alignItems: "center", flex: 1, justifyContent: "flex-end" }}>
-            <div style={{ marginRight: '12px', padding: '8px 16px', background: theme.bg, borderRadius: '10px', fontSize: '11px', fontWeight: '800', color: theme.textMuted, border: `1px solid ${theme.border}` }}>
-              {hasGlobalAdminAccess ? "VIEWING: " : "SCOPE LOCKED: "}
-              <span style={{ color: 'var(--primary-color)' }}>{activeScope.toUpperCase()}</span>
-            </div>
+            {hasGlobalAdminAccess ? (
+              <select 
+                value={entityFilter} 
+                onChange={e => setEntityFilter(e.target.value)}
+                style={{ marginRight: '12px', padding: '8px 16px', background: theme.bg, borderRadius: '10px', fontSize: '11px', fontWeight: '800', color: 'var(--primary-color)', border: `1.5px solid var(--primary-color)`, outline: 'none', cursor: 'pointer' }}
+              >
+                <option value="all">ALL WORKSPACES</option>
+                {scopeOptions.map(opt => (
+                  <option key={opt.id} value={opt.id}>{opt.label.toUpperCase()}</option>
+                ))}
+              </select>
+            ) : (
+              <div style={{ marginRight: '12px', padding: '8px 16px', background: theme.bg, borderRadius: '10px', fontSize: '11px', fontWeight: '800', color: theme.textMuted, border: `1px solid ${theme.border}` }}>
+                SCOPE LOCKED: <span style={{ color: 'var(--primary-color)' }}>{activeScope.toUpperCase()}</span>
+              </div>
+            )}
             <div style={{ position: "relative", flex: 1, maxWidth: "400px" }}>
               <svg style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: theme.textMuted }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
               <input 
