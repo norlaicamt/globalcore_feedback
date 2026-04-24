@@ -157,10 +157,10 @@ def analytics_snapshot(days: int = 30, dept_name: Optional[str] = None, db: Sess
     
     return {
         "summary": crud.get_analytics_summary(db, entity_id=target_entity_id, dept_name=dept_scope, days=days),
-        "volume": analytics_volume(days, dept_name, db, admin),
-        "by_entity": analytics_by_entity(days, dept_name, db, admin),
-        "by_status": analytics_by_status(days, dept_name, db, admin),
-        "ratings": analytics_ratings(days, dept_name, db, admin),
+        "volume": analytics_volume(days=days, dept_name=dept_name, db=db, admin=admin),
+        "by_entity": analytics_by_entity(days=days, dept_name=dept_name, db=db, admin=admin),
+        "by_status": analytics_by_status(days=days, dept_name=dept_name, db=db, admin=admin),
+        "ratings": analytics_ratings(days=days, dept_name=dept_name, db=db, admin=admin),
         "top_users": analytics_top_users(8, dept_name=dept_name, db=db, admin=admin),
         "engagement": analytics_engagement(days, dept_name=dept_name, db=db, admin=admin),
         "sentiment": crud.get_sentiment_summary(db, entity_id=target_entity_id, dept_name=dept_scope, days=days),
