@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useMemo } from "react"; 
 import { 
-  adminGetUsers, adminToggleUserStatus, adminUpdateUserRole, 
+  adminGetUsers, adminToggleUserStatus, 
   adminUpdateUserDetails, adminGetEntities, adminResetPassword,
   adminLogAction
 } from "../../../services/adminApi";
@@ -171,7 +171,6 @@ const actionItemStyle = (theme, darkMode, color) => ({
 const AdminUsers = ({ theme, darkMode, adminUser }) => {
   const { getLabel } = useTerminology();
   const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [sortKey, setSortKey] = useState("newest");
@@ -184,7 +183,6 @@ const AdminUsers = ({ theme, darkMode, adminUser }) => {
 
   // Reset bulk mode on filter/search change
   useEffect(() => {
-    console.log("Bulk Mode Change", { isBulkMode, selectedCount: selectedIds.length });
     setIsBulkMode(false);
     setSelectedIds([]);
   }, [statusFilter, search, sortKey]);
@@ -192,23 +190,20 @@ const AdminUsers = ({ theme, darkMode, adminUser }) => {
   const hasGlobalAdminAccess = (adminUser?.role === "superadmin") || (adminUser?.role === "admin" && !adminUser?.entity_id);
   const activeScope = hasGlobalAdminAccess ? "All System" : (adminUser?.department || "Program Scope");
 
-  const load = () => {
-    setLoading(true);
+  const load = React.useCallback(() => {
     const targetEntity = entityFilter === "all" ? null : entityFilter;
     Promise.all([adminGetUsers(targetEntity), adminGetEntities()])
       .then(([userData, entityData]) => {
         setUsers(userData);
         setScopeOptions(entityData.map(e => ({ id: e.id, label: e.name })));
       })
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  };
+      .catch(console.error);
+  }, [entityFilter]);
 
-  useEffect(() => { load(); }, [entityFilter]);
+  useEffect(() => { load(); }, [load]);
 
   const filteredAndSorted = useMemo(() => {
     let result = users.filter(u => {
-      const role = u.role?.toLowerCase();
       // Allow seeing all roles for comprehensive management
       // if (role === "admin" || role === "superadmin") return false;
 
@@ -292,7 +287,6 @@ const AdminUsers = ({ theme, darkMode, adminUser }) => {
         // Find program name for metadata
         const prog = programs.find(p => String(p.id) === String(newEntityId));
         
-        setLoading(true);
         try {
           await adminUpdateUserDetails(
             user.id, 
@@ -307,7 +301,6 @@ const AdminUsers = ({ theme, darkMode, adminUser }) => {
         } catch (e) {
           console.error(e);
           alert("Failed to update user role.");
-          setLoading(false);
         }
       },
       onCancel: () => setDialog({ isOpen: false })
@@ -346,7 +339,6 @@ const AdminUsers = ({ theme, darkMode, adminUser }) => {
       confirmText: activate ? "Confirm Activation" : "Confirm Deactivation",
       isDestructive: !activate,
       onConfirm: async () => {
-        setLoading(true);
         try {
           await Promise.all(selectedIds.map(id => adminToggleUserStatus(id, activate)));
           setSelectedIds([]);
@@ -362,7 +354,6 @@ const AdminUsers = ({ theme, darkMode, adminUser }) => {
           });
         } catch (e) { 
           console.error(e); 
-          setLoading(false);
           setDialog({
             isOpen: true,
             title: "Action Failed",
@@ -609,7 +600,7 @@ const AdminUsers = ({ theme, darkMode, adminUser }) => {
                 </td>
                 <td style={{ padding: "12px 20px" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "12px", cursor: "pointer" }} onClick={() => setProfileUser(u)}>
-                    <div style={{ width: "32px", height: "32px", borderRadius: "50%", background: "var(--primary-color)20", color: "var(--primary-color)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "800", fontSize: "12px" }}>{u.avatar_url ? <img src={u.avatar_url} style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }} /> : u.name?.charAt(0)}</div>
+                    <div style={{ width: "32px", height: "32px", borderRadius: "50%", background: "var(--primary-color)20", color: "var(--primary-color)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "800", fontSize: "12px" }}>{u.avatar_url ? <img src={u.avatar_url} alt={u.name} style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }} /> : u.name?.charAt(0)}</div>
                     <div>
                       <p style={{ margin: 0, fontSize: "13px", fontWeight: "700", color: "#1E293B" }}>{u.name}</p>
                       <p style={{ margin: 0, fontSize: "11px", color: "#64748B" }}>{u.email}</p>
@@ -659,7 +650,7 @@ const AdminUsers = ({ theme, darkMode, adminUser }) => {
                 <button onClick={() => setProfileUser(null)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: "20px" }}>&times;</button>
              </div>
              <div style={{ textAlign: "center", marginBottom: "24px" }}>
-                <div style={{ width: "80px", height: "80px", borderRadius: "50%", background: "var(--primary-color)20", color: "var(--primary-color)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px", fontSize: "32px", fontWeight: "900" }}>{profileUser.avatar_url ? <img src={profileUser.avatar_url} style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }} /> : profileUser.name?.charAt(0)}</div>
+                <div style={{ width: "80px", height: "80px", borderRadius: "50%", background: "var(--primary-color)20", color: "var(--primary-color)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px", fontSize: "32px", fontWeight: "900" }}>{profileUser.avatar_url ? <img src={profileUser.avatar_url} alt={profileUser.name} style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }} /> : profileUser.name?.charAt(0)}</div>
                 <h4 style={{ margin: "0 0 4px 0", fontSize: "18px" }}>{profileUser.name}</h4>
                 <p style={{ margin: 0, fontSize: "14px", color: theme.textMuted }}>{profileUser.email}</p>
              </div>
@@ -700,7 +691,6 @@ const AdminUsers = ({ theme, darkMode, adminUser }) => {
 };
 
 // --- STYLES ---
-const tabStyle = (active, theme) => ({ padding: "8px 16px", borderRadius: "8px", border: "none", fontSize: "13px", fontWeight: "700", cursor: "pointer", background: active ? "var(--primary-color)" : "transparent", color: active ? "white" : theme.textMuted, transition: "0.2s" });
 const filterBtnStyle = (active, theme) => ({ padding: "6px 12px", borderRadius: "20px", border: `1px solid ${active ? "var(--primary-color)" : theme.border}`, fontSize: "10px", fontWeight: "800", cursor: "pointer", background: active ? "var(--primary-color)10" : "transparent", color: active ? "var(--primary-color)" : theme.textMuted });
 const bulkBtnStyle = (theme) => ({ padding: "6px 14px", borderRadius: "10px", border: `1px solid ${theme.border}`, background: theme.bg, color: theme.text, fontSize: "12px", fontWeight: "800", cursor: "pointer", transition: "0.2s" });
 const modalOverlayStyle = { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 };
