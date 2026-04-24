@@ -301,7 +301,7 @@ const styles = {
   statusBadge: { fontSize: '10px', fontWeight: '900', padding: '4px 12px', borderRadius: '20px', letterSpacing: '0.5px' },
   
   jurisdictionPill: { display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', backgroundColor: '#F0F9FF', color: '#0369A1', borderRadius: '12px', fontSize: '13px', fontWeight: '700', border: '1px solid #E0F2FE' },
-  messageBox: { padding: '16px', background: '#F8FAFC', border: '1px solid #F1F5F9', borderRadius: '16px', fontSize: '14px', color: '#000000', lineHeight: '1.6', whiteSpace: 'pre-wrap' },
+  messageBox: { padding: '16px', background: '#F8FAFC', border: '1px solid #F1F5F9', borderRadius: '16px', fontSize: '14px', color: '#000000', lineHeight: '1.6', whiteSpace: 'pre-wrap', overflowWrap: 'break-word', wordBreak: 'break-word' },
   
   mentionsGrid: { display: 'flex', flexWrap: 'wrap', gap: '8px' },
   mentionPill: { display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', backgroundColor: '#F1F5F9', color: '#475569', borderRadius: '8px', fontSize: '12px', fontWeight: '600' },
