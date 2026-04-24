@@ -10,4 +10,3 @@ backend/scratch/
 backend/scripts/
 .gemini/
 *.db
-.vercel
