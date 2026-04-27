@@ -1,29 +1,60 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { 
   adminBroadcast, 
-  adminGetBroadcastLogs,
   adminGetBroadcastDrafts,
   adminDeleteBroadcast,
   adminGetBroadcastTemplates,
   adminCreateBroadcastTemplate,
   adminUpdateBroadcastTemplate,
   adminDeleteBroadcastTemplate,
-  adminArchiveBroadcast,
-  adminResendBroadcast
+  adminGetBroadcastRecipientCount
 } from "../../../services/adminApi";
 import CustomModal from "../../CustomModal";
+// ── STYLES ──────────────────────────────────────────────────────────────────
+const labelStyle = { display: "block", fontSize: "10px", fontWeight: "900", color: "#64748B", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "8px" };
+const subLabelStyle = { display: "block", fontSize: "10px", fontWeight: "800", color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.05em" };
+const inputStyle = (theme) => ({ width: "100%", padding: "11px 14px", border: `1.5px solid ${theme.border}`, borderRadius: "14px", fontSize: "13px", fontWeight: "600", fontFamily: "inherit", color: theme.text, backgroundColor: theme.bg, outline: 'none', transition: '0.2s' });
+const textareaStyle = (theme) => ({ width: "100%", padding: "14px", border: `1.5px solid ${theme.border}`, borderRadius: "16px", fontSize: "13px", fontWeight: "500", fontFamily: "inherit", resize: "none", color: theme.text, backgroundColor: theme.bg, lineHeight: "1.6", outline: 'none', transition: '0.2s' });
+const primaryButtonStyle = { padding: "9px 18px", color: "white", border: "none", borderRadius: "12px", fontSize: "12px", fontWeight: "900", cursor: "pointer", transition: '0.2s' };
+const secondaryButtonStyle = (theme) => ({ padding: "9px 18px", background: theme.surface, color: theme.text, border: `1.5px solid ${theme.border}`, borderRadius: "12px", fontSize: "12px", fontWeight: "800", cursor: "pointer" });
+const textLinkStyle = { fontSize: '12px', color: 'var(--primary-color)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '800' };
+const overlayStyle = { position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(8px)' };
+const modalStyle = (theme) => ({ background: theme.surface, width: '90%', borderRadius: '32px', border: `1px solid ${theme.border}`, boxShadow: '0 30px 60px rgba(0,0,0,0.2)' });
+const tabStyle = (theme) => ({ flex: 1, padding: '16px', fontSize: '11px', fontWeight: '900', border: 'none', background: 'none', cursor: 'pointer', transition: '0.2s' });
+const historyCardStyle = (theme, darkMode) => ({ padding: '16px', background: darkMode ? 'rgba(255,255,255,0.03)' : '#F8FAFC', borderRadius: '16px', border: `1px solid ${theme.border}` });
+const badgeStyle = ({ color, bg }) => ({ fontSize: '9px', fontWeight: '900', color, backgroundColor: bg, padding: '4px 8px', borderRadius: '6px', letterSpacing: '0.05em' });
+const templateItemStyle = (theme) => ({ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', background: theme.bg, borderRadius: '14px', border: `1px solid ${theme.border}` });
+const miniButtonStyle = (theme) => ({ padding: '8px 14px', borderRadius: '8px', border: `1px solid ${theme.border}`, background: theme.surface, color: theme.text, fontSize: '11px', fontWeight: '800', cursor: 'pointer' });
+const menuButtonStyle = (theme) => ({ background: 'none', border: 'none', color: theme.textMuted, cursor: 'pointer', fontSize: '18px', padding: '0 4px' });
+const dropdownMenuStyle = (theme) => ({ position: 'absolute', right: 0, top: '100%', background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', zIndex: 10, minWidth: '120px', overflow: 'hidden' });
+const menuItemStyle = (theme) => ({ width: '100%', padding: '10px 16px', textAlign: 'left', background: 'none', border: 'none', borderBottom: `1px solid ${theme.border}`, color: theme.text, fontSize: '12px', fontWeight: '700', cursor: 'pointer' });
+
+
+
+
+const LocalIcons = {
+  Users: ({ size = 16, color = "currentColor" }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </svg>
+  ),
+  Shield: ({ size = 16, color = "currentColor" }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+    </svg>
+  ),
+  Globe: ({ size = 16, color = "currentColor" }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10" /><line x1="2" y1="12" x2="22" y2="12" /><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+    </svg>
+  )
+};
 
 const SYSTEM_TEMPLATES = [
-  { 
-    id: 'sys_advisory', label: 'Program Advisory', 
-    title: 'Important Program Advisory: [Program Name]', 
-    message: 'Please be advised of the following updates regarding the [Program Name] operations. All beneficiaries are requested to review the revised guidelines attached to this notice.' 
-  },
-  { 
-    id: 'sys_schedule', label: 'Schedule Update', 
-    title: 'Update: Coordination Schedule for [Date]', 
-    message: 'The coordination meeting scheduled for [Date] has been moved to [Time]. Please ensure your availability and confirm attendance through the portal.' 
-  }
+  { id: 'maint', label: 'Maintenance', title: 'Scheduled System Maintenance', message: 'We will be performing scheduled system maintenance on [Date] from [Time] to [Time]. The system may be briefly unavailable during this window. We apologize for any inconvenience.' },
+  { id: 'update', label: 'New Feature', title: 'Exciting New Feature Update!', message: 'We have just released a new update to the feedback platform! You can now [Feature Description]. Check it out in your dashboard and let us know what you think.' },
+  { id: 'alert', label: 'Security Alert', title: 'Important Security Update', message: 'Please be advised that we have implemented new security measures to protect your data. You may be prompted to re-authenticate or update your security settings.' },
+  { id: 'policy', label: 'Policy Update', title: 'Update to Privacy Policy', message: 'We have updated our privacy policy to better serve our community. Please take a moment to review the changes in the settings section.' }
 ];
 
 const AdminBroadcast = ({ theme, darkMode, adminUser }) => {
@@ -39,17 +70,16 @@ const AdminBroadcast = ({ theme, darkMode, adminUser }) => {
   
   // History & Custom Templates
   const [customTemplates, setCustomTemplates] = useState([]);
-  const [history, setHistory] = useState([]);
+
   const [drafts, setDrafts] = useState([]);
-  const [activeTab, setActiveTab] = useState("recent");
+  const [activeTab, setActiveTab] = useState("preview");
   const [currentDraftId, setCurrentDraftId] = useState(null);
   const [lastSaved, setLastSaved] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [dialog, setDialog] = useState({ isOpen: false });
-  const [activeMenu, setActiveMenu] = useState(null);
   const [editingTplId, setEditingTplId] = useState(null);
+  const [recipientCount, setRecipientCount] = useState(0);
 
   // Modal states
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -61,6 +91,7 @@ const AdminBroadcast = ({ theme, darkMode, adminUser }) => {
   const [tplErrors, setTplErrors] = useState({});
   const [isSavingTpl, setIsSavingTpl] = useState(false);
 
+  const [openMenuId, setOpenMenuId] = useState(null);
   const menuRef = useRef(null);
 
   const resetTplForm = () => {
@@ -86,28 +117,73 @@ const AdminBroadcast = ({ theme, darkMode, adminUser }) => {
 
   const fetchData = async () => {
     try {
-      const [logs, draftLogs, templates] = await Promise.all([
-        adminGetBroadcastLogs(),
+      const [draftLogs, templates] = await Promise.all([
         adminGetBroadcastDrafts(),
         adminGetBroadcastTemplates()
       ]);
-      setHistory(logs);
       setDrafts(draftLogs);
       setCustomTemplates(templates);
     } catch (e) { console.error(e); }
-    finally { setLoading(false); }
   };
+
+  const handleDeleteTemplate = async (id) => {
+    if (adminUser.role !== 'superadmin') {
+      setDialog({
+        isOpen: true,
+        title: "Permission Required",
+        message: "Governance Lock: Announcement templates can only be deleted by a Superadmin. Please contact system administration for template removal.",
+        type: "error",
+        onConfirm: () => setDialog({ isOpen: false })
+      });
+      return;
+    }
+
+    setDialog({
+      isOpen: true,
+      title: "Delete Template?",
+      message: "This will permanently remove this template for all administrators. This action cannot be undone.",
+      type: "warning",
+      onConfirm: async () => {
+        try {
+          await adminDeleteBroadcastTemplate(id);
+          setCustomTemplates(prev => prev.filter(t => t.id !== id));
+          setDialog({ isOpen: false });
+        } catch (e) {
+          console.error(e);
+          setDialog({
+            isOpen: true,
+            title: "Deletion Failed",
+            message: "An error occurred while trying to delete the template.",
+            type: "error",
+            onConfirm: () => setDialog({ isOpen: false })
+          });
+        }
+      }
+    });
+  };
+
+  const fetchRecipientCount = useCallback(async () => {
+    try {
+      const res = await adminGetBroadcastRecipientCount(targetGroup);
+      setRecipientCount(res.count);
+    } catch (e) { console.error(e); }
+  }, [targetGroup]);
 
   useEffect(() => { 
     fetchData(); 
+    fetchRecipientCount();
     const handleClickOutside = (e) => {
       if (menuRef.current && !menuRef.current.contains(e.target)) {
-        setActiveMenu(null);
+        setOpenMenuId(null);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  }, [fetchRecipientCount]);
+
+  useEffect(() => {
+    fetchRecipientCount();
+  }, [targetGroup]);
 
   const handleSend = async (status = "sent") => {
     if (!message.trim() || !title.trim()) return;
@@ -202,7 +278,7 @@ const AdminBroadcast = ({ theme, darkMode, adminUser }) => {
   if (!title.trim()) missingFields.push("Title");
   if (!message.trim()) missingFields.push("Message Content");
 
-  const lastLog = history.find(h => h.status === 'sent');
+
 
   return (
     <div style={{ 
@@ -216,7 +292,7 @@ const AdminBroadcast = ({ theme, darkMode, adminUser }) => {
         {/* COMMAND HEADER */}
         <div style={{ background: theme.surface, borderRadius: "24px", padding: "20px 32px", border: `1px solid ${theme.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '900', color: theme.text, letterSpacing: '-0.02em' }}>Announcement Control Panel</h2>
+            <h2 style={{ margin: 0, fontSize: '15px', fontWeight: '900', color: theme.text, letterSpacing: '-0.02em' }}>Announcement Control Panel</h2>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '8px' }}>
               <FlowStep label="1. Audience" active={!!priority} completed={true} theme={theme} />
               <div style={{ width: '12px', height: '1px', background: theme.border }} />
@@ -237,11 +313,31 @@ const AdminBroadcast = ({ theme, darkMode, adminUser }) => {
             
             {/* SECTION 1: TARGET & PRIORITY */}
             <Section title="Audience & Priority" theme={theme}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '24px' }}>
-                <div style={{ padding: '16px', background: theme.bg, borderRadius: '16px', border: `1px solid ${theme.border}` }}>
-                  <label style={subLabelStyle}>Target Audience</label>
-                  <p style={{ margin: '4px 0 0 0', fontSize: '14px', fontWeight: '800', color: theme.text }}>Citizens / Beneficiaries</p>
-                  <p style={{ margin: '2px 0 0 0', fontSize: '11px', color: theme.textMuted }}>Direct broadcast to 542 registered users.</p>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  <label style={labelStyle}>Target Audience</label>
+                  <div style={{ display: 'flex', background: theme.bg, borderRadius: '16px', padding: '6px', border: `1.5px solid ${theme.border}` }}>
+                    {[
+                      { id: 'global', label: 'Users', Icon: LocalIcons.Users },
+                      { id: 'staff', label: 'Admins', Icon: LocalIcons.Shield },
+                      { id: 'all', label: 'All', Icon: LocalIcons.Globe }
+                    ].map(opt => (
+                      <button
+                        key={opt.id}
+                        onClick={() => setTargetGroup(opt.id)}
+                        style={{
+                          flex: 1, padding: '10px', borderRadius: '12px', border: 'none',
+                          background: targetGroup === opt.id ? 'var(--primary-color)' : 'transparent',
+                          color: targetGroup === opt.id ? 'white' : theme.textMuted,
+                          fontSize: '11px', fontWeight: '900', cursor: 'pointer', transition: '0.2s',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
+                        }}
+                      >
+                        <opt.Icon size={14} color={targetGroup === opt.id ? 'white' : theme.textMuted} />
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
                 <div>
                   <label style={labelStyle}>Priority Level</label>
@@ -250,6 +346,7 @@ const AdminBroadcast = ({ theme, darkMode, adminUser }) => {
                     <option value="normal">Normal – Standard Update</option>
                     <option value="high">High – Urgent / Action Required</option>
                   </select>
+                  <p style={{ marginTop: '12px', fontSize: '11px', color: theme.textMuted }}>Priority affects notification prominence in the user feed.</p>
                 </div>
               </div>
             </Section>
@@ -263,7 +360,7 @@ const AdminBroadcast = ({ theme, darkMode, adminUser }) => {
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
                   {SYSTEM_TEMPLATES.map(t => (
-                    <TemplateButton key={t.id} label={t.label} active={appliedTemplateId === t.label} onClick={() => applyTemplate(t)} theme={theme} />
+                    <TemplateButton key={t.id} label={t.label} active={appliedTemplateId === t.id} onClick={() => applyTemplate(t)} theme={theme} />
                   ))}
                   {customTemplates.slice(0, 3).map(t => (
                     <TemplateButton key={t.id} label={t.name} active={appliedTemplateId === t.id} onClick={() => applyTemplate(t)} theme={theme} isCustom={true} />
@@ -330,21 +427,20 @@ const AdminBroadcast = ({ theme, darkMode, adminUser }) => {
                 {lastSaved && <span style={{ fontSize: '11px', color: '#10B981', fontWeight: '800', marginTop: '2px' }}>✓ Draft saved • {lastSaved}</span>}
               </div>
             </div>
-            <div style={{ display: 'flex', gap: '12px' }}>
+            <div style={{ display: 'flex', gap: '10px' }}>
               <button 
                 type="button" 
                 onClick={resetCompose} 
                 style={{ 
                   ...secondaryButtonStyle(theme), 
-                  width: '120px', 
                   color: darkMode ? '#F87171' : '#EF4444', 
                   borderColor: darkMode ? 'rgba(248, 113, 113, 0.3)' : 'rgba(239, 68, 68, 0.2)',
                   background: darkMode ? 'rgba(248, 113, 113, 0.05)' : 'rgba(239, 68, 68, 0.03)'
                 }}
               >
-                Clear Form
+                Clear
               </button>
-              <button type="button" onClick={() => handleSend("draft")} disabled={sending || !isFormValid} style={{ ...secondaryButtonStyle(theme), width: '140px' }}>
+              <button type="button" onClick={() => handleSend("draft")} disabled={sending || !isFormValid} style={{ ...secondaryButtonStyle(theme) }}>
                 {sending ? "..." : "Save Draft"}
               </button>
               <button 
@@ -352,17 +448,16 @@ const AdminBroadcast = ({ theme, darkMode, adminUser }) => {
                 disabled={sending || !isFormValid} 
                 style={{ 
                   ...primaryButtonStyle, background: isFormValid ? 'var(--primary-color)' : theme.border, 
-                  color: isFormValid ? 'white' : theme.textMuted, width: '220px', cursor: isFormValid ? 'pointer' : 'not-allowed'
+                  color: isFormValid ? 'white' : theme.textMuted, cursor: isFormValid ? 'pointer' : 'not-allowed'
                 }}
               >
-                Send Announcement
+                Send
               </button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* 📊 RIGHT COLUMN: INTELLIGENCE & HISTORY */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', height: '100%', overflow: 'hidden' }}>
         
         {/* DRAFTS NOTIFICATION */}
@@ -384,7 +479,7 @@ const AdminBroadcast = ({ theme, darkMode, adminUser }) => {
         {/* INTELLIGENCE CENTER (TABBED) */}
         <div style={{ background: theme.surface, borderRadius: "24px", border: `1px solid ${theme.border}`, display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
           <div style={{ display: 'flex', background: theme.bg, borderBottom: `1px solid ${theme.border}`, padding: '4px' }}>
-            {['preview', 'recent', 'drafts', 'templates'].map(t => (
+            {['preview', 'drafts', 'templates'].map(t => (
               <button 
                 key={t} onClick={() => setActiveTab(t)}
                 style={{ 
@@ -422,28 +517,18 @@ const AdminBroadcast = ({ theme, darkMode, adminUser }) => {
                 <div style={{ borderTop: `1px solid ${theme.border}`, paddingTop: '20px' }}>
                   <p style={{ margin: '0 0 12px 0', fontSize: '11px', fontWeight: '900', color: theme.textMuted, textTransform: 'uppercase' }}>Targeting Summary</p>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                    <SummaryItem label="Recipients" value="542" theme={theme} />
-                    <SummaryItem label="Time" value={scheduledAt ? "Scheduled" : "Instant"} theme={theme} />
+                    <SummaryItem label="Recipients" value={recipientCount} theme={theme} color={recipientCount === 0 ? '#EF4444' : 'var(--primary-color)'} />
+                    <SummaryItem 
+                      label="Delivery" 
+                      value={scheduledAt ? new Date(scheduledAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : "⚡ Instant"} 
+                      theme={theme} 
+                      color={scheduledAt ? '#10B981' : '#64748B'}
+                    />
                   </div>
                 </div>
               </div>
             )}
 
-            {activeTab === 'recent' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {history.length > 0 ? history.slice(0, 10).map(log => (
-                  <div key={log.id} style={{ ...historyCardStyle(theme, darkMode), padding: '16px' }}>
-                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-                        <span style={badgeStyle({ color: log.status === 'sent' ? '#10B981' : '#64748B', bg: log.status === 'sent' ? '#ECFDF5' : '#F1F5F9' })}>
-                           {log.status.toUpperCase()}
-                        </span>
-                        <span style={{ fontSize: '9px', color: theme.textMuted }}>{new Date(log.created_at).toLocaleDateString()}</span>
-                     </div>
-                     <p style={{ margin: 0, fontSize: '13px', fontWeight: '800', color: theme.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{log.subject}</p>
-                  </div>
-                )) : <p style={{ textAlign: 'center', color: theme.textMuted, fontSize: '12px', padding: '20px' }}>No history found.</p>}
-              </div>
-            )}
 
             {activeTab === 'drafts' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -488,39 +573,43 @@ const AdminBroadcast = ({ theme, darkMode, adminUser }) => {
 
             {activeTab === 'templates' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {[...SYSTEM_TEMPLATES, ...customTemplates].map(tpl => (
-                  <div key={tpl.id} style={{ ...templateItemStyle(theme), padding: '16px' }}>
-                    <div style={{ flex: 1 }}>
-                      <p style={{ margin: 0, fontSize: '13px', fontWeight: '800', color: theme.text }}>{tpl.label || tpl.name}</p>
-                      <p style={{ margin: 0, fontSize: '10px', color: theme.textMuted }}>{tpl.category?.toUpperCase() || 'OFFICIAL'}</p>
+                {customTemplates.length > 0 ? customTemplates.map(tpl => {
+                  return (
+                    <div key={tpl.id} style={{ ...templateItemStyle(theme), padding: '16px', position: 'relative' }}>
+                      <div style={{ flex: 1 }}>
+                        <p style={{ margin: 0, fontSize: '13px', fontWeight: '800', color: theme.text }}>{tpl.label || tpl.name}</p>
+                        <p style={{ margin: 0, fontSize: '10px', color: theme.textMuted }}>{tpl.category?.toUpperCase() || 'OFFICIAL'}</p>
+                      </div>
+                      <div style={{ position: 'relative' }} ref={openMenuId === tpl.id ? menuRef : null}>
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === tpl.id ? null : tpl.id); }} 
+                          style={menuButtonStyle(theme)}
+                        >
+                          •••
+                        </button>
+                        {openMenuId === tpl.id && (
+                          <div style={dropdownMenuStyle(theme)}>
+                            <button 
+                              style={menuItemStyle(theme)} 
+                              onClick={() => { setTitle(tpl.title); setMessage(tpl.message); setActiveTab("preview"); setOpenMenuId(null); }}
+                            >
+                              Apply Template
+                            </button>
+                            <button 
+                              style={{ ...menuItemStyle(theme), color: '#EF4444' }} 
+                              onClick={() => { handleDeleteTemplate(tpl.id); setOpenMenuId(null); }}
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <button onClick={() => { setTitle(tpl.title); setMessage(tpl.message); setActiveTab("preview"); }} style={miniButtonStyle(theme)}>Apply</button>
-                  </div>
-                ))}
+                  );
+                }) : <p style={{ textAlign: 'center', color: theme.textMuted, fontSize: '12px', padding: '20px' }}>No templates found.</p>}
               </div>
             )}
           </div>
-        </div>
-
-        {/* LAST DISPATCH ACTIVITY */}
-        <div style={{ background: theme.surface, borderRadius: "24px", border: `1px solid ${theme.border}`, padding: '24px' }}>
-           <p style={{ margin: '0 0 16px 0', fontSize: '12px', fontWeight: '900', color: theme.textMuted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Last Dispatch Analytics</p>
-           {lastLog ? (
-             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                   <StatSmall label="Seen" value={`${Math.round((lastLog.read_count / lastLog.sent_to_count) * 100) || 0}%`} theme={theme} />
-                   <StatSmall label="Ack'd" value={`${Math.round((lastLog.ack_count / lastLog.sent_to_count) * 100) || 0}%`} theme={theme} color="#10B981" />
-                </div>
-                <p style={{ margin: 0, fontSize: '13px', fontWeight: '800', color: theme.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  "{lastLog.subject}"
-                </p>
-             </div>
-           ) : (
-             <div style={{ textAlign: 'center', padding: '10px' }}>
-               <p style={{ margin: 0, fontSize: '13px', color: theme.textMuted, fontWeight: '700' }}>No recent dispatch.</p>
-               <p style={{ margin: '4px 0 0 0', fontSize: '11px', color: theme.textMuted }}>Start by sending your first announcement.</p>
-             </div>
-           )}
         </div>
       </div>
 
@@ -543,7 +632,7 @@ const AdminBroadcast = ({ theme, darkMode, adminUser }) => {
           }} 
         />
       )}
-      {showPreview && <PreviewModal theme={theme} title={title} message={message} priority={priority} targetGroup={targetGroup} scheduledAt={scheduledAt} requireAck={requireAck} onCancel={() => setShowPreview(false)} onConfirm={() => handleSend("sent")} adminUser={adminUser} />}
+      {showPreview && <PreviewModal theme={theme} title={title} message={message} priority={priority} targetGroup={targetGroup} recipientCount={recipientCount} scheduledAt={scheduledAt} requireAck={requireAck} onCancel={() => setShowPreview(false)} onConfirm={() => handleSend("sent")} adminUser={adminUser} />}
       <CustomModal isOpen={dialog.isOpen} title={dialog.title} message={dialog.message} type={dialog.type} onConfirm={dialog.onConfirm} />
 
       <style>{`
@@ -594,10 +683,10 @@ const TemplateButton = ({ label, active, onClick, theme, isCustom }) => (
   </button>
 );
 
-const SummaryItem = ({ label, value, theme }) => (
+const SummaryItem = ({ label, value, theme, color }) => (
   <div style={{ padding: '12px', background: theme.bg, borderRadius: '12px', border: `1px solid ${theme.border}` }}>
     <p style={{ margin: 0, fontSize: '9px', fontWeight: '800', color: theme.textMuted, textTransform: 'uppercase' }}>{label}</p>
-    <p style={{ margin: '2px 0 0 0', fontSize: '13px', fontWeight: '800', color: theme.text }}>{value}</p>
+    <p style={{ margin: '2px 0 0 0', fontSize: '13px', fontWeight: '900', color: color || theme.text }}>{value}</p>
   </div>
 );
 
@@ -696,7 +785,7 @@ const CreateTemplateModal = ({ theme, isSaving, editingId, values, errors, onCan
   </div>
 );
 
-const PreviewModal = ({ theme, title, message, priority, targetGroup, scheduledAt, requireAck, onCancel, onConfirm, adminUser }) => (
+const PreviewModal = ({ theme, title, message, priority, targetGroup, recipientCount, scheduledAt, requireAck, onCancel, onConfirm, adminUser }) => (
   <div style={overlayStyle}>
     <div style={{ ...modalStyle(theme), maxWidth: '580px', padding: '40px' }}>
       <h2 style={{ margin: '0 0 8px 0', fontSize: '22px', fontWeight: '900', color: theme.text }}>Final Review</h2>
@@ -705,7 +794,7 @@ const PreviewModal = ({ theme, title, message, priority, targetGroup, scheduledA
       <div style={{ background: theme.bg, borderRadius: '20px', padding: '24px', border: `2px solid ${priority === 'high' ? '#EF4444' : theme.border}`, marginBottom: '32px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
           <span style={{ fontSize: '10px', fontWeight: '900', color: priority === 'high' ? '#EF4444' : 'var(--primary-color)' }}>{priority.toUpperCase()} PRIORITY</span>
-          <span style={{ fontSize: '10px', color: theme.textMuted }}>Target: 542 Users</span>
+          <span style={{ fontSize: '10px', color: theme.textMuted }}>Target: {recipientCount} Users</span>
         </div>
         <h3 style={{ margin: '0 0 12px 0', fontSize: '18px', fontWeight: '900', color: theme.text }}>{title}</h3>
         <p style={{ margin: 0, fontSize: '15px', color: theme.text, lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>{message}</p>
@@ -720,32 +809,10 @@ const PreviewModal = ({ theme, title, message, priority, targetGroup, scheduledA
 
       <div style={{ display: 'flex', gap: '12px' }}>
         <button onClick={onCancel} style={{ ...secondaryButtonStyle(theme), flex: 1 }}>Back to Editor</button>
-        <button onClick={onConfirm} style={{ ...primaryButtonStyle, flex: 2, background: 'var(--primary-color)' }}>Send Announcement</button>
+        <button onClick={onConfirm} style={{ ...primaryButtonStyle, flex: 2, background: 'var(--primary-color)' }}>Send</button>
       </div>
     </div>
   </div>
 );
-
-// ── STYLES ──────────────────────────────────────────────────────────────────
-
-const labelStyle = { display: "block", fontSize: "11px", fontWeight: "900", color: "#64748B", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "8px" };
-const subLabelStyle = { display: "block", fontSize: "10px", fontWeight: "800", color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.05em" };
-const inputStyle = (theme) => ({ width: "100%", padding: "14px 16px", border: `1.5px solid ${theme.border}`, borderRadius: "14px", fontSize: "14px", color: theme.text, backgroundColor: theme.bg, outline: 'none', transition: '0.2s' });
-const textareaStyle = (theme) => ({ width: "100%", padding: "16px", border: `1.5px solid ${theme.border}`, borderRadius: "16px", fontSize: "15px", resize: "none", color: theme.text, backgroundColor: theme.bg, lineHeight: "1.6", outline: 'none', transition: '0.2s' });
-const primaryButtonStyle = { padding: "10px 20px", color: "white", border: "none", borderRadius: "14px", fontSize: "14px", fontWeight: "900", cursor: "pointer", transition: '0.2s' };
-const secondaryButtonStyle = (theme) => ({ padding: "10px 20px", background: theme.surface, color: theme.text, border: `1.5px solid ${theme.border}`, borderRadius: "14px", fontSize: "13px", fontWeight: "800", cursor: "pointer" });
-const textLinkStyle = { fontSize: '12px', color: 'var(--primary-color)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '800' };
-const overlayStyle = { position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(8px)' };
-const modalStyle = (theme) => ({ background: theme.surface, width: '90%', borderRadius: '32px', border: `1px solid ${theme.border}`, boxShadow: '0 30px 60px rgba(0,0,0,0.2)' });
-
-const tabStyle = (theme) => ({ flex: 1, padding: '16px', fontSize: '11px', fontWeight: '900', border: 'none', background: 'none', cursor: 'pointer', transition: '0.2s' });
-const historyCardStyle = (theme, darkMode) => ({ padding: '16px', background: darkMode ? 'rgba(255,255,255,0.03)' : '#F8FAFC', borderRadius: '16px', border: `1px solid ${theme.border}` });
-const badgeStyle = ({ color, bg }) => ({ fontSize: '9px', fontWeight: '900', color, backgroundColor: bg, padding: '4px 8px', borderRadius: '6px', letterSpacing: '0.05em' });
-const historyMessageStyle = (theme) => ({ margin: 0, fontSize: '12px', color: theme.textMuted, lineHeight: '1.4', display: '-webkit-box', WebkitLineClamp: '2', WebkitBoxOrient: 'vertical', overflow: 'hidden' });
-const templateItemStyle = (theme) => ({ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', background: theme.bg, borderRadius: '14px', border: `1px solid ${theme.border}` });
-const miniButtonStyle = (theme) => ({ padding: '8px 14px', borderRadius: '8px', border: `1px solid ${theme.border}`, background: theme.surface, color: theme.text, fontSize: '11px', fontWeight: '800', cursor: 'pointer' });
-const menuButtonStyle = (theme) => ({ background: 'none', border: 'none', color: theme.textMuted, cursor: 'pointer', fontSize: '18px', padding: '0 4px' });
-const dropdownMenuStyle = (theme) => ({ position: 'absolute', right: 0, top: '100%', background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', zIndex: 10, minWidth: '120px', overflow: 'hidden' });
-const menuItemStyle = (theme) => ({ width: '100%', padding: '10px 16px', textAlign: 'left', background: 'none', border: 'none', borderBottom: `1px solid ${theme.border}`, color: theme.text, fontSize: '12px', fontWeight: '700', cursor: 'pointer' });
 
 export default AdminBroadcast;

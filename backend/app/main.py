@@ -50,11 +50,15 @@ def get_system_info(db: Session = Depends(get_db)):
     org_name = db.query(models.SystemSetting).filter(models.SystemSetting.key == "primary_organization_name").first()
     org_logo = db.query(models.SystemSetting).filter(models.SystemSetting.key == "primary_organization_logo").first()
     primary_color = db.query(models.SystemSetting).filter(models.SystemSetting.key == "primary_color").first()
+    font_family = db.query(models.SystemSetting).filter(models.SystemSetting.key == "font_family").first()
+    system_mode = db.query(models.SystemSetting).filter(models.SystemSetting.key == "system_mode").first()
 
     return {
         "organization_name": org_name.value if org_name else "GlobalCore Feedback System",
         "organization_logo": org_logo.value if org_logo else None,
         "primary_color": primary_color.value if primary_color else "#1f2a56",
+        "font_family": font_family.value if font_family else "'Outfit', sans-serif",
+        "system_mode": system_mode.value if system_mode else "GOVERNMENT",
         "version": "1.0.0",
         "environment": os.getenv("ENV", "production")
     }
@@ -98,11 +102,6 @@ def login(email: str, password: str, db: Session = Depends(get_db)):
             status_code=403, 
             detail="Administrative accounts must log in through the Administrator Portal (/admin)."
         )
-    
-    # Auto-reactivation: Logging in automatically reactivates the account
-    if not user.is_active or user.deactivated_until:
-        user.is_active = True
-        user.deactivated_until = None
     
     # Update tracking fields
     user.last_login = datetime.now(timezone.utc)

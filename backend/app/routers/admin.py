@@ -43,8 +43,9 @@ def get_current_admin(
     if admin.role not in ["admin", "superadmin"]:
         raise HTTPException(status_code=403, detail="Access denied: Administrative privileges required")
         
-    if not admin.is_active:
-        raise HTTPException(status_code=403, detail="Account is deactivated")
+    # We allow inactive admins so they can resume their activity via the UI
+    # if not admin.is_active:
+    #    raise HTTPException(status_code=403, detail="Account is deactivated")
         
     return admin
 
@@ -103,8 +104,8 @@ def admin_login(email: str, password: str, db: Session = Depends(get_db)):
     if user and user.password == password: # In production, use hash checking
         # Allow both 'admin' and 'superadmin' roles
         if user.role in ["admin", "superadmin"]:
-            if not user.is_active:
-                raise HTTPException(status_code=403, detail="Account is deactivated")
+            # if not user.is_active:
+            #     raise HTTPException(status_code=403, detail="Account is deactivated")
             # Generate/Update session token
             token = str(uuid.uuid4())
             user.session_token = token
@@ -742,6 +743,13 @@ def admin_update_feedback_status(feedback_id: int, status: str, db: Session = De
     old_status = feedback.status
     feedback.status = status_map[status]
     
+    # If closing, record metadata
+    if status == "CLOSED":
+        feedback.closed_at = datetime.now(timezone.utc)
+        feedback.closed_by_id = admin.id
+        # No closure note from this simple status toggle unless we add it to the schema, 
+        # but the unified reply is the preferred way.
+    
     # Audit Log
     crud.create_audit_log(
         db, 
@@ -1158,9 +1166,39 @@ def update_admin_setting(key: str, payload: dict = Body(...), db: Session = Depe
     return setting
 
 
-# ?????????????????????????????????????????????
+# ---------------------------------------------
 # BROADCAST NOTIFICATION
-# ?????????????????????????????????????????????
+# ---------------------------------------------
+
+@router.get("/broadcast/recipient-count")
+def get_broadcast_recipient_count(
+    target_group: str = "all",
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(get_current_admin)
+):
+    """
+    Returns the live count of recipients for the given target group.
+    Follows the same selection logic as the broadcast dispatch.
+    """
+    is_global = has_global_admin_access(admin)
+    query = db.query(models.User)
+    
+    if not is_global:
+        # Scoped admins only see users in their own entity
+        query = query.filter(models.User.entity_id == admin.entity_id)
+        if target_group == "staff":
+            query = query.filter(models.User.role.in_(["admin", "superadmin"]))
+        elif target_group == "global":
+            query = query.filter(models.User.role == "user")
+    else:
+        # Global admins can target everyone or specific cohorts
+        if target_group == "global":
+            query = query.filter(models.User.role == "user")
+        elif target_group == "staff":
+            query = query.filter(models.User.role.in_(["admin", "superadmin"]))
+            
+    return {"count": query.count()}
+
 
 @router.post("/broadcast")
 def admin_broadcast(
@@ -1197,10 +1235,10 @@ def admin_broadcast(
         if target_group == "staff":
             query = query.filter(models.User.role.in_(["admin", "superadmin"]))
         elif target_group == "global":
-            query = query.filter(models.User.is_global_user == True)
+            query = query.filter(models.User.role == "user")
     else:
         if target_group == "global":
-            query = query.filter(models.User.is_global_user == True)
+            query = query.filter(models.User.role == "user")
         elif target_group == "staff":
             query = query.filter(models.User.role.in_(["admin", "superadmin"]))
 
@@ -1729,11 +1767,12 @@ def update_broadcast_template(
 
 @router.delete("/broadcast-templates/{tpl_id}")
 def delete_broadcast_template(tpl_id: int, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
-    # Scoping check
+    # Governance Rule: Only Superadmins can permanently delete templates
     if not has_global_admin_access(admin):
-        target = db.query(models.BroadcastTemplate).filter(models.BroadcastTemplate.id == tpl_id).first()
-        if not target or target.entity_id != admin.entity_id:
-            raise HTTPException(status_code=403, detail="Cannot delete other program's template")
+        raise HTTPException(
+            status_code=403, 
+            detail="Governance Lock: Announcement templates can only be deleted by a Superadmin."
+        )
 
     if crud.delete_broadcast_template(db, tpl_id):
         return {"message": "Deleted"}
@@ -1886,3 +1925,209 @@ def update_workflow_template(
     )
     
     return db_tpl
+
+# --- RESPONSE TEMPLATES & UNIFIED REPLY ---
+
+@router.get("/response-templates", response_model=List[schemas.ResponseTemplate])
+def get_response_templates(db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
+    """Fetch reusable response templates scoped to the admin's program."""
+    query = db.query(models.ResponseTemplate)
+    if not has_global_admin_access(admin):
+        query = query.filter(
+            (models.ResponseTemplate.entity_id == admin.entity_id) | 
+            (models.ResponseTemplate.entity_id == None)
+        )
+    return query.order_by(models.ResponseTemplate.category.asc(), models.ResponseTemplate.name.asc()).all()
+
+@router.post("/response-templates", response_model=schemas.ResponseTemplate)
+def create_response_template(
+    payload: schemas.ResponseTemplateCreate,
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(get_current_admin)
+):
+    """Save a new response template."""
+    db_tpl = models.ResponseTemplate(
+        name=payload.name,
+        message=payload.message,
+        category=payload.category,
+        entity_id=payload.entity_id or admin.entity_id,
+        created_by_id=admin.id
+    )
+    db.add(db_tpl)
+    db.commit()
+    db.refresh(db_tpl)
+    return db_tpl
+
+@router.delete("/response-templates/{tpl_id}")
+def delete_response_template(tpl_id: int, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
+    """Remove a response template."""
+    tpl = db.query(models.ResponseTemplate).filter(models.ResponseTemplate.id == tpl_id).first()
+    if not tpl:
+        raise HTTPException(status_code=404, detail="Template not found")
+    
+    if not has_global_admin_access(admin) and tpl.created_by_id != admin.id:
+        raise HTTPException(status_code=403, detail="Access denied: Cannot delete templates created by others")
+        
+    db.delete(tpl)
+    db.commit()
+    return {"status": "deleted"}
+
+@router.post("/feedbacks/{feedback_id}/unified-reply")
+async def admin_unified_reply(
+    feedback_id: int,
+    payload: schemas.UnifiedReplyRequest,
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(get_current_admin)
+):
+    """
+    Unified Dispatch:
+    1. Saves official reply
+    2. Optionally updates status
+    3. Logs audit trail with previous/new status
+    4. Triggers stored + real-time notifications
+    5. Optionally saves as a new template
+    """
+    # 1. Validation
+    msg = payload.message.strip()
+    if not msg:
+        raise HTTPException(status_code=400, detail="Response message cannot be empty")
+
+    feedback = db.query(models.Feedback).filter(models.Feedback.id == feedback_id).first()
+    if not feedback:
+        raise HTTPException(status_code=404, detail="Feedback not found")
+
+    # Scoping check
+    if not has_global_admin_access(admin):
+        if feedback.entity_id != admin.entity_id:
+            raise HTTPException(status_code=403, detail="Access denied: Cannot respond to feedback outside your program scope")
+
+    # 2. Save Official Reply
+    db_reply = models.Reply(
+        feedback_id=feedback_id,
+        user_id=admin.id,
+        message=msg,
+        is_official=True,
+        admin_id=admin.id,
+        admin_name_snapshot=admin.name,
+        admin_role_snapshot=admin.position_title or admin.role.capitalize()
+    )
+    db.add(db_reply)
+
+    # 3. Handle Template Saving
+    if payload.save_as_template:
+        if not payload.template_name or not payload.template_category:
+            raise HTTPException(status_code=400, detail="Template name and category are required when saving as template")
+        
+        # Check if name already exists in this scope to prevent duplicates
+        exists = db.query(models.ResponseTemplate).filter(
+            models.ResponseTemplate.name == payload.template_name,
+            models.ResponseTemplate.entity_id == admin.entity_id
+        ).first()
+        
+        if not exists:
+            new_tpl = models.ResponseTemplate(
+                name=payload.template_name,
+                message=msg,
+                category=payload.template_category,
+                entity_id=admin.entity_id,
+                created_by_id=admin.id
+            )
+            db.add(new_tpl)
+
+    # 4. Optional Status Update & Audit Logging
+    prev_status = str(feedback.status).split(".")[-1]
+    new_status_str = prev_status
+    
+    if payload.new_status:
+        feedback.status = payload.new_status
+        new_status_str = str(payload.new_status).split(".")[-1]
+        
+        # If closing, record metadata
+        if payload.new_status == models.FeedbackStatus.CLOSED:
+            feedback.closed_at = datetime.now(timezone.utc)
+            feedback.closed_by_id = admin.id
+            feedback.closure_note = payload.closure_note
+
+    # 5. Audit Log Entry
+    crud.create_audit_log(
+        db,
+        action_type="admin_response_dispatch",
+        performed_by_id=admin.id,
+        target_id=str(feedback_id),
+        details={
+            "previous_status": prev_status,
+            "new_status": new_status_str,
+            "status_updated": payload.new_status is not None,
+            "admin_role": admin.position_title or admin.role
+        }
+    )
+
+    # 6. Create Stored Notification
+    notif = models.Notification(
+        user_id=feedback.sender_id,
+        actor_id=admin.id,
+        type=models.NotificationType.REPLY,
+        feedback_id=feedback_id,
+        message=f"Official response: {msg[:60]}...",
+        is_read=False
+    )
+    db.add(notif)
+    
+    db.commit()
+    
+    # 7. Real-time Trigger (Best effort via imported sse_manager)
+    try:
+        from app.main import sse_manager
+        await sse_manager.notify(feedback.sender_id)
+    except Exception as e:
+        print(f"SSE Notification failed: {e}")
+
+    return {"status": "success", "reply_id": db_reply.id, "new_status": new_status_str}
+@router.post("/reveal-identity/{feedback_id}")
+def reveal_identity(
+    feedback_id: int,
+    admin: models.User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Securely reveals the identity of an anonymous feedback sender to an authorized administrator.
+    Every reveal action is audited for governance and traceability.
+    """
+    feedback = db.query(models.Feedback).filter(models.Feedback.id == feedback_id).first()
+    if not feedback:
+        raise HTTPException(status_code=404, detail="Feedback not found")
+        
+    # Check scope to ensure admin can only reveal identity for feedback within their workspace
+    feedback_scoped = apply_data_scope(db.query(models.Feedback).filter(models.Feedback.id == feedback_id), models.Feedback, admin).first()
+    if not feedback_scoped:
+        raise HTTPException(status_code=403, detail="Unauthorized access to this feedback context")
+
+    # Handle cases with no linked sender
+    if not feedback.sender_id:
+        return {"name": "Truly Anonymous", "email": "N/A", "phone": "N/A", "note": "Feedback submitted without an account linkage"}
+
+    user = db.query(models.User).filter(models.User.id == feedback.sender_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Linked sender record no longer exists")
+
+    # LOG AUDIT ACTION
+    audit = models.AuditLog(
+        action_type="REVEAL_IDENTITY",
+        performed_by_id=admin.id,
+        target_id=str(feedback_id),
+        details={
+            "feedback_title": feedback.title,
+            "revealed_user_id": user.id,
+            "revealed_user_name": user.name,
+            "reason": "Administrative Review"
+        }
+    )
+    db.add(audit)
+    db.commit()
+
+    return {
+        "name": user.name,
+        "email": user.email,
+        "phone": user.phone or "N/A",
+        "role": user.role_identity or "General User"
+    }

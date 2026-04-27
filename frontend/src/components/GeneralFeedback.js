@@ -491,6 +491,42 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, overrideConfig = null
               ) : (
                 currentStep.items.map((it, idx) => renderItem(it, idx))
               )}
+              <div style={{ background: 'white', padding: '24px', borderRadius: '24px', border: '1.5px solid rgba(0,0,0,0.03)', marginBottom: '20px', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: isAnonymous ? '12px' : '0' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: isAnonymous ? 'rgba(59, 130, 246, 0.1)' : 'rgba(0,0,0,0.03)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: isAnonymous ? '#3B82F6' : '#94A3B8', transition: '0.2s' }}>
+                      <LocalIcons.EyeOff size={20} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '14px', fontWeight: '800', color: '#1E293B' }}>Submit Anonymously</div>
+                      <div style={{ fontSize: '11px', color: '#94A3B8', fontWeight: '600' }}>Hide your name from the public feed</div>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => setIsAnonymous(!isAnonymous)}
+                    style={{ 
+                      width: '44px', height: '24px', borderRadius: '12px', 
+                      background: isAnonymous ? '#3B82F6' : '#E2E8F0', 
+                      position: 'relative', border: 'none', cursor: 'pointer', transition: '0.3s' 
+                    }}
+                  >
+                    <div style={{ 
+                      width: '18px', height: '18px', borderRadius: '50%', background: 'white', 
+                      position: 'absolute', top: '3px', left: isAnonymous ? '23px' : '3px', transition: '0.3s',
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                    }} />
+                  </button>
+                </div>
+                
+                {isAnonymous && (
+                  <div style={{ marginTop: '12px', padding: '12px', borderRadius: '12px', background: 'rgba(59, 130, 246, 0.05)', border: '1px dashed rgba(59, 130, 246, 0.2)', animation: 'fadeIn 0.3s ease' }}>
+                    <p style={{ margin: 0, fontSize: '12px', color: '#64748B', fontWeight: '600', lineHeight: '1.5' }}>
+                      <span style={{ color: '#3B82F6', fontWeight: '900' }}>Privacy Assurance:</span> Your identity will not be shown publicly. Only authorized administrators can access your details if follow-up is required.
+                    </p>
+                  </div>
+                )}
+              </div>
+
               <div style={{ display: 'flex', gap: '12px', marginTop: '30px' }}>
                 <button onClick={handleBack} style={{ ...styles.nextBtn, background: 'white', color: '#64748B', border: '1.5px solid #E2E8F0', boxShadow: 'none', flex: 1, height: '48px' }}>Back</button>
                 {(!['entity_picker'].includes(currentStep.items[0]?.key) || isPreview) && (

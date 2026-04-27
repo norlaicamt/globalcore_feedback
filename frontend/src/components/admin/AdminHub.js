@@ -7,6 +7,7 @@ import AdminUsers from "./pages/AdminUsers";
 import AdminFeedbacks from "./pages/AdminFeedbacks";
 import AdminPendingSuggestions from "./pages/AdminPendingSuggestions";
 import AdminBroadcast from "./pages/AdminBroadcast";
+import AdminBroadcastAnalytics from "./pages/AdminBroadcastAnalytics";
 import AdminSettings from "./pages/AdminSettings";
 import AdminAuditLogs from "./pages/AdminAuditLogs";
 import AdminPrograms from "./pages/AdminPrograms";
@@ -19,6 +20,7 @@ const NAV_ITEMS = [
   { id: "users", label: "Account Management", icon: <UsersIcon /> },
   { id: "feedbacks", label: "Submissions", icon: <FeedIcon /> },
   { id: "broadcast", label: "Announcements", icon: <BellIcon /> },
+  { id: "broadcast_analytics", label: "Reach Analytics", icon: <ChartIcon />, isSub: true },
   { id: "auditlogs", label: "System Audit Trail", icon: <ClockIcon />, superOnly: true },
   { type: "label", label: "ORGANIZATION" },
   { id: "programs", label: "Workspaces", icon: <OrgIcon /> },
@@ -119,6 +121,7 @@ const AdminHub = ({ adminUser, onLogout }) => {
         users: "Managing Accounts",
         feedbacks: "Reviewing Submissions",
         broadcast: "Drafting Announcements",
+        broadcast_analytics: "Analyzing Reach Metrics",
         auditlogs: "Reviewing Audit Logs",
         programs: "Configuring Programs",
         pendingsuggestions: "Reviewing Approvals",
@@ -164,8 +167,9 @@ const AdminHub = ({ adminUser, onLogout }) => {
   };
 
   const handleAdminUpdate = (updated) => {
-    setLocalAdminUser(updated);
-    localStorage.setItem(STORAGE_KEYS.ADMIN_CURRENT, JSON.stringify(updated));
+    const merged = { ...localAdminUser, ...updated };
+    setLocalAdminUser(merged);
+    localStorage.setItem(STORAGE_KEYS.ADMIN_CURRENT, JSON.stringify(merged));
   };
 
   const renderView = () => {
@@ -185,6 +189,7 @@ const AdminHub = ({ adminUser, onLogout }) => {
       case "pendingsuggestions": return <AdminPendingSuggestions {...props} refreshCount={fetchPendingCount} />;
       case "formdesigner": return <AdminFormDesigner {...props} />;
       case "broadcast": return <AdminBroadcast {...props} />;
+      case "broadcast_analytics": return <AdminBroadcastAnalytics {...props} />;
       case "settings": return <AdminSettings {...props} />;
       case "auditlogs": return <AdminAuditLogs {...props} />;
       case "feedbacktypes": // Redirect legacy
@@ -347,12 +352,6 @@ const AdminHub = ({ adminUser, onLogout }) => {
                 {currentTime.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
               </p>
               <div style={styles.liveIndicatorContainer}>
-                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                  <div style={styles.liveDot} />
-                  <div style={{ position: 'absolute', inset: -2, borderRadius: '50%', border: '1.5px solid #10B981', animation: 'sidebarPulse 2s infinite' }} />
-                </div>
-                <span style={styles.liveLabel}>LIVE</span>
-                <span style={{ color: '#E2E8F0', margin: '0 4px' }}>•</span>
                 <span style={{ ...styles.systemTime, color: theme.text }}>
                   {currentTime.toLocaleTimeString("en-US", { 
                     hour: '2-digit', 

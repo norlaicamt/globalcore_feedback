@@ -100,11 +100,15 @@ export const TerminologyProvider = ({ children }) => {
       if (publicInfo.organization_name) mappedSettings.primary_organization_name = publicInfo.organization_name;
       if (publicInfo.organization_logo) mappedSettings.primary_organization_logo = publicInfo.organization_logo;
       if (publicInfo.primary_color) mappedSettings.primary_color = publicInfo.primary_color;
+      if (publicInfo.font_family) mappedSettings.font_family = publicInfo.font_family;
+      if (publicInfo.system_mode) mappedSettings.system_mode = publicInfo.system_mode;
 
       setSystemSettings(mappedSettings);
 
-      // Inject Dynamic Theme CSS Variables (primary color only — safe for dark mode)
+      // Inject Dynamic Theme CSS Variables
       const root = document.documentElement;
+      
+      // 1. Primary Color & Derived Tokens
       const primaryHex = mappedSettings.primary_color;
       if (primaryHex && primaryHex.startsWith('#')) {
         const rgb = hexToRgb(primaryHex);
@@ -114,8 +118,10 @@ export const TerminologyProvider = ({ children }) => {
         root.style.setProperty('--primary-hover', adjustBrightness(primaryHex, -20));
         root.style.setProperty('--primary-soft', `rgba(${rgb}, 0.1)`);
       }
-      // Note: we intentionally do NOT override dark mode background colors.
-      // Only --primary-color drives buttons, highlights, sidebar gradient, and focus rings.
+
+      // 2. Font Family
+      const fontPref = mappedSettings.font_family || localStorage.getItem('admin_font_family') || "'Outfit', sans-serif";
+      root.style.setProperty('--font-family', fontPref);
 
     } catch (error) {
       console.error("Failed to fetch terminology/settings:", error);
@@ -130,6 +136,7 @@ export const TerminologyProvider = ({ children }) => {
 
   const systemName = systemSettings.primary_organization_name || "GlobalCore Feedback";
   const systemLogo = systemSettings.primary_organization_logo || null;
+  const systemMode = systemSettings.system_mode || "GOVERNMENT";
 
   // Refined defaults for mental model clarity
   const defaultLabels = {
@@ -145,8 +152,38 @@ export const TerminologyProvider = ({ children }) => {
     return labels[key] || defaultLabels[key] || fallback;
   };
 
+  const getModeLabel = (key, fallback) => {
+    const modes = {
+      GOVERNMENT: {
+        close_case: "Close Case",
+        closed: "Closed",
+        closure_note: "Closure Note",
+        ongoing: "Active",
+        open: "Open",
+        in_review: "In Review"
+      },
+      HOSPITALITY: {
+        close_case: "Mark as Resolved",
+        closed: "Resolved",
+        closure_note: "Resolution Note",
+        ongoing: "Active",
+        open: "New",
+        in_review: "Processing"
+      },
+      RETAIL: {
+        close_case: "Resolve",
+        closed: "Completed",
+        closure_note: "Internal Note",
+        ongoing: "Pending",
+        open: "New",
+        in_review: "Handling"
+      }
+    };
+    return modes[systemMode]?.[key] || fallback;
+  };
+
   return (
-    <TerminologyContext.Provider value={{ labels, getLabel, refreshLabels, loading, systemName, systemLogo, systemSettings }}>
+    <TerminologyContext.Provider value={{ labels, getLabel, getModeLabel, refreshLabels, loading, systemName, systemLogo, systemSettings, systemMode }}>
       {children}
     </TerminologyContext.Provider>
   );

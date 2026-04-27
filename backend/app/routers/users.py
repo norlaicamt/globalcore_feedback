@@ -81,9 +81,18 @@ def delete_user(user_id: int, db: Session = Depends(get_db)):
     if db_user is None:
         raise HTTPException(status_code=404, detail="User not found")
 
+    return db_user
+
 @router.post("/{user_id}/deactivate", response_model=schemas.User)
 def deactivate_user(user_id: int, days: int, db: Session = Depends(get_db)):
     db_user = crud.deactivate_user(db, user_id=user_id, days=days)
+    if db_user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    return db_user
+
+@router.post("/{user_id}/reactivate", response_model=schemas.User)
+def reactivate_user(user_id: int, db: Session = Depends(get_db)):
+    db_user = crud.reactivate_user(db, user_id=user_id)
     if db_user is None:
         raise HTTPException(status_code=404, detail="User not found")
     return db_user

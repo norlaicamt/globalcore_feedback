@@ -54,6 +54,11 @@ export const deactivateUser = async (id, days) => {
   return response.data;
 };
 
+export const reactivateUser = async (id) => {
+  const response = await axios.post(`${API_BASE}/users/${id}/reactivate`);
+  return response.data;
+};
+
 export const changePassword = async (id, oldPassword, newPassword) => {
   const response = await axios.post(`${API_BASE}/users/${id}/change-password`, {
     old_password: oldPassword,

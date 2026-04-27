@@ -249,6 +249,10 @@ class Reply(ReplyBase):
     feedback_id: int
     parent_id: Optional[int] = None
     created_at: datetime
+    is_official: bool = False
+    admin_id: Optional[int] = None
+    admin_name_snapshot: Optional[str] = None
+    admin_role_snapshot: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)
 
 class ReplyWithUser(Reply):
@@ -339,6 +343,9 @@ class Feedback(FeedbackBase):
     is_approved: bool # Moderation status
     created_at: datetime
     updated_at: Optional[datetime] = None
+    closure_note: Optional[str] = None
+    closed_at: Optional[datetime] = None
+    closed_by_id: Optional[int] = None
     address: Optional[str] = None
     city: Optional[str] = None
     barangay: Optional[str] = None
@@ -398,6 +405,7 @@ class FeedbackDetail(Feedback):
     entity: Optional[Entity] = None
     replies: List[ReplyWithUser] = []
     reactions: List[Reaction] = []
+    closed_by: Optional[UserSearchEntry] = None
 
 class ActivityEntry(BaseModel):
     id: str
@@ -469,6 +477,29 @@ class BroadcastTemplate(BroadcastTemplateBase):
     created_by_id: Optional[int] = None
     created_at: datetime
     model_config = ConfigDict(from_attributes=True)
+
+class ResponseTemplateBase(BaseModel):
+    name: str
+    message: str
+    category: str # Acknowledgement, Apology, Resolution, Follow-up
+    entity_id: Optional[int] = None
+
+class ResponseTemplateCreate(ResponseTemplateBase):
+    created_by_id: Optional[int] = None
+
+class ResponseTemplate(ResponseTemplateBase):
+    id: int
+    created_by_id: Optional[int] = None
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+class UnifiedReplyRequest(BaseModel):
+    message: str
+    new_status: Optional[FeedbackStatus] = None # Optional status change
+    notify: bool = True
+    save_as_template: bool = False
+    template_name: Optional[str] = None
+    template_category: Optional[str] = None
 
 class AuditLogBase(BaseModel):
     action_type: str
@@ -591,3 +622,29 @@ class WorkflowTemplate(WorkflowTemplateBase):
     updated_at: Optional[datetime] = None
     creator: Optional[UserSearchEntry] = None
     model_config = ConfigDict(from_attributes=True)
+
+# --- RESPONSE TEMPLATE & UNIFIED REPLY ---
+
+class ResponseTemplateBase(BaseModel):
+    name: str
+    message: str
+    category: str
+    entity_id: Optional[int] = None
+
+class ResponseTemplateCreate(ResponseTemplateBase):
+    pass
+
+class ResponseTemplate(ResponseTemplateBase):
+    id: int
+    created_by_id: Optional[int] = None
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+class UnifiedReplyRequest(BaseModel):
+    message: str
+    new_status: Optional[FeedbackStatus] = None
+    closure_note: Optional[str] = None
+    notify: bool = True
+    save_as_template: bool = False
+    template_name: Optional[str] = None
+    template_category: Optional[str] = "Acknowledgement"

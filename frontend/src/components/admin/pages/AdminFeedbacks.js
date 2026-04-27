@@ -1,5 +1,9 @@
 import React, { useEffect, useRef, useState } from "react";
-import { adminGetFeedbacks, adminDeleteFeedback, adminUpdateFeedbackStatus } from "../../../services/adminApi";
+import { 
+  adminGetFeedbacks, adminDeleteFeedback, adminUpdateFeedbackStatus,
+  adminGetResponseTemplates, adminUnifiedReply,
+  adminRevealIdentity
+} from "../../../services/adminApi";
 import { useTerminology } from "../../../context/TerminologyContext";
 import CustomModal from "../../CustomModal";
 import jsPDF from "jspdf";
@@ -19,108 +23,402 @@ const STATUSES = {
   RESOLVED: { 
     label: "Resolved", color: "#10B981", bg: "rgba(16, 185, 129, 0.1)", 
     icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
-  },
-  CLOSED: { 
-    label: "Closed", color: "#64748B", bg: "rgba(100, 116, 139, 0.1)", 
-    icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
   }
 };
 
 // --- COMPONENT: Side Detail Panel ---
-const FeedbackSidePanel = ({ feedback, onClose, onUpdateStatus, theme, darkMode }) => {
-  if (!feedback) return null;
+const FeedbackSidePanel = ({ feedback, isClosing, onClose, onUpdateStatus, theme, darkMode, getModeLabel, systemMode }) => {
+  const [replyMessage, setReplyMessage] = useState("");
+  const [isSendingReply, setIsSendingReply] = useState(false);
+  const [templates, setTemplates] = useState([]);
+  const [selectedStatus, setSelectedStatus] = useState(null); // Optional status update
+  const [saveAsTemplate, setSaveAsTemplate] = useState(false);
+  const [templateName, setTemplateName] = useState("");
+  const [templateCategory, setTemplateCategory] = useState("Acknowledgement");
+  const [showTemplateMenu, setShowTemplateMenu] = useState(false);
+  const [closureNote, setClosureNote] = useState("");
+  const [revealedIdentity, setRevealedIdentity] = useState(null);
+  const [isRevealing, setIsRevealing] = useState(false);
 
-  const currentStatus = STATUSES[feedback.status] || STATUSES.OPEN;
+  useEffect(() => {
+    if (feedback) {
+      adminGetResponseTemplates().then(setTemplates).catch(console.error);
+      setSelectedStatus(null); // Reset on new feedback selection
+      setReplyMessage("");
+      setSaveAsTemplate(false);
+      setRevealedIdentity(null);
+    }
+  }, [feedback]);
+
+  const handleRevealIdentity = async () => {
+    if (!feedback?.id) return;
+    setIsRevealing(true);
+    try {
+      const data = await adminRevealIdentity(feedback.id);
+      setRevealedIdentity(data);
+    } catch (e) {
+      console.error("Reveal Identity Failed:", e);
+    } finally {
+      setIsRevealing(false);
+    }
+  };
+
+  if (!feedback && !isClosing) return null;
+
+  const currentStatus = STATUSES[feedback?.status || "OPEN"] || STATUSES.OPEN;
+
+  const handleSendReply = async () => {
+    if (!replyMessage.trim()) return;
+    
+    if (saveAsTemplate && !templateName.trim()) {
+        alert("Please provide a name for the new template.");
+        return;
+    }
+
+    setIsSendingReply(true);
+    try {
+      const payload = {
+        message: replyMessage.trim(),
+        new_status: selectedStatus,
+        closure_note: closureNote.trim(),
+        notify: true,
+        save_as_template: saveAsTemplate,
+        template_name: templateName,
+        template_category: templateCategory
+      };
+
+      await adminUnifiedReply(feedback.id, payload);
+      alert("Official response dispatched and discussion thread updated!");
+      
+      setReplyMessage("");
+      setSaveAsTemplate(false);
+      setTemplateName("");
+      setSelectedStatus(null);
+      setClosureNote("");
+      
+      // Refresh parent
+      onUpdateStatus(feedback.id, selectedStatus || feedback.status);
+    } catch (e) {
+      console.error(e);
+      alert("Failed to dispatch response: " + (e.response?.data?.detail || e.message));
+    } finally {
+      setIsSendingReply(false);
+    }
+  };
+
+  const applyTemplate = (tpl) => {
+    setReplyMessage(tpl.message);
+    setShowTemplateMenu(false);
+  };
 
   return (
-    <div style={{ position: "fixed", right: 0, top: 0, width: "420px", height: "100vh", background: theme.surface, borderLeft: `1px solid ${theme.border}`, boxShadow: "-10px 0 30px rgba(0,0,0,0.1)", zIndex: 1000, display: "flex", flexDirection: "column", animation: "slideIn 0.3s ease-out" }}>
-      <style>{`@keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }`}</style>
-      
-      {/* Header */}
-      <div style={{ padding: "24px", borderBottom: `1px solid ${theme.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div>
-          <h3 style={{ margin: 0, fontSize: "16px", color: theme.text }}>Submission Details</h3>
-          <p style={{ margin: "4px 0 0", fontSize: "12px", color: theme.textMuted }}>ID: #{feedback.id}</p>
-        </div>
-        <button onClick={onClose} style={{ background: "none", border: "none", color: theme.textMuted, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-        </button>
-      </div>
+    <>
+      {/* Backdrop */}
+      <div 
+        onClick={onClose}
+        style={{ 
+          position: "fixed", inset: 0, background: "rgba(15, 23, 42, 0.3)", 
+          zIndex: 1050, backdropFilter: "blur(4px)", 
+          animation: isClosing ? "fadeOut 0.3s ease forwards" : "fadeIn 0.2s ease" 
+        }} 
+      />
 
-      {/* Content */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "24px" }}>
-        <div style={{ marginBottom: "24px" }}>
-           <span style={{ padding: "4px 10px", borderRadius: "20px", fontSize: "11px", fontWeight: "700", color: currentStatus.color, background: currentStatus.bg }}>
-             {currentStatus.label.toUpperCase()}
-           </span>
-        </div>
-
-        <h4 style={{ fontSize: "14px", color: theme.textMuted, marginBottom: "8px", textTransform: "uppercase", letterSpacing: "0.05em" }}>Message</h4>
-        <p style={{ fontSize: "15px", lineHeight: "1.6", color: theme.text, background: theme.bg, padding: "16px", borderRadius: "12px", margin: "0 0 24px" }}>
-          {feedback.description}
-        </p>
-
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: "24px" }}>
+      <div style={{ 
+        position: "fixed", right: 0, top: 0, width: "480px", height: "100vh", 
+        background: theme.surface, borderLeft: `6px solid ${currentStatus.color}`, 
+        boxShadow: "-15px 0 50px rgba(0,0,0,0.15)", zIndex: 1100, 
+        display: "flex", flexDirection: "column", 
+        animation: isClosing ? "slideOutRight 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards" : "slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1)" 
+      }}>
+        
+        {/* Header */}
+        <div style={{ padding: "32px 40px", borderBottom: `1px solid ${theme.border}`, display: "flex", justifyContent: "space-between", alignItems: "flex-start", background: theme.bg }}>
           <div>
-            <h4 style={{ fontSize: "11px", color: theme.textMuted, marginBottom: "4px", textTransform: "uppercase" }}>Rating</h4>
-            <div style={{ fontSize: "14px", fontWeight: "700", color: theme.text, display: "flex", alignItems: "center", gap: "4px" }}>
-              {feedback.rating ? (
-                <>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="#FBBF24" stroke="#FBBF24" strokeWidth="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
-                  {feedback.rating} / 5
-                </>
-              ) : "—"}
+            <h3 style={{ margin: 0, fontSize: "20px", fontWeight: "900", color: theme.text, letterSpacing: "-0.02em" }}>Submission Intelligence</h3>
+            <p style={{ margin: "6px 0 0", fontSize: "13px", fontWeight: "600", color: theme.textMuted }}>Reference ID: #{feedback?.id}</p>
+          </div>
+          <button onClick={onClose} style={{ background: theme.surface, border: `1px solid ${theme.border}`, color: theme.text, width: "36px", height: "36px", borderRadius: "50%", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "0.2s" }}
+            onMouseOver={e => e.currentTarget.style.background = theme.bg}
+            onMouseOut={e => e.currentTarget.style.background = theme.surface}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
+        </div>
+
+        {/* Content */}
+        <div style={{ flex: 1, overflowY: "auto", padding: "40px", display: "flex", flexDirection: "column", gap: "32px" }}>
+          
+          {/* Status Badge & Main Meta */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+             <span style={{ padding: "6px 14px", borderRadius: "8px", fontSize: "11px", fontWeight: "900", color: currentStatus.color, background: currentStatus.bg, border: `1px solid ${currentStatus.color}40`, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+               {currentStatus.label}
+             </span>
+             <span style={{ fontSize: "12px", fontWeight: "700", color: theme.textMuted }}>Received {feedback?.created_at ? new Date(feedback.created_at).toLocaleDateString() : "—"}</span>
+          </div>
+
+          {/* Feedback Body */}
+          <section>
+            <h4 style={{ fontSize: "11px", color: "var(--primary-color)", fontWeight: "900", marginBottom: "16px", textTransform: "uppercase", letterSpacing: "0.1em" }}>Voice of User</h4>
+            <div style={{ fontSize: "15px", lineHeight: "1.7", color: theme.text, background: theme.bg, padding: "24px", borderRadius: "20px", border: `1px solid ${theme.border}`, boxShadow: "inset 0 2px 4px rgba(0,0,0,0.02)" }}>
+              {feedback?.description || "No message provided."}
+            </div>
+          </section>
+
+          {/* Quick Metrics */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
+            <MetricBox 
+              label="User Identity" 
+              value={feedback?.is_anonymous ? (revealedIdentity ? revealedIdentity.name : "Anonymous (Hidden)") : (feedback?.user_name || "User")} 
+              icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>} 
+              theme={theme} 
+              extra={feedback?.is_anonymous && !revealedIdentity && (
+                <button 
+                  onClick={handleRevealIdentity}
+                  disabled={isRevealing}
+                  style={{ 
+                    marginTop: "6px", padding: "6px 10px", fontSize: "10px", fontWeight: "800", 
+                    background: "var(--primary-color)", color: "white", border: "none", 
+                    borderRadius: "6px", cursor: "pointer", opacity: isRevealing ? 0.6 : 1,
+                    transition: "0.2s"
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.transform = "translateY(-1px)"}
+                  onMouseLeave={e => e.currentTarget.style.transform = "none"}
+                >
+                  {isRevealing ? "Revealing..." : "Reveal Identity"}
+                </button>
+              )}
+              subValue={revealedIdentity && (
+                <div style={{ fontSize: "11px", color: theme.textMuted, marginTop: "4px", lineHeight: "1.6", background: darkMode ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)", padding: "8px", borderRadius: "8px", border: `1px solid ${theme.border}` }}>
+                   <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>📧 <span style={{ fontWeight: "600", color: theme.text }}>{revealedIdentity.email}</span></div>
+                   <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "2px" }}>📞 <span style={{ fontWeight: "600", color: theme.text }}>{revealedIdentity.phone}</span></div>
+                </div>
+              )}
+            />
+            <MetricBox 
+              label="Engagement Rating" 
+              value={feedback?.rating ? `${feedback.rating} / 5` : "N/A"} 
+              icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>} 
+              theme={theme} 
+            />
+            <MetricBox 
+              label="Primary Location" 
+              value={feedback?.dept_name || "General"} 
+              icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>} 
+              theme={theme} 
+            />
+            <MetricBox 
+              label="Project/Program" 
+              value={feedback?.entity_name || "System"} 
+              icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>} 
+              theme={theme} 
+            />
+          </div>
+
+          {/* Reply Section */}
+          <div style={{ borderTop: `1px solid ${theme.border}`, paddingTop: "32px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+              <h4 style={{ fontSize: "11px", color: "var(--primary-color)", fontWeight: "900", margin: 0, textTransform: "uppercase", letterSpacing: "0.1em" }}>Response to Submission</h4>
+              
+              {/* Template Selector */}
+              <div style={{ position: "relative" }}>
+                <button 
+                  onClick={() => setShowTemplateMenu(!showTemplateMenu)}
+                  style={{ 
+                    padding: "6px 12px", borderRadius: "8px", border: `1.5px solid ${theme.border}`, 
+                    background: theme.surface, color: theme.text, fontSize: "11px", fontWeight: "700", 
+                    cursor: "pointer", display: "flex", alignItems: "center", gap: "6px" 
+                  }}
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                  Use Template
+                </button>
+                {showTemplateMenu && (
+                  <div style={{ position: "absolute", right: 0, top: "32px", width: "240px", background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: "12px", boxShadow: "0 10px 30px rgba(0,0,0,0.15)", zIndex: 10, padding: "8px", maxHeight: "300px", overflowY: "auto" }}>
+                    {templates.length === 0 ? (
+                      <div style={{ padding: "12px", fontSize: "12px", color: theme.textMuted, textAlign: "center" }}>No templates saved.</div>
+                    ) : (
+                      Object.entries(templates.reduce((acc, t) => {
+                        acc[t.category] = [...(acc[t.category] || []), t];
+                        return acc;
+                      }, {})).map(([cat, tpls]) => (
+                        <div key={cat} style={{ marginBottom: "8px" }}>
+                          <p style={{ margin: "4px 8px", fontSize: "9px", fontWeight: "900", color: theme.textMuted, textTransform: "uppercase" }}>{cat}</p>
+                          {tpls.map(t => (
+                            <button 
+                              key={t.id}
+                              onClick={() => applyTemplate(t)}
+                              style={{ width: "100%", padding: "8px 12px", border: "none", background: "none", textAlign: "left", fontSize: "12px", fontWeight: "600", color: theme.text, borderRadius: "6px", cursor: "pointer" }}
+                              onMouseEnter={e => e.currentTarget.style.background = theme.bg}
+                              onMouseLeave={e => e.currentTarget.style.background = "none"}
+                            >
+                              {t.name}
+                            </button>
+                          ))}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div style={{ position: "relative" }}>
+              <textarea 
+                value={replyMessage}
+                onChange={e => setReplyMessage(e.target.value)}
+                placeholder="Type your official response here..."
+                style={{ 
+                  width: "100%", height: "140px", padding: "16px", borderRadius: "16px", 
+                  background: theme.bg, border: `1.5px solid ${theme.border}`, color: theme.text, 
+                  fontSize: "14px", resize: "none", outline: "none", transition: "0.2s",
+                  marginBottom: "20px"
+                }}
+                onFocus={e => e.currentTarget.style.borderColor = "var(--primary-color)"}
+                onBlur={e => e.currentTarget.style.borderColor = theme.border}
+              />
+
+              {/* Status Update & Save Template Controls */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "20px", marginBottom: "24px" }}>
+                
+                {/* Status Selector */}
+                <div>
+                   <p style={{ margin: "0 0 10px", fontSize: "10px", fontWeight: "800", color: theme.textMuted, textTransform: "uppercase" }}>Next Operational Step</p>
+                   <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+                     {[
+                       { id: "IN_PROGRESS", label: "In Review", color: "#EAB308", bg: "rgba(234, 179, 8, 0.1)" },
+                       { id: "RESOLVED", label: "Resolve Case", color: "#10B981", bg: "rgba(16, 185, 129, 0.1)" }
+                     ].map(st => (
+                       <button
+                         key={st.id}
+                         onClick={() => setSelectedStatus(selectedStatus === st.id ? null : st.id)}
+                         style={{ 
+                           padding: "8px 14px", borderRadius: "10px", border: `1.5px solid ${selectedStatus === st.id ? st.color : theme.border}`,
+                           background: selectedStatus === st.id ? st.bg : theme.surface, color: selectedStatus === st.id ? st.color : theme.text,
+                           fontSize: "12px", fontWeight: "700", cursor: "pointer", transition: "0.2s"
+                         }}
+                       >
+                         {st.label}
+                       </button>
+                     ))}
+                     {selectedStatus && (
+                       <button onClick={() => setSelectedStatus(null)} style={{ padding: "8px", border: "none", background: "none", color: "#EF4444", fontSize: "11px", fontWeight: "700", cursor: "pointer" }}>Reset</button>
+                     )}
+                   </div>
+                   
+                   {selectedStatus === 'CLOSED' && (
+                     <div style={{ marginTop: '16px', animation: 'fadeIn 0.2s ease' }}>
+                       <textarea
+                         placeholder={systemMode === 'GOVERNMENT' ? "Explain why this case is being closed (Optional)..." : "Resolution summary or internal note (Optional)..."}
+                         style={{ 
+                           width: "100%", padding: "12px", borderRadius: "12px", border: `1px solid ${theme.border}`, 
+                           background: "white", fontSize: "13px", color: theme.text, minHeight: "80px", 
+                           outline: "none", transition: "0.2s" 
+                         }}
+                         value={closureNote}
+                         onChange={e => setClosureNote(e.target.value)}
+                       />
+                       <p style={{ margin: "6px 0 0", fontSize: "10px", color: theme.textMuted }}>
+                         Suggestion: {systemMode === 'GOVERNMENT' ? "Issue resolved during implementation / Duplicate submission" : "Concern addressed during guest checkout / Fixed reported issue"}
+                       </p>
+                     </div>
+                   )}
+                </div>
+
+                {/* Save as Template Toggle */}
+                <div style={{ padding: "16px", background: theme.bg, borderRadius: "14px", border: `1px solid ${theme.border}` }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: "10px", cursor: "pointer", marginBottom: saveAsTemplate ? "16px" : 0 }}>
+                    <input type="checkbox" checked={saveAsTemplate} onChange={e => setSaveAsTemplate(e.target.checked)} style={{ width: "16px", height: "16px" }} />
+                    <span style={{ fontSize: "13px", fontWeight: "700", color: theme.text }}>Save as reusable template</span>
+                  </label>
+                  
+                  {saveAsTemplate && (
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", animation: "fadeIn 0.2s ease" }}>
+                      <input 
+                        placeholder="Template Name"
+                        value={templateName}
+                        onChange={e => setTemplateName(e.target.value)}
+                        style={{ padding: "10px", borderRadius: "8px", border: `1.5px solid ${theme.border}`, background: theme.surface, color: theme.text, fontSize: "12px", outline: "none" }}
+                      />
+                      <select 
+                        value={templateCategory}
+                        onChange={e => setTemplateCategory(e.target.value)}
+                        style={{ padding: "10px", borderRadius: "8px", border: `1.5px solid ${theme.border}`, background: theme.surface, color: theme.text, fontSize: "12px", outline: "none" }}
+                      >
+                        {["Acknowledgement", "Apology", "Resolution", "Follow-up"].map(c => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <button 
+                onClick={handleSendReply}
+                disabled={isSendingReply || !replyMessage.trim()}
+                style={{ 
+                  width: "100%", padding: "16px", borderRadius: "14px", border: "none",
+                  background: replyMessage.trim() ? "var(--primary-color)" : theme.border, 
+                  color: "white", fontSize: "14px", fontWeight: "900", cursor: replyMessage.trim() ? "pointer" : "not-allowed",
+                  transition: "0.2s", display: "flex", alignItems: "center", justifyContent: "center", gap: "10px",
+                  boxShadow: replyMessage.trim() ? "0 4px 15px rgba(31, 42, 86, 0.2)" : "none"
+                }}
+              >
+                {isSendingReply ? "Dispatching Official Response..." : (
+                  <>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                    Dispatch Unified Response
+                  </>
+                )}
+              </button>
             </div>
           </div>
-          <div>
-            <h4 style={{ fontSize: "11px", color: theme.textMuted, marginBottom: "4px", textTransform: "uppercase" }}>Date Submitted</h4>
-            <div style={{ fontSize: "14px", fontWeight: "600", color: theme.text }}>{new Date(feedback.created_at).toLocaleDateString()}</div>
-          </div>
-          <div>
-            <h4 style={{ fontSize: "11px", color: theme.textMuted, marginBottom: "4px", textTransform: "uppercase" }}>Submitted By</h4>
-            <div style={{ fontSize: "14px", fontWeight: "600", color: theme.text }}>{feedback.user_name || "Anonymous"}</div>
-          </div>
-          <div>
-            <h4 style={{ fontSize: "11px", color: theme.textMuted, marginBottom: "4px", textTransform: "uppercase" }}>Location</h4>
-            <div style={{ fontSize: "14px", fontWeight: "600", color: theme.text }}>{feedback.dept_name || "General"}</div>
+
+          {/* Workflow Transitions */}
+          <div style={{ borderTop: `1px solid ${theme.border}`, paddingTop: "32px", marginBottom: "40px" }}>
+            <h4 style={{ fontSize: "11px", color: "var(--primary-color)", fontWeight: "900", marginBottom: "20px", textTransform: "uppercase", letterSpacing: "0.1em" }}>Governance Workflow</h4>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+              {Object.entries(STATUSES).map(([key, cfg]) => (
+                <button
+                  key={key}
+                  disabled={feedback?.status === key}
+                  onClick={() => onUpdateStatus(feedback?.id, key)}
+                  style={{
+                    padding: "14px", borderRadius: "12px", border: `1.5px solid ${feedback?.status === key ? cfg.color : theme.border}`,
+                    background: feedback?.status === key ? cfg.bg : theme.surface, color: feedback?.status === key ? cfg.color : theme.text,
+                    fontSize: "13px", fontWeight: "700", cursor: feedback?.status === key ? "default" : "pointer",
+                    textAlign: "left", display: "flex", alignItems: "center", gap: "10px", transition: "0.2s"
+                  }}
+                  onMouseEnter={e => { if (feedback?.status !== key) { e.currentTarget.style.borderColor = cfg.color; e.currentTarget.style.background = cfg.bg + "20"; } }}
+                  onMouseLeave={e => { if (feedback?.status !== key) { e.currentTarget.style.borderColor = theme.border; e.currentTarget.style.background = theme.surface; } }}
+                >
+                  <span style={{ opacity: feedback?.status === key ? 1 : 0.5 }}>{cfg.icon}</span> {cfg.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
-        <div style={{ borderTop: `1px solid ${theme.border}`, paddingTop: "24px", marginTop: "24px" }}>
-          <h4 style={{ fontSize: "14px", color: theme.text, marginBottom: "12px" }}>Update Workflow</h4>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
-            {Object.entries(STATUSES).map(([key, cfg]) => (
-              <button
-                key={key}
-                disabled={feedback.status === key}
-                onClick={() => onUpdateStatus(feedback.id, key)}
-                style={{
-                  padding: "10px", borderRadius: "8px", border: `1px solid ${feedback.status === key ? cfg.color : theme.border}`,
-                  background: feedback.status === key ? cfg.bg : "none", color: feedback.status === key ? cfg.color : theme.text,
-                  fontSize: "12px", fontWeight: "600", cursor: feedback.status === key ? "default" : "pointer",
-                  textAlign: "left", display: "flex", alignItems: "center", gap: "8px", transition: "0.2s"
-                }}
-                onMouseEnter={e => { if (feedback.status !== key) e.currentTarget.style.borderColor = cfg.color; }}
-                onMouseLeave={e => { if (feedback.status !== key) e.currentTarget.style.borderColor = theme.border; }}
-              >
-                <span>{cfg.icon}</span> {cfg.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div style={{ borderTop: `1px solid ${theme.border}`, paddingTop: "24px", marginTop: "24px" }}>
-          <h4 style={{ fontSize: "14px", color: theme.text, marginBottom: "8px" }}>Internal Notes</h4>
-          <textarea 
-            placeholder="Add internal note for coordination... (Coming soon)"
-            disabled
-            style={{ width: "100%", height: "80px", padding: "12px", borderRadius: "10px", border: `1px solid ${theme.border}`, background: theme.bg, color: theme.text, fontSize: "13px", resize: "none", opacity: 0.6 }}
-          />
-        </div>
+        <style>{`
+          @keyframes slideInRight { from { transform: translateX(100%); } to { transform: translateX(0); } }
+          @keyframes slideOutRight { from { transform: translateX(0); } to { transform: translateX(100%); } }
+          @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+          @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
+        `}</style>
       </div>
-    </div>
+    </>
   );
 };
+
+const MetricBox = ({ label, value, icon, theme, extra, subValue }) => (
+  <div style={{ padding: "16px", background: theme.bg, borderRadius: "16px", border: `1px solid ${theme.border}`, display: "flex", flexDirection: "column", gap: "8px" }}>
+    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+      <span style={{ fontSize: "14px", color: "var(--primary-color)" }}>{icon}</span>
+      <span style={{ fontSize: "10px", fontWeight: "800", color: theme.textMuted, textTransform: "uppercase", letterSpacing: "0.05em" }}>{label}</span>
+    </div>
+    <div style={{ fontSize: "14px", fontWeight: "700", color: theme.text }}>{value}</div>
+    {subValue && subValue}
+    {extra && extra}
+  </div>
+);
 
 // --- COMPONENT: 3-dot Menu ---
 const DotsMenu = ({ onUpdateStatus, onDelete, theme, darkMode, currentStatus }) => {
@@ -162,21 +460,6 @@ const DotsMenu = ({ onUpdateStatus, onDelete, theme, darkMode, currentStatus }) 
   );
 };
 
-// --- COMPONENT: Summary Card ---
-const SummaryCard = ({ label, count, color, bg, icon, isActive, onClick, theme }) => (
-  <div 
-    onClick={onClick}
-    style={{ flex: 1, padding: "16px 20px", background: theme.surface, borderRadius: "14px", border: `1px solid ${isActive ? color : theme.border}`, boxShadow: isActive ? `0 4px 20px ${bg}` : "none", cursor: "pointer", transition: "0.2s", display: "flex", justifyContent: "space-between", alignItems: "center" }}
-  >
-    <div>
-      <p style={{ margin: 0, fontSize: "12px", fontWeight: "700", color: theme.textMuted, textTransform: "uppercase", letterSpacing: "0.05em" }}>{label}</p>
-      <p style={{ margin: "4px 0 0", fontSize: "24px", fontWeight: "800", color: theme.text }}>{count}</p>
-    </div>
-    <div style={{ width: "40px", height: "40px", borderRadius: "12px", background: bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "18px" }}>
-      {icon}
-    </div>
-  </div>
-);
 
 // --- COMPONENT: Export Dropdown ---
 const ExportDropdown = ({ onExport, theme, darkMode }) => {
@@ -227,13 +510,22 @@ const ExportDropdown = ({ onExport, theme, darkMode }) => {
 };
 
 const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
-  const { getLabel } = useTerminology();
+  const { getLabel, getModeLabel, systemMode } = useTerminology();
   const [feedbacks, setFeedbacks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState("ALL"); // ALL, OPEN, IN_PROGRESS, RESOLVED, CLOSED
   const [selectedFeedback, setSelectedFeedback] = useState(null);
+  const [isClosing, setIsClosing] = useState(false);
   const [dialog, setDialog] = useState({ isOpen: false });
+
+  const closePanel = () => {
+    setIsClosing(true);
+    setTimeout(() => {
+      setSelectedFeedback(null);
+      setIsClosing(false);
+    }, 300);
+  };
 
   const load = () => {
     setLoading(true);
@@ -320,8 +612,7 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
           { key: "ALL", label: "All Submissions", count: stats.TOTAL },
           { key: "OPEN", label: "New", count: stats.OPEN, color: "#3B82F6" },
           { key: "IN_PROGRESS", label: "In Review", count: stats.IN_PROGRESS, color: "#EAB308" },
-          { key: "RESOLVED", label: "Resolved", count: stats.RESOLVED, color: "#10B981" },
-          { key: "CLOSED", label: "Closed", count: feedbacks.filter(f => f.status === "CLOSED").length, color: "#64748B" }
+          { key: "RESOLVED", label: "Resolved", count: stats.RESOLVED, color: "#10B981" }
         ].map(tab => (
           <button
             key={tab.key}
@@ -386,31 +677,51 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
               <tr 
                 key={f.id} 
                 onClick={() => setSelectedFeedback(f)}
-                style={{ borderBottom: `1px solid ${theme.border}`, cursor: "pointer", transition: "0.15s" }}
+                style={{ 
+                  borderBottom: `1px solid ${theme.border}`, 
+                  cursor: "pointer", 
+                  transition: "0.15s",
+                  opacity: f.status === 'CLOSED' ? 0.65 : 1,
+                  backgroundColor: f.status === 'CLOSED' ? (darkMode ? 'rgba(0,0,0,0.1)' : '#F8FAFC') : 'transparent'
+                }}
                 onMouseEnter={e => e.currentTarget.style.background = darkMode ? "rgba(255,255,255,0.03)" : "#FAFAFA"}
-                onMouseLeave={e => e.currentTarget.style.background = "none"}
+                onMouseLeave={e => e.currentTarget.style.background = f.status === 'CLOSED' ? (darkMode ? 'rgba(0,0,0,0.1)' : '#F8FAFC') : "none"}
               >
                 <td style={{ padding: "16px 20px" }}>
-                  <div style={{ fontWeight: "700", color: theme.text }}>{f.entity_name || "General"}</div>
-                  <div style={{ fontSize: "11px", color: theme.textMuted, marginTop: "2px" }}>{f.title?.split(": ")[1] || f.title || "No Subject"}</div>
+                  <div style={{ fontWeight: "800", color: theme.text, fontSize: "14px", letterSpacing: "-0.01em" }}>{f.entity_name || "General"}</div>
+                  <div style={{ fontSize: "11px", color: theme.textMuted, marginTop: "2px", fontWeight: "600" }}>{f.title?.split(": ")[1] || f.title || "No Subject"}</div>
                 </td>
-                <td style={{ padding: "16px 20px", color: theme.textMuted, fontWeight: "500" }}>{f.dept_name || "—"}</td>
+                <td style={{ padding: "16px 20px", color: theme.textMuted, fontWeight: "600", fontSize: "12px" }}>{f.dept_name || "—"}</td>
                 <td style={{ padding: "16px 20px" }}>
-                  <div style={{ fontWeight: "600", color: theme.text }}>{f.user_name || "Anonymous"}</div>
-                  {f.is_anonymous && <span style={{ fontSize: "10px", color: "#94A3B8", fontStyle: "italic" }}>Private Submission</span>}
+                  <div style={{ fontWeight: "900", color: theme.text, fontSize: "14px" }}>
+                    {f.is_anonymous ? `Anonymous #${f.id}` : (f.user_name || `User #${f.id}`)}
+                  </div>
+                  {f.is_anonymous && <span style={{ fontSize: "10px", color: "#94A3B8", fontStyle: "italic", fontWeight: "700" }}>Private Submission</span>}
                 </td>
                 <td style={{ padding: "16px 20px" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                    <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: f.rating <= 2 ? "#EF4444" : f.rating === 3 ? "#EAB308" : "#3B82F6" }} />
-                    <span style={{ fontWeight: "700", color: theme.text }}>{f.rating || "—"}</span>
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                    <div style={{ 
+                      width: "10px", height: "10px", borderRadius: "50%", 
+                      background: f.rating <= 2 ? "#EF4444" : f.rating === 3 ? "#F59E0B" : "#10B981",
+                      boxShadow: `0 0 10px ${f.rating <= 2 ? "#EF444450" : f.rating === 3 ? "#F59E0B50" : "#10B98150"}`,
+                      border: "2px solid white"
+                    }} />
+                    <span style={{ fontWeight: "900", color: theme.text, fontSize: "15px" }}>{f.rating || "—"}</span>
                   </div>
                 </td>
                 <td style={{ padding: "16px 20px" }}>
-                  <span style={{ padding: "4px 8px", borderRadius: "6px", fontSize: "10px", fontWeight: "800", textTransform: "uppercase", background: STATUSES[f.status]?.bg, color: STATUSES[f.status]?.color }}>
-                    {STATUSES[f.status]?.label}
+                  <span style={{ 
+                    padding: "6px 12px", borderRadius: "10px", fontSize: "10px", fontWeight: "900", 
+                    textTransform: "uppercase", background: STATUSES[f.status]?.bg, color: STATUSES[f.status]?.color,
+                    border: `1px solid ${STATUSES[f.status]?.color}40`,
+                    display: "inline-flex", alignItems: "center", gap: "6px",
+                    letterSpacing: "0.02em"
+                  }}>
+                    {f.status === 'CLOSED' && <span>🔒</span>}
+                    {STATUSES[f.status]?.label || f.status}
                   </span>
                 </td>
-                <td style={{ padding: "16px 20px", color: theme.textMuted }}>{f.created_at?.split("T")[0]}</td>
+                <td style={{ padding: "16px 20px", color: theme.textMuted, fontWeight: "600", fontSize: "12px" }}>{f.created_at?.split("T")[0]}</td>
                 <td style={{ padding: "16px 20px", textAlign: "right" }} onClick={e => e.stopPropagation()}>
                   <DotsMenu onUpdateStatus={(s) => handleUpdateStatus(f.id, s)} onDelete={() => handleDelete(f)} theme={theme} darkMode={darkMode} currentStatus={f.status} />
                 </td>
@@ -431,10 +742,13 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
 
       <FeedbackSidePanel 
         feedback={selectedFeedback} 
-        onClose={() => setSelectedFeedback(null)} 
+        isClosing={isClosing}
+        onClose={closePanel} 
         onUpdateStatus={handleUpdateStatus}
         theme={theme} 
         darkMode={darkMode} 
+        getModeLabel={getModeLabel}
+        systemMode={systemMode}
       />
 
       <CustomModal isOpen={dialog.isOpen} title={dialog.title} message={dialog.message} type={dialog.type} confirmText={dialog.confirmText} isDestructive={dialog.isDestructive} onConfirm={dialog.onConfirm} onCancel={dialog.onCancel} />

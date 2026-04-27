@@ -96,6 +96,7 @@ class User(Base):
     organization = relationship("Organization", back_populates="users")
     entity = relationship("Entity", foreign_keys=[entity_id])
     contexts = relationship("UserContext", back_populates="user", cascade="all, delete-orphan")
+    feedbacks_sent = relationship("Feedback", foreign_keys="[Feedback.sender_id]", back_populates="sender")
 
 
 class UserContext(Base):
@@ -196,15 +197,22 @@ class Feedback(Base):
     allow_comments = Column(Boolean, default=True)
     is_anonymous = Column(Boolean, default=False)
     is_approved = Column(Boolean, default=True) # New moderation field
+    
+    # Closure Metadata
+    closure_note = Column(Text, nullable=True)
+    closed_at = Column(DateTime, nullable=True)
+    closed_by_id = Column(Integer, ForeignKey("global_user.id"), nullable=True)
+    
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
-    
-    sender = relationship("User", foreign_keys=[sender_id])
-    recipient_user = relationship("User", foreign_keys=[recipient_user_id])
-    recipient_dept = relationship("Department")
+
     entity = relationship("Entity", back_populates="feedbacks")
     branch = relationship("Branch", back_populates="feedbacks")
-    replies = relationship("Reply", back_populates="feedback")
+    sender = relationship("User", foreign_keys=[sender_id], back_populates="feedbacks_sent")
+    recipient_user = relationship("User", foreign_keys=[recipient_user_id])
+    recipient_dept = relationship("Department")
+    closed_by = relationship("User", foreign_keys=[closed_by_id])
+    replies = relationship("Reply", back_populates="feedback", cascade="all, delete-orphan")
     reactions = relationship("Reaction", back_populates="feedback", cascade="all, delete-orphan")
     mentions = relationship("FeedbackMention", back_populates="feedback", cascade="all, delete-orphan")
 
@@ -244,10 +252,17 @@ class Reply(Base):
     message = Column(Text)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     
+    # Governance & Attribution
+    is_official = Column(Boolean, default=False)
+    admin_id = Column(Integer, ForeignKey("global_user.id"), nullable=True) # Reference to admin who sent it
+    admin_name_snapshot = Column(String, nullable=True) # Historical name
+    admin_role_snapshot = Column(String, nullable=True) # Historical role (e.g. Program Staff)
+
     feedback = relationship("Feedback", back_populates="replies")
-    user = relationship("User")
+    user = relationship("User", foreign_keys=[user_id])
+    admin = relationship("User", foreign_keys=[admin_id])
     reactions = relationship("ReplyReaction", back_populates="reply", cascade="all, delete-orphan")
-    
+
     # Self-referential relationship for nesting
     parent = relationship("Reply", remote_side=[id], backref="replies_nested")
 
@@ -335,6 +350,19 @@ class BroadcastTemplate(Base):
 
     entity = relationship("Entity")
     creator = relationship("User")
+
+class ResponseTemplate(Base):
+    __tablename__ = "response_templates"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, index=True) # Template Label
+    message = Column(Text)
+    category = Column(String, index=True) # Acknowledgement, Apology, Resolution, Follow-up
+    entity_id = Column(Integer, ForeignKey("entities.id"), nullable=True) # Scoped
+    created_by_id = Column(Integer, ForeignKey("global_user.id"), nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    creator = relationship("User")
+    entity = relationship("Entity")
 
 class WorkflowTemplate(Base):
     __tablename__ = "workflow_templates"

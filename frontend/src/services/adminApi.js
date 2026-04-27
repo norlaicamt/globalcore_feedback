@@ -148,6 +148,7 @@ export const adminGetBroadcastDrafts = () => adminApi.get("/broadcasts/drafts").
 export const adminDeleteBroadcast = (id) => adminApi.delete(`/broadcasts/${id}`).then(r => r.data);
 export const adminArchiveBroadcast = (id) => adminApi.post(`/broadcasts/${id}/archive`).then(r => r.data);
 export const adminResendBroadcast = (id) => adminApi.post(`/broadcasts/${id}/resend`).then(r => r.data);
+export const adminGetBroadcastRecipientCount = (target_group = "all") => adminApi.get(`/broadcast/recipient-count?target_group=${target_group}`).then(r => r.data);
 
 // Broadcast Templates
 export const adminGetBroadcastTemplates = () => adminApi.get("/broadcast-templates").then(r => r.data);
@@ -195,3 +196,19 @@ export const adminGetWorkflowTemplates = (category = "") => adminApi.get(`/workf
 export const adminCreateWorkflowTemplate = (payload) => adminApi.post("/workflow-templates", payload).then(r => r.data);
 export const adminUpdateWorkflowTemplate = (id, payload) => adminApi.put(`/workflow-templates/${id}`, payload).then(r => r.data);
 export const adminDeleteWorkflowTemplate = (id) => adminApi.delete(`/workflow-templates/${id}`).then(r => r.data);
+
+// Response Templates & Unified Reply
+export const adminGetResponseTemplates = () => adminApi.get("/response-templates").then(r => r.data);
+export const adminCreateResponseTemplate = (payload) => adminApi.post("/response-templates", payload).then(r => r.data);
+export const adminDeleteResponseTemplate = (id) => adminApi.delete(`/response-templates/${id}`).then(r => r.data);
+
+/**
+ * Dispatches a unified admin response.
+ * @param {number} feedback_id 
+ * @param {object} payload { message, new_status, notify, save_as_template, template_name, template_category }
+ */
+export const adminUnifiedReply = (feedback_id, payload) => 
+  adminApi.post(`/feedbacks/${feedback_id}/unified-reply`, payload).then(r => r.data);
+
+export const adminRevealIdentity = (feedback_id) => 
+  adminApi.post(`/reveal-identity/${feedback_id}`).then(r => r.data);

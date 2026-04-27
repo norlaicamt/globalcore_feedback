@@ -9,9 +9,16 @@ const ResetPassword = () => {
 
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [message, setMessage] = useState(null);
     const [error, setError] = useState(null);
+
+    const Icons = {
+        Eye: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>,
+        EyeOff: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" /><line x1="1" y1="1" x2="23" y2="23" /></svg>,
+    };
 
     useEffect(() => {
         if (!token) {
@@ -59,26 +66,42 @@ const ResetPassword = () => {
                     <form onSubmit={handleSubmit} style={styles.form}>
                         <div style={styles.inputGroup}>
                             <label style={styles.label}>New Access Key</label>
-                            <input 
-                                type="password" 
-                                required 
-                                style={styles.input} 
-                                value={password} 
-                                onChange={(e) => setPassword(e.target.value)}
-                                placeholder="••••••••"
-                            />
+                            <div style={{ position: 'relative' }}>
+                                <input 
+                                    type={showPassword ? "text" : "password"} 
+                                    required 
+                                    style={{ ...styles.input, paddingRight: '52px' }} 
+                                    value={password} 
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    placeholder="••••••••"
+                                />
+                                <div 
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    style={{ position: 'absolute', right: '16px', top: '50%', transform: 'translateY(-50%)', cursor: 'pointer', color: '#94A3B8', display: 'flex' }}
+                                >
+                                    {showPassword ? <Icons.Eye /> : <Icons.EyeOff />}
+                                </div>
+                            </div>
                         </div>
                         
                         <div style={styles.inputGroup}>
                             <label style={styles.label}>Confirm Access Key</label>
-                            <input 
-                                type="password" 
-                                required 
-                                style={styles.input} 
-                                value={confirmPassword} 
-                                onChange={(e) => setConfirmPassword(e.target.value)}
-                                placeholder="••••••••"
-                            />
+                            <div style={{ position: 'relative' }}>
+                                <input 
+                                    type={showConfirmPassword ? "text" : "password"} 
+                                    required 
+                                    style={{ ...styles.input, paddingRight: '52px' }} 
+                                    value={confirmPassword} 
+                                    onChange={(e) => setConfirmPassword(e.target.value)}
+                                    placeholder="••••••••"
+                                />
+                                <div 
+                                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                    style={{ position: 'absolute', right: '16px', top: '50%', transform: 'translateY(-50%)', cursor: 'pointer', color: '#94A3B8', display: 'flex' }}
+                                >
+                                    {showConfirmPassword ? <Icons.Eye /> : <Icons.EyeOff />}
+                                </div>
+                            </div>
                         </div>
 
                         {error && <div style={styles.error}>{error}</div>}

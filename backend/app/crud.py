@@ -4,7 +4,19 @@ from app import models
 from app import schemas
 import asyncio
 from typing import Optional, List
-from datetime import datetime
+from datetime import datetime, timezone
+
+def create_audit_log(db: Session, action_type: str, performed_by_id: int, target_id: str = None, details: dict = None):
+    db_log = models.AuditLog(
+        action_type=action_type,
+        performed_by_id=performed_by_id,
+        target_id=target_id,
+        details=details
+    )
+    db.add(db_log)
+    db.commit()
+    db.refresh(db_log)
+    return db_log
 
 # User operations
 def get_user(db: Session, user_id: int):
@@ -166,12 +178,44 @@ def deactivate_user(db: Session, user_id: int, days: int):
     db_user = db.query(models.User).filter(models.User.id == user_id).first()
     if db_user:
         db_user.is_active = False
+        duration_str = f"{days} days"
         if days > 0:
             db_user.deactivated_until = datetime.now(timezone.utc) + timedelta(days=days)
         else:
             db_user.deactivated_until = None
+            duration_str = "Indefinite"
+            
         db.commit()
         db.refresh(db_user)
+        
+        # Log to Audit Trail
+        create_audit_log(
+            db, 
+            action_type="ACCOUNT_PAUSE", 
+            performed_by_id=user_id, 
+            target_id=str(user_id),
+            details={"duration": duration_str, "until": db_user.deactivated_until.isoformat() if db_user.deactivated_until else None}
+        )
+        
+    return db_user
+
+def reactivate_user(db: Session, user_id: int):
+    db_user = db.query(models.User).filter(models.User.id == user_id).first()
+    if db_user:
+        db_user.is_active = True
+        db_user.deactivated_until = None
+        db.commit()
+        db.refresh(db_user)
+        
+        # Log to Audit Trail
+        create_audit_log(
+            db, 
+            action_type="ACCOUNT_RESUME", 
+            performed_by_id=user_id, 
+            target_id=str(user_id),
+            details={"action": "Manual Reactivation"}
+        )
+        
     return db_user
 
 def update_user_password(db: Session, user_id: int, old_password: str, new_password: str):
@@ -299,7 +343,8 @@ def get_feedbacks(
     recipient_dept_id: int = None,
     mentioned_user_id: int = None,
     current_user_id: int = None,
-    only_approved: bool = True
+    only_approved: bool = True,
+    status: str = None
 ):
     """Unified and optimized feedback retrieval with counts and relations."""
     # Scalar subqueries for counts (single query execution for all)
@@ -366,6 +411,14 @@ def get_feedbacks(
         
     if recipient_dept_id:
         query = query.filter(models.Feedback.recipient_dept_id == recipient_dept_id)
+
+    if status:
+        try:
+            # Exact status match (e.g. status=RESOLVED)
+            enum_status = getattr(models.FeedbackStatus, status.upper())
+            query = query.filter(models.Feedback.status == enum_status)
+        except:
+            pass
 
     rows = query.order_by(models.Feedback.created_at.desc()).offset(skip).limit(limit).all()
     
@@ -665,6 +718,28 @@ def create_reply(db: Session, reply: schemas.ReplyCreate):
             feedback_id=feedback.id,
             reply_id=db_reply.id
         )
+
+    # DYNAMIC REOPENING: If user comments on a RESOLVED feedback, reopen it
+    if feedback and feedback.status == models.FeedbackStatus.RESOLVED:
+        # Check if author of comment is NOT an admin (or just reopen anyway for visibility)
+        commenter = db.query(models.User).filter(models.User.id == db_reply.user_id).first()
+        if commenter and commenter.role not in ["admin", "superadmin"]:
+            feedback.status = models.FeedbackStatus.IN_PROGRESS
+            feedback.updated_at = datetime.now(timezone.utc)
+            # Notify admins of reopen
+            entity_admins = db.query(models.User).filter(
+                models.User.entity_id == feedback.entity_id,
+                models.User.role.in_(["admin", "superadmin"])
+            ).all()
+            for admin in entity_admins:
+                create_notification(
+                    db,
+                    user_id=admin.id,
+                    actor_id=db_reply.user_id,
+                    notif_type=models.NotificationType.COMMENT,
+                    feedback_id=feedback.id,
+                    message=f"🔄 Feedback Reopened: {feedback.title}"
+                )
 
     # Notify parent comment author
     if reply.parent_id:

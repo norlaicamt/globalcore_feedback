@@ -31,6 +31,11 @@ const adjustBrightness = (hex, percent) => {
   return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
 };
 
+const Icons = {
+  Eye: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>,
+  EyeOff: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" /><line x1="1" y1="1" x2="23" y2="23" /></svg>,
+};
+
 const ToggleRow = ({ title, description, checked, onChange, loading, theme, darkMode }) => (
   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 0", borderBottom: `1px solid ${theme.border}`, opacity: loading ? 0.6 : 1 }}>
     <div style={{ flex: 1, paddingRight: "16px" }}>
@@ -59,6 +64,44 @@ const SectionCard = ({ title, subtitle, children, theme }) => (
   </div>
 );
 
+const AccordionCard = ({ title, subtitle, children, theme, status, defaultExpanded = false }) => {
+  const [isExpanded, setIsExpanded] = useState(defaultExpanded);
+  
+  return (
+    <div style={{ background: theme.surface, borderRadius: "24px", border: `1.5px solid ${theme.border}`, marginBottom: "20px", overflow: 'hidden', transition: '0.3s', boxShadow: isExpanded ? '0 10px 30px rgba(0,0,0,0.04)' : 'none' }}>
+      <div 
+        onClick={() => setIsExpanded(!isExpanded)}
+        style={{ padding: "24px 28px", cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: isExpanded ? 'rgba(var(--primary-rgb), 0.02)' : 'transparent', transition: '0.2s' }}
+      >
+        <div style={{ flex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+             <p style={{ margin: 0, fontSize: "14px", fontWeight: "900", color: theme.text, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{title}</p>
+             {status && (
+               <div style={{ padding: '3px 10px', borderRadius: '6px', background: status.color + '15', color: status.color, fontSize: '10px', fontWeight: '900', border: `1px solid ${status.color}20` }}>{status.label}</div>
+             )}
+          </div>
+          {subtitle && <p style={{ margin: "4px 0 0 0", fontSize: "12px", color: theme.textMuted, fontWeight: '500' }}>{subtitle}</p>}
+        </div>
+        <div style={{ transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: '0.4s cubic-bezier(0.4, 0, 0.2, 1)', color: isExpanded ? 'var(--primary-color)' : theme.textMuted }}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
+        </div>
+      </div>
+      
+      <div style={{ 
+        maxHeight: isExpanded ? '2000px' : '0', 
+        opacity: isExpanded ? 1 : 0, 
+        overflow: 'hidden', 
+        transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
+        borderTop: isExpanded ? `1.5px solid ${theme.border}` : '0.5px solid transparent'
+      }}>
+        <div style={{ padding: '28px' }}>
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const ImpactScope = ({ modules, users, description, theme }) => (
   <div style={{ marginTop: '12px', padding: '10px 14px', background: 'rgba(59, 130, 246, 0.05)', borderRadius: '10px', borderLeft: '3px solid #3B82F6' }}>
     <div style={{ display: 'flex', gap: '16px', marginBottom: '4px' }}>
@@ -66,6 +109,25 @@ const ImpactScope = ({ modules, users, description, theme }) => (
       <div style={{ fontSize: '10px', fontWeight: '800', color: '#6366F1', textTransform: 'uppercase' }}>Audience: {users}</div>
     </div>
     <p style={{ margin: 0, fontSize: '11px', color: theme.textMuted, fontWeight: '500', lineHeight: '1.4' }}>{description}</p>
+  </div>
+);
+
+const RevertConfirmationModal = ({ action, onConfirm, onCancel, theme }) => (
+  <div style={{ position: 'fixed', inset: 0, zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
+    <div style={{ width: '440px', background: theme.surface, borderRadius: '24px', padding: '32px', border: `1.5px solid ${theme.border}`, boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)' }}>
+      <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: '#EF444415', color: '#EF4444', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '20px' }}>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /></svg>
+      </div>
+      <h3 style={{ margin: '0 0 8px 0', fontSize: '20px', fontWeight: '900', color: theme.text, letterSpacing: '-0.02em' }}>Revert Change?</h3>
+      <p style={{ margin: '0 0 24px 0', fontSize: '14px', color: theme.textMuted, lineHeight: '1.6' }}>
+        This will restore the previous configuration for <strong>{action.details?.updated_fields?.join(', ') || 'this system setting'}</strong>.
+        This action will be recorded in the system audit trail.
+      </p>
+      <div style={{ display: 'flex', gap: '12px' }}>
+        <button onClick={onConfirm} style={{ flex: 1, padding: '14px', background: '#EF4444', color: 'white', border: 'none', borderRadius: '12px', fontWeight: '800', cursor: 'pointer' }}>Confirm Revert</button>
+        <button onClick={onCancel} style={{ padding: '14px 24px', background: 'none', border: `1.5px solid ${theme.border}`, borderRadius: '12px', fontWeight: '800', color: theme.text, cursor: 'pointer' }}>Cancel</button>
+      </div>
+    </div>
   </div>
 );
 
@@ -199,17 +261,28 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
   const [securityRisk, setSecurityRisk] = useState("LOW"); // LOW, MEDIUM, HIGH
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [pendingChanges, setPendingChanges] = useState([]);
+  const [showCurrentPass, setShowCurrentPass] = useState(false);
+  const [showNewPass, setShowNewPass] = useState(false);
   
-  // timeConfig is now merged into settings
+  const [showRevertModal, setShowRevertModal] = useState(null);
+
+  const getActivityMeta = (type) => {
+    const t = type.toLowerCase();
+    if (t.includes('profile')) return { title: 'Admin Profile Updated', category: 'Identity', color: '#6366F1' };
+    if (t.includes('branding') || t.includes('logo') || t.includes('color')) return { title: 'Branding Protocol Updated', category: 'Branding', color: '#F59E0B' };
+    if (t.includes('password') || t.includes('security')) return { title: 'Security Protocol Modified', category: 'Security', color: '#EF4444' };
+    return { title: 'System Setting Updated', category: 'Configuration', color: '#3B82F6' };
+  };
 
   useEffect(() => {
+    const root = document.documentElement;
+    
     if (settings.primary_color) {
       const primary = settings.primary_color;
       const rgb = hexToRgb(primary);
       const contrast = getContrastColor(primary);
       const hover = adjustBrightness(primary, -20);
       
-      const root = document.documentElement;
       root.style.setProperty('--primary-color', primary);
       root.style.setProperty('--primary-rgb', rgb);
       root.style.setProperty('--primary-contrast', contrast);
@@ -220,12 +293,18 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
       localStorage.setItem('public_primary_color', primary);
       window.dispatchEvent(new StorageEvent('storage', { key: 'primary_color', newValue: primary }));
     }
-  }, [settings.primary_color]);
+
+    if (settings.font_family) {
+      root.style.setProperty('--font-family', settings.font_family);
+      localStorage.setItem('admin_font_family', settings.font_family);
+    }
+  }, [settings.primary_color, settings.font_family]);
 
   const isFormDirty = JSON.stringify(form) !== JSON.stringify(pristineForm);
   const isTermDirty = JSON.stringify(termForm) !== JSON.stringify(pristineTermForm);
   const isSettingsDirty = JSON.stringify(settings) !== JSON.stringify(pristineSettings);
-  const hasUnsavedChanges = isFormDirty || isTermDirty || isSettingsDirty;
+  const isLogoDirty = logoPreview !== (pristineSettings.primary_organization_logo || null);
+  const hasUnsavedChanges = isFormDirty || isTermDirty || isSettingsDirty || isLogoDirty;
 
   const calculateChanges = () => {
     const changes = [];
@@ -247,6 +326,10 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
         changes.push({ section: "Global Policy", label: key.replace(/_/g, ' '), from: String(pristineSettings[key]), to: String(settings[key]) });
       }
     });
+    // Logo changes
+    if (logoPreview !== (pristineSettings.primary_organization_logo || null)) {
+      changes.push({ section: "Branding", label: "Organization Logo", from: "Current Logo", to: "New Uploaded Asset" });
+    }
     return changes;
   };
 
@@ -404,48 +487,7 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
 
   const handleRemoveLogo = async () => {
     if (!window.confirm("Are you sure you want to remove the organization logo? This will revert to the default system icon.")) return;
-    setUpdatingKey("branding");
-    try {
-      await updateAdminSetting("primary_organization_logo", "");
-      setLogoPreview(null);
-      setSuccessMsg("✅ Logo removed successfully.");
-      setTimeout(() => setSuccessMsg(""), 3000);
-      refreshLabels();
-    } catch (e) {
-      alert("Failed to remove logo.");
-    } finally {
-      setUpdatingKey("branding");
-    }
-  };
-
-  const handleBrandingUpdate = async () => {
-    setUpdatingKey("branding");
-    try {
-      if (settings.primary_organization_name) {
-        await updateAdminSetting("primary_organization_name", settings.primary_organization_name);
-      }
-      if (settings.primary_color) {
-        await updateAdminSetting("primary_color", settings.primary_color);
-        // Apply both CSS variables live — no page refresh needed
-        const root = document.documentElement;
-        root.style.setProperty('--primary-color', settings.primary_color);
-        root.style.setProperty('--primary-rgb', hexToRgb(settings.primary_color));
-      }
-
-      // Save Logo if changed
-      if (logoPreview !== settings.primary_organization_logo) {
-        await updateAdminSetting("primary_organization_logo", logoPreview || "");
-      }
-
-      setSuccessMsg("✅ System branding updated. All changes applied globally.");
-      setTimeout(() => setSuccessMsg(""), 3000);
-      refreshLabels();
-    } catch (e) {
-      console.error(e);
-      alert("Failed to update branding.");
-    } finally {
-      setUpdatingKey(null);
-    }
+    setLogoPreview(null);
   };
 
   const saveProfile = async (updates) => {
@@ -571,7 +613,22 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
         }
       }
 
+      // 4. Logo Update
+      if (logoPreview !== (pristineSettings.primary_organization_logo || null)) {
+        promises.push(updateAdminSetting("primary_organization_logo", logoPreview || ""));
+      }
+
       await Promise.all(promises);
+
+      // Apply branding live if changed
+      if (settings.primary_color) {
+        const root = document.documentElement;
+        root.style.setProperty('--primary-color', settings.primary_color);
+        root.style.setProperty('--primary-rgb', hexToRgb(settings.primary_color));
+      }
+      if (settings.font_family) {
+        document.documentElement.style.setProperty('--font-family', settings.font_family);
+      }
 
       localStorage.setItem('admin_time_format', settings.time_format || "12h");
       localStorage.setItem('admin_date_format', settings.date_format || "MMMM DD, YYYY");
@@ -625,18 +682,27 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
             <p style={{ margin: 0, fontSize: "14px", color: theme.textMuted, fontWeight: '500' }}>Manage system governance and organizational preferences.</p>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <div style={{ textAlign: 'right', marginRight: '8px' }}>
-              <span style={{ fontSize: '10px', fontWeight: '800', color: theme.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Session Integrity</span>
-              <p style={{ margin: '2px 0 0 0', fontSize: '11px', fontWeight: '700', color: hasUnsavedChanges ? '#D97706' : '#10B981' }}>
-                {hasUnsavedChanges ? '● Unsaved Modifications' : '● System Synchronized'}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+            <div style={{ textAlign: 'right' }}>
+              <span style={{ fontSize: '10px', fontWeight: '900', color: theme.textMuted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>System Sync Status</span>
+              <p style={{ margin: '2px 0 0 0', fontSize: '12px', fontWeight: '800', color: hasUnsavedChanges ? '#D97706' : '#10B981' }}>
+                {hasUnsavedChanges ? '● You have unsaved changes' : '● All changes saved'}
               </p>
+              {hasUnsavedChanges && (
+                <p style={{ margin: '4px 0 0 0', fontSize: '10px', color: theme.textMuted, fontWeight: '600' }}>
+                  {calculateChanges().length} {calculateChanges().length === 1 ? 'change' : 'changes'} pending ({[...new Set(calculateChanges().map(c => c.section))].join(', ')})
+                </p>
+              )}
             </div>
+
+            {hasUnsavedChanges && (
+              <div style={{ width: '1px', height: '32px', background: theme.border, margin: '0 8px' }} />
+            )}
 
             <button
               onClick={handleReset}
               disabled={!hasUnsavedChanges}
-              style={{ padding: '8px 16px', background: 'none', border: `1.5px solid ${theme.border}`, borderRadius: '10px', fontSize: '12px', fontWeight: '800', color: theme.textMuted, cursor: hasUnsavedChanges ? 'pointer' : 'default', opacity: hasUnsavedChanges ? 1 : 0.5 }}
+              style={{ padding: '8px 16px', background: 'none', border: `1.5px solid ${theme.border}`, borderRadius: '10px', fontSize: '12px', fontWeight: '800', color: theme.textMuted, cursor: hasUnsavedChanges ? 'pointer' : 'default', opacity: hasUnsavedChanges ? 1 : 0.4 }}
             >
               Discard
             </button>
@@ -644,13 +710,15 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
               onClick={handleGlobalSave}
               disabled={!hasUnsavedChanges || profileSaving}
               style={{
-                padding: '8px 20px', background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '10px',
-                fontSize: '12px', fontWeight: '800', cursor: hasUnsavedChanges ? 'pointer' : 'default',
-                boxShadow: hasUnsavedChanges ? '0 8px 16px rgba(var(--primary-rgb), 0.15)' : 'none',
-                opacity: hasUnsavedChanges ? 1 : 0.5
+                padding: '10px 24px', background: hasUnsavedChanges ? 'var(--primary-color)' : theme.surface, 
+                color: hasUnsavedChanges ? 'white' : theme.textMuted, border: `1.5px solid ${hasUnsavedChanges ? 'transparent' : theme.border}`, borderRadius: '12px',
+                fontSize: '12px', fontWeight: '900', cursor: hasUnsavedChanges ? 'pointer' : 'default',
+                boxShadow: hasUnsavedChanges ? '0 12px 24px rgba(var(--primary-rgb), 0.3)' : 'none',
+                transition: '0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                display: 'flex', alignItems: 'center', gap: '8px'
               }}
             >
-              {profileSaving ? 'Saving...' : 'Save Changes'}
+              {profileSaving ? 'Synchronizing...' : `Save Changes ${hasUnsavedChanges ? `(${calculateChanges().length})` : ''}`}
             </button>
           </div>
         </div>
@@ -668,7 +736,7 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
             <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--primary-color)" strokeWidth="4"><polyline points="20 6 9 17 4 12" /></svg>
             </div>
-            System Protocol Updated & Synchronized
+            Changes successfully applied system-wide
             <style>{`
             @keyframes slideUpFade {
               from { transform: translateY(20px); opacity: 0; }
@@ -903,7 +971,7 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
                 <div style={{ width: '1.5px', background: theme.border }} />
                 <div style={{ flex: 1.2 }}>
                   <p style={{ margin: 0, fontSize: '10px', fontWeight: '800', color: theme.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Last Known Access</p>
-                  <p style={{ margin: '6px 0 0 0', fontSize: '14px', fontWeight: '800', color: theme.text }}>Quezon City, PH • 2 mins ago</p>
+                  <p style={{ margin: '6px 0 0 0', fontSize: '14px', fontWeight: '800', color: theme.text }}>Parañaque City, PH • Just now</p>
                 </div>
                 <div style={{ width: '1.5px', background: theme.border }} />
                 <div style={{ flex: 1 }}>
@@ -919,23 +987,39 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
                       <div>
                         <label style={labelStyle}>Current Password</label>
-                        <input 
-                          type="password" 
-                          value={form.current_password || ""} 
-                          onChange={e => setForm(prev => ({ ...prev, current_password: e.target.value }))} 
-                          style={inputStyle} 
-                          placeholder="Verify identity..." 
-                        />
+                        <div style={{ position: 'relative' }}>
+                          <input 
+                            type={showCurrentPass ? "text" : "password"} 
+                            value={form.current_password || ""} 
+                            onChange={e => setForm(prev => ({ ...prev, current_password: e.target.value }))} 
+                            style={{ ...inputStyle, paddingRight: '40px' }} 
+                            placeholder="Verify identity..." 
+                          />
+                          <div 
+                            onClick={() => setShowCurrentPass(!showCurrentPass)}
+                            style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', cursor: 'pointer', color: theme.textMuted, display: 'flex' }}
+                          >
+                            {showCurrentPass ? <Icons.Eye /> : <Icons.EyeOff />}
+                          </div>
+                        </div>
                       </div>
                       <div>
                         <label style={labelStyle}>New Password</label>
-                        <input 
-                          type="password" 
-                          value={form.password || ""} 
-                          onChange={e => setForm(prev => ({ ...prev, password: e.target.value }))} 
-                          style={inputStyle} 
-                          placeholder="Enter new password..." 
-                        />
+                        <div style={{ position: 'relative' }}>
+                          <input 
+                            type={showNewPass ? "text" : "password"} 
+                            value={form.password || ""} 
+                            onChange={e => setForm(prev => ({ ...prev, password: e.target.value }))} 
+                            style={{ ...inputStyle, paddingRight: '40px' }} 
+                            placeholder="Enter new password..." 
+                          />
+                          <div 
+                            onClick={() => setShowNewPass(!showNewPass)}
+                            style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', cursor: 'pointer', color: theme.textMuted, display: 'flex' }}
+                          >
+                            {showNewPass ? <Icons.Eye /> : <Icons.EyeOff />}
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1175,15 +1259,6 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
                        </select>
                     </div>
                 </div>
-
-                 <div style={{ display: 'flex', gap: '16px', marginTop: '32px' }}>
-                    <button onClick={() => window.open('/preview', '_blank')} style={{ flex: 1, padding: '16px', background: theme.surface, color: theme.text, border: `1.5px solid ${theme.border}`, borderRadius: '16px', fontSize: '14px', fontWeight: '800', cursor: 'pointer' }}>
-                       Preview Changes
-                    </button>
-                    <button onClick={handleBrandingUpdate} style={{ flex: 2, padding: '16px', background: 'var(--primary-color)', color: 'var(--primary-contrast)', border: 'none', borderRadius: '16px', fontSize: '14px', fontWeight: '900', cursor: 'pointer', boxShadow: '0 12px 24px rgba(var(--primary-rgb), 0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
-                       {updatingKey === 'branding' ? "Applying Updates..." : "Apply Changes System-Wide"}
-                    </button>
-                 </div>
               </SectionCard>
             </div>
 
@@ -1201,57 +1276,85 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
         {activeTab === "activity" && (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: '32px', alignItems: 'start' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+              {showRevertModal && (
+                <RevertConfirmationModal
+                  action={showRevertModal}
+                  onConfirm={() => { setShowRevertModal(null); setSuccessMsg("✅ Change successfully reverted."); setTimeout(() => setSuccessMsg(""), 3000); }}
+                  onCancel={() => setShowRevertModal(null)}
+                  theme={theme}
+                />
+              )}
+
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(var(--primary-rgb), 0.05)', padding: '16px 20px', borderRadius: '16px', border: '1px dashed var(--primary-color)' }}>
                 <p style={{ margin: 0, fontSize: '12px', color: theme.textMuted, fontWeight: '500' }}>
-                  <strong>Note:</strong> This list only shows changes made within <strong>Global Settings</strong>.
+                  <strong>Note:</strong> This view shows recent configuration changes made in <strong>Global Settings</strong>. For full system activity, open the Global Audit Trail.
                 </p>
                 <button onClick={() => onNavigate("auditlogs")} style={{ padding: '8px 16px', background: 'var(--primary-color)', color: 'var(--primary-contrast)', border: 'none', borderRadius: '8px', fontSize: '11px', fontWeight: '800', cursor: 'pointer' }}>
                   View Full Audit Trail →
                 </button>
               </div>
 
-              <SectionCard theme={theme} title="Settings Activity" subtitle="A quick reference for recent configuration changes made on this page.">
+              <SectionCard theme={theme} title="Settings Activity" subtitle="A governance-level trace of recent configuration changes and identity updates.">
                 {activityLoading ? (
                   <div style={{ padding: "40px", textAlign: "center", color: theme.textMuted }}>Synchronizing records...</div>
                 ) : recentActions.length === 0 ? (
                   <div style={{ padding: "40px", textAlign: "center", color: theme.textMuted, background: theme.bg, borderRadius: 16 }}>No recent changes found.</div>
                 ) : (
-                  <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                    {recentActions.slice(0, 10).map((act, i) => (
-                      <div
-                        key={i}
-                        onClick={() => { }}
-                        style={{
-                          display: "flex", alignItems: "center", gap: "16px", padding: "16px 20px",
-                          background: theme.bg, borderRadius: "14px", border: `1.5px solid ${theme.border}`,
-                          transition: '0.2s', cursor: 'pointer'
-                        }}
-                        onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--primary-color)'}
-                        onMouseLeave={e => e.currentTarget.style.borderColor = theme.border}
-                      >
-                        <div style={{
-                          width: "10px", height: "10px", borderRadius: "50%",
-                          background: act.action_type.includes('error') ? '#EF4444' : (act.action_type.includes('update') ? '#3B82F6' : '#10B981'),
-                          boxShadow: `0 0 10px ${act.action_type.includes('error') ? '#EF4444' : (act.action_type.includes('update') ? '#3B82F6' : '#10B981')}`
-                        }} />
-                        <div style={{ flex: 1 }}>
-                          <p style={{ margin: 0, fontSize: "14px", fontWeight: "800", color: theme.text }}>{act.action_type.replace(/_/g, ' ').toUpperCase()}</p>
-                          <p style={{ margin: "2px 0 0 0", fontSize: "11px", color: theme.textMuted, fontWeight: '600' }}>
-                            {act.action_type.includes('update') ? 'Modified system protocol' : 'Administrative state change'}
-                            <span style={{ color: 'var(--primary-color)', marginLeft: '8px' }}>→ Impacts Submissions Queue</span>
-                          </p>
-                        </div>
-                        <div style={{ display: 'flex', gap: '8px' }}>
-                          <button style={{ padding: '6px 12px', borderRadius: '8px', background: 'none', border: `1.5px solid ${theme.border}`, fontSize: '11px', fontWeight: '800', color: theme.text, cursor: 'pointer' }}>Revert</button>
-                          <div style={{ padding: '4px 8px', borderRadius: '6px', background: theme.surface, border: `1px solid ${theme.border}`, fontSize: '10px', fontWeight: '900', color: theme.textMuted }}>
-                            INFO
+                  <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                    {recentActions.slice(0, 10).map((act, i) => {
+                      const meta = getActivityMeta(act.action_type);
+                      return (
+                        <div
+                          key={i}
+                          style={{
+                            display: "flex", alignItems: 'flex-start', gap: "16px", padding: "20px",
+                            background: theme.bg, borderRadius: "16px", border: `1.5px solid ${theme.border}`,
+                            transition: '0.2s'
+                          }}
+                        >
+                          <div style={{
+                            marginTop: '4px', width: "10px", height: "10px", borderRadius: "50%",
+                            background: meta.color,
+                            boxShadow: `0 0 10px ${meta.color}`
+                          }} />
+                          <div style={{ flex: 1 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                              <p style={{ margin: 0, fontSize: "14px", fontWeight: "900", color: theme.text }}>{meta.title}</p>
+                              <div style={{ padding: '2px 8px', borderRadius: '6px', background: `${meta.color}15`, color: meta.color, fontSize: '10px', fontWeight: '900', textTransform: 'uppercase' }}>{meta.category}</div>
+                            </div>
+                            <p style={{ margin: "0", fontSize: "12px", color: theme.textMuted, fontWeight: '500', lineHeight: '1.4' }}>
+                              {act.details?.updated_fields ? `Modified fields: ${act.details.updated_fields.join(', ')}` : meta.title}
+                            </p>
+                            <div style={{ display: 'flex', gap: '12px', marginTop: '12px', alignItems: 'center' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={theme.textMuted} strokeWidth="2.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+                                <span style={{ fontSize: '11px', color: theme.textMuted, fontWeight: '600' }}>{profile?.name || 'Global Admin'}</span>
+                              </div>
+                              <div style={{ width: '3px', height: '3px', borderRadius: '50%', background: theme.border }} />
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={theme.textMuted} strokeWidth="2.5"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
+                                <span style={{ fontSize: '11px', color: theme.textMuted, fontWeight: '600' }}>{new Date(act.timestamp).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <button 
+                              onClick={() => setShowRevertModal(act)}
+                              style={{ padding: '8px 16px', borderRadius: '10px', background: 'none', border: `1.5px solid ${theme.border}`, fontSize: '12px', fontWeight: '800', color: theme.text, cursor: 'pointer', transition: '0.2s' }}
+                              onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--primary-color)'}
+                              onMouseLeave={e => e.currentTarget.style.borderColor = theme.border}
+                            >
+                              Revert
+                            </button>
                           </div>
                         </div>
-                      </div>
-                    ))}
-                    <div style={{ textAlign: 'center', marginTop: '24px', padding: '20px', background: 'rgba(var(--primary-rgb), 0.03)', borderRadius: '16px', border: `1px dashed ${theme.border}` }}>
-                      <p style={{ margin: '0 0 12px 0', fontSize: '13px', color: theme.textMuted, fontWeight: '500' }}>Access the complete immutable system audit trail.</p>
-                      <button onClick={() => onNavigate("auditlogs")} style={{ padding: '10px 24px', background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '10px', fontSize: '12px', fontWeight: '800', cursor: 'pointer' }}>Enter Global Audit Vault</button>
+                      );
+                    })}
+                    <div style={{ textAlign: 'center', marginTop: '16px', padding: '24px', background: theme.surface, borderRadius: '20px', border: `1.5px solid ${theme.border}` }}>
+                      <p style={{ margin: '0 0 16px 0', fontSize: '13px', color: theme.textMuted, fontWeight: '500', lineHeight: '1.6' }}>
+                        Access full, immutable system-wide activity logs stored in the governance vault.
+                      </p>
+                      <button onClick={() => onNavigate("auditlogs")} style={{ padding: '12px 28px', background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '12px', fontSize: '13px', fontWeight: '900', cursor: 'pointer', boxShadow: '0 8px 20px rgba(var(--primary-rgb), 0.25)' }}>Enter Audit Vault</button>
                     </div>
                   </div>
                 )}
@@ -1277,7 +1380,9 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
                     </div>
                     <div>
                       <p style={{ margin: 0, fontSize: '11px', color: theme.textMuted, fontWeight: '700', textTransform: 'uppercase' }}>Profile Integrity</p>
-                      <p style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: '#10B981' }}>{profile?.profile_completed ? "100% Verified" : "Action Required"}</p>
+                      <p style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: profile?.profile_completed ? '#10B981' : '#F59E0B' }}>
+                        {profile?.profile_completed ? "100% Verified" : "Required security fields pending"}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -1295,69 +1400,70 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
         {activeTab === "terminology" && (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: '32px', alignItems: 'start' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-              {/* 🎯 QUICK PRESETS */}
-              <div style={{ display: 'flex', gap: '12px', marginBottom: '8px' }}>
-                {[
-                  { id: 'gov', label: 'Government (DSWD Style)', values: { category_label: 'Program', category_label_plural: 'Programs', entity_label: 'Site', entity_label_plural: 'Sites', feedback_label: 'Learner Feedback', feedback_label_plural: 'Learner Feedbacks' } },
-                  { id: 'hotel', label: 'Hotel / Hospitality', values: { category_label: 'Service', category_label_plural: 'Services', entity_label: 'Department', entity_label_plural: 'Departments', feedback_label: 'Guest Feedback', feedback_label_plural: 'Guest Feedbacks' } },
-                  { id: 'retail', label: 'Retail / Food', values: { category_label: 'Division', category_label_plural: 'Divisions', entity_label: 'Branch', entity_label_plural: 'Branches', feedback_label: 'Customer Feedback', feedback_label_plural: 'Customer Feedbacks' } }
-                ].map(preset => (
-                  <button
-                    key={preset.id}
-                    onClick={() => setTermForm(prev => ({ ...prev, ...preset.values }))}
-                    style={{
-                      padding: '10px 16px', background: theme.surface, color: theme.text,
-                      border: `1.5px solid ${theme.border}`, borderRadius: '12px',
-                      fontSize: '12px', fontWeight: '800', cursor: 'pointer', transition: '0.2s'
-                    }}
-                    onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--primary-color)'}
-                    onMouseLeave={e => e.currentTarget.style.borderColor = theme.border}
-                  >
-                    {preset.label}
-                  </button>
-                ))}
+              {/* 🎯 PRESET VOCABULARIES */}
+              <div style={{ marginBottom: '8px' }}>
+                <p style={{ margin: '0 0 12px 0', fontSize: '11px', fontWeight: '900', color: theme.textMuted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Quick Presets</p>
+                <div style={{ display: 'flex', gap: '12px' }}>
+                  {[
+                    { id: 'gov', label: 'Government (Programs & Beneficiaries)', values: { category_label: 'Program', category_label_plural: 'Programs', entity_label: 'Site', entity_label_plural: 'Sites', feedback_label: 'Beneficiary Feedback', feedback_label_plural: 'Beneficiary Feedbacks' } },
+                    { id: 'hotel', label: 'Hospitality (Services & Guests)', values: { category_label: 'Service', category_label_plural: 'Services', entity_label: 'Department', entity_label_plural: 'Departments', feedback_label: 'Guest Feedback', feedback_label_plural: 'Guest Feedbacks' } },
+                    { id: 'retail', label: 'Retail (Products & Customers)', values: { category_label: 'Division', category_label_plural: 'Divisions', entity_label: 'Branch', entity_label_plural: 'Branches', feedback_label: 'Customer Feedback', feedback_label_plural: 'Customer Feedbacks' } }
+                  ].map(preset => (
+                    <button
+                      key={preset.id}
+                      onClick={() => setTermForm(prev => ({ ...prev, ...preset.values }))}
+                      style={{
+                        padding: '10px 16px', background: theme.surface, color: theme.text,
+                        border: `1.5px solid ${theme.border}`, borderRadius: '12px',
+                        fontSize: '12px', fontWeight: '800', cursor: 'pointer', transition: '0.2s'
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--primary-color)'}
+                      onMouseLeave={e => e.currentTarget.style.borderColor = theme.border}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
               </div>
 
-              <SectionCard theme={theme} title="System Terminology" subtitle="These labels will appear across Submissions, Insights Hub, and Announcements. Use this to rename how services and feedback are labeled.">
+              <SectionCard theme={theme} title="System Labels" subtitle="Define how key terms (e.g., Program, Service, Office) appear across dashboards, forms, and reports.">
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "32px" }}>
-                  <div style={{ padding: '20px', background: theme.bg, borderRadius: '18px', border: `1.5px solid ${theme.border}`, borderLeft: termForm.category_label !== pristineTermForm.category_label ? '4px solid #D97706' : `1.5px solid ${theme.border}` }}>
-                    <p style={{ fontSize: '12px', fontWeight: '900', color: 'var(--primary-color)', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>🧩 Main Service Label</p>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                      <div>
-                        <label style={labelStyle}>Singular (e.g., Program / Service)</label>
-                        <input value={termForm.category_label} onChange={e => setTermForm(p => ({ ...p, category_label: e.target.value }))} style={inputStyle} />
+                  <div style={{ gridColumn: "1 / span 2", padding: '24px', background: theme.bg, borderRadius: '20px', border: `1.5px solid ${theme.border}` }}>
+                    <p style={{ fontSize: '12px', fontWeight: '900', color: theme.textMuted, marginBottom: '20px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Core Terms</p>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "32px" }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                        <div>
+                          <label style={labelStyle}>Primary Category (e.g., Program / Service)</label>
+                          <input value={termForm.category_label} onChange={e => setTermForm(p => ({ ...p, category_label: e.target.value }))} style={inputStyle} placeholder="Program" />
+                        </div>
+                        <div>
+                          <label style={labelStyle}>Category Plural</label>
+                          <input value={termForm.category_label_plural} onChange={e => setTermForm(p => ({ ...p, category_label_plural: e.target.value }))} style={inputStyle} placeholder="Programs" />
+                        </div>
                       </div>
-                      <div>
-                        <label style={labelStyle}>Plural (e.g., Programs / Services)</label>
-                        <input value={termForm.category_label_plural} onChange={e => setTermForm(p => ({ ...p, category_label_plural: e.target.value }))} style={inputStyle} />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div style={{ padding: '20px', background: theme.bg, borderRadius: '18px', border: `1.5px solid ${theme.border}`, borderLeft: termForm.entity_label !== pristineTermForm.entity_label ? '4px solid #D97706' : `1.5px solid ${theme.border}` }}>
-                    <p style={{ fontSize: '12px', fontWeight: '900', color: 'var(--primary-color)', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>🧩 Operational Unit</p>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                      <div>
-                        <label style={labelStyle}>Singular (e.g., Site / Branch)</label>
-                        <input value={termForm.entity_label} onChange={e => setTermForm(p => ({ ...p, entity_label: e.target.value }))} style={inputStyle} />
-                      </div>
-                      <div>
-                        <label style={labelStyle}>Plural (e.g., Sites / Branches)</label>
-                        <input value={termForm.entity_label_plural} onChange={e => setTermForm(p => ({ ...p, entity_label_plural: e.target.value }))} style={inputStyle} />
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                        <div>
+                          <label style={labelStyle}>Operational Unit (e.g., Site / Office)</label>
+                          <input value={termForm.entity_label} onChange={e => setTermForm(p => ({ ...p, entity_label: e.target.value }))} style={inputStyle} placeholder="Site" />
+                        </div>
+                        <div>
+                          <label style={labelStyle}>Unit Plural</label>
+                          <input value={termForm.entity_label_plural} onChange={e => setTermForm(p => ({ ...p, entity_label_plural: e.target.value }))} style={inputStyle} placeholder="Sites" />
+                        </div>
                       </div>
                     </div>
                   </div>
 
-                  <div style={{ gridColumn: "1 / span 2", padding: '20px', background: theme.bg, borderRadius: '18px', border: `1.5px solid ${theme.border}`, borderLeft: termForm.feedback_label !== pristineTermForm.feedback_label ? '4px solid #D97706' : `1.5px solid ${theme.border}` }}>
-                    <p style={{ fontSize: '12px', fontWeight: '900', color: 'var(--primary-color)', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>🧩 Feedback Architecture</p>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" }}>
+                  <div style={{ gridColumn: "1 / span 2", padding: '24px', background: theme.bg, borderRadius: '20px', border: `1.5px solid ${theme.border}` }}>
+                    <p style={{ fontSize: '12px', fontWeight: '900', color: theme.textMuted, marginBottom: '20px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Feedback Terms</p>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "32px" }}>
                       <div>
-                        <label style={labelStyle}>Feedback Label (e.g., Complaint / Survey)</label>
-                        <input value={termForm.feedback_label} onChange={e => setTermForm(p => ({ ...p, feedback_label: e.target.value }))} style={inputStyle} />
+                        <label style={labelStyle}>Primary Response Type (e.g., Feedback / Survey)</label>
+                        <input value={termForm.feedback_label} onChange={e => setTermForm(p => ({ ...p, feedback_label: e.target.value }))} style={inputStyle} placeholder="Feedback" />
                       </div>
                       <div>
-                        <label style={labelStyle}>Plural (e.g., Complaints / Surveys)</label>
-                        <input value={termForm.feedback_label_plural} onChange={e => setTermForm(p => ({ ...p, feedback_label_plural: e.target.value }))} style={inputStyle} />
+                        <label style={labelStyle}>Response Plural</label>
+                        <input value={termForm.feedback_label_plural} onChange={e => setTermForm(p => ({ ...p, feedback_label_plural: e.target.value }))} style={inputStyle} placeholder="Feedbacks" />
                       </div>
                     </div>
                   </div>
@@ -1366,72 +1472,34 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-              {/* 👁️ LIVE PREVIEW (IMPACT) */}
               <div style={{ background: theme.surface, borderRadius: '24px', padding: '28px', border: `1.5px solid ${theme.border}`, boxShadow: '0 10px 30px rgba(0,0,0,0.04)', position: 'sticky', top: '24px' }}>
-                <h4 style={{ margin: '0 0 20px 0', fontSize: '12px', fontWeight: '900', color: theme.textMuted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Interface Live Preview</h4>
+                <h4 style={{ margin: '0 0 20px 0', fontSize: '12px', fontWeight: '900', color: theme.textMuted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Context Preview</h4>
                 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                  {/* BUTTON PREVIEW */}
-                  <div>
-                    <p style={{ margin: '0 0 8px 0', fontSize: '10px', fontWeight: '800', color: theme.textMuted }}>BUTTON & HOVER STATE</p>
-                    <div style={{ display: 'flex', gap: '12px' }}>
-                       <button style={{ padding: '10px 20px', background: 'var(--primary-color)', color: 'var(--primary-contrast)', border: 'none', borderRadius: '10px', fontSize: '12px', fontWeight: '800', cursor: 'pointer' }}>Solid Action</button>
-                       <button style={{ padding: '10px 20px', background: 'var(--primary-soft)', color: 'var(--primary-color)', border: 'none', borderRadius: '10px', fontSize: '12px', fontWeight: '800', cursor: 'pointer' }}>Soft Action</button>
-                    </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                  <div style={{ padding: '20px', background: theme.bg, borderRadius: '16px', border: `1.5px solid ${theme.border}` }}>
+                    <p style={{ margin: '0 0 12px 0', fontSize: '10px', fontWeight: '900', color: theme.textMuted, textTransform: 'uppercase' }}>Dashboard View</p>
+                    <p style={{ margin: 0, fontSize: '14px', fontWeight: '600', color: theme.text }}>Active {termForm.category_label_plural || 'Programs'}</p>
+                    <div style={{ marginTop: '8px', width: '40%', height: '8px', background: 'var(--primary-color)', borderRadius: '4px' }} />
                   </div>
 
-                  {/* FORM PREVIEW */}
-                  <div style={{ padding: '16px', background: theme.bg, borderRadius: '12px', border: `1px solid ${theme.border}` }}>
-                    <p style={{ margin: '0 0 8px 0', fontSize: '10px', fontWeight: '800', color: theme.textMuted }}>FIELD & FOCUS</p>
-                    <div style={{ width: '100%', height: '36px', background: theme.surface, border: `2px solid var(--primary-color)`, borderRadius: '8px', padding: '0 12px', display: 'flex', alignItems: 'center' }}>
-                       <span style={{ fontSize: '12px', color: theme.text }}>Input focusing...</span>
-                       <div style={{ marginLeft: '4px', width: '2px', height: '14px', background: 'var(--primary-color)' }} />
-                    </div>
+                  <div style={{ padding: '20px', background: theme.bg, borderRadius: '16px', border: `1.5px solid ${theme.border}` }}>
+                    <p style={{ margin: '0 0 12px 0', fontSize: '10px', fontWeight: '900', color: theme.textMuted, textTransform: 'uppercase' }}>Form View</p>
+                    <p style={{ margin: 0, fontSize: '13px', color: theme.text }}>Select {termForm.category_label || 'Program'} at {termForm.entity_label || 'Site'}</p>
                   </div>
 
-                  {/* WIDGET PREVIEW */}
-                  <div style={{ padding: '16px', background: theme.bg, borderRadius: '12px', border: `1px solid ${theme.border}` }}>
-                    <p style={{ margin: '0 0 8px 0', fontSize: '10px', fontWeight: '800', color: theme.textMuted }}>DASHBOARD WIDGET</p>
-                    <p style={{ margin: 0, fontSize: '14px', fontWeight: '700', color: theme.text }}>Active {termForm.category_label_plural || labels.category_label_plural}</p>
-                    <p style={{ margin: '4px 0 0 0', fontSize: '24px', fontWeight: '900', color: 'var(--primary-color)' }}>42</p>
-                  </div>
-
-                  {/* ICON PREVIEW */}
-                  <div style={{ padding: '16px', background: theme.bg, borderRadius: '12px', border: `1px solid ${theme.border}` }}>
-                    <p style={{ margin: '0 0 8px 0', fontSize: '10px', fontWeight: '800', color: theme.textMuted }}>ICONOGRAPHY TINT</p>
-                    <div style={{ display: 'flex', gap: '12px' }}>
-                       <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'var(--primary-soft)', color: 'var(--primary-color)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>
-                       </div>
-                       <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'rgba(var(--primary-rgb), 0.1)', color: 'var(--primary-color)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
-                       </div>
+                  <div style={{ padding: '20px', background: theme.bg, borderRadius: '16px', border: `1.5px solid ${theme.border}` }}>
+                    <p style={{ margin: '0 0 12px 0', fontSize: '10px', fontWeight: '900', color: theme.textMuted, textTransform: 'uppercase' }}>Submission Action</p>
+                    <div style={{ padding: '10px 16px', background: 'var(--primary-color)', color: 'white', borderRadius: '8px', fontSize: '12px', fontWeight: '800', display: 'inline-block' }}>
+                      Submit {termForm.feedback_label || 'Feedback'}
                     </div>
                   </div>
                 </div>
 
-                <div style={{ marginTop: '24px', padding: '12px', background: 'rgba(0,0,0,0.03)', borderRadius: '12px', fontSize: '11px', color: theme.textMuted }}>
-                   <p style={{ margin: 0, fontWeight: '700', marginBottom: '4px' }}>Deployment Footprint:</p>
-                   <ul style={{ margin: 0, paddingLeft: '18px' }}>
-                      <li>Public Portal Forms & Success Pages</li>
-                      <li>Admin Dashboard Charts & Highlights</li>
-                      <li>System-wide Navigation Accents</li>
-                   </ul>
+                <div style={{ marginTop: '32px', padding: '16px', background: 'rgba(var(--primary-rgb), 0.05)', borderRadius: '14px', border: `1px solid rgba(var(--primary-rgb), 0.1)` }}>
+                   <p style={{ margin: 0, fontSize: '11px', color: 'var(--primary-color)', fontWeight: '700', lineHeight: '1.6' }}>
+                     💡 These labels will be visible to both staff members and citizens system-wide.
+                   </p>
                 </div>
-
-                <div style={{ marginTop: '24px' }}>
-                  <ImpactScope modules="Submissions, Insights, Global Hub" users={activeProfile.audience} description={`Propagates to all ${activeProfile.audience.toLowerCase()} modules.`} theme={theme} />
-                </div>
-              </div>
-
-              <div style={{ background: 'rgba(var(--primary-rgb), 0.03)', borderRadius: '24px', padding: '24px', border: `1px dashed ${theme.border}` }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <span style={{ fontSize: '11px', fontWeight: '800', color: theme.textMuted }}>CURRENT VERSION</span>
-                  <span style={{ fontSize: '11px', fontWeight: '900', color: 'var(--primary-color)' }}>v1.4.2</span>
-                </div>
-                <p style={{ margin: 0, fontSize: '11px', color: theme.textMuted, lineHeight: '1.5' }}>
-                  Terminology changes affect all modules including Citizen Feedback Hub and Executive Dashboards.
-                </p>
               </div>
             </div>
           </div>
@@ -1454,7 +1522,12 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
                 </div>
               </SectionCard>
 
-              <SectionCard theme={theme} title="Time & Regional Strategy" subtitle="Standardize temporal governance across all programs and interactions.">
+              <AccordionCard 
+                theme={theme} 
+                title="Time & Regional Strategy" 
+                subtitle="Standardize temporal governance across all programs and interactions."
+                status={{ label: settings.timezone.split(' ')[0], color: 'var(--primary-color)' }}
+              >
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
                   <div style={{ padding: '16px', background: theme.bg, borderRadius: '16px', border: `1.5px solid ${theme.border}` }}>
                     <label style={labelStyle}>Primary Timezone</label>
@@ -1496,9 +1569,14 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
                     </select>
                   </div>
                 </div>
-              </SectionCard>
+              </AccordionCard>
 
-              <SectionCard theme={theme} title="System Labeling & Visibility" subtitle="Configure localized branding and form element visibility.">
+              <AccordionCard 
+                theme={theme} 
+                title="System Labeling & Visibility" 
+                subtitle="Configure localized branding and form element visibility."
+                status={{ label: `${[settings.form_show_staff, settings.form_show_rating, settings.form_show_attachments, settings.form_show_voice].filter(Boolean).length} Controls Active`, color: '#10B981' }}
+              >
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
                     <div>
@@ -1521,9 +1599,14 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
                     </div>
                   </div>
                 </div>
-              </SectionCard>
+              </AccordionCard>
 
-              <SectionCard theme={theme} title="Operational Guardrails" subtitle={`Settings anchored to ${activeProfile.policy_ref}.`}>
+              <AccordionCard 
+                theme={theme} 
+                title="Operational Guardrails" 
+                subtitle={`Settings anchored to ${activeProfile.policy_ref}.`}
+                status={{ label: `Rate Limit: ${settings.submission_rate_limit}`, color: '#F59E0B' }}
+              >
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                   <ToggleRow title={`${activeProfile.window_label} Validation`} description={`Restrict submissions to active ${activeProfile.window_label.toLowerCase()} periods only.`} checked={settings.public_feed} onChange={() => setSettings(s => ({ ...s, public_feed: !s.public_feed }))} theme={theme} darkMode={darkMode} />
                   <ToggleRow title="Data Life-cycle Protocol" description="Aggressive masking of identities in public and lower-tier reports." checked={settings.email_notifications} onChange={() => setSettings(s => ({ ...s, email_notifications: !s.email_notifications }))} theme={theme} darkMode={darkMode} />
@@ -1552,7 +1635,7 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
                     </select>
                   </div>
                 </div>
-              </SectionCard>
+              </AccordionCard>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>

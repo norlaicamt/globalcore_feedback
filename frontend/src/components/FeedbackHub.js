@@ -21,6 +21,7 @@ import { IconRegistry } from "./IconRegistry";
 import { QRCodeCanvas } from "qrcode.react";
 
 const Icons = {
+  CheckCircle: ({ size = 16, color = "currentColor" }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>,
   QR: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="7" y="17" width="2" height="2"></rect><rect x="17" y="17" width="2" height="2"></rect><rect x="7" y="7" width="2" height="2"></rect><rect x="17" y="7" width="2" height="2"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>,
   Plus: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>,
   Building: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><path d="M9 22v-4h6v4"></path><path d="M8 6h.01"></path><path d="M16 6h.01"></path><path d="M12 6h.01"></path><path d="M12 10h.01"></path><path d="M12 14h.01"></path><path d="M16 10h.01"></path><path d="M16 14h.01"></path><path d="M8 10h.01"></path><path d="M8 14h.01"></path></svg>,
@@ -98,6 +99,7 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
   const [selectedBroadcast, setSelectedBroadcast] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
   const [fullscreenImg, setFullscreenImg] = useState(null);
+  const [statusFilter, setStatusFilter] = useState('ONGOING');
   const [resumeDraft, setResumeDraft] = useState(null);
   const [localUser, setLocalUser] = useState(() => {
     try { return JSON.parse(localStorage.getItem(STORAGE_KEYS.USER_CURRENT) || 'null') || currentUser; }
@@ -133,7 +135,7 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
   const handleUserUpdate = (updatedUser) => {
     setLocalUser((prev) => {
       const merged = { ...(prev || {}), ...(updatedUser || {}) };
-      localStorage.setItem("currentUser", JSON.stringify(merged));
+      localStorage.setItem(STORAGE_KEYS.USER_CURRENT, JSON.stringify(merged));
       return merged;
     });
   };
@@ -141,7 +143,7 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
   const fetchFeed = async (newOffset = 0) => {
     if (newOffset === 0) setLoading(true);
     try {
-      const data = await getFeedbacks({ skip: newOffset, limit: 10 });
+      const data = await getFeedbacks({ skip: newOffset, limit: 10, status: statusFilter });
       if (newOffset === 0) {
         setFeed(data);
       } else {
@@ -230,7 +232,7 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
       fetchNotifications();
       fetchUserProfile();
     }
-  }, [view, localUser?.id]);
+  }, [view, localUser?.id, statusFilter]);
 
   // Real-time Presence Heartbeat
   useEffect(() => {
@@ -388,6 +390,8 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
             onRefresh={() => fetchFeed(0)}
             publicFeedEnabled={publicFeedEnabled}
             entities={entities}
+            statusFilter={statusFilter}
+            setStatusFilter={setStatusFilter}
           />
         ) : (view === "history" || view === "mentioned") ? (
           <HistoryView
@@ -627,6 +631,7 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
 };
 
 const CommentModal = ({ item, currentUser, onClose, onShowToast, onRefreshProfile, onRefreshFeed }) => {
+  const { getModeLabel, systemMode } = useTerminology();
   const [dialogState, setDialogState] = useState({ isOpen: false });
   const [comments, setComments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -802,19 +807,47 @@ const CommentModal = ({ item, currentUser, onClose, onShowToast, onRefreshProfil
             ) : (node.user?.name || node.user_name || 'U').charAt(0)}
           </div>
           <div style={{ flex: 1 }}>
-            <div style={{ ...styles.commentBubble, backgroundColor: isReply ? 'rgba(0,0,0,0.02)' : '#FFFFFF', borderColor: '#E2E8F0' }}>
+            <div style={{ 
+              ...styles.commentBubble, 
+              backgroundColor: node.is_official ? 'rgba(79, 70, 229, 0.03)' : (isReply ? 'rgba(0,0,0,0.02)' : '#FFFFFF'), 
+              borderColor: node.is_official ? '#4F46E5' : '#E2E8F0',
+              borderLeft: node.is_official ? '4px solid #4F46E5' : '1px solid #E2E8F0',
+              boxShadow: node.is_official ? '0 2px 10px rgba(79, 70, 229, 0.08)' : 'none'
+            }}>
               {editingCommentId === node.id ? (
                 <div>
-                  <input style={{ ...styles.modalEditInput, backgroundColor: 'white', color: '#1E293B', borderColor: 'var(--primary-color)' }} value={editCommentText} onChange={e => setEditCommentText(e.target.value)} autoFocus />
+                  <input style={{ ...styles.modalEditInput, backgroundColor: 'white', color: '#1E293B', borderColor: '#4F46E5' }} value={editCommentText} onChange={e => setEditCommentText(e.target.value)} autoFocus />
                   <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
                     <button onClick={() => setEditingCommentId(null)} style={{ ...styles.modalMiniBtn, backgroundColor: '#F1F5F9', color: '#64748B' }}>Cancel</button>
-                    <button onClick={() => handleEditSave(node)} style={{ ...styles.modalMiniBtn, color: '#3B82F6', backgroundColor: '#F1F5F9' }}>Save</button>
+                    <button onClick={() => handleEditSave(node)} style={{ ...styles.modalMiniBtn, color: '#4F46E5', backgroundColor: '#F1F5F9' }}>Save</button>
                   </div>
                 </div>
               ) : (
                 <>
                   <div style={styles.commentUserRow}>
-                    <span style={{ ...styles.commentUserName, color: '#1E293B' }}>{node.user?.name || node.user_name || 'User'}</span>
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                      <div style={{ display: 'flex', alignItems: 'center' }}>
+                        <span style={{ ...styles.commentUserName, color: node.is_official ? '#4338CA' : '#1E293B' }}>{node.user?.name || node.user_name || 'User'}</span>
+                        {node.is_official && (
+                          <span style={{ 
+                            marginLeft: '8px', padding: '2px 8px', borderRadius: '4px', 
+                            background: 'linear-gradient(135deg, #4F46E5 0%, #3730A3 100%)', color: 'white', 
+                            fontSize: '9px', fontWeight: '900', textTransform: 'uppercase',
+                            letterSpacing: '0.04em', boxShadow: '0 2px 4px rgba(79, 70, 229, 0.2)'
+                          }}>
+                            Official Response
+                          </span>
+                        )}
+                      </div>
+                      {node.is_official && node.admin_role_snapshot && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '1px' }}>
+                           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#4F46E5" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                           <span style={{ fontSize: '10px', color: '#4F46E5', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.02em' }}>
+                            {node.admin_role_snapshot}
+                           </span>
+                        </div>
+                      )}
+                    </div>
                     {node.user_id === currentUser?.id && (
                       <div style={styles.commentOptions}>
                         <button onClick={() => { setEditingCommentId(node.id); setEditCommentText(node.message); }} style={styles.btnIconTiny}><Icons.EditComment /></button>
@@ -824,7 +857,7 @@ const CommentModal = ({ item, currentUser, onClose, onShowToast, onRefreshProfil
                   </div>
                   <p style={{ ...styles.commentText, fontSize: '13px', color: '#1E293B' }}>
                     {node.message.split(' ').map((word, i) =>
-                      word.startsWith('@') ? <strong key={i} style={{ color: 'var(--primary-color)' }}>{word} </strong> : word + ' '
+                      word.startsWith('@') ? <strong key={i} style={{ color: '#4F46E5' }}>{word} </strong> : word + ' '
                     )}
                   </p>
                 </>
@@ -879,7 +912,19 @@ const CommentModal = ({ item, currentUser, onClose, onShowToast, onRefreshProfil
                   <span>{itemMeta.rating || 0}/5</span>
                 </div>
                 {itemMeta.status && (
-                  <div style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '10px', backgroundColor: '#EFF6FF', color: '#1D4ED8', fontWeight: 'bold', border: '1px solid #DBEAFE' }}>
+                  <div style={{ 
+                    fontSize: '10px', 
+                    padding: '2px 8px', 
+                    borderRadius: '10px', 
+                    backgroundColor: itemMeta.status.toUpperCase() === 'CLOSED' ? '#F1F5F9' : '#EFF6FF', 
+                    color: itemMeta.status.toUpperCase() === 'CLOSED' ? '#64748B' : '#1D4ED8', 
+                    fontWeight: 'bold', 
+                    border: '1px solid #DBEAFE',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}>
+                    {itemMeta.status.toUpperCase() === 'CLOSED' && <Icons.Lock size={10} />}
                     {itemMeta.status.toUpperCase()}
                   </div>
                 )}
@@ -898,6 +943,28 @@ const CommentModal = ({ item, currentUser, onClose, onShowToast, onRefreshProfil
 
             <h2 style={{ fontSize: '18px', fontWeight: '800', color: 'var(--primary-color)', margin: '0 0 12px 0', lineHeight: 1.3 }}>{itemMeta.title}</h2>
             <p style={{ ...styles.snippetTextFull, color: '#334155', lineHeight: 1.6, fontSize: '14px', marginBottom: '20px' }}>{itemMeta.description || itemMeta.comment}</p>
+
+            {/* CLOSURE CONTEXT (Lighter version) */}
+            {itemMeta.status?.toUpperCase() === 'CLOSED' && (
+              <div style={{ backgroundColor: '#F8FAFC', borderLeft: '3px solid #64748B', padding: '10px 14px', borderRadius: '6px', marginBottom: '20px', animation: 'fadeIn 0.3s ease' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                  <Icons.Lock size={12} color="#64748B" />
+                  <span style={{ fontWeight: '800', fontSize: '10px', color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    {getModeLabel("closed", "Closed")} Details
+                  </span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                  <div style={{ fontSize: '12px', color: '#1E293B' }}>
+                    <strong>{getModeLabel("closed", "Closed")} on:</strong> {formatDate(itemMeta.closed_at)}
+                  </div>
+                  {itemMeta.closure_note && (
+                    <div style={{ fontSize: '12px', color: '#475569', marginTop: '2px', fontStyle: 'italic' }}>
+                      "{itemMeta.closure_note}"
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* ATTACHMENTS */}
             {itemMeta.attachments && (
@@ -971,27 +1038,45 @@ const CommentModal = ({ item, currentUser, onClose, onShowToast, onRefreshProfil
         </div>
 
         <div style={{ ...styles.commentModalFooter, backgroundColor: '#FFFFFF', borderTop: '1px solid #E2E8F0' }}>
-          {replyingTo && (
-            <div style={{ ...styles.replyingToNotice, backgroundColor: '#F1F5F9', color: '#64748B' }}>
-              Replying to <strong style={{ color: '#1E293B' }}>{replyingTo.name}</strong>
-              <button onClick={() => setReplyingTo(null)} style={styles.cancelReplyBtn}>X</button>
-            </div>
-          )}
-          <div style={styles.modalInputWrapper}>
-            <input
-              id="modal-comment-input"
-              ref={commentInputRef}
-              type="text"
-              placeholder={replyingTo ? `Replying to ${replyingTo.name}...` : "Write a comment..."}
-              style={styles.modalCommentInput}
-              value={newComment}
-              onChange={(e) => setNewComment(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handlePostComment()}
-            />
-            <button style={{ ...styles.modalSendBtn, backgroundColor: 'var(--primary-color)' }} onClick={handlePostComment}>
-              Post
-            </button>
-          </div>
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                gap: '8px', 
+                padding: '12px', 
+                backgroundColor: '#F0FDF4', 
+                borderRadius: '12px',
+                border: '1px solid #DCFCE7',
+                color: '#15803D',
+                width: '100%',
+                marginBottom: '12px'
+              }}>
+                <Icons.CheckCircle size={14} color="#15803D" />
+                <span style={{ fontSize: '13px', fontWeight: '700' }}>
+                  Marked as resolved by admin
+                </span>
+              </div>
+              {replyingTo && (
+                <div style={{ ...styles.replyingToNotice, backgroundColor: '#F1F5F9', color: '#64748B' }}>
+                  Replying to <strong style={{ color: '#1E293B' }}>{replyingTo.name}</strong>
+                  <button onClick={() => setReplyingTo(null)} style={styles.cancelReplyBtn}>X</button>
+                </div>
+              )}
+              <div style={styles.modalInputWrapper}>
+                <input
+                  id="modal-comment-input"
+                  ref={commentInputRef}
+                  type="text"
+                  placeholder={replyingTo ? `Replying to ${replyingTo.name}...` : "Write a comment..."}
+                  style={styles.modalCommentInput}
+                  value={newComment}
+                  onChange={(e) => setNewComment(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handlePostComment()}
+                />
+                <button style={{ ...styles.modalSendBtn, backgroundColor: 'var(--primary-color)' }} onClick={handlePostComment}>
+                  Post
+                </button>
+              </div>
         </div>
       </div>
       {fullscreenImg && (
@@ -1200,12 +1285,17 @@ const FeedCard = ({ item: initialItem, currentUser, onShowToast, onOpenComments,
             )}
           </div>
         </div>
-        {item.status && item.status !== 'Open' && item.status !== 'OPEN' && (
+        {item.status && item.status.toUpperCase() === 'RESOLVED' && (
+          <div style={{ ...styles.statusBadge, backgroundColor: '#DCFCE7', color: '#15803D', border: '1px solid #BBF7D0', marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <Icons.CheckCircle size={10} /> RESOLVED
+          </div>
+        )}
+        {item.status && item.status.toUpperCase() !== 'RESOLVED' && item.status.toUpperCase() !== 'OPEN' && (
           <div style={{ ...styles.statusBadge, backgroundColor: getStatusColor(item.status), marginLeft: 'auto' }}>
             {item.status}
           </div>
         )}
-        <div style={{ position: 'relative', marginLeft: item.status !== 'Open' ? '6px' : 'auto' }}>
+        <div style={{ position: 'relative', marginLeft: (item.status && item.status.toUpperCase() !== 'OPEN') ? '6px' : 'auto' }}>
           <button
             onClick={(e) => { e.stopPropagation(); setShowOptions(!showOptions); }}
             style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: '#64748B' }}
@@ -1313,9 +1403,9 @@ const FeedCard = ({ item: initialItem, currentUser, onShowToast, onOpenComments,
   );
 };
 
-const DashboardView = ({ feed, loading, hasMore, onLoadMore, onAction, currentUser, onShowToast, onOpenComments, onRefresh, publicFeedEnabled, entities, setFullscreenImg }) => {
+const DashboardView = ({ feed, loading, hasMore, onLoadMore, onAction, currentUser, onShowToast, onOpenComments, onRefresh, publicFeedEnabled, entities, setFullscreenImg, statusFilter, setStatusFilter }) => {
   const [isHotTopicsExpanded, setIsHotTopicsExpanded] = useState(false);
-  const { getLabel, systemName } = useTerminology();
+  const { getLabel, getModeLabel, systemMode, systemName } = useTerminology();
   const [activeTab, setActiveTab] = useState('All');
   const [searchDash, setSearchDash] = useState("");
 
@@ -1388,8 +1478,6 @@ const DashboardView = ({ feed, loading, hasMore, onLoadMore, onAction, currentUs
   const trendingItems = allTrendingItems.slice(0, 3);
 
 
-  const level = calculateLevel(currentUser?.impact_points || 0);
-
   return (
     <div style={{ ...styles.fadeIn, display: 'flex', flexDirection: 'column', height: '100%', maxWidth: '1000px', margin: '0 auto', width: '100%', overflow: 'hidden' }}>
 
@@ -1436,7 +1524,7 @@ const DashboardView = ({ feed, loading, hasMore, onLoadMore, onAction, currentUs
               </button>
             ))}
           </div>
-
+          
           {/* SEARCH BOX BELOW TABS */}
           <div style={{ padding: '0 8px', marginBottom: '12px', marginTop: '4px' }}>
             <div style={{ position: 'relative' }}>
@@ -1532,53 +1620,17 @@ const DashboardView = ({ feed, loading, hasMore, onLoadMore, onAction, currentUs
                       }}
                       onMouseLeave={(e) => {
                         e.currentTarget.style.backgroundColor = index === 0 ? '#FFFFFF' : 'transparent';
-                        e.currentTarget.style.borderColor = index === 0 ? '#DBEAFE' : 'transparent';
-                        e.currentTarget.style.transform = 'translateY(0) scale(1)';
+                        e.currentTarget.style.borderColor = index === 0 ? '#DBEAFE' : '#F1F5F9';
+                        e.currentTarget.style.transform = 'none';
                         e.currentTarget.style.boxShadow = 'none';
                       }}
                     >
-                      {index === 0 && <div style={{ position: 'absolute', top: 0, right: 0, padding: '2px 8px', backgroundColor: 'var(--primary-color)', color: 'white', fontSize: '8px', fontWeight: '900', borderBottomLeftRadius: '8px' }}>TOP STORY</div>}
-
-                      <div style={{
-                        width: '28px',
-                        height: '28px',
-                        backgroundColor: index === 0 ? 'var(--primary-color)' : '#F1F5F9',
-                        color: index === 0 ? 'white' : '#64748B',
-                        borderRadius: '10px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontWeight: '900',
-                        fontSize: '12px',
-                        marginRight: '14px',
-                        flexShrink: 0,
-                        boxShadow: index === 0 ? '0 4px 8px rgba(var(--primary-rgb), 0.2)' : 'none'
-                      }}>
-                        {index + 1}
+                      <div style={{ backgroundColor: index === 0 ? '#EFF6FF' : '#F1F5F9', width: '32px', height: '32px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: '12px', flexShrink: 0 }}>
+                        <span style={{ fontSize: '14px', fontWeight: '900', color: index === 0 ? '#2563EB' : '#64748B' }}>{index + 1}</span>
                       </div>
-
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <p style={{
-                          margin: 0,
-                          fontSize: '14px',
-                          fontWeight: '700',
-                          color: '#1E293B',
-                          whiteSpace: 'normal',
-                          overflow: 'hidden',
-                          display: '-webkit-box',
-                          WebkitLineClamp: '2',
-                          WebkitBoxOrient: 'vertical',
-                          textOverflow: 'ellipsis',
-                          letterSpacing: '-0.01em',
-                          lineHeight: '1.4'
-                        }}>
-                          {item.title}
-                        </p>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '4px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <div style={{ backgroundColor: '#DBEAFE', padding: '2px', borderRadius: '4px', display: 'flex' }}><Icons.Message size={8} color="#1D4ED8" /></div>
-                            <span style={{ fontSize: '10px', color: '#1D4ED8', fontWeight: 'bold' }}>{item.replies_count || 0}</span>
-                          </div>
+                      <div style={{ flex: 1, overflow: 'hidden' }}>
+                        <h4 style={{ fontSize: '12px', fontWeight: '800', color: '#1E293B', margin: '0 0 2px 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.title}</h4>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                             <div style={{ backgroundColor: '#F0FDF4', padding: '2px', borderRadius: '4px', display: 'flex' }}><Icons.ThumbUp size={8} color="#166534" /></div>
                             <span style={{ fontSize: '10px', color: '#166534', fontWeight: 'bold' }}>{item.likes_count || 0}</span>
@@ -1587,9 +1639,6 @@ const DashboardView = ({ feed, loading, hasMore, onLoadMore, onAction, currentUs
                             <div style={{ backgroundColor: '#FEF2F2', padding: '2px', borderRadius: '4px', display: 'flex' }}><Icons.ThumbDown size={8} color="#991B1B" /></div>
                             <span style={{ fontSize: '10px', color: '#991B1B', fontWeight: 'bold' }}>{item.dislikes_count || 0}</span>
                           </div>
-                          <span style={{ fontSize: '9px', color: '#94A3B8', fontWeight: '600', marginLeft: 'auto' }}>
-                            {[item.barangay, item.city].filter(Boolean).join(', ')}
-                          </span>
                         </div>
                       </div>
                     </div>
@@ -1614,9 +1663,11 @@ const DashboardView = ({ feed, loading, hasMore, onLoadMore, onAction, currentUs
                 {loading ? (
                   <p style={styles.emptyText}>Loading feed...</p>
                 ) : filteredFeed.length > 0 ? (
-                  filteredFeed.map(item => (
-                    <FeedCard key={item.id} item={item} currentUser={currentUser} onShowToast={onShowToast} onOpenComments={onOpenComments} onRefresh={onRefresh} setFullscreenImg={setFullscreenImg} />
-                  ))
+                  <>
+                    {filteredFeed.map(item => (
+                      <FeedCard key={item.id} item={item} currentUser={currentUser} onShowToast={onShowToast} onOpenComments={onOpenComments} onRefresh={onRefresh} setFullscreenImg={setFullscreenImg} />
+                    ))}
+                  </>
                 ) : (
                   <div style={{ ...styles.emptyState, padding: '48px 20px', backgroundColor: 'white', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
                     <div style={{ width: '64px', height: '64px', backgroundColor: '#F1F5F9', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
