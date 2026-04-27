@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from "react";
 import { STORAGE_KEYS } from "../utils/storage";
 import { logoutUser } from "../utils/auth";
 import {
-  getEmotion,
   formatLocation,
   formatFeedbackDate,
   renderFeedbackAction,
@@ -18,7 +17,6 @@ import ActivityView from './ActivityView';
 import { getFeedbacks, getUserById, getUserNotifications, getFeedbackReplies, createFeedbackReply, updateFeedbackReply, deleteFeedbackReply, toggleReaction, toggleReplyReaction, getReactionsSummary, markNotificationsAsRead, updateFeedback, deleteFeedback, getAdminSettings, getEntities, acknowledgeBroadcast, updateUserPresence } from "../services/api";
 import { useTerminology } from "../context/TerminologyContext";
 import { IconRegistry } from "./IconRegistry";
-import { QRCodeCanvas } from "qrcode.react";
 
 const Icons = {
   CheckCircle: ({ size = 16, color = "currentColor" }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>,
@@ -57,32 +55,11 @@ const Icons = {
   Tag: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>,
 };
 
-const calculateLevel = (points) => {
-  if (points >= 500) return { lv: 5, name: "Gold Citizen", color: "#F59E0B" };
-  if (points >= 200) return { lv: 4, name: "Silver Citizen", color: "#94A3B8" };
-  if (points >= 100) return { lv: 3, name: "Bronze Citizen", color: "#B45309" };
-  if (points >= 50) return { lv: 2, name: "Active Citizen", color: "#10B981" };
-  return { lv: 1, name: "New Citizen", color: "var(--primary-color)" };
-};
-
-const calculateProfileCompletion = (user) => {
-  if (!user) return 0;
-  let score = 0;
-  if (user.first_name && user.last_name) score += 20;
-  if (user.email || user.phone) score += 20;
-  if (user.city && user.province) score += 30;
-  if (user.barangay) score += 10;
-  if (user.birthdate) score += 10;
-  if (user.citizenship) score += 10;
-  return score;
-};
 
 const FeedbackHub = ({ currentUser, onLogout }) => {
   const { getLabel, systemName, systemLogo } = useTerminology();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [view, setView] = useState(localStorage.getItem("userView") || "home");
-  const [activeView, setActiveView] = useState("dashboard");
   const [feed, setFeed] = useState([]);
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
@@ -93,14 +70,22 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [reportStep, setReportStep] = useState('general');
   const [dialogState, setDialogState] = useState({ isOpen: false });
-  const [notifications, setNotifications] = useState([]);
-  const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false);
+  const [, setNotifications] = useState([]);
+  // hasUnreadNotifications setter not needed currently
+
   const [commentingFeedback, setCommentingFeedback] = useState(null);
   const [selectedBroadcast, setSelectedBroadcast] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
   const [fullscreenImg, setFullscreenImg] = useState(null);
   const [statusFilter, setStatusFilter] = useState('ONGOING');
   const [resumeDraft, setResumeDraft] = useState(null);
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  // Real-time clock
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
   const [localUser, setLocalUser] = useState(() => {
     try { return JSON.parse(localStorage.getItem(STORAGE_KEYS.USER_CURRENT) || 'null') || currentUser; }
     catch { return currentUser; }
@@ -197,6 +182,7 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
     };
 
     return () => eventSource.close();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [localUser?.id]);
 
   const handleOpenNotifications = async () => {
@@ -232,6 +218,7 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
       fetchNotifications();
       fetchUserProfile();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, localUser?.id, statusFilter]);
 
   // Real-time Presence Heartbeat
@@ -374,6 +361,28 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
           </button>
         </div>
       </header>
+
+      {/* Live date/time bar */}
+      <div style={{
+        backgroundColor: '#FFFFFF',
+        borderBottom: '1px solid #E2E8F0',
+        padding: '5px 16px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '10px',
+        flexWrap: 'wrap'
+      }}>
+        <span style={{ fontSize: '10px', fontWeight: '700', color: '#94A3B8' }}>
+          {currentTime.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+        </span>
+        <span style={{ fontSize: '9px', color: '#CBD5E1' }}>•</span>
+        <span style={{ fontSize: '11px', fontWeight: '800', color: 'var(--primary-color)', fontFamily: "'Outfit', sans-serif", letterSpacing: '0.02em' }}>
+          {currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })}
+        </span>
+        <span style={{ fontSize: '9px', color: '#CBD5E1' }}>•</span>
+        <span style={{ fontSize: '10px', fontWeight: '600', color: '#94A3B8' }}>Manila (GMT+8)</span>
+      </div>
 
       <main style={styles.mainScroll}>
         {view === "home" ? (
@@ -631,7 +640,7 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
 };
 
 const CommentModal = ({ item, currentUser, onClose, onShowToast, onRefreshProfile, onRefreshFeed }) => {
-  const { getModeLabel, systemMode } = useTerminology();
+  const { getModeLabel: _getModeLabel } = useTerminology();
   const [dialogState, setDialogState] = useState({ isOpen: false });
   const [comments, setComments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -640,7 +649,8 @@ const CommentModal = ({ item, currentUser, onClose, onShowToast, onRefreshProfil
   const [editCommentText, setEditCommentText] = useState("");
   const [replyingTo, setReplyingTo] = useState(null); // { id, name }
   const [itemMeta, setItemMeta] = useState(item);
-  const [expandedThreads, setExpandedThreads] = useState({}); // { commentId: boolean }
+  // expandedThreads managed via setExpandedThreads only
+  const [, setExpandedThreads] = useState({});
   const commentInputRef = useRef(null);
 
   useEffect(() => {
@@ -652,6 +662,8 @@ const CommentModal = ({ item, currentUser, onClose, onShowToast, onRefreshProfil
   const toggleThread = (id) => {
     setExpandedThreads(prev => ({ ...prev, [id]: !prev[id] }));
   };
+  // eslint-disable-next-line no-unused-vars
+  void toggleThread;
 
   const [fullscreenImg, setFullscreenImg] = useState(null);
 
@@ -1166,14 +1178,14 @@ const FeedCard = ({ item: initialItem, currentUser, onShowToast, onOpenComments,
   };
 
   const isAnonymous = item.is_anonymous;
+  // avatarText and markerColor reserved for future rendering enhancements
+  // eslint-disable-next-line no-unused-vars
   const avatarText = isAnonymous ? "?" : (item.user_name || item.sender_name || 'U').charAt(0).toUpperCase();
-
-  const entityColorMap = {
-    1: '#3B82F6',
-    2: 'var(--primary-color)',
-    3: '#64748B'
-  };
-  const markerColor = entityColorMap[item.entity_id] || '#64748B';
+  // eslint-disable-next-line no-unused-vars
+  const markerColor = (() => {
+    const entityColorMap = { 1: '#3B82F6', 2: 'var(--primary-color)', 3: '#64748B' };
+    return entityColorMap[item.entity_id] || '#64748B';
+  })();
 
   const getEmotion = (rating) => {
     if (rating === 5) return "🤩 ecstatic";
@@ -1195,10 +1207,14 @@ const FeedCard = ({ item: initialItem, currentUser, onShowToast, onOpenComments,
     return item.entity_name || item.recipient_dept_name || 'General Office';
   };
 
+  // eslint-disable-next-line no-unused-vars
   const emotion = getEmotion(item.rating);
   const establishmentName = getEstablishmentName();
+  // eslint-disable-next-line no-unused-vars
   const locationHeader = establishmentName;
+  // eslint-disable-next-line no-unused-vars
   const locationText = (item.region || item.province || item.city || item.barangay) ? `${[item.barangay, item.city, item.province, item.region].filter(Boolean).join(', ')}` : '';
+  // eslint-disable-next-line no-unused-vars
   const senderName = item.is_anonymous ? 'Anonymous' : (item.user_name || 'Anonymous');
   const isOwner = currentUser && item.sender_id === currentUser.id;
 
@@ -1404,7 +1420,9 @@ const FeedCard = ({ item: initialItem, currentUser, onShowToast, onOpenComments,
 };
 
 const DashboardView = ({ feed, loading, hasMore, onLoadMore, onAction, currentUser, onShowToast, onOpenComments, onRefresh, publicFeedEnabled, entities, setFullscreenImg, statusFilter, setStatusFilter }) => {
+  // eslint-disable-next-line no-unused-vars
   const [isHotTopicsExpanded, setIsHotTopicsExpanded] = useState(false);
+  // eslint-disable-next-line no-unused-vars
   const { getLabel, getModeLabel, systemMode, systemName } = useTerminology();
   const [activeTab, setActiveTab] = useState('All');
   const [searchDash, setSearchDash] = useState("");
@@ -1726,6 +1744,8 @@ const DashboardView = ({ feed, loading, hasMore, onLoadMore, onAction, currentUs
   );
 };
 
+// CategorySelection reserved for future step-based form flow
+// eslint-disable-next-line no-unused-vars
 const CategorySelection = ({ onBack, onSelect }) => (
   <div style={{ ...styles.fadeIn, padding: '20px' }}>
     <button onClick={onBack} style={styles.backBtn}>← Back</button>
@@ -1901,7 +1921,7 @@ const styles = {
   notifContent: { width: '300px', height: '100%', backgroundColor: 'white', position: 'absolute', right: 0 },
   notifHeader: { padding: '20px', display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #E2E8F0' },
   notifTitle: { margin: 0, fontSize: '16px' },
-  closeBtn: { background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer' },
+  closeBtnSecondary: { background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer' },
   notifList: { flex: 1, padding: '10px' },
   reportOverlay: { position: 'fixed', inset: 0, backgroundColor: 'rgba(15, 23, 42, 0.6)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)', padding: '20px' },
   reportModalContent: { backgroundColor: '#F8FAFC', width: '100%', maxWidth: '420px', height: '85vh', maxHeight: '85vh', borderRadius: '24px', position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)' },
@@ -1963,8 +1983,8 @@ const styles = {
   translateBtn: { background: 'none', border: 'none', color: 'var(--primary-color)', fontSize: '12px', textAlign: 'left', padding: '0 0 8px 0', cursor: 'pointer', fontWeight: 'bold', textDecoration: 'underline' },
   reactionBtn: { border: 'none', display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', borderRadius: '16px', fontSize: '11px', cursor: 'pointer', transition: 'background-color 0.2s', fontWeight: 'bold' },
   toastModal: { position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', padding: '16px 24px', color: 'white', fontWeight: 'bold', fontSize: '15px', borderRadius: '30px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)', zIndex: 9999, animation: 'fadeIn 0.2s ease-out', pointerEvents: 'none' },
-  feedList: { display: 'flex', flexDirection: 'column', gap: '6px', padding: '6px' },
-  emptyText: { textAlign: 'center', color: '#94A3B8', fontSize: '14px', width: '100%', margin: '40px 0' }
+  feedListContainer: { display: 'flex', flexDirection: 'column', gap: '6px', padding: '6px' },
+  emptyFeedText: { textAlign: 'center', color: '#94A3B8', fontSize: '14px', width: '100%', margin: '40px 0' }
 };
 
 const BroadcastViewModal = ({ notif, currentUser, onClose }) => {

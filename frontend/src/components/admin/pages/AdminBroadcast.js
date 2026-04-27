@@ -12,7 +12,7 @@ import {
 import CustomModal from "../../CustomModal";
 // ── STYLES ──────────────────────────────────────────────────────────────────
 const labelStyle = { display: "block", fontSize: "10px", fontWeight: "900", color: "#64748B", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "8px" };
-const subLabelStyle = { display: "block", fontSize: "10px", fontWeight: "800", color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.05em" };
+
 const inputStyle = (theme) => ({ width: "100%", padding: "11px 14px", border: `1.5px solid ${theme.border}`, borderRadius: "14px", fontSize: "13px", fontWeight: "600", fontFamily: "inherit", color: theme.text, backgroundColor: theme.bg, outline: 'none', transition: '0.2s' });
 const textareaStyle = (theme) => ({ width: "100%", padding: "14px", border: `1.5px solid ${theme.border}`, borderRadius: "16px", fontSize: "13px", fontWeight: "500", fontFamily: "inherit", resize: "none", color: theme.text, backgroundColor: theme.bg, lineHeight: "1.6", outline: 'none', transition: '0.2s' });
 const primaryButtonStyle = { padding: "9px 18px", color: "white", border: "none", borderRadius: "12px", fontSize: "12px", fontWeight: "900", cursor: "pointer", transition: '0.2s' };
@@ -20,7 +20,7 @@ const secondaryButtonStyle = (theme) => ({ padding: "9px 18px", background: them
 const textLinkStyle = { fontSize: '12px', color: 'var(--primary-color)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '800' };
 const overlayStyle = { position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(8px)' };
 const modalStyle = (theme) => ({ background: theme.surface, width: '90%', borderRadius: '32px', border: `1px solid ${theme.border}`, boxShadow: '0 30px 60px rgba(0,0,0,0.2)' });
-const tabStyle = (theme) => ({ flex: 1, padding: '16px', fontSize: '11px', fontWeight: '900', border: 'none', background: 'none', cursor: 'pointer', transition: '0.2s' });
+
 const historyCardStyle = (theme, darkMode) => ({ padding: '16px', background: darkMode ? 'rgba(255,255,255,0.03)' : '#F8FAFC', borderRadius: '16px', border: `1px solid ${theme.border}` });
 const badgeStyle = ({ color, bg }) => ({ fontSize: '9px', fontWeight: '900', color, backgroundColor: bg, padding: '4px 8px', borderRadius: '6px', letterSpacing: '0.05em' });
 const templateItemStyle = (theme) => ({ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', background: theme.bg, borderRadius: '14px', border: `1px solid ${theme.border}` });
@@ -183,6 +183,7 @@ const AdminBroadcast = ({ theme, darkMode, adminUser }) => {
 
   useEffect(() => {
     fetchRecipientCount();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targetGroup]);
 
   const handleSend = async (status = "sent") => {
@@ -690,12 +691,7 @@ const SummaryItem = ({ label, value, theme, color }) => (
   </div>
 );
 
-const StatSmall = ({ label, value, theme, color }) => (
-  <div style={{ padding: '12px', background: theme.bg, borderRadius: '12px', border: `1px solid ${theme.border}` }}>
-    <p style={{ margin: 0, fontSize: '9px', fontWeight: '800', color: theme.textMuted, textTransform: 'uppercase' }}>{label}</p>
-    <p style={{ margin: '2px 0 0 0', fontSize: '18px', fontWeight: '900', color: color || 'var(--primary-color)' }}>{value}</p>
-  </div>
-);
+
 
 const CreateTemplateModal = ({ theme, isSaving, editingId, values, errors, onCancel, onSave, setValues }) => (
   <div style={overlayStyle}>
