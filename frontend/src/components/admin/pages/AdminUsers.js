@@ -402,7 +402,7 @@ const AdminUsers = ({ theme, darkMode, adminUser }) => {
         <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
         <head><meta charset='utf-8'><title>User Report</title></head>
         <body>
-          <h2>Account Management Report - ${activeScope}</h2>
+          <h2>User Management Report - ${activeScope}</h2>
           <p>Generated on: ${new Date().toLocaleString()}</p>
           <table border='1'>
             <thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead>
@@ -431,7 +431,7 @@ const AdminUsers = ({ theme, darkMode, adminUser }) => {
         <div style={{ display: "flex", justifyContent: "space-between", gap: "16px", flexWrap: "wrap" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
              <h2 style={{ margin: 0, fontSize: "18px", fontWeight: "800", color: theme.text }}>
-               Citizen Account Management 
+               User Management 
                <span style={{ marginLeft: '12px', fontSize: '12px', color: 'var(--primary-color)', background: 'var(--primary-color)10', padding: '4px 10px', borderRadius: '12px' }}>
                  {users.length} TOTAL
                </span>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { STORAGE_KEYS } from "../../utils/storage";
 import { logoutAdmin } from "../../utils/auth";
 import { useTerminology } from "../../context/TerminologyContext";
@@ -16,8 +16,8 @@ import CustomModal from "../CustomModal";
 import { adminGetPendingSuggestions, adminUpdatePresence } from "../../services/adminApi";
 
 const NAV_ITEMS = [
-  { id: "dashboard", label: "Insights Hub", icon: <ChartIcon /> },
-  { id: "users", label: "Account Management", icon: <UsersIcon /> },
+  { id: "dashboard", label: "INSIGHT HUB", icon: <ChartIcon /> },
+  { id: "users", label: "User Management", icon: <UsersIcon /> },
   { id: "feedbacks", label: "Submissions", icon: <FeedIcon /> },
   { id: "broadcast", label: "Announcements", icon: <BellIcon /> },
   { id: "broadcast_analytics", label: "Reach Analytics", icon: <ChartIcon />, isSub: true },
@@ -35,11 +35,11 @@ const AdminHub = ({ adminUser, onLogout }) => {
   const programsLabel = "Workspaces Hub";
   const [localAdminUser, setLocalAdminUser] = useState(adminUser);
   const hasGlobalAdminAccess = ["admin", "superadmin"].includes(localAdminUser?.role) && !localAdminUser?.department;
-  const getViewFromUrl = () => {
+  const getViewFromUrl = useCallback(() => {
     const p = window.location.pathname;
     const match = p.match(/^\/admin\/([^/]+)/);
     return match ? match[1] : (localStorage.getItem(STORAGE_KEYS.ADMIN_VIEW) || "dashboard");
-  };
+  }, []);
 
   const [view, setView] = useState(getViewFromUrl);
   const [darkMode, setDarkMode] = useState(localStorage.getItem(STORAGE_KEYS.ADMIN_DARK_MODE) === "true");
@@ -53,12 +53,12 @@ const AdminHub = ({ adminUser, onLogout }) => {
     return () => clearInterval(timer);
   }, []);
 
-  const fetchPendingCount = () => {
+  const fetchPendingCount = useCallback(() => {
     if (!hasGlobalAdminAccess) return;
     adminGetPendingSuggestions().then(data => {
       setPendingCount(data.length);
     }).catch(console.error);
-  };
+  }, [hasGlobalAdminAccess]);
 
   useEffect(() => {
     fetchPendingCount();
@@ -80,8 +80,7 @@ const AdminHub = ({ adminUser, onLogout }) => {
       clearInterval(interval);
       window.removeEventListener("popstate", handlePopState);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasGlobalAdminAccess, view]);
+  }, [hasGlobalAdminAccess, view, fetchPendingCount, getViewFromUrl]);
 
   // --- BRANDING: Primary Color Synchronization ---
   useEffect(() => {
@@ -354,11 +353,11 @@ const AdminHub = ({ adminUser, onLogout }) => {
               </p>
               <div style={styles.liveIndicatorContainer}>
                 <span style={{ ...styles.systemTime, color: theme.text }}>
-                  {currentTime.toLocaleTimeString("en-US", { 
-                    hour: '2-digit', 
-                    minute: '2-digit', 
-                    second: '2-digit', 
-                    hour12: localStorage.getItem('admin_time_format') !== '24h' 
+                  {currentTime.toLocaleTimeString("en-US", {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    hour12: localStorage.getItem('admin_time_format') !== '24h'
                   })}
                 </span>
                 <span style={styles.timezoneLabel}>Manila (GMT+8)</span>
@@ -394,6 +393,7 @@ function SettingsIcon() { return <svg width="15" height="15" viewBox="0 0 24 24"
 function SunIcon() { return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="5" /><line x1="12" y1="1" x2="12" y2="3" /><line x1="12" y1="21" x2="12" y2="23" /><line x1="4.22" y1="4.22" x2="5.64" y2="5.64" /><line x1="18.36" y1="18.36" x2="19.78" y2="19.78" /><line x1="1" y1="12" x2="3" y2="12" /><line x1="21" y1="12" x2="23" y2="12" /><line x1="4.22" y1="19.78" x2="5.64" y2="18.36" /><line x1="18.36" y1="5.64" x2="19.78" y2="4.22" /></svg>; }
 function MoonIcon() { return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>; }
 function OrgIcon() { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 00-3-3.87" /><path d="M16 3.13a4 4 0 010 7.75" /></svg>; }
+function ClockIcon() { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>; }
 
 
 const SIDEBAR_W = 280;

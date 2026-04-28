@@ -446,80 +446,93 @@ const UserOnboarding = ({ currentUser, onBack, onComplete }) => {
 const styles = {
   wrap: { 
     minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", 
-    background: "linear-gradient(to bottom, #F8FAFC, #F1F5F9)", padding: 20 
+    background: `
+      radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.15) 0px, transparent 50%),
+      radial-gradient(at 100% 0%, rgba(139, 92, 246, 0.1) 0px, transparent 50%),
+      radial-gradient(at 100% 100%, rgba(236, 72, 153, 0.05) 0px, transparent 50%),
+      radial-gradient(at 0% 100%, rgba(34, 197, 94, 0.05) 0px, transparent 50%),
+      #F8FAFC
+    `,
+    padding: 20 
   },
   card: { 
-    width: "100%", maxWidth: 640, background: "#FFFFFF", 
-    border: "1px solid #E2E8F0", 
-    borderRadius: 24, padding: 0, boxShadow: "0 20px 40px rgba(0,0,0,0.05)",
+    width: "100%", maxWidth: 680, 
+    background: "rgba(255, 255, 255, 0.8)", 
+    backdropFilter: 'blur(20px)',
+    border: "1px solid rgba(255, 255, 255, 0.5)", 
+    borderRadius: 32, padding: 0, 
+    boxShadow: "0 40px 80px -15px rgba(0,0,0,0.15), inset 0 0 0 1px rgba(255, 255, 255, 0.5)",
     overflow: "hidden"
   },
   header: {
-    background: "#FFFFFF",
-    padding: "32px", borderBottom: "1px solid #F1F5F9",
+    padding: "40px 32px 24px", 
     textAlign: "center"
   },
-  body: { padding: "32px" },
-  title: { margin: 0, color: "#0F172A", fontSize: 18, fontWeight: 900, letterSpacing: "-0.025em" },
-  sub: { marginTop: 4, color: "var(--primary-color)", fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.1em" },
+  body: { padding: "0 40px 40px" },
+  title: { margin: 0, color: "#0F172A", fontSize: 24, fontWeight: 900, letterSpacing: "-0.03em" },
+  sub: { marginTop: 8, color: "var(--primary-color)", fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: "1.5px" },
   warning: { 
     display: "flex", alignItems: "center", justifyContent: "center",
-    background: "#FEF2F2", color: "#EF4444", padding: "12px 16px", borderRadius: "12px", 
-    fontSize: "13px", fontWeight: "700", border: "1px solid #FEE2E2", margin: "10px 0 16px" 
+    background: "rgba(239, 68, 68, 0.05)", color: "#EF4444", padding: "14px 20px", borderRadius: "16px", 
+    fontSize: "13px", fontWeight: "700", border: "1px solid rgba(239, 68, 68, 0.1)", margin: "10px 0 24px" 
   },
   restoredDraft: {
-    display: 'flex', alignItems: 'center', background: "#F8FAFC", color: "#64748B", 
-    padding: "10px 16px", borderRadius: "12px", fontSize: "12px", fontWeight: "600", 
-    border: "1px solid #E2E8F0", marginBottom: 15, animation: 'fadeIn 0.3s ease-out'
+    display: 'flex', alignItems: 'center', background: "rgba(var(--primary-rgb), 0.05)", color: "var(--primary-color)", 
+    padding: "12px 20px", borderRadius: "16px", fontSize: "12px", fontWeight: "700", 
+    border: "1px solid rgba(var(--primary-rgb), 0.1)", marginBottom: 24, animation: 'fadeIn 0.3s ease-out'
   },
-  progress: { height: 6, background: "#F1F5F9", borderRadius: 99, overflow: "hidden", margin: "0 0 32px" },
-  progressFill: { height: "100%", background: "var(--primary-color)", transition: "width 0.4s ease" },
-  stepTitle: { fontWeight: 900, fontSize: 13, color: "#0F172A", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 20 },
-  inputGroup: { display: "flex", gap: 16, marginTop: 16 },
-  inputGroupFull: { display: "flex", flexDirection: "column", gap: 6, marginBottom: 16 },
-  fieldLabel: { fontSize: 12, color: "#475569", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.03em", paddingLeft: 2 },
-  sectionLabel: { fontSize: 13, color: "#0F172A", fontWeight: 900, marginBottom: 16 },
+  progress: { height: 8, background: "rgba(0,0,0,0.03)", borderRadius: 99, overflow: "hidden", margin: "0 0 40px" },
+  progressFill: { height: "100%", background: "linear-gradient(90deg, var(--primary-color), #6366F1)", boxShadow: "0 0 12px rgba(var(--primary-rgb), 0.3)", transition: "width 0.6s cubic-bezier(0.16, 1, 0.3, 1)" },
+  stepTitle: { fontWeight: 900, fontSize: 14, color: "#0F172A", textTransform: "uppercase", letterSpacing: "1px", marginBottom: 24, display: 'block' },
+  inputGroup: { display: "flex", gap: 20, marginTop: 20 },
+  inputGroupFull: { display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 },
+  fieldLabel: { fontSize: '10px', color: "#94A3B8", fontWeight: 800, textTransform: "uppercase", letterSpacing: "1px", paddingLeft: 4, marginBottom: 4 },
+  sectionLabel: { fontSize: 15, color: "#0F172A", fontWeight: 900, marginBottom: 20 },
   input: { 
-    width: "100%", padding: "10px 14px", border: "1.5px solid #E2E8F0", 
-    borderRadius: 12, fontSize: 13, boxSizing: "border-box", outline: "none",
-    transition: "all 0.2s", background: "#fff",
-    color: "#0F172A", fontWeight: 500
+    width: "100%", padding: "14px 18px", 
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    border: "1.5px solid rgba(0,0,0,0.05)", 
+    borderRadius: 16, fontSize: 15, boxSizing: "border-box", outline: "none",
+    transition: "all 0.2s",
+    color: "#1E293B", fontWeight: 600,
+    boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
   },
   optionalBox: {
-    background: "#F8FAFC", padding: 20, borderRadius: 16, border: "1px solid #E2E8F0", marginBottom: 20
+    background: "rgba(0,0,0,0.02)", padding: 24, borderRadius: 24, border: "1px solid rgba(0,0,0,0.03)", marginBottom: 24
   },
   badgeOptional: {
-    padding: "4px 10px", background: "#E2E8F0", color: "#475569", borderRadius: "20px", fontSize: "10px", fontWeight: "800", textTransform: "uppercase"
+    padding: "6px 12px", background: "rgba(0,0,0,0.05)", color: "#64748B", borderRadius: "20px", fontSize: "10px", fontWeight: "800", textTransform: "uppercase", letterSpacing: '0.5px'
   },
-  locationGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 },
+  locationGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 },
   uploadBox: { 
     display: "flex", alignItems: "center", justifyContent: "space-between", 
-    padding: "10px", border: "1.5px dashed #CBD5E1", borderRadius: 12, background: "#fff" 
+    padding: "16px", border: "2px dashed rgba(0,0,0,0.1)", borderRadius: 16, background: "rgba(255,255,255,0.5)" 
   },
-  avatarPreview: { width: 44, height: 44, objectFit: "cover", borderRadius: "50%", border: "2px solid #fff", boxShadow: "0 2px 4px rgba(0,0,0,0.1)" },
-  actions: { marginTop: 40, display: "flex", justifyContent: "space-between", gap: 12 },
+  avatarPreview: { width: 56, height: 56, objectFit: "cover", borderRadius: "18px", border: "2px solid #fff", boxShadow: "0 8px 16px rgba(0,0,0,0.1)" },
+  actions: { marginTop: 40, display: "flex", justifyContent: "space-between", gap: 16 },
   primaryBtn: { 
-    flex: 2, background: "var(--primary-color)", color: "#fff", border: "none", borderRadius: 12, 
-    padding: "14px 20px", cursor: "pointer", fontWeight: 800, fontSize: 14,
-    boxShadow: "0 4px 12px rgba(var(--primary-rgb), 0.2)", transition: "all 0.2s"
+    flex: 2, background: "linear-gradient(135deg, var(--primary-color), #4F46E5)", color: "#fff", border: "none", borderRadius: 16, 
+    padding: "16px 24px", cursor: "pointer", fontWeight: 800, fontSize: 15,
+    boxShadow: "0 12px 24px rgba(var(--primary-rgb), 0.25)", transition: "all 0.3s cubic-bezier(0.16, 1, 0.3, 1)"
   },
   secondaryBtn: { 
-    flex: 1, background: "#fff", color: "#475569", border: "1px solid #E2E8F0", 
-    borderRadius: 12, padding: "14px 20px", cursor: "pointer", fontWeight: 700, fontSize: 14 
+    flex: 1, background: "rgba(255, 255, 255, 0.8)", color: "#64748B", border: "1.5px solid rgba(0,0,0,0.05)", 
+    borderRadius: 16, padding: "16px 24px", cursor: "pointer", fontWeight: 700, fontSize: 15, transition: 'all 0.2s'
   },
   // Welcome Screen
-  welcomeWrap: { padding: "64px 32px", textAlign: "center", animation: "fadeIn 0.5s ease-out" },
+  welcomeWrap: { padding: "80px 40px", textAlign: "center", animation: "fadeIn 0.8s ease-out" },
   welcomeTick: { 
-    width: 80, height: 80, background: "var(--primary-color)", borderRadius: "50%", 
-    display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 32px",
-    boxShadow: "0 20px 40px rgba(var(--primary-rgb), 0.3)"
+    width: 96, height: 96, background: "linear-gradient(135deg, #10B981, #059669)", borderRadius: "32px", 
+    display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 40px",
+    boxShadow: "0 24px 48px rgba(16, 185, 129, 0.3)",
+    transform: 'rotate(-5deg)'
   },
-  welcomeTitle: { fontSize: 24, fontWeight: 900, color: "#0F172A", marginBottom: 12, letterSpacing: "-0.03em" },
-  welcomeSub: { fontSize: 14, color: "#64748B", fontWeight: 500, lineHeight: 1.6, maxWidth: 360, margin: "0 auto 32px" },
+  welcomeTitle: { fontSize: 28, fontWeight: 900, color: "#0F172A", marginBottom: 16, letterSpacing: "-0.04em" },
+  welcomeSub: { fontSize: 15, color: "#64748B", fontWeight: 500, lineHeight: 1.6, maxWidth: 380, margin: "0 auto 40px" },
   welcomeBtn: { 
-    background: "var(--primary-color)", color: "#fff", border: "none", borderRadius: 14, 
-    padding: "16px 40px", cursor: "pointer", fontWeight: 800, fontSize: 14,
-    boxShadow: "0 10px 20px rgba(var(--primary-rgb), 0.2)"
+    background: "linear-gradient(135deg, var(--primary-color), #4F46E5)", color: "#fff", border: "none", borderRadius: 18, 
+    padding: "18px 48px", cursor: "pointer", fontWeight: 800, fontSize: 15,
+    boxShadow: "0 16px 32px rgba(var(--primary-rgb), 0.3)", transition: 'all 0.3s'
   }
 };
 

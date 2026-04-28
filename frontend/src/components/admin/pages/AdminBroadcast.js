@@ -115,7 +115,7 @@ const AdminBroadcast = ({ theme, darkMode, adminUser }) => {
     setLastSaved(null);
   };
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       const [draftLogs, templates] = await Promise.all([
         adminGetBroadcastDrafts(),
@@ -124,7 +124,7 @@ const AdminBroadcast = ({ theme, darkMode, adminUser }) => {
       setDrafts(draftLogs);
       setCustomTemplates(templates);
     } catch (e) { console.error(e); }
-  };
+  }, []);
 
   const handleDeleteTemplate = async (id) => {
     if (adminUser.role !== 'superadmin') {
@@ -179,12 +179,7 @@ const AdminBroadcast = ({ theme, darkMode, adminUser }) => {
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [fetchRecipientCount]);
-
-  useEffect(() => {
-    fetchRecipientCount();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [targetGroup]);
+  }, [fetchData, fetchRecipientCount]);
 
   const handleSend = async (status = "sent") => {
     if (!message.trim() || !title.trim()) return;

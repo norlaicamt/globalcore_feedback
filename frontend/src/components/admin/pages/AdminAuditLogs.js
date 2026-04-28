@@ -1,31 +1,31 @@
 import React, { useEffect, useState } from "react";
 import { adminGetAuditLogs, adminGetStaffList } from "../../../services/adminApi";
- 
- // --- HELPER: Relative Time ---
- const formatRelativeTime = (dateStr) => {
-   if (!dateStr || dateStr === "None") return "Never";
-   try {
-     const date = new Date(dateStr);
-     if (isNaN(date.getTime())) return "Never";
-     const now = new Date();
-     const diff = Math.floor((now - date) / 1000);
-     
-     if (diff < 60) return "Just now";
-     if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-     if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-     if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
-     return date.toLocaleDateString();
-   } catch (e) {
-     return "Never";
-   }
- };
- 
- const getPresenceInfo = (user) => {
+
+// --- HELPER: Relative Time ---
+const formatRelativeTime = (dateStr) => {
+  if (!dateStr || dateStr === "None") return "Never";
+  try {
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return "Never";
+    const now = new Date();
+    const diff = Math.floor((now - date) / 1000);
+
+    if (diff < 60) return "Just now";
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+    if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
+    return date.toLocaleDateString();
+  } catch (e) {
+    return "Never";
+  }
+};
+
+const getPresenceInfo = (user) => {
   if (!user.last_seen || user.last_seen === "None") return { isOnline: false, status: "Offline", label: "Offline", color: "#94A3B8" };
   const lastSeen = new Date(user.last_seen);
   const now = new Date();
   const diffMs = now - lastSeen;
-  
+
   if (diffMs < 120000) { // 2 mins
     return { isOnline: true, isIdle: false, status: user.current_module || "Monitoring Portal", label: "Online", color: "#10B981", lastActive: "Just now" };
   } else if (diffMs < 600000) { // 10 mins
@@ -41,11 +41,11 @@ const AdminAuditLogs = ({ theme, darkMode, adminUser }) => {
   const [loading, setLoading] = useState(true);
   const [showRegistry, setShowRegistry] = useState(false);
   const [expandedId, setExpandedId] = useState(null);
-  
+
   // Registry Search & Filters
   const [regSearch, setRegSearch] = useState("");
   const [regFilter, setRegFilter] = useState("all"); // all, online, idle, offline
-  
+
   // Audit Trail Filters
   const [filterAction, setFilterAction] = useState("");
   const [searchAdmin, setSearchAdmin] = useState("");
@@ -93,42 +93,42 @@ const AdminAuditLogs = ({ theme, darkMode, adminUser }) => {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "16px", position: "relative" }}>
-      
+
       {/* 🧭 Header & Staff Registry Toggle */}
       <div style={{ background: theme.surface, padding: "18px 20px", borderRadius: "12px", border: `1px solid ${theme.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div>
           <h2 style={{ fontSize: "16px", fontWeight: "700", margin: "0 0 4px" }}>Governance & Audit Trail</h2>
           <p style={{ fontSize: "12px", color: theme.textMuted, margin: 0 }}>
-            {hasGlobalAdminAccess 
+            {hasGlobalAdminAccess
               ? "Comprehensive oversight of all administrative actions and system modifications."
               : `Tracking actions within the ${adminUser?.department} scope.`}
           </p>
         </div>
-        
+
         <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
           {hasGlobalAdminAccess && (
-            <button 
+            <button
               onClick={() => setShowRegistry(true)}
-              style={{ 
-                padding: "8px 16px", borderRadius: "10px", background: "var(--primary-color)10", 
+              style={{
+                padding: "8px 16px", borderRadius: "10px", background: "var(--primary-color)10",
                 color: "var(--primary-color)", border: "none", fontSize: "12px", fontWeight: "800", cursor: "pointer",
                 display: "flex", alignItems: "center", gap: "8px"
               }}
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
               View Staff Registry
             </button>
           )}
           <div style={{ height: "24px", width: "1px", background: theme.border, margin: "0 4px" }} />
-          <input 
-            type="text" 
-            placeholder="Search Admin..." 
+          <input
+            type="text"
+            placeholder="Search Admin..."
             value={searchAdmin}
             onChange={(e) => setSearchAdmin(e.target.value)}
             style={{ padding: "8px 12px", borderRadius: "8px", border: `1px solid ${theme.border}`, background: theme.bg, color: theme.text, fontSize: "12px", outline: "none", width: "180px" }}
           />
-          <select 
-            value={filterAction} 
+          <select
+            value={filterAction}
             onChange={(e) => setFilterAction(e.target.value)}
             style={{ padding: "8px 12px", borderRadius: "8px", border: `1px solid ${theme.border}`, background: theme.bg, color: theme.text, fontSize: "12px", outline: "none", cursor: "pointer" }}
           >
@@ -156,7 +156,7 @@ const AdminAuditLogs = ({ theme, darkMode, adminUser }) => {
             <tbody>
               {filteredLogs.map(log => {
                 const action = getActionData(log.action_type);
-                
+
                 let severityColor = theme.textMuted;
                 if (action.severity === "Critical") severityColor = "#EF4444";
                 if (action.severity === "Normal") severityColor = "#3B82F6";
@@ -183,7 +183,7 @@ const AdminAuditLogs = ({ theme, darkMode, adminUser }) => {
                       </div>
                     </td>
                     <td style={tdStyle}>
-                      <span style={{ 
+                      <span style={{
                         padding: "4px 8px", borderRadius: "6px", fontSize: "10px", fontWeight: "800", textTransform: "uppercase",
                         background: action.bg, color: action.color
                       }}>
@@ -191,15 +191,15 @@ const AdminAuditLogs = ({ theme, darkMode, adminUser }) => {
                       </span>
                     </td>
                     <td style={tdStyle}>
-                       <span style={{ fontSize: "11px", fontWeight: "700", color: severityColor }}>
-                         {action.severity}
-                       </span>
+                      <span style={{ fontSize: "11px", fontWeight: "700", color: severityColor }}>
+                        {action.severity}
+                      </span>
                     </td>
                     <td style={{ ...tdStyle, color: theme.textMuted, fontSize: '11px' }}>ID: {log.target_id || "—"}</td>
                     <td style={{ ...tdStyle, maxWidth: "300px" }}>
-                      <div style={{ 
-                        fontSize: "11px", color: theme.textMuted, background: darkMode ? "#1E293B" : "#F1F5F9", 
-                        padding: "6px 10px", borderRadius: "8px", fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis" 
+                      <div style={{
+                        fontSize: "11px", color: theme.textMuted, background: darkMode ? "#1E293B" : "#F1F5F9",
+                        padding: "6px 10px", borderRadius: "8px", fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis"
                       }}>
                         {JSON.stringify(log.details)}
                       </div>
@@ -217,11 +217,11 @@ const AdminAuditLogs = ({ theme, darkMode, adminUser }) => {
 
       {/* 👥 Staff Registry Modal (Drawer) */}
       {showRegistry && (
-        <div 
+        <div
           style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.4)", zIndex: 2000, display: "flex", justifyContent: "flex-end" }}
           onClick={() => setShowRegistry(false)}
         >
-          <div 
+          <div
             style={{ width: "450px", height: "100%", background: theme.surface, boxShadow: "-10px 0 40px rgba(0,0,0,0.2)", display: "flex", flexDirection: "column" }}
             onClick={e => e.stopPropagation()}
           >
@@ -232,24 +232,24 @@ const AdminAuditLogs = ({ theme, darkMode, adminUser }) => {
               </div>
               <button onClick={() => setShowRegistry(false)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: "24px", color: theme.textMuted }}>&times;</button>
             </div>
-              {/* 🔍 Registry Filters */}
+            {/* 🔍 Registry Filters */}
             <div style={{ padding: "16px", borderBottom: `1px solid ${theme.border}`, display: "flex", flexDirection: "column", gap: "10px" }}>
               <div style={{ position: "relative" }}>
-                <input 
-                  type="text" 
-                  placeholder="Search staff..." 
+                <input
+                  type="text"
+                  placeholder="Search staff..."
                   value={regSearch}
                   onChange={(e) => setRegSearch(e.target.value)}
                   style={{ width: "100%", padding: "8px 12px 8px 32px", borderRadius: "8px", border: `1px solid ${theme.border}`, background: theme.bg, color: theme.text, fontSize: "12px", outline: "none" }}
                 />
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={theme.textMuted} strokeWidth="2.5" style={{ position: "absolute", left: "10px", top: "50%", transform: "translateY(-50%)" }}><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={theme.textMuted} strokeWidth="2.5" style={{ position: "absolute", left: "10px", top: "50%", transform: "translateY(-50%)" }}><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
               </div>
               <div style={{ display: "flex", gap: "6px" }}>
                 {["all", "online", "idle", "offline"].map(f => (
-                  <button 
+                  <button
                     key={f}
                     onClick={() => setRegFilter(f)}
-                    style={{ 
+                    style={{
                       padding: "4px 10px", borderRadius: "6px", fontSize: "10px", fontWeight: "700", textTransform: "uppercase",
                       background: regFilter === f ? "var(--primary-color)" : (darkMode ? "rgba(255,255,255,0.05)" : "#F1F5F9"),
                       color: regFilter === f ? "white" : theme.textMuted,
@@ -261,7 +261,7 @@ const AdminAuditLogs = ({ theme, darkMode, adminUser }) => {
                 ))}
               </div>
             </div>
-            
+
             <div style={{ flex: 1, overflowY: "auto", padding: "12px" }}>
               <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
                 {staff
@@ -285,20 +285,20 @@ const AdminAuditLogs = ({ theme, darkMode, adminUser }) => {
                     const isSuper = s.role === "superadmin";
                     const presence = getPresenceInfo(s);
                     const isExpanded = expandedId === s.id;
-                    
+
                     return (
-                      <div 
-                        key={s.id} 
-                        style={{ 
-                          borderRadius: "10px", border: `1px solid ${isExpanded ? theme.border : "transparent"}`, 
-                          background: isExpanded ? theme.bg : "transparent", transition: "0.2s", overflow: "hidden" 
+                      <div
+                        key={s.id}
+                        style={{
+                          borderRadius: "10px", border: `1px solid ${isExpanded ? theme.border : "transparent"}`,
+                          background: isExpanded ? theme.bg : "transparent", transition: "0.2s", overflow: "hidden"
                         }}
                       >
                         {/* Compact Header */}
-                        <div 
+                        <div
                           onClick={() => setExpandedId(isExpanded ? null : s.id)}
-                          style={{ 
-                            padding: "10px 12px", display: "flex", alignItems: "center", justifyContent: "space-between", 
+                          style={{
+                            padding: "10px 12px", display: "flex", alignItems: "center", justifyContent: "space-between",
                             cursor: "pointer", borderRadius: "8px"
                           }}
                           onMouseEnter={e => !isExpanded && (e.currentTarget.style.background = darkMode ? "rgba(255,255,255,0.03)" : "#F8FAFC")}
@@ -325,7 +325,7 @@ const AdminAuditLogs = ({ theme, darkMode, adminUser }) => {
                             </div>
                           </div>
                           <div style={{ transform: isExpanded ? "rotate(180deg)" : "none", transition: "0.2s", color: theme.textMuted }}>
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="m6 9 6 6 6-6"/></svg>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="m6 9 6 6 6-6" /></svg>
                           </div>
                         </div>
 
@@ -333,7 +333,7 @@ const AdminAuditLogs = ({ theme, darkMode, adminUser }) => {
                         {isExpanded && (
                           <div style={{ padding: "0 12px 12px 54px", borderTop: `1px solid ${theme.border}10` }}>
                             <p style={{ margin: "4px 0 8px", fontSize: "11px", color: theme.textMuted }}>{s.email}</p>
-                            
+
                             {presence.isOnline && (
                               <div style={{ marginBottom: "12px" }}>
                                 <p style={{ margin: 0, fontSize: "9px", fontWeight: "800", color: "#94A3B8", textTransform: 'uppercase' }}>Current Activity</p>
@@ -352,18 +352,18 @@ const AdminAuditLogs = ({ theme, darkMode, adminUser }) => {
                               </div>
                             </div>
 
-                            <button 
+                            <button
                               onClick={() => {
                                 setSearchAdmin(s.name);
                                 setShowRegistry(false);
                               }}
-                              style={{ 
-                                width: "100%", padding: "6px", borderRadius: "6px", border: `1px solid ${theme.border}`, 
-                                background: darkMode ? "rgba(255,255,255,0.05)" : "#F8FAFC", color: theme.text, fontSize: "10px", fontWeight: "700", 
+                              style={{
+                                width: "100%", padding: "6px", borderRadius: "6px", border: `1px solid ${theme.border}`,
+                                background: darkMode ? "rgba(255,255,255,0.05)" : "#F8FAFC", color: theme.text, fontSize: "10px", fontWeight: "700",
                                 cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px"
                               }}
                             >
-                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
                               Trace Activity
                             </button>
                           </div>

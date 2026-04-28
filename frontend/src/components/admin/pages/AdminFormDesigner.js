@@ -17,13 +17,13 @@ import CustomModal from "../../CustomModal";
 // --- UI Constants ---
 const st = {
   select: (t) => ({ padding: '8px 12px', borderRadius: '10px', border: `1px solid ${t.border}`, background: t.bg, color: t.text, outline: 'none' }),
-  input: (t) => ({ width: '100%', padding: '9px 12px', borderRadius: '9px', border: `1px solid ${t.border}`, background: t.bg, color: t.text, fontSize: '13px', outline: 'none' }),
+  input: (t) => ({ width: '100%', padding: '10px 14px', borderRadius: '10px', border: `1px solid ${t.border}`, background: t.bg, color: t.text, fontSize: '13px', outline: 'none', lineHeight: '1.4' }),
 
   // Base button style for consistency
   btnBase: (t) => ({
     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-    height: '40px', padding: '0 16px', borderRadius: '12px',
-    fontSize: '12px', fontWeight: '700', cursor: 'pointer', transition: 'all 0.2s', border: 'none',
+    height: '36px', padding: '0 16px', borderRadius: '10px',
+    fontSize: '14px', fontWeight: '600', cursor: 'pointer', transition: 'all 0.2s', border: 'none',
     outline: 'none', whiteSpace: 'nowrap'
   }),
 
@@ -41,18 +41,18 @@ const st = {
     ...st.btnBase(t), background: 'none', color: t.textMuted, padding: '0 12px'
   }),
 
-  addBtn: (t) => ({ background: 'none', border: `1px dashed ${t.border}`, borderRadius: '9px', padding: '6px 12px', color: 'var(--primary-color)', fontSize: '12px', fontWeight: '700', cursor: 'pointer' }),
-  addItemBtn: (color, bg) => ({ flex: 1, padding: '7px 10px', borderRadius: '8px', border: `1.5px dashed ${color}30`, background: bg, color, fontSize: '12px', fontWeight: '700', cursor: 'pointer' }),
+  addBtn: (t) => ({ background: 'none', border: `1px dashed ${t.border}`, borderRadius: '10px', padding: '8px 16px', color: 'var(--primary-color)', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }),
+  addItemBtn: (color, bg) => ({ flex: 1, padding: '8px 12px', borderRadius: '10px', border: `1.5px dashed ${color}30`, background: bg, color, fontSize: '14px', fontWeight: '600', cursor: 'pointer' }),
   libraryBtn: (t) => ({ padding: '12px 10px', borderRadius: '12px', background: 'white', border: `1px solid ${t.border}`, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '2px', cursor: 'pointer', textAlign: 'left', transition: 'all 0.2s ease', height: '100%' }),
   librarySearch: (t) => ({ width: '100%', padding: '8px 12px', borderRadius: '10px', border: `1px solid ${t.border}`, background: 'white', fontSize: '12px', marginBottom: '12px', outline: 'none' }),
   toggle: (active) => ({ width: '28px', height: '14px', borderRadius: '20px', background: active ? 'var(--primary-color)' : '#E2E8F0', position: 'relative', cursor: 'pointer', transition: 'all 0.2s', display: 'inline-block' }),
   toggleKnob: (active) => ({ width: '10px', height: '10px', borderRadius: '50%', background: 'white', position: 'absolute', top: '2px', left: active ? '16px' : '2px', transition: 'all 0.2s' }),
 
-  segmentedControl: (t) => ({ display: 'flex', background: 'rgba(0,0,0,0.05)', padding: '4px', borderRadius: '12px', border: `1px solid ${t.border}`, height: '40px', boxSizing: 'border-box' }),
+  segmentedControl: (t) => ({ display: 'flex', background: 'rgba(0,0,0,0.05)', padding: '4px', borderRadius: '10px', border: `1px solid ${t.border}`, height: '36px', boxSizing: 'border-box' }),
   segment: (active, t) => ({
     display: 'flex', alignItems: 'center', justifyContent: 'center',
-    padding: '0 16px', borderRadius: '9px', background: active ? 'white' : 'transparent',
-    color: active ? 'var(--primary-color)' : t.textMuted, fontSize: '12px', fontWeight: '800',
+    padding: '0 16px', borderRadius: '8px', background: active ? 'white' : 'transparent',
+    color: active ? 'var(--primary-color)' : t.textMuted, fontSize: '14px', fontWeight: '600',
     border: 'none', cursor: 'pointer', transition: 'all 0.2s', height: '100%',
     boxShadow: active ? '0 2px 4px rgba(0,0,0,0.05)' : 'none'
   })
@@ -95,7 +95,8 @@ const Ico = {
   Unlock: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 9.9-1" /></svg>,
   ArrowRight: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" /></svg>,
   X: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>,
-  Minus: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12" /></svg>,
+  Undo: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7v6h6" /><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13" /></svg>,
+  RotateCcw: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="1 4 1 10 7 10" /><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" /></svg>,
 };
 
 const FIELD_TYPES = [
@@ -302,6 +303,7 @@ function AdminFormDesigner({ theme, darkMode, adminUser }) {
   const [isDirty, setIsDirty] = useState(false);
   const [editingTemplateId, setEditingTemplateId] = useState(null); // Track if current config is based on a template
   const [galleryFilter, setGalleryFilter] = useState('ALL');
+  const [history, setHistory] = useState([]);
   const previewChannel = React.useRef(null);
 
   useEffect(() => {
@@ -411,6 +413,53 @@ function AdminFormDesigner({ theme, darkMode, adminUser }) {
     }
   }, [config, selectedEntId]);
 
+  // Handle history snapshots
+  const pushHistory = (newConfig) => {
+    setHistory(prev => {
+      const next = [JSON.stringify(config), ...prev].slice(0, 20); // Keep last 20
+      return next;
+    });
+  };
+
+  const handleUndo = () => {
+    if (history.length === 0) return;
+    const prev = history[0];
+    setHistory(history.slice(1));
+    setConfig(JSON.parse(prev));
+  };
+
+  const handleReset = () => {
+    setModal({
+      isOpen: true,
+      title: "Reset Interaction Flow?",
+      message: "This will remove all custom steps and reset to a clean slate. This action cannot be undone.",
+      type: "confirm",
+      confirmText: "Reset to Zero",
+      isDestructive: true,
+      onConfirm: () => {
+        pushHistory(config);
+        const resetConfig = {
+          ...config,
+          steps: [{
+            id: `step_${Date.now()}`,
+            label: "Service Selection",
+            enabled: true,
+            items: [{
+              id: `mod_init_${Date.now()}`,
+              type: "module",
+              key: "entity_picker",
+              label_override: "Select Service",
+              required: true,
+              config: {}
+            }]
+          }]
+        };
+        setConfig(resetConfig);
+        setModal({ isOpen: false });
+      }
+    });
+  };
+
   const handleSave = async () => {
     const errors = validateConfig(config);
     const hasErrors = errors.length > 0;
@@ -483,22 +532,6 @@ function AdminFormDesigner({ theme, darkMode, adminUser }) {
     });
   };
 
-  const handleDiscard = () => {
-    if (!isDirty) return;
-    setModal({
-      isOpen: true,
-      title: "Discard Changes?",
-      message: "This will revert all unsaved modifications to the last deployed version for this entity.",
-      type: "confirm",
-      confirmText: "Discard",
-      isDestructive: true,
-      onConfirm: () => {
-        setConfig(JSON.parse(JSON.stringify(initialConfig)));
-        setModal({ isOpen: false });
-      },
-      onCancel: () => setModal({ isOpen: false })
-    });
-  };
 
   const getDefaultItem = (key) => {
     const module = MODULE_OPTIONS.flatMap(g => g.items).find(m => m.key === key);
@@ -548,6 +581,7 @@ function AdminFormDesigner({ theme, darkMode, adminUser }) {
         config: {}
       }] : []
     };
+    pushHistory(config);
     setConfig({ ...config, steps: [...(config.steps || []), newStep] });
     setExpandedSteps(prev => ({ ...prev, [newStep.id]: true }));
   };
@@ -562,12 +596,14 @@ function AdminFormDesigner({ theme, darkMode, adminUser }) {
       });
       return;
     }
+    pushHistory(config);
     const steps = config.steps.filter((_, i) => i !== sIdx);
     setConfig({ ...config, steps });
     setSelectedItem(null);
   };
 
   const updateStep = (sIdx, key, val) => {
+    pushHistory(config);
     const steps = [...config.steps];
     steps[sIdx] = { ...steps[sIdx], [key]: val };
     setConfig({ ...config, steps });
@@ -578,6 +614,7 @@ function AdminFormDesigner({ theme, darkMode, adminUser }) {
     const steps = [...config.steps];
     const newItem = getDefaultItem(key);
 
+    pushHistory(config);
     steps[sIdx].items = [...(steps[sIdx].items || []), newItem];
     setConfig({ ...config, steps });
     setSelectedItem({ sIdx, itIdx: steps[sIdx].items.length - 1 });
@@ -585,6 +622,7 @@ function AdminFormDesigner({ theme, darkMode, adminUser }) {
 
   const updateItem = (sIdx, iIdx, key, val) => {
     if (config.steps[sIdx]?.locked) return; // Prevent updates if locked
+    pushHistory(config);
     const steps = [...config.steps];
     const items = [...steps[sIdx].items];
     items[iIdx] = { ...items[iIdx], [key]: val };
@@ -594,6 +632,7 @@ function AdminFormDesigner({ theme, darkMode, adminUser }) {
 
   const removeItem = (sIdx, iIdx) => {
     if (config.steps[sIdx]?.locked) return; // Prevent removal if locked
+    pushHistory(config);
     const steps = [...config.steps];
     steps[sIdx].items = steps[sIdx].items.filter((_, i) => i !== iIdx);
     setConfig({ ...config, steps });
@@ -601,6 +640,10 @@ function AdminFormDesigner({ theme, darkMode, adminUser }) {
 
   const updateTerminology = (key, val) => {
     setConfig({ ...config, terminology: { ...config.terminology, [key]: val } });
+  };
+
+  const updateTheme = (key, val) => {
+    setConfig({ ...config, theme: { ...config.theme, [key]: val } });
   };
 
   const handleLayoutModeChange = (mode) => {
@@ -650,7 +693,7 @@ function AdminFormDesigner({ theme, darkMode, adminUser }) {
     if (!tpl) return;
     const newConfig = JSON.parse(JSON.stringify(tpl.config));
     setConfig(newConfig);
-    setInitialConfig(JSON.parse(JSON.stringify(newConfig))); // Reset dirty state to current template
+    // Removed setInitialConfig to allow 'Deploy' button to activate relative to program's original config
     setShowGallery(false);
     setModal({
       isOpen: true,
@@ -698,68 +741,96 @@ function AdminFormDesigner({ theme, darkMode, adminUser }) {
   };
 
   const saveAsTemplate = async () => {
-    const currentTpl = templates.find(t => t.id === editingTemplateId);
+    console.log("SAVE AS TEMPLATE CLICKED - VERSION 2");
+    await fetchTemplates(); // Ensure we have latest list
+    const editableTemplates = templates.filter(t => !t.is_system);
 
-    if (editingTemplateId) {
-      setModal({
-        isOpen: true,
-        title: "Update Template?",
-        message: `Save changes to the existing template "${currentTpl?.name}"?`,
-        type: "confirm",
-        confirmText: "Update Existing",
-        onConfirm: () => {
-          setModal({ isOpen: false });
-          executeUpdateTemplate(currentTpl);
-        },
-        onCancel: () => {
-          setModal({ isOpen: false });
-          // If they cancel update, maybe they want to save as new?
-          // For now, just close.
-        }
-      });
-    } else {
-      // New Template flow
-      setModal({
-        isOpen: true,
-        title: "Save as Template",
-        message: "Define a name and category for this organizational standard.",
-        type: "confirm",
-        confirmText: "Create Template",
-        content: (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '8px', width: '100%', boxSizing: 'border-box' }}>
-            <div style={{ textAlign: 'left' }}>
-              <label style={{ fontSize: '10px', fontWeight: '900', color: theme.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Template Name</label>
+    setModal({
+      isOpen: true,
+      title: "Save as Template",
+      message: "Define a name and category for this organizational standard.",
+      type: "confirm",
+      confirmText: "Save Template",
+      content: (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginTop: '16px', width: '100%', boxSizing: 'border-box' }}>
+          <div style={{ textAlign: 'left' }}>
+            <label style={{ fontSize: '10px', fontWeight: '900', color: theme.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Template Name</label>
+            <div style={{ position: 'relative', marginTop: '6px' }}>
               <input
-                autoFocus
-                defaultValue=""
                 id="modal-tpl-name"
+                list="tpl-datalist"
                 placeholder="e.g., Q1 Service Evaluation"
-                style={{ ...st.input(theme), marginTop: '6px', boxSizing: 'border-box' }}
+                style={{ ...st.input(theme), paddingRight: '40px' }}
+                autoFocus
+                onInput={(e) => {
+                  const val = e.target.value;
+                  const tpl = editableTemplates.find(t => t.name.toLowerCase() === val.toLowerCase());
+                  const confirmBtn = document.querySelector('[data-modal-confirm]');
+                  
+                  if (tpl) {
+                    const catEl = document.getElementById('modal-tpl-cat');
+                    if (catEl) catEl.value = tpl.category || "General";
+                    if (confirmBtn) confirmBtn.innerText = "Overwrite Template";
+                  } else {
+                    if (confirmBtn) confirmBtn.innerText = "Save Template";
+                  }
+                }}
               />
+              <datalist id="tpl-datalist">
+                {editableTemplates.map(t => <option key={t.id} value={t.name} />)}
+              </datalist>
+              <div style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: theme.textMuted, opacity: 0.5 }}>
+                {Ico.ChevronDown}
+              </div>
             </div>
-            <div style={{ textAlign: 'left' }}>
-              <label style={{ fontSize: '10px', fontWeight: '900', color: theme.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Category</label>
-              <input
-                id="modal-tpl-cat"
-                defaultValue="General"
-                placeholder="e.g., Healthcare, Retail"
-                style={{ ...st.input(theme), marginTop: '6px', boxSizing: 'border-box' }}
-              />
-            </div>
+            {editableTemplates.length > 0 && (
+              <p style={{ margin: '6px 0 0', fontSize: '10px', color: theme.textMuted, fontStyle: 'italic' }}>
+                Tip: Type a name or select from the dropdown to overwrite an existing template.
+              </p>
+            )}
           </div>
-        ),
-        onConfirm: () => {
-          const name = document.getElementById('modal-tpl-name')?.value;
-          const category = document.getElementById('modal-tpl-cat')?.value || "General";
-          if (!name) {
-            alert("Name is required"); // Browser alert is fine for validation or I could show inline
-            return;
-          }
+
+          <div style={{ textAlign: 'left' }}>
+            <label style={{ fontSize: '10px', fontWeight: '900', color: theme.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Category</label>
+            <input
+              id="modal-tpl-cat"
+              defaultValue="General"
+              placeholder="e.g., Healthcare, Retail"
+              style={{ ...st.input(theme), marginTop: '6px' }}
+            />
+          </div>
+        </div>
+      ),
+      onConfirm: async () => {
+        const name = document.getElementById('modal-tpl-name')?.value;
+        const category = document.getElementById('modal-tpl-cat')?.value || "General";
+
+        if (!name) {
+          setModal({ isOpen: true, title: "Name Required", message: "Please provide a name for the template.", type: "warning" });
+          return;
+        }
+
+        const targetTpl = editableTemplates.find(t => t.name.toLowerCase() === name.toLowerCase());
+
+        if (targetTpl) {
+          setModal({ isOpen: false });
+          setModal({
+            isOpen: true,
+            title: "Confirm Overwrite",
+            message: `A template named "${targetTpl.name}" already exists. Do you want to replace it with your current design?`,
+            type: "confirm",
+            confirmText: "Yes, Overwrite",
+            onConfirm: () => {
+              setModal({ isOpen: false });
+              executeUpdateTemplate(targetTpl);
+            }
+          });
+        } else {
           setModal({ isOpen: false });
           executeSaveTemplate(name, category);
         }
-      });
-    }
+      }
+    });
   };
 
   const handleEditTemplateStructure = (tpl) => {
@@ -1016,23 +1087,9 @@ function AdminFormDesigner({ theme, darkMode, adminUser }) {
             <button onClick={() => setShowPreview(false)} style={st.segment(!showPreview, theme)}>Design</button>
             <button onClick={() => setShowPreview(true)} style={st.segment(showPreview, theme)}>Preview</button>
           </div>
-
-          <div style={{ width: '1px', height: '24px', background: theme.border, opacity: 0.6, margin: '0 8px' }} />
-
-          <div style={st.segmentedControl(theme)}>
-            <button onClick={() => handleLayoutModeChange('custom')} style={st.segment(config?.layout_mode === 'custom', theme)}>Custom</button>
-            <button onClick={() => handleLayoutModeChange('smart')} style={st.segment(config?.layout_mode === 'smart', theme)}>Smart</button>
-          </div>
         </div>
 
-        {/* RIGHT: Library & Finalize */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          {isDirty && (
-            <button onClick={handleDiscard} style={{ ...st.btnGhost(theme), padding: '0 8px', height: '36px' }} onMouseEnter={e => e.currentTarget.style.color = '#EF4444'} onMouseLeave={e => e.currentTarget.style.color = theme.textMuted}>
-              {Ico.X} Discard
-            </button>
-          )}
-
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <button onClick={saveAsTemplate} disabled={isSavingTpl} style={{ ...st.btnOutline(theme), height: '36px', padding: '0 12px' }}>
               {Ico.Save} <span style={{ marginLeft: '4px' }}>{isSavingTpl ? "..." : "Save"}</span>
@@ -1052,12 +1109,14 @@ function AdminFormDesigner({ theme, darkMode, adminUser }) {
             darkMode={darkMode}
           />
 
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
-            <button onClick={handleSave} disabled={isSaving || !isDirty} style={{ ...st.btnPrimary(isSaving || !isDirty), minWidth: '140px' }}>
+          <div style={{ width: '1px', height: '32px', background: theme.border, opacity: 0.6 }} />
+
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px', justifyContent: 'center', position: 'relative' }}>
+            <button onClick={handleSave} disabled={isSaving || !isDirty} style={{ ...st.btnPrimary(isSaving || !isDirty), minWidth: '140px', height: '36px' }}>
               {isSaving ? "Deploying..." : "Deploy Flow"}
             </button>
             {isDirty && (
-              <div style={{ fontSize: '10px', fontWeight: '900', color: '#EAB308', display: 'flex', alignItems: 'center', gap: '4px', animation: 'fadeIn 0.3s ease' }}>
+              <div style={{ fontSize: '10px', fontWeight: '900', color: '#EAB308', display: 'flex', alignItems: 'center', gap: '4px', animation: 'fadeIn 0.3s ease', position: 'absolute', bottom: '-18px' }}>
                 <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#EAB308' }} /> Changes not live yet
               </div>
             )}
@@ -1272,10 +1331,33 @@ function AdminFormDesigner({ theme, darkMode, adminUser }) {
               </div>
             </div>
 
-            {/* Terminology */}
+            {/* Branding & Style */}
             <div style={{ background: theme.surface, borderRadius: '14px', padding: '18px', border: `1px solid ${theme.border}` }}>
-              <h3 style={{ margin: '0 0 10px', fontSize: '14px', fontWeight: '800' }}>Branding</h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <h3 style={{ margin: '0 0 10px', fontSize: '14px', fontWeight: '800' }}>Branding & Style</h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <input 
+                    type="color" 
+                    value={config.theme?.primary_color || "#10B981"} 
+                    onChange={e => updateTheme('primary_color', e.target.value)}
+                    style={{ width: '32px', height: '32px', padding: '0', border: 'none', borderRadius: '8px', cursor: 'pointer' }}
+                  />
+                  <span style={{ fontSize: '11px', fontWeight: '700', color: theme.text }}>Theme Color</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <label style={{ fontSize: '9px', fontWeight: '900', color: theme.textMuted, textTransform: 'uppercase' }}>Background Style</label>
+                  <select 
+                    value={config.theme?.bg_style || "abstract"} 
+                    onChange={e => updateTheme('bg_style', e.target.value)}
+                    style={{ ...st.input(theme), height: '32px', fontSize: '11px' }}
+                  >
+                    <option value="minimal">Minimal (Clean White)</option>
+                    <option value="abstract">Abstract Blobs (Premium)</option>
+                    <option value="gradient">Soft Linear Gradient</option>
+                    <option value="modern">Modern Glassmorphism</option>
+                  </select>
+                </div>
+                <div style={{ width: '100%', height: '1px', background: theme.border, margin: '4px 0' }} />
                 <input value={config.terminology?.entity_label || ""} placeholder="Service Label Override" onChange={e => updateTerminology('entity_label', e.target.value)} style={st.input(theme)} />
                 <input value={config.terminology?.location_label || ""} placeholder="Location Label Override" onChange={e => updateTerminology('location_label', e.target.value)} style={st.input(theme)} />
               </div>
@@ -1287,13 +1369,32 @@ function AdminFormDesigner({ theme, darkMode, adminUser }) {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <h2 style={{ fontSize: '16px', fontWeight: '800', color: theme.text, margin: 0 }}>Workflow Steps</h2>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', borderLeft: `1px solid ${theme.border}`, paddingLeft: '12px', marginLeft: '4px' }}>
+                  <button 
+                    onClick={handleUndo} 
+                    disabled={history.length === 0} 
+                    title="Undo Last Action"
+                    style={{ ...st.btnGhost(theme), width: '28px', height: '28px', padding: 0, opacity: history.length === 0 ? 0.3 : 0.7 }}
+                  >
+                    {Ico.Undo}
+                  </button>
+                  <button 
+                    onClick={handleReset} 
+                    title="Reset Workflow"
+                    style={{ ...st.btnGhost(theme), width: '28px', height: '28px', padding: 0, opacity: 0.7 }}
+                    onMouseEnter={e => e.currentTarget.style.color = '#EF4444'}
+                    onMouseLeave={e => e.currentTarget.style.color = theme.textMuted}
+                  >
+                    {Ico.RotateCcw}
+                  </button>
+                </div>
                 {entities.length === 1 && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(16,185,129,0.1)', color: '#10B981', padding: '4px 10px', borderRadius: '8px', fontSize: '10px', fontWeight: '900' }}>
                     {Ico.Check} SINGLE SERVICE MODE: ROUTING SKIPPED
                   </div>
                 )}
               </div>
-              <button onClick={addStep} style={st.addBtn(theme)}>{Ico.Plus} Add Step</button>
+              <button onClick={addStep} style={{ ...st.addBtn(theme), display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 14px' }}>{Ico.Plus} Add Step</button>
             </div>
 
             {config.steps.map((step, sIdx) => {

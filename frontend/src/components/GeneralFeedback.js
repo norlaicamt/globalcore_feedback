@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { createFeedback, getEntities, getBranches, getEntityFormConfig } from "../services/api";
 import { useTerminology } from "../context/TerminologyContext";
 import CustomModal from "./CustomModal";
-import { IconRegistry } from "./IconRegistry";
+
 
 const SMART_DEFAULTS = {
   star_rating: "How would you rate your overall experience?",
@@ -69,6 +69,7 @@ const LocalIcons = {
   CheckCircle: ({ size = 24, color = "currentColor", strokeWidth = 2 }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>,
   AlertCircle: ({ size = 24 }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>,
   Camera: ({ size = 24 }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" /><circle cx="12" cy="13" r="4" /></svg>,
+  Shield: ({ size = 24 }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>,
 };
 
 const FEEDBACK_TYPES = [
@@ -110,6 +111,8 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, overrideConfig = null
   const [idea, setIdea] = useState("");
   const [rating, setRating] = useState(0);
   const [isAnonymous, setIsAnonymous] = useState(false);
+  const [allowComments, setAllowComments] = useState(true);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [customFields, setCustomFields] = useState({});
   const [showErrors, setShowErrors] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -118,6 +121,40 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, overrideConfig = null
   const [modal, setModal] = useState({ isOpen: false, title: "", message: "", type: "info" });
   const [matrixRatings, setMatrixRatings] = useState({});
   const [selectionMethod, setSelectionMethod] = useState("manual"); // auto | manual
+
+  const primaryColor = formConfig?.theme?.primary_color || "#10B981";
+  const bgStyle = formConfig?.theme?.bg_style || "abstract";
+
+  const getDynamicBackground = () => {
+    const p = primaryColor;
+    const p08 = `rgba(${hexToRgb(p)}, 0.08)`;
+    const p05 = `rgba(${hexToRgb(p)}, 0.05)`;
+    const p12 = `rgba(${hexToRgb(p)}, 0.12)`;
+    
+    switch (bgStyle) {
+      case 'minimal': 
+        return { background: '#FFFFFF' };
+      case 'gradient': 
+        return { background: `linear-gradient(135deg, ${p08} 0%, #FFFFFF 100%)` };
+      case 'modern':
+        return { 
+          background: `linear-gradient(135deg, #FFFFFF 0%, #F1F5F9 100%)`,
+          position: 'relative'
+        };
+      case 'abstract': 
+      default:
+        return {
+          background: `
+            radial-gradient(at 0% 0%, ${p08} 0px, transparent 50%),
+            radial-gradient(at 100% 0%, rgba(59, 130, 246, 0.05) 0px, transparent 50%),
+            radial-gradient(at 100% 100%, ${p12} 0px, transparent 50%),
+            radial-gradient(at 0% 100%, rgba(59, 130, 246, 0.03) 0px, transparent 50%),
+            radial-gradient(at 50% 50%, rgba(255, 255, 255, 0.5) 0px, transparent 80%),
+            #F8FAFC
+          `
+        };
+    }
+  };
 
   useEffect(() => {
     getEntities().then(data => {
@@ -146,46 +183,18 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, overrideConfig = null
   const enabledSteps = React.useMemo(() => {
     if (!formConfig || !formConfig.steps) return [];
 
-    const mode = formConfig.layout_mode || "custom";
-
-    if (mode === "custom") {
-      return formConfig.steps
-        .filter(s => s.enabled)
-        .sort((a, b) => a.order - b.order)
-        .map(s => ({
-          ...s,
-          items: (s.items || []).map(it => ({
-            ...it,
-            label_override: it.label_override || SMART_DEFAULTS[it.key] || it.key,
-            helper: it.helper || SMART_HELPERS[it.key]
-          }))
-        }))
-        .filter(s => s.items.length > 0);
-    }
-
-    // Smart Grouping (Original logic)
-    const allItems = [...formConfig.steps]
+    return formConfig.steps
       .filter(s => s.enabled)
       .sort((a, b) => a.order - b.order)
-      .flatMap(s => (s.items || []).map(it => ({
-        ...it,
-        label_override: it.label_override || SMART_DEFAULTS[it.key] || it.key,
-        helper: it.helper || SMART_HELPERS[it.key]
-      })));
-
-    if (allItems.length === 0) return [];
-
-    const buckets = [
-      { id: 'exp', label: 'Your Experience', keys: ['star_rating', 'emoji_rating', 'slider_rating', 'rating_matrix', 'rating', 'entity_picker', 'location_picker'] },
-      { id: 'msg', label: 'Tell us more', keys: ['message_input', 'short_text', 'long_text', 'multiple_choice', 'photo_upload', 'voice_record'] },
-      { id: 'uid', label: 'Your Info', keys: ['full_name', 'contact_number', 'email_address', 'mailing_address', 'number_input', 'staff_mention'] }
-    ];
-
-    return buckets.map(b => {
-      const items = allItems.filter(it => b.keys.includes(it.key));
-      if (items.length === 0) return null;
-      return { id: b.id, label: b.label, enabled: true, items };
-    }).filter(Boolean);
+      .map(s => ({
+        ...s,
+        items: (s.items || []).map(it => ({
+          ...it,
+          label_override: it.label_override || SMART_DEFAULTS[it.key] || it.key,
+          helper: it.helper || SMART_HELPERS[it.key]
+        }))
+      }))
+      .filter(s => s.items.length > 0);
   }, [formConfig]);
 
   useEffect(() => {
@@ -233,9 +242,12 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, overrideConfig = null
     return true;
   };
 
-  const handleNext = (overrideKey, overrideVal) => {
+  const handleNext = (overrideKey, overrideVal, entityOverride = null) => {
     if (isNavigating) return;
-    if (!selectedEntity && dbEntities.length > 1 && !overrideConfig && !isPreviewMode) {
+    
+    const currentEntity = entityOverride || selectedEntity;
+    
+    if (!currentEntity && dbEntities.length > 1 && !overrideConfig && !isPreviewMode) {
       setModal({ isOpen: true, title: "Service Required", message: `Please select a category to continue.`, type: "warning" });
       return;
     }
@@ -253,14 +265,21 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, overrideConfig = null
       setStep(enabledSteps[idx + 1].id);
       setTimeout(() => setIsNavigating(false), 400);
     } else {
-      handleSubmit();
+      setShowPrivacyModal(true);
     }
   };
 
   const handleBack = () => {
     const idx = enabledSteps.findIndex(s => s.id === step);
-    if (idx > 0) setStep(enabledSteps[idx - 1].id);
-    else if (typeof onBack === 'function') onBack();
+    if (idx > 0) {
+      setStep(enabledSteps[idx - 1].id);
+    } else if (selectedEntity) {
+      // Go back to selection screen instead of closing
+      setSelectedEntity(null);
+      setStep("");
+    } else if (typeof onBack === 'function') {
+      onBack();
+    }
   };
 
   const handleSubmit = async () => {
@@ -277,6 +296,7 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, overrideConfig = null
         description: idea,
         rating,
         is_anonymous: isAnonymous,
+        allow_comments: allowComments,
         custom_data: { ...customFields, matrix_evaluations: matrixRatings, routing_method: selectionMethod }
       });
       setModal({ isOpen: true, title: "Success", message: "Submitted successfully!", type: "success", onConfirm: () => { if (typeof onSuccess === 'function') onSuccess(); setModal({ isOpen: false }); } });
@@ -334,7 +354,7 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, overrideConfig = null
             const IconComp = LocalIcons[name] || LocalIcons.Layers;
             const isSel = selectedEntity?.id === ent.id;
             return (
-              <button key={ent.id} onClick={() => { setSelectedEntity(ent); setConfirmingSelection(ent); setTimeout(() => { setConfirmingSelection(null); handleNext(); }, 800); }} style={{ ...styles.typeCard, borderColor: isSel ? 'var(--primary-color)' : 'rgba(0,0,0,0.05)', background: isSel ? 'rgba(var(--primary-rgb), 0.05)' : 'white', transform: isSel ? 'scale(1.02)' : 'scale(1)' }}>
+              <button key={ent.id} onClick={() => { setSelectedEntity(ent); setConfirmingSelection(ent); setTimeout(() => { setConfirmingSelection(null); handleNext(null, null, ent); }, 800); }} style={{ ...styles.typeCard, borderColor: isSel ? 'var(--primary-color)' : 'rgba(0,0,0,0.05)', background: isSel ? 'rgba(var(--primary-rgb), 0.05)' : 'white', transform: isSel ? 'scale(1.02)' : 'scale(1)' }}>
                 <div style={styles.itemIcon}><IconComp size={28} /></div>
                 <div style={styles.itemName}>{ent.name}</div>
                 <div style={{ fontSize: '10px', color: '#94A3B8', marginTop: '4px', textAlign: 'center' }}>{ent.description || 'Quality Service'}</div>
@@ -359,7 +379,7 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, overrideConfig = null
       );
       if (key === 'emoji_rating') return (
         <div style={{ display: 'flex', gap: '20px', justifyContent: 'center', background: '#F8FAFC', padding: '24px', borderRadius: '20px' }}>
-          {['😞', '😐', '🙂', '😃', '🤩'].map((e, i) => (
+          {['ðŸ˜ž', 'ðŸ˜', 'ðŸ™‚', 'ðŸ˜ƒ', 'ðŸ¤©'].map((e, i) => (
             <button key={i} onClick={() => setRating(i + 1)} style={{ fontSize: '40px', border: 'none', background: 'none', cursor: 'pointer', transition: '0.2s', transform: rating === (i + 1) ? 'scale(1.2)' : 'scale(1)', filter: rating === (i + 1) ? 'none' : 'grayscale(1) opacity(0.5)' }}>{e}</button>
           ))}
         </div>
@@ -421,11 +441,11 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, overrideConfig = null
 
     return (
       <div key={item.id || idx} style={{ marginBottom: '32px', background: 'white', padding: '30px', borderRadius: '30px', border: `1.5px solid ${invalid ? '#EF4444' : 'rgba(0,0,0,0.03)'}`, boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.05)', animation: 'fadeIn 0.5s ease-out' }}>
-        <div style={{ marginBottom: '20px' }}>
-          <label style={{ ...styles.label, color: '#1E293B', fontSize: '15px', marginBottom: '6px', textTransform: 'none', letterSpacing: '-0.01em' }}>{label_override}{item.required && <span style={{ color: '#EF4444', marginLeft: '6px' }}>*</span>}</label>
-          {helper && <p style={{ fontSize: '13px', color: '#94A3B8', margin: 0, fontWeight: '500', lineHeight: '1.4' }}>{helper}</p>}
+        <div style={{ marginBottom: '12px' }}>
+          <label style={{ ...styles.label, color: '#0F172A', fontSize: '14px', fontWeight: '600', marginBottom: '6px', textTransform: 'none', letterSpacing: '-0.01em', lineHeight: '1.4' }}>{label_override}{item.required && <span style={{ color: '#EF4444', marginLeft: '6px' }}>*</span>}</label>
+          {helper && <p style={{ fontSize: '11px', color: '#64748B', margin: '6px 0 0', fontWeight: '400', lineHeight: '1.4' }}>{helper}</p>}
         </div>
-        <div style={{ position: 'relative' }}>
+        <div style={{ position: 'relative', marginTop: '12px' }}>
           {content}
           {!!itemValue && !['message_input', 'long_text', 'short_text'].includes(key) && (
             <div style={{ marginTop: '16px', fontSize: '12px', fontWeight: '800', color: 'var(--primary-color)', display: 'flex', alignItems: 'center', gap: '8px', animation: 'fadeIn 0.3s ease' }}>
@@ -444,7 +464,15 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, overrideConfig = null
   const currentIndex = enabledSteps.findIndex(s => s.id === step);
 
   return (
-    <div style={styles.container}>
+    <div 
+      className="feedback-container"
+      style={{ 
+        ...styles.container, 
+        ...getDynamicBackground(),
+        '--primary-color': primaryColor,
+        '--primary-rgb': hexToRgb(primaryColor)
+      }}
+    >
       <header style={styles.header}>
         <div style={{ width: 40 }} />
         <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
@@ -454,30 +482,124 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, overrideConfig = null
       </header>
       <main style={styles.content}>
         {!selectedEntity && !overrideConfig ? (
-          <div className="step-transition">
-            <div style={styles.formGroup}>
-              <label style={styles.label}>{getLabel('entity_label', 'Select Program / Service')}</label>
-              <div style={styles.grid}>{dbEntities.map(ent => {
-                const name = ent.icon ? (ent.icon.charAt(0).toUpperCase() + ent.icon.slice(1)) : 'Layers';
-                const IconComp = LocalIcons[name] || LocalIcons.Layers;
+          <div style={{
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            padding: '16px',
+            background: 'linear-gradient(180deg, #F8FAFC 0%, #FFFFFF 100%)',
+            position: 'relative'
+          }}>
+              <h2 style={{ fontSize: '14px', fontWeight: '600', color: '#0F172A', margin: '0 0 4px 0', letterSpacing: '-0.02em', lineHeight: '1.4' }}>
+                How can we help?
+              </h2>
+              <p style={{ fontSize: '11px', color: '#64748B', fontWeight: '400', lineHeight: '1.4' }}>
+                Select a service to begin.
+              </p>
+
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: '12px',
+              maxWidth: '340px',
+              margin: '0 auto',
+              width: '100%'
+            }}>
+              {dbEntities.map(ent => {
+                const isSel = selectedEntity?.id === ent.id;
+                const iconName = ent.icon ? (ent.icon.charAt(0).toUpperCase() + ent.icon.slice(1)) : 'Layers';
+                const IconComp = LocalIcons[iconName] || LocalIcons.Layers;
+                
+                const colorMap = {
+                  spa: { bg: '#F0FDFA', icon: '#0D9488' },
+                  restaurant: { bg: '#FFFBEB', icon: '#D97706' },
+                  pool: { bg: '#EFF6FF', icon: '#2563EB' },
+                  gym: { bg: '#F5F3FF', icon: '#7C3AED' },
+                  default: { bg: '#F8FAFC', icon: '#475569' }
+                };
+                const theme = colorMap[ent.name.toLowerCase()] || colorMap.default;
+
                 return (
-                  <button key={ent.id} onClick={() => { setConfirmingSelection(ent); setTimeout(() => { setSelectedEntity(ent); setConfirmingSelection(null); }, 800); }} style={{ ...styles.typeCard, position: 'relative' }}>
-                    <div style={styles.itemIcon}><IconComp size={30} /></div>
-                    <div style={styles.itemName}>{ent.name}</div>
-                    <div style={{ fontSize: '11px', color: '#64748B', marginTop: '4px', fontWeight: '600' }}>{ent.description || 'Quality Service'}</div>
-                    <div style={{ fontSize: '10px', color: 'var(--primary-color)', marginTop: '12px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Tap to select</div>
+                  <button 
+                    key={ent.id} 
+                    onClick={() => { 
+                      setConfirmingSelection(ent); 
+                      setTimeout(() => { setSelectedEntity(ent); setConfirmingSelection(null); handleNext(null, null, ent); }, 800); 
+                    }} 
+                    className="minimal-service-card"
+                    style={{ 
+                      ...styles.typeCard,
+                      position: 'relative',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      textAlign: 'center',
+                      padding: '16px 12px',
+                      backgroundColor: 'transparent',
+                      borderRadius: '20px',
+                      border: isSel ? '2px solid var(--primary-color)' : '1px solid transparent',
+                      cursor: 'pointer',
+                      transition: 'all 0.5s cubic-bezier(0.2, 1, 0.3, 1)',
+                      zIndex: isSel ? 2 : 1
+                    }}
+                  >
+                    <div style={{
+                      width: '60px',
+                      height: '60px',
+                      borderRadius: '20px',
+                      backgroundColor: isSel ? 'var(--primary-color)' : theme.bg,
+                      color: isSel ? 'white' : theme.icon,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      marginBottom: '10px',
+                      transition: 'all 0.4s ease',
+                      boxShadow: isSel ? '0 10px 20px rgba(var(--primary-rgb), 0.3)' : '0 4px 10px rgba(0,0,0,0.02)'
+                    }}>
+                      <IconComp size={28} />
+                    </div>
+                    
+                    <div style={{ 
+                      fontSize: '14px', 
+                      fontWeight: '800', 
+                      color: isSel ? 'var(--primary-color)' : '#1E293B',
+                      transition: 'all 0.3s ease'
+                    }}>
+                      {ent.name}
+                    </div>
+
                     {confirmingSelection?.id === ent.id && (
-                      <div style={{ position: 'absolute', inset: 0, background: 'rgba(var(--primary-rgb), 0.95)', borderRadius: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: '900', fontSize: '14px', animation: 'fadeIn 0.2s ease', zIndex: 10 }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                          <div className="loader-mini" style={{ width: '20px', height: '20px', border: '3px solid white', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }}></div>
-                          <span>PREPARING...</span>
-                        </div>
+                      <div style={{ 
+                        position: 'absolute', 
+                        inset: -5, 
+                        background: 'rgba(255, 255, 255, 0.8)', 
+                        backdropFilter: 'blur(8px)',
+                        borderRadius: '24px', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center', 
+                        color: 'var(--primary-color)', 
+                        zIndex: 10,
+                        animation: 'fadeIn 0.3s ease'
+                      }}>
+                         <div className="loader-mini" style={{ width: '20px', height: '20px', border: '3px solid var(--primary-color)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }}></div>
                       </div>
                     )}
                   </button>
                 );
-              })}</div>
+              })}
             </div>
+            
+            <style>{`
+              .minimal-service-card:hover {
+                transform: translateY(-6px);
+              }
+              .minimal-service-card:hover > div {
+                transform: scale(1.05);
+                box-shadow: 0 15px 30px rgba(0,0,0,0.08);
+              }
+            `}</style>
           </div>
         ) : (
           currentStep && (
@@ -491,43 +613,7 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, overrideConfig = null
               ) : (
                 currentStep.items.map((it, idx) => renderItem(it, idx))
               )}
-              <div style={{ background: 'white', padding: '24px', borderRadius: '24px', border: '1.5px solid rgba(0,0,0,0.03)', marginBottom: '20px', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: isAnonymous ? '12px' : '0' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: isAnonymous ? 'rgba(59, 130, 246, 0.1)' : 'rgba(0,0,0,0.03)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: isAnonymous ? '#3B82F6' : '#94A3B8', transition: '0.2s' }}>
-                      <LocalIcons.EyeOff size={20} />
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '14px', fontWeight: '800', color: '#1E293B' }}>Submit Anonymously</div>
-                      <div style={{ fontSize: '11px', color: '#94A3B8', fontWeight: '600' }}>Hide your name from the public feed</div>
-                    </div>
-                  </div>
-                  <button 
-                    onClick={() => setIsAnonymous(!isAnonymous)}
-                    style={{ 
-                      width: '44px', height: '24px', borderRadius: '12px', 
-                      background: isAnonymous ? '#3B82F6' : '#E2E8F0', 
-                      position: 'relative', border: 'none', cursor: 'pointer', transition: '0.3s' 
-                    }}
-                  >
-                    <div style={{ 
-                      width: '18px', height: '18px', borderRadius: '50%', background: 'white', 
-                      position: 'absolute', top: '3px', left: isAnonymous ? '23px' : '3px', transition: '0.3s',
-                      boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                    }} />
-                  </button>
-                </div>
-                
-                {isAnonymous && (
-                  <div style={{ marginTop: '12px', padding: '12px', borderRadius: '12px', background: 'rgba(59, 130, 246, 0.05)', border: '1px dashed rgba(59, 130, 246, 0.2)', animation: 'fadeIn 0.3s ease' }}>
-                    <p style={{ margin: 0, fontSize: '12px', color: '#64748B', fontWeight: '600', lineHeight: '1.5' }}>
-                      <span style={{ color: '#3B82F6', fontWeight: '900' }}>Privacy Assurance:</span> Your identity will not be shown publicly. Only authorized administrators can access your details if follow-up is required.
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              <div style={{ display: 'flex', gap: '12px', marginTop: '30px' }}>
+              <div style={{ display: 'flex', gap: '12px', marginTop: '10px' }}>
                 <button onClick={handleBack} style={{ ...styles.nextBtn, background: 'white', color: '#64748B', border: '1.5px solid #E2E8F0', boxShadow: 'none', flex: 1, height: '48px' }}>Back</button>
                 {(!['entity_picker'].includes(currentStep.items[0]?.key) || isPreview) && (
                   <button onClick={() => handleNext()} style={{ ...styles.nextBtn, flex: 2, height: '48px' }}>{currentIndex === enabledSteps.length - 1 ? "Submit Feedback" : "Continue"}</button>
@@ -538,6 +624,72 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, overrideConfig = null
         )}
       </main>
       <CustomModal isOpen={modal.isOpen} title={modal.title} message={modal.message} type={modal.type} onConfirm={() => { if (modal.onConfirm) modal.onConfirm(); setModal({ ...modal, isOpen: false }); }} />
+      
+      {showPrivacyModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(8px)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', animation: 'fadeIn 0.3s ease' }}>
+          <div style={{ background: 'white', width: '100%', maxWidth: '400px', borderRadius: '32px', overflow: 'hidden', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', animation: 'slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1)' }}>
+            <div style={{ padding: '32px 24px' }}>
+              <div style={{ width: '48px', height: '48px', borderRadius: '16px', background: 'rgba(var(--primary-rgb), 0.1)', color: 'var(--primary-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '20px' }}>
+                <LocalIcons.Shield size={24} />
+              </div>
+              <h3 style={{ fontSize: '14px', fontWeight: '600', color: '#0F172A', margin: '0 0 6px 0', letterSpacing: '-0.02em' }}>Privacy & Interaction</h3>
+              <p style={{ fontSize: '11px', color: '#64748B', fontWeight: '400', lineHeight: '1.4', margin: '0 0 20px 0' }}>Before submitting, adjust how you'd like your feedback to be shared.</p>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {/* Anonymous Toggle */}
+                <div 
+                  onClick={() => setIsAnonymous(!isAnonymous)}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', borderRadius: '18px', background: isAnonymous ? 'rgba(59, 130, 246, 0.04)' : '#F8FAFC', border: `1.5px solid ${isAnonymous ? '#3B82F6' : 'transparent'}`, cursor: 'pointer', transition: '0.2s' }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ color: isAnonymous ? '#3B82F6' : '#94A3B8' }}>{isAnonymous ? <LocalIcons.EyeOff size={20} /> : <LocalIcons.User size={20} />}</div>
+                    <div>
+                      <div style={{ fontSize: '14px', fontWeight: '600', color: '#0F172A' }}>Submit Anonymously</div>
+                      <div style={{ fontSize: '11px', color: '#64748B', fontWeight: '400' }}>Hide your name from public</div>
+                    </div>
+                  </div>
+                  <div style={{ width: '20px', height: '20px', borderRadius: '6px', border: `2px solid ${isAnonymous ? '#3B82F6' : '#E2E8F0'}`, background: isAnonymous ? '#3B82F6' : 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: '0.2s' }}>
+                    {isAnonymous && <LocalIcons.Check size={14} color="white" strokeWidth={4} />}
+                  </div>
+                </div>
+
+                {/* Comments Toggle */}
+                <div 
+                  onClick={() => setAllowComments(!allowComments)}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', borderRadius: '18px', background: allowComments ? 'rgba(16, 185, 129, 0.04)' : '#F8FAFC', border: `1.5px solid ${allowComments ? '#10B981' : 'transparent'}`, cursor: 'pointer', transition: '0.2s' }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ color: allowComments ? '#10B981' : '#94A3B8' }}>{allowComments ? <LocalIcons.MessageSquare size={20} /> : <LocalIcons.MessageSquare size={20} style={{ opacity: 0.5 }} />}</div>
+                    <div>
+                      <div style={{ fontSize: '14px', fontWeight: '600', color: '#0F172A' }}>Allow Comments</div>
+                      <div style={{ fontSize: '11px', color: '#64748B', fontWeight: '400' }}>Let others discuss this feedback</div>
+                    </div>
+                  </div>
+                  <div style={{ width: '20px', height: '20px', borderRadius: '6px', border: `2px solid ${allowComments ? '#10B981' : '#E2E8F0'}`, background: allowComments ? '#10B981' : 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: '0.2s' }}>
+                    {allowComments && <LocalIcons.Check size={14} color="white" strokeWidth={4} />}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ padding: '0 24px 32px 24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <button 
+                onClick={() => { setShowPrivacyModal(false); handleSubmit(); }}
+                disabled={isSubmitting}
+                style={{ ...styles.nextBtn, width: '100%', height: '52px' }}
+              >
+                {isSubmitting ? "Submitting..." : "Finish & Submit"}
+              </button>
+              <button 
+                onClick={() => setShowPrivacyModal(false)}
+                style={{ background: 'none', border: 'none', color: '#94A3B8', fontSize: '13px', fontWeight: '800', cursor: 'pointer', height: '32px' }}
+              >
+                Go Back
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <style>{`
         @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } } 
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
@@ -568,24 +720,54 @@ function WorkflowStepper({ steps, currentIndex, primaryColor, onStepClick }) {
 }
 
 const styles = {
-  container: { height: '100%', display: 'flex', flexDirection: 'column', background: 'linear-gradient(135deg, #F8FAFC 0%, #EFF6FF 100%)', fontFamily: "'Outfit', sans-serif" },
-  header: { padding: '24px 20px', background: 'rgba(255, 255, 255, 0.8)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', gap: '15px', borderBottom: '1px solid rgba(226, 232, 240, 0.5)', sticky: 'top', zIndex: 10 },
-  headerTitle: { fontSize: '18px', fontWeight: '900', color: '#1E293B', letterSpacing: '-0.02em' },
-  content: { flex: 1, padding: '30px 24px', overflowY: 'auto' },
-  grid: { display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '18px' },
-  typeCard: { display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '24px 16px', borderRadius: '24px', border: '1px solid rgba(255, 255, 255, 0.5)', background: 'rgba(255, 255, 255, 0.7)', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.02)', cursor: 'pointer', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)', textAlign: 'center' },
-  itemIcon: { width: '60px', height: '60px', borderRadius: '18px', background: 'white', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--primary-color)', marginBottom: '12px' },
-  itemName: { fontWeight: '800', fontSize: '15px', color: '#1E293B', marginBottom: '4px' },
-  branchList: { display: 'flex', flexDirection: 'column', gap: '12px' },
-  branchItem: { padding: '18px', borderRadius: '18px', border: '1px solid rgba(255, 255, 255, 0.5)', background: 'rgba(255, 255, 255, 0.7)', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)', fontWeight: '700', fontSize: '14px', cursor: 'pointer', textAlign: 'left', transition: 'all 0.2s' },
-  formGroup: { marginBottom: '28px' },
-  label: { fontSize: '10px', fontWeight: '900', color: '#64748B', textTransform: 'uppercase', marginBottom: '10px', letterSpacing: '0.1em', display: 'block' },
-  textarea: { width: '100%', padding: '18px', borderRadius: '20px', border: '1.5px solid #E2E8F0', height: '140px', outline: 'none', fontSize: '15px', background: 'white', transition: 'all 0.2s', boxShadow: '0 2px 4px rgba(0,0,0,0.02) inset' },
-  input: { width: '100%', padding: '16px 18px', borderRadius: '16px', border: '1.5px solid #E2E8F0', outline: 'none', fontSize: '15px', background: 'white', transition: 'all 0.2s', boxShadow: '0 2px 4px rgba(0,0,0,0.02) inset' },
-  nextBtn: { width: '100%', padding: '0 24px', borderRadius: '18px', background: 'linear-gradient(135deg, var(--primary-color) 0%, rgba(var(--primary-rgb), 0.8) 100%)', color: 'white', border: 'none', fontWeight: '900', cursor: 'pointer', fontSize: '16px', boxShadow: '0 10px 20px -5px rgba(var(--primary-rgb), 0.4)', height: '56px', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)', letterSpacing: '0.01em' },
+  container: { 
+    height: '100%', 
+    display: 'flex', 
+    flexDirection: 'column',
+    fontFamily: "'Outfit', sans-serif" 
+  },
+  header: { padding: '24px 20px', background: 'rgba(255, 255, 255, 0.7)', backdropFilter: 'blur(12px)', display: 'flex', alignItems: 'center', gap: '15px', borderBottom: '1px solid rgba(255, 255, 255, 0.3)', position: 'sticky', top: 0, zIndex: 10 },
+  headerTitle: { fontSize: '14px', fontWeight: '600', color: '#0F172A', letterSpacing: '-0.02em' },
+  content: { flex: 1, padding: '24px 20px', overflowY: 'auto' },
+  grid: { display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' },
+  typeCard: { 
+    display: 'flex', 
+    flexDirection: 'column', 
+    alignItems: 'center', 
+    padding: '24px 16px', 
+    borderRadius: '24px', 
+    background: 'rgba(255, 255, 255, 0.8)', 
+    backdropFilter: 'blur(10px)',
+    border: '1px solid rgba(255, 255, 255, 0.7)', 
+    boxShadow: '0 10px 30px -10px rgba(0, 0, 0, 0.04), inset 0 0 0 1px rgba(255, 255, 255, 0.5)', 
+    cursor: 'pointer', 
+    transition: 'all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)', 
+    textAlign: 'center' 
+  },
+  itemIcon: { 
+    width: '60px', 
+    height: '60px', 
+    borderRadius: '20px', 
+    background: 'white', 
+    boxShadow: '0 8px 16px -4px rgba(0, 0, 0, 0.06)', 
+    display: 'flex', 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    color: 'var(--primary-color)', 
+    marginBottom: '12px',
+    transition: 'all 0.3s'
+  },
+  itemName: { fontWeight: '600', fontSize: '14px', color: '#0F172A', marginBottom: '2px' },
+  branchList: { display: 'flex', flexDirection: 'column', gap: '10px' },
+  branchItem: { padding: '16px', borderRadius: '18px', border: '1px solid rgba(255, 255, 255, 0.5)', background: 'rgba(255, 255, 255, 0.8)', backdropFilter: 'blur(10px)', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)', fontWeight: '600', fontSize: '13px', cursor: 'pointer', textAlign: 'left', transition: 'all 0.2s', lineHeight: '1.4' },
+  formGroup: { marginBottom: '24px' },
+  label: { fontSize: '14px', fontWeight: '600', color: '#0F172A', marginBottom: '8px', display: 'block', lineHeight: '1.4' },
+  textarea: { width: '100%', padding: '14px 16px', borderRadius: '16px', border: '1.5px solid #E2E8F0', height: '120px', outline: 'none', fontSize: '13px', background: 'white', transition: 'all 0.2s', boxShadow: '0 2px 4px rgba(0,0,0,0.02) inset', lineHeight: '1.5' },
+  input: { width: '100%', padding: '12px 16px', borderRadius: '12px', border: '1.5px solid #E2E8F0', outline: 'none', fontSize: '13px', background: 'white', transition: 'all 0.2s', boxShadow: '0 2px 4px rgba(0,0,0,0.02) inset', lineHeight: '1.5' },
+  nextBtn: { width: '100%', padding: '0 20px', borderRadius: '16px', background: 'linear-gradient(135deg, var(--primary-color) 0%, rgba(var(--primary-rgb), 0.8) 100%)', color: 'white', border: 'none', fontWeight: '600', cursor: 'pointer', fontSize: '14px', boxShadow: '0 10px 20px -5px rgba(var(--primary-rgb), 0.4)', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)', letterSpacing: '0.01em' },
   backBtn: { border: 'none', background: 'none', cursor: 'pointer' },
-  sectionTitle: { fontSize: '15px', fontWeight: '900', color: 'var(--primary-color)', marginBottom: '18px', borderBottom: '2px solid #E2E8F0', paddingBottom: '10px', letterSpacing: '-0.01em' },
-  loader: { padding: '100px', textAlign: 'center', fontWeight: '900', color: 'var(--primary-color)' }
+  sectionTitle: { fontSize: '14px', fontWeight: '600', color: 'var(--primary-color)', marginBottom: '16px', borderBottom: '2px solid #E2E8F0', paddingBottom: '8px', letterSpacing: '-0.01em', lineHeight: '1.4' },
+  loader: { padding: '100px', textAlign: 'center', fontWeight: '600', fontSize: '14px', color: 'var(--primary-color)' }
 };
 
 export default GeneralFeedback;

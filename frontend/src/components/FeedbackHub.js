@@ -182,7 +182,7 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
     };
 
     return () => eventSource.close();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [localUser?.id]);
 
   const handleOpenNotifications = async () => {
@@ -218,7 +218,7 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
       fetchNotifications();
       fetchUserProfile();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, localUser?.id, statusFilter]);
 
   // Real-time Presence Heartbeat
@@ -475,23 +475,23 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
                 )}
               </div>
               <h3 style={styles.userName}>{localUser?.name || "User"}</h3>
-              
+
               {/* COMPACT IMPACT MINI-STATS */}
               <div style={{
                 marginTop: '12px', display: 'flex', gap: '16px', justifyContent: 'center'
               }}>
-                  <div style={{ textAlign: 'center' }}>
-                    <p style={{ margin: 0, fontSize: '12px', fontWeight: '900', color: '#FCD34D' }}>{(localUser?.impact_points || 0).toFixed(0)}</p>
-                    <p style={{ margin: 0, fontSize: '7px', color: 'rgba(255,255,255,0.4)', fontWeight: 'bold' }}>PTS</p>
-                  </div>
-                  <div style={{ textAlign: 'center' }}>
-                    <p style={{ margin: 0, fontSize: '12px', fontWeight: '900', color: 'white' }}>{localUser?.posts_count || 0}</p>
-                    <p style={{ margin: 0, fontSize: '7px', color: 'rgba(255,255,255,0.4)', fontWeight: 'bold' }}>POSTS</p>
-                  </div>
-                  <div style={{ textAlign: 'center' }}>
-                    <p style={{ margin: 0, fontSize: '12px', fontWeight: '900', color: 'white' }}>{localUser?.likes_received || 0}</p>
-                    <p style={{ margin: 0, fontSize: '7px', color: 'rgba(255,255,255,0.4)', fontWeight: 'bold' }}>LIKES</p>
-                  </div>
+                <div style={{ textAlign: 'center' }}>
+                  <p style={{ margin: 0, fontSize: '12px', fontWeight: '900', color: '#FCD34D' }}>{(localUser?.impact_points || 0).toFixed(0)}</p>
+                  <p style={{ margin: 0, fontSize: '7px', color: 'rgba(255,255,255,0.4)', fontWeight: 'bold' }}>PTS</p>
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                  <p style={{ margin: 0, fontSize: '12px', fontWeight: '900', color: 'white' }}>{localUser?.posts_count || 0}</p>
+                  <p style={{ margin: 0, fontSize: '7px', color: 'rgba(255,255,255,0.4)', fontWeight: 'bold' }}>POSTS</p>
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                  <p style={{ margin: 0, fontSize: '12px', fontWeight: '900', color: 'white' }}>{localUser?.likes_received || 0}</p>
+                  <p style={{ margin: 0, fontSize: '7px', color: 'rgba(255,255,255,0.4)', fontWeight: 'bold' }}>LIKES</p>
+                </div>
               </div>
             </div>
             <nav style={styles.menuLinks}>
@@ -640,7 +640,8 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
 };
 
 const CommentModal = ({ item, currentUser, onClose, onShowToast, onRefreshProfile, onRefreshFeed }) => {
-  const { getModeLabel: _getModeLabel } = useTerminology();
+  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'superadmin';
+  const { getModeLabel } = useTerminology();
   const [dialogState, setDialogState] = useState({ isOpen: false });
   const [comments, setComments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -819,9 +820,9 @@ const CommentModal = ({ item, currentUser, onClose, onShowToast, onRefreshProfil
             ) : (node.user?.name || node.user_name || 'U').charAt(0)}
           </div>
           <div style={{ flex: 1 }}>
-            <div style={{ 
-              ...styles.commentBubble, 
-              backgroundColor: node.is_official ? 'rgba(79, 70, 229, 0.03)' : (isReply ? 'rgba(0,0,0,0.02)' : '#FFFFFF'), 
+            <div style={{
+              ...styles.commentBubble,
+              backgroundColor: node.is_official ? 'rgba(79, 70, 229, 0.03)' : (isReply ? 'rgba(0,0,0,0.02)' : '#FFFFFF'),
               borderColor: node.is_official ? '#4F46E5' : '#E2E8F0',
               borderLeft: node.is_official ? '4px solid #4F46E5' : '1px solid #E2E8F0',
               boxShadow: node.is_official ? '0 2px 10px rgba(79, 70, 229, 0.08)' : 'none'
@@ -841,9 +842,9 @@ const CommentModal = ({ item, currentUser, onClose, onShowToast, onRefreshProfil
                       <div style={{ display: 'flex', alignItems: 'center' }}>
                         <span style={{ ...styles.commentUserName, color: node.is_official ? '#4338CA' : '#1E293B' }}>{node.user?.name || node.user_name || 'User'}</span>
                         {node.is_official && (
-                          <span style={{ 
-                            marginLeft: '8px', padding: '2px 8px', borderRadius: '4px', 
-                            background: 'linear-gradient(135deg, #4F46E5 0%, #3730A3 100%)', color: 'white', 
+                          <span style={{
+                            marginLeft: '8px', padding: '2px 8px', borderRadius: '4px',
+                            background: 'linear-gradient(135deg, #4F46E5 0%, #3730A3 100%)', color: 'white',
                             fontSize: '9px', fontWeight: '900', textTransform: 'uppercase',
                             letterSpacing: '0.04em', boxShadow: '0 2px 4px rgba(79, 70, 229, 0.2)'
                           }}>
@@ -853,10 +854,10 @@ const CommentModal = ({ item, currentUser, onClose, onShowToast, onRefreshProfil
                       </div>
                       {node.is_official && node.admin_role_snapshot && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '1px' }}>
-                           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#4F46E5" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-                           <span style={{ fontSize: '10px', color: '#4F46E5', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.02em' }}>
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#4F46E5" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                          <span style={{ fontSize: '10px', color: '#4F46E5', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.02em' }}>
                             {node.admin_role_snapshot}
-                           </span>
+                          </span>
                         </div>
                       )}
                     </div>
@@ -924,13 +925,13 @@ const CommentModal = ({ item, currentUser, onClose, onShowToast, onRefreshProfil
                   <span>{itemMeta.rating || 0}/5</span>
                 </div>
                 {itemMeta.status && (
-                  <div style={{ 
-                    fontSize: '10px', 
-                    padding: '2px 8px', 
-                    borderRadius: '10px', 
-                    backgroundColor: itemMeta.status.toUpperCase() === 'CLOSED' ? '#F1F5F9' : '#EFF6FF', 
-                    color: itemMeta.status.toUpperCase() === 'CLOSED' ? '#64748B' : '#1D4ED8', 
-                    fontWeight: 'bold', 
+                  <div style={{
+                    fontSize: '10px',
+                    padding: '2px 8px',
+                    borderRadius: '10px',
+                    backgroundColor: itemMeta.status.toUpperCase() === 'CLOSED' ? '#F1F5F9' : '#EFF6FF',
+                    color: itemMeta.status.toUpperCase() === 'CLOSED' ? '#64748B' : '#1D4ED8',
+                    fontWeight: 'bold',
                     border: '1px solid #DBEAFE',
                     display: 'flex',
                     alignItems: 'center',
@@ -1050,45 +1051,63 @@ const CommentModal = ({ item, currentUser, onClose, onShowToast, onRefreshProfil
         </div>
 
         <div style={{ ...styles.commentModalFooter, backgroundColor: '#FFFFFF', borderTop: '1px solid #E2E8F0' }}>
-              <div style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center', 
-                gap: '8px', 
-                padding: '12px', 
-                backgroundColor: '#F0FDF4', 
-                borderRadius: '12px',
-                border: '1px solid #DCFCE7',
-                color: '#15803D',
-                width: '100%',
-                marginBottom: '12px'
-              }}>
-                <Icons.CheckCircle size={14} color="#15803D" />
-                <span style={{ fontSize: '13px', fontWeight: '700' }}>
-                  Marked as resolved by admin
-                </span>
-              </div>
-              {replyingTo && (
-                <div style={{ ...styles.replyingToNotice, backgroundColor: '#F1F5F9', color: '#64748B' }}>
-                  Replying to <strong style={{ color: '#1E293B' }}>{replyingTo.name}</strong>
-                  <button onClick={() => setReplyingTo(null)} style={styles.cancelReplyBtn}>X</button>
-                </div>
-              )}
-              <div style={styles.modalInputWrapper}>
-                <input
-                  id="modal-comment-input"
-                  ref={commentInputRef}
-                  type="text"
-                  placeholder={replyingTo ? `Replying to ${replyingTo.name}...` : "Write a comment..."}
-                  style={styles.modalCommentInput}
-                  value={newComment}
-                  onChange={(e) => setNewComment(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handlePostComment()}
-                />
-                <button style={{ ...styles.modalSendBtn, backgroundColor: 'var(--primary-color)' }} onClick={handlePostComment}>
-                  Post
-                </button>
-              </div>
+          {itemMeta.status?.toUpperCase() === 'RESOLVED' && (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              padding: '12px',
+              backgroundColor: '#F0FDF4',
+              borderRadius: '12px',
+              border: '1px solid #DCFCE7',
+              color: '#15803D',
+              width: '100%',
+              marginBottom: '12px'
+            }}>
+              <Icons.CheckCircle size={14} color="#15803D" />
+              <span style={{ fontSize: '13px', fontWeight: '700' }}>
+                Marked as resolved by admin
+              </span>
+            </div>
+          )}
+          {replyingTo && (
+            <div style={{ ...styles.replyingToNotice, backgroundColor: '#F1F5F9', color: '#64748B' }}>
+              Replying to <strong style={{ color: '#1E293B' }}>{replyingTo.name}</strong>
+              <button onClick={() => setReplyingTo(null)} style={styles.cancelReplyBtn}>X</button>
+            </div>
+          )}
+          {(itemMeta.allow_comments !== false || isAdmin) ? (
+            <div style={styles.modalInputWrapper}>
+              <input
+                id="modal-comment-input"
+                ref={commentInputRef}
+                type="text"
+                placeholder={replyingTo ? `Replying to ${replyingTo.name}...` : "Write a comment..."}
+                style={styles.modalCommentInput}
+                value={newComment}
+                onChange={(e) => setNewComment(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handlePostComment()}
+              />
+              <button style={{ ...styles.modalSendBtn, backgroundColor: 'var(--primary-color)' }} onClick={handlePostComment}>
+                Post
+              </button>
+            </div>
+          ) : (
+            <div style={{
+              padding: '16px',
+              backgroundColor: '#F8FAFC',
+              borderRadius: '12px',
+              textAlign: 'center',
+              color: '#64748B',
+              fontSize: '13px',
+              fontWeight: '600',
+              border: '1px dashed #E2E8F0',
+              width: '100%'
+            }}>
+              Comments have been disabled for this feedback.
+            </div>
+          )}
         </div>
       </div>
       {fullscreenImg && (
@@ -1111,20 +1130,7 @@ const CommentModal = ({ item, currentUser, onClose, onShowToast, onRefreshProfil
   );
 };
 
-const timeAgo = (dateString) => {
-  if (!dateString) return 'Recently';
-  const date = new Date(dateString);
-  if (isNaN(date)) return 'Recently';
-  const now = new Date();
-  const diffInSeconds = Math.floor((now - date) / 1000);
 
-  if (diffInSeconds < 60) return `Just now`;
-  if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
-  if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
-  return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) +
-    ' at ' +
-    date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-};
 
 const getStatusColor = (status) => {
   switch (status) {
@@ -1137,6 +1143,7 @@ const getStatusColor = (status) => {
 };
 
 const FeedCard = ({ item: initialItem, currentUser, onShowToast, onOpenComments, setFullscreenImg, onRefresh }) => {
+  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'superadmin';
   const [dialogState, setDialogState] = useState({ isOpen: false });
   const [item, setItem] = useState(initialItem);
   const [likes, setLikes] = useState(0);
@@ -1319,7 +1326,7 @@ const FeedCard = ({ item: initialItem, currentUser, onShowToast, onOpenComments,
             ⋮
           </button>
           {showOptions && (
-            <div 
+            <div
               onClick={(e) => e.stopPropagation()}
               style={{ position: 'absolute', right: 0, top: '100%', backgroundColor: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', zIndex: 10 }}
             >
@@ -1407,11 +1414,13 @@ const FeedCard = ({ item: initialItem, currentUser, onShowToast, onOpenComments,
         </button>
 
         <button
-          style={styles.fbActionBtn}
+          style={{ ...styles.fbActionBtn, opacity: (item.allow_comments !== false || isAdmin) ? 1 : 0.6 }}
           onClick={(e) => { e.stopPropagation(); onOpenComments(item); }}
         >
           <Icons.Message />
-          <span>Comment</span>
+          <span style={{ color: (item.allow_comments === false && !isAdmin) ? '#94A3B8' : 'inherit' }}>
+            {item.allow_comments === false && !isAdmin ? "Comments Disabled" : "Comment"}
+          </span>
           {item.replies_count > 0 ? <span style={styles.actionCount}>{item.replies_count}</span> : null}
         </button>
       </div>
@@ -1438,14 +1447,14 @@ const DashboardView = ({ feed, loading, hasMore, onLoadMore, onAction, currentUs
     // 2. Fallback to name-based heuristic if icon is missing or invalid
     const name = (cat.name || "").toLowerCase();
 
-    if (name.includes('dept') || name.includes('department') || name.includes('office')) return IconRegistry.building;
-    if (name.includes('food') || name.includes('eat') || name.includes('rest')) return IconRegistry.food;
-    if (name.includes('beauty') || name.includes('cosmetic')) return IconRegistry.beauty;
-    if (name.includes('car') || name.includes('transport') || name.includes('bus')) return IconRegistry.car;
-    if (name.includes('bank') || name.includes('finance') || name.includes('money')) return IconRegistry.bank;
-    if (name.includes('edu') || name.includes('school')) return IconRegistry.edu;
+    if (name.includes('dept') || name.includes('department') || name.includes('office')) return IconRegistry.hotel;
+    if (name.includes('food') || name.includes('eat') || name.includes('rest')) return IconRegistry.plate;
+    if (name.includes('beauty') || name.includes('cosmetic')) return IconRegistry.spa;
+    if (name.includes('car') || name.includes('transport') || name.includes('bus')) return IconRegistry.bus;
+    if (name.includes('bank') || name.includes('finance') || name.includes('money')) return IconRegistry.shield;
+    if (name.includes('edu') || name.includes('school')) return IconRegistry.school;
 
-    return IconRegistry.default;
+    return IconRegistry.default || Icons.Message;
   };
 
   // Calculate counts for each entity
@@ -1542,7 +1551,7 @@ const DashboardView = ({ feed, loading, hasMore, onLoadMore, onAction, currentUs
               </button>
             ))}
           </div>
-          
+
           {/* SEARCH BOX BELOW TABS */}
           <div style={{ padding: '0 8px', marginBottom: '12px', marginTop: '4px' }}>
             <div style={{ position: 'relative' }}>
@@ -1923,8 +1932,30 @@ const styles = {
   notifTitle: { margin: 0, fontSize: '16px' },
   closeBtnSecondary: { background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer' },
   notifList: { flex: 1, padding: '10px' },
-  reportOverlay: { position: 'fixed', inset: 0, backgroundColor: 'rgba(15, 23, 42, 0.6)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)', padding: '20px' },
-  reportModalContent: { backgroundColor: '#F8FAFC', width: '100%', maxWidth: '420px', height: '85vh', maxHeight: '85vh', borderRadius: '24px', position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)' },
+  reportOverlay: {
+    position: 'fixed', inset: 0,
+    background: `
+      radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.2) 0px, transparent 50%),
+      radial-gradient(at 100% 0%, rgba(139, 92, 246, 0.15) 0px, transparent 50%),
+      radial-gradient(at 100% 100%, rgba(236, 72, 153, 0.1) 0px, transparent 50%),
+      radial-gradient(at 0% 100%, rgba(34, 197, 94, 0.1) 0px, transparent 50%),
+      rgba(15, 23, 42, 0.6)
+    `,
+    zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center',
+    backdropFilter: 'blur(24px)', padding: '20px',
+    animation: 'fadeIn 0.6s ease-out'
+  },
+  reportModalContent: {
+    backgroundColor: 'rgba(248, 250, 252, 0.95)',
+    width: '100%', maxWidth: '440px',
+    height: '85vh',
+    borderRadius: '40px',
+    position: 'relative', overflow: 'hidden',
+    display: 'flex', flexDirection: 'column',
+    boxShadow: '0 40px 80px -15px rgba(0, 0, 0, 0.35), inset 0 0 0 1px rgba(255, 255, 255, 0.4)',
+    border: '1px solid rgba(255, 255, 255, 0.3)',
+    animation: 'modalSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1)'
+  },
   feedAvatar: { width: '36px', height: '36px', borderRadius: '12px', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '16px', flexShrink: 0 },
   commentToggleBtn: { background: 'none', border: 'none', color: '#64748B', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: '600', cursor: 'pointer', padding: '6px 10px', borderRadius: '8px', transition: 'background-color 0.2s' },
   modalOverlay: { position: 'fixed', inset: 0, backgroundColor: 'rgba(15, 23, 42, 0.7)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(8px)', padding: '20px' },
@@ -1994,28 +2025,28 @@ const BroadcastViewModal = ({ notif, currentUser, onClose }) => {
 
   return (
     <div style={{ ...styles.modalOverlay, cursor: requireAck ? 'default' : 'pointer' }} onClick={requireAck ? null : onClose}>
-      <div 
-        style={{ 
-          ...styles.commentModalContent, 
-          maxWidth: '500px', 
-          height: 'auto', 
+      <div
+        style={{
+          ...styles.commentModalContent,
+          maxWidth: '500px',
+          height: 'auto',
           maxHeight: '90vh',
           border: isHighPriority ? '2px solid #EF4444' : '1px solid #E2E8F0',
           boxShadow: isHighPriority ? '0 20px 50px rgba(239, 68, 68, 0.2)' : '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
-        }} 
+        }}
         onClick={e => e.stopPropagation()}
       >
-        <header style={{ 
-          ...styles.commentModalHeader, 
-          backgroundColor: isHighPriority ? '#FEF2F2' : '#FFFFFF', 
-          borderBottom: '1px solid #E2E8F0' 
+        <header style={{
+          ...styles.commentModalHeader,
+          backgroundColor: isHighPriority ? '#FEF2F2' : '#FFFFFF',
+          borderBottom: '1px solid #E2E8F0'
         }}>
           <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-            <div style={{ 
-              padding: '10px', 
-              background: isHighPriority ? '#EF4444' : 'linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%)', 
-              borderRadius: '12px', 
-              color: isHighPriority ? '#FFFFFF' : '#92400E' 
+            <div style={{
+              padding: '10px',
+              background: isHighPriority ? '#EF4444' : 'linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%)',
+              borderRadius: '12px',
+              color: isHighPriority ? '#FFFFFF' : '#92400E'
             }}>
               {isHighPriority ? (
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
@@ -2040,11 +2071,11 @@ const BroadcastViewModal = ({ notif, currentUser, onClose }) => {
           <p style={{ margin: 0, fontSize: '14px', lineHeight: '1.6', color: isHighPriority ? '#7F1D1D' : '#334155', whiteSpace: 'pre-wrap', fontWeight: isHighPriority ? '500' : 'normal' }}>
             {notif.message}
           </p>
-          <div style={{ 
-            marginTop: '24px', 
-            paddingTop: '16px', 
-            borderTop: isHighPriority ? '1px solid #FEE2E2' : '1px dotted #E2E8F0', 
-            display: 'flex', 
+          <div style={{
+            marginTop: '24px',
+            paddingTop: '16px',
+            borderTop: isHighPriority ? '1px solid #FEE2E2' : '1px dotted #E2E8F0',
+            display: 'flex',
             justifyContent: 'flex-end',
             alignItems: 'center',
             gap: '12px'
@@ -2063,10 +2094,10 @@ const BroadcastViewModal = ({ notif, currentUser, onClose }) => {
                 }
                 onClose();
               }}
-              style={{ 
-                ...styles.modalSendBtn, 
-                backgroundColor: isHighPriority ? '#EF4444' : 'var(--primary-color)', 
-                width: 'auto', 
+              style={{
+                ...styles.modalSendBtn,
+                backgroundColor: isHighPriority ? '#EF4444' : 'var(--primary-color)',
+                width: 'auto',
                 padding: '10px 32px',
                 fontWeight: '800',
                 boxShadow: isHighPriority ? '0 4px 12px rgba(239, 68, 68, 0.3)' : 'none'

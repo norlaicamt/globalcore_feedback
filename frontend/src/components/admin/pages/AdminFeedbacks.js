@@ -441,7 +441,7 @@ const DotsMenu = ({ onUpdateStatus, onDelete, theme, darkMode, currentStatus }) 
           style={{ position: "absolute", right: 0, top: "34px", background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: "10px", boxShadow: "0 8px 24px rgba(0,0,0,0.1)", zIndex: 100, minWidth: "160px", padding: "6px" }}
         >
           <p style={{ margin: "4px 8px 8px", fontSize: "9px", fontWeight: "800", color: theme.textMuted, textTransform: "uppercase" }}>Change Status</p>
-          {Object.entries(STATUSES).map(([key, cfg]) => (
+          {Object.entries(STATUSES).filter(([key]) => key !== 'CLOSED').map(([key, cfg]) => (
             <button
               key={key}
               onClick={() => { onUpdateStatus(key); setOpen(false); }}
@@ -516,6 +516,12 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState("ALL"); // ALL, OPEN, IN_PROGRESS, RESOLVED, CLOSED
   const [selectedFeedback, setSelectedFeedback] = useState(null);
+  const [selectedProgram, setSelectedProgram] = useState("ALL");
+  const [selectedRating, setSelectedRating] = useState("ALL");
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState("ALL");
+  const [showProgramFilter, setShowProgramFilter] = useState(false);
+  const [showRatingFilter, setShowRatingFilter] = useState(false);
+  const [showStatusFilter, setShowStatusFilter] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
   const [dialog, setDialog] = useState({ isOpen: false });
 
@@ -526,6 +532,20 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
       setIsClosing(false);
     }, 300);
   };
+
+  const programFilterRef = useRef(null);
+  const ratingFilterRef = useRef(null);
+  const statusFilterRef = useRef(null);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (programFilterRef.current && !programFilterRef.current.contains(e.target)) setShowProgramFilter(false);
+      if (ratingFilterRef.current && !ratingFilterRef.current.contains(e.target)) setShowRatingFilter(false);
+      if (statusFilterRef.current && !statusFilterRef.current.contains(e.target)) setShowStatusFilter(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
 
   const load = () => {
     setLoading(true);
@@ -544,11 +564,14 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
 
   const filtered = feedbacks.filter(f => {
     const tabMatch = activeTab === "ALL" || f.status === activeTab;
+    const programMatch = selectedProgram === "ALL" || f.entity_name === selectedProgram;
+    const ratingMatch = selectedRating === "ALL" || f.rating === parseInt(selectedRating);
+    const statusMatch = selectedStatusFilter === "ALL" || f.status === selectedStatusFilter;
     const searchMatch = !search || 
       f.description?.toLowerCase().includes(search.toLowerCase()) ||
       f.user_name?.toLowerCase().includes(search.toLowerCase()) ||
       f.entity_name?.toLowerCase().includes(search.toLowerCase());
-    return tabMatch && searchMatch;
+    return tabMatch && searchMatch && programMatch && ratingMatch && statusMatch;
   });
 
   const stats = {
@@ -667,9 +690,97 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
           <thead>
             <tr style={{ background: darkMode ? "rgba(255,255,255,0.02)" : "#F8FAFC", borderBottom: `1px solid ${theme.border}` }}>
-              {["Program / Service", "Location", "User", "Rating", "Status", "Date", ""].map((h, idx) => (
-                <th key={idx} style={{ padding: "16px 20px", textAlign: "left", fontSize: "11px", fontWeight: "800", color: theme.textMuted, textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</th>
-              ))}
+              <th style={{ padding: "16px 20px", textAlign: "left", fontSize: "11px", fontWeight: "800", color: theme.textMuted, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  Program / Service
+                  <div style={{ position: 'relative' }} ref={programFilterRef}>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); setShowProgramFilter(!showProgramFilter); }}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', color: selectedProgram !== 'ALL' ? 'var(--primary-color)' : 'inherit' }}
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    </button>
+                    {showProgramFilter && (
+                      <div style={{ position: 'absolute', top: '24px', left: 0, background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: '10px', boxShadow: '0 10px 25px rgba(0,0,0,0.15)', zIndex: 100, minWidth: '150px', padding: '6px' }}>
+                        {["ALL", ...new Set(feedbacks.map(f => f.entity_name).filter(Boolean))].map(prog => (
+                          <button 
+                            key={prog} 
+                            onClick={(e) => { e.stopPropagation(); setSelectedProgram(prog); setShowProgramFilter(false); }}
+                            style={{ 
+                              display: 'block', width: '100%', padding: '8px 12px', border: 'none', background: selectedProgram === prog ? 'rgba(var(--primary-rgb), 0.1)' : 'none',
+                              textAlign: 'left', fontSize: '12px', fontWeight: '600', color: selectedProgram === prog ? 'var(--primary-color)' : theme.text, borderRadius: '6px', cursor: 'pointer'
+                            }}
+                          >
+                            {prog === "ALL" ? "All Programs" : prog}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </th>
+              <th style={{ padding: "16px 20px", textAlign: "left", fontSize: "11px", fontWeight: "800", color: theme.textMuted, textTransform: "uppercase", letterSpacing: "0.05em" }}>Location</th>
+              <th style={{ padding: "16px 20px", textAlign: "left", fontSize: "11px", fontWeight: "800", color: theme.textMuted, textTransform: "uppercase", letterSpacing: "0.05em" }}>User</th>
+              <th style={{ padding: "16px 20px", textAlign: "left", fontSize: "11px", fontWeight: "800", color: theme.textMuted, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  Rating
+                  <div style={{ position: 'relative' }} ref={ratingFilterRef}>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); setShowRatingFilter(!showRatingFilter); }}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', color: selectedRating !== 'ALL' ? 'var(--primary-color)' : 'inherit' }}
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    </button>
+                    {showRatingFilter && (
+                      <div style={{ position: 'absolute', top: '24px', left: 0, background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: '10px', boxShadow: '0 10px 25px rgba(0,0,0,0.15)', zIndex: 100, minWidth: '120px', padding: '6px' }}>
+                        {["ALL", "5", "4", "3", "2", "1"].map(r => (
+                          <button 
+                            key={r} 
+                            onClick={(e) => { e.stopPropagation(); setSelectedRating(r); setShowRatingFilter(false); }}
+                            style={{ 
+                              display: 'block', width: '100%', padding: '8px 12px', border: 'none', background: selectedRating === r ? 'rgba(var(--primary-rgb), 0.1)' : 'none',
+                              textAlign: 'left', fontSize: '12px', fontWeight: '600', color: selectedRating === r ? 'var(--primary-color)' : theme.text, borderRadius: '6px', cursor: 'pointer'
+                            }}
+                          >
+                            {r === "ALL" ? "All Ratings" : `${r} Stars`}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </th>
+              <th style={{ padding: "16px 20px", textAlign: "left", fontSize: "11px", fontWeight: "800", color: theme.textMuted, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  Status
+                  <div style={{ position: 'relative' }} ref={statusFilterRef}>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); setShowStatusFilter(!showStatusFilter); }}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', color: selectedStatusFilter !== 'ALL' ? 'var(--primary-color)' : 'inherit' }}
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    </button>
+                    {showStatusFilter && (
+                      <div style={{ position: 'absolute', top: '24px', left: 0, background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: '10px', boxShadow: '0 10px 25px rgba(0,0,0,0.15)', zIndex: 100, minWidth: '150px', padding: '6px' }}>
+                        {["ALL", "OPEN", "IN_PROGRESS", "RESOLVED"].map(s => (
+                          <button 
+                            key={s} 
+                            onClick={(e) => { e.stopPropagation(); setSelectedStatusFilter(s); setShowStatusFilter(false); }}
+                            style={{ 
+                              display: 'block', width: '100%', padding: '8px 12px', border: 'none', background: selectedStatusFilter === s ? 'rgba(var(--primary-rgb), 0.1)' : 'none',
+                              textAlign: 'left', fontSize: '12px', fontWeight: '600', color: selectedStatusFilter === s ? 'var(--primary-color)' : theme.text, borderRadius: '6px', cursor: 'pointer'
+                            }}
+                          >
+                            {s === "ALL" ? "All Statuses" : (STATUSES[s]?.label || s)}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </th>
+              <th style={{ padding: "16px 20px", textAlign: "left", fontSize: "11px", fontWeight: "800", color: theme.textMuted, textTransform: "uppercase", letterSpacing: "0.05em" }}>Date</th>
+              <th style={{ padding: "16px 20px", textAlign: "right", fontSize: "11px", fontWeight: "800", color: theme.textMuted, textTransform: "uppercase", letterSpacing: "0.05em" }}></th>
             </tr>
           </thead>
           <tbody>
@@ -691,9 +802,9 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
                   <div style={{ fontWeight: "800", color: theme.text, fontSize: "14px", letterSpacing: "-0.01em" }}>{f.entity_name || "General"}</div>
                   <div style={{ fontSize: "11px", color: theme.textMuted, marginTop: "2px", fontWeight: "600" }}>{f.title?.split(": ")[1] || f.title || "No Subject"}</div>
                 </td>
-                <td style={{ padding: "16px 20px", color: theme.textMuted, fontWeight: "600", fontSize: "12px" }}>{f.dept_name || "—"}</td>
+                <td style={{ padding: "16px 20px", color: theme.textMuted, fontWeight: "500", fontSize: "12px" }}>{f.dept_name || "—"}</td>
                 <td style={{ padding: "16px 20px" }}>
-                  <div style={{ fontWeight: "900", color: theme.text, fontSize: "14px" }}>
+                  <div style={{ fontWeight: "600", color: theme.text, fontSize: "14px" }}>
                     {f.is_anonymous ? `Anonymous #${f.id}` : (f.user_name || `User #${f.id}`)}
                   </div>
                   {f.is_anonymous && <span style={{ fontSize: "10px", color: "#94A3B8", fontStyle: "italic", fontWeight: "700" }}>Private Submission</span>}
@@ -706,12 +817,12 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
                       boxShadow: `0 0 10px ${f.rating <= 2 ? "#EF444450" : f.rating === 3 ? "#F59E0B50" : "#10B98150"}`,
                       border: "2px solid white"
                     }} />
-                    <span style={{ fontWeight: "900", color: theme.text, fontSize: "15px" }}>{f.rating || "—"}</span>
+                    <span style={{ fontWeight: "600", color: theme.text, fontSize: "15px" }}>{f.rating || "—"}</span>
                   </div>
                 </td>
                 <td style={{ padding: "16px 20px" }}>
                   <span style={{ 
-                    padding: "6px 12px", borderRadius: "10px", fontSize: "10px", fontWeight: "900", 
+                    padding: "6px 12px", borderRadius: "10px", fontSize: "10px", fontWeight: "700", 
                     textTransform: "uppercase", background: STATUSES[f.status]?.bg, color: STATUSES[f.status]?.color,
                     border: `1px solid ${STATUSES[f.status]?.color}40`,
                     display: "inline-flex", alignItems: "center", gap: "6px",
@@ -721,7 +832,7 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
                     {STATUSES[f.status]?.label || f.status}
                   </span>
                 </td>
-                <td style={{ padding: "16px 20px", color: theme.textMuted, fontWeight: "600", fontSize: "12px" }}>{f.created_at?.split("T")[0]}</td>
+                <td style={{ padding: "16px 20px", color: theme.textMuted, fontWeight: "500", fontSize: "12px" }}>{f.created_at?.split("T")[0]}</td>
                 <td style={{ padding: "16px 20px", textAlign: "right" }} onClick={e => e.stopPropagation()}>
                   <DotsMenu onUpdateStatus={(s) => handleUpdateStatus(f.id, s)} onDelete={() => handleDelete(f)} theme={theme} darkMode={darkMode} currentStatus={f.status} />
                 </td>

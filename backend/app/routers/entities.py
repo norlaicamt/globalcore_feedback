@@ -18,10 +18,17 @@ def get_entity_form_config(entity_id: int, db: Session = Depends(get_db)):
     if not entity:
         raise HTTPException(status_code=404, detail="Entity not found")
     
-    if entity.fields and isinstance(entity.fields, dict) and "version" in entity.fields:
+    if entity.fields and isinstance(entity.fields, dict):
+        # If the config is explicitly empty (no steps), return it as is
+        if not entity.fields.get("steps") or len(entity.fields.get("steps")) == 0:
+             return { "version": 3, "steps": [], "sections": [], "terminology": {} }
         return migrate_step_schema(copy.deepcopy(entity.fields))
     
-    return copy.deepcopy(DEFAULT_FORM_CONFIG)
+    # Only return default if the field is completely null (never initialized)
+    if entity.fields is None:
+        return copy.deepcopy(DEFAULT_FORM_CONFIG)
+        
+    return { "version": 3, "steps": [], "sections": [], "terminology": {} }
 
 @router.post("/", response_model=schemas.Entity)
 def create_entity(entity: schemas.EntityCreate, db: Session = Depends(get_db)):

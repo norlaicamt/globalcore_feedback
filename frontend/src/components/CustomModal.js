@@ -56,6 +56,7 @@ const CustomModal = ({
             }}
             onClick={onConfirm}
             autoFocus
+            data-modal-confirm="true"
           >
             {confirmText}
           </button>

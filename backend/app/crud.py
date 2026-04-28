@@ -344,7 +344,8 @@ def get_feedbacks(
     mentioned_user_id: int = None,
     current_user_id: int = None,
     only_approved: bool = True,
-    status: str = None
+    status: str = None,
+    entity_id: int = None
 ):
     """Unified and optimized feedback retrieval with counts and relations."""
     # Scalar subqueries for counts (single query execution for all)
@@ -411,6 +412,9 @@ def get_feedbacks(
         
     if recipient_dept_id:
         query = query.filter(models.Feedback.recipient_dept_id == recipient_dept_id)
+
+    if entity_id:
+        query = query.filter(models.Feedback.entity_id == entity_id)
 
     if status:
         try:
@@ -1187,6 +1191,21 @@ def get_analytics_summary(db: Session, dept_name: Optional[str] = None, entity_i
     anon_rate = round((anon_count / total_feedback * 100), 1) if total_feedback else 0
 
     inactive_7d_count = max(0, total_users - active_citizens_7d)
+    
+    # Fetch Latest Dispatch (Broadcast) for KPI integration
+    b_q = db.query(models.BroadcastLog).order_by(models.BroadcastLog.created_at.desc())
+    if entity_id:
+        b_q = b_q.filter(models.BroadcastLog.entity_id == entity_id)
+    latest_b = b_q.first()
+    
+    latest_dispatch = None
+    if latest_b:
+        latest_dispatch = {
+            "title": latest_b.subject,
+            "sent_at": str(latest_b.created_at),
+            "recipient_group": f"{latest_b.sent_to_count} Recipients",
+            "type": latest_b.broadcast_type
+        }
 
     res = {
         "total_feedback": total_feedback,
@@ -1202,6 +1221,7 @@ def get_analytics_summary(db: Session, dept_name: Optional[str] = None, entity_i
         "active_citizens_7d": active_citizens_7d,
         "new_reports_7d": new_reports_7d,
         "cross_program_reach": cross_program_count,
+        "latest_dispatch": latest_dispatch,
         "user_engagement_status": [
             {"name": "Active", "value": active_citizens_7d},
             {"name": "Inactive", "value": inactive_7d_count}
@@ -1226,9 +1246,7 @@ def get_program_rankings(db: Session, entity_id: Optional[int] = None, days: int
         query = query.filter(models.Feedback.entity_id == entity_id)
         
     # Minimum 5 feedbacks for credibility
-    rows = query.group_by(models.Entity.name)\
-                .having(func.count(models.Feedback.id) >= 5)\
-                .all()
+    rows = query.group_by(models.Entity.name).all()
                 
     stats = [
         {"name": r.name, "count": r.count, "avg_rating": round(float(r.avg_rating), 2) if r.avg_rating else 0.0} 

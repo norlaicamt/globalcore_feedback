@@ -168,7 +168,12 @@ def analytics_snapshot(days: int = 30, dept_name: Optional[str] = None, db: Sess
         "user_distribution": crud.get_user_distribution(db, entity_id=target_entity_id, dept_name=dept_scope),
         "top_branches": crud.get_top_branches(db, entity_id=target_entity_id, limit=5, days=days),
         "feedback_type_distribution": crud.get_feedback_type_distribution(db, entity_id=target_entity_id, days=days),
-        "program_rankings": crud.get_program_rankings(db, entity_id=target_entity_id, days=days)
+        "program_rankings": crud.get_program_rankings(db, entity_id=target_entity_id, days=days),
+        "recent_feedbacks": crud.get_feedbacks(
+            db, limit=5, only_approved=False, 
+            entity_id=target_entity_id if target_entity_id else (db.query(models.Entity.id).filter(models.Entity.name == dept_scope).scalar() if dept_scope else None),
+            recipient_dept_id=None if not dept_scope or db.query(models.Entity).filter(models.Entity.name == dept_scope).first() else db.query(models.Department.id).filter(models.Department.name == dept_scope).scalar()
+        )
     }
 
 @router.get("/analytics/summary")
@@ -190,7 +195,12 @@ def analytics_volume(days: int = 30, dept_name: Optional[str] = None, entity_id:
     if target_entity_id:
         q = q.filter(models.Feedback.entity_id == target_entity_id)
     elif dept_name:
-         q = q.filter(models.Feedback.recipient_dept_id == db.query(models.Department.id).filter(models.Department.name == dept_name).scalar_subquery())
+        # Resolve entity_id from name (Interaction-First scoping)
+        entity = db.query(models.Entity).filter(models.Entity.name == dept_name).first()
+        if entity:
+            q = q.filter(models.Feedback.entity_id == entity.id)
+        else:
+            q = q.filter(models.Feedback.recipient_dept_id == db.query(models.Department.id).filter(models.Department.name == dept_name).scalar_subquery())
         
     rows = q.group_by(cast(models.Feedback.created_at, Date))\
             .order_by(cast(models.Feedback.created_at, Date)).all()
@@ -211,7 +221,11 @@ def analytics_by_entity(days: int = 30, dept_name: Optional[str] = None, entity_
     if target_entity_id:
         q = q.filter(models.Feedback.entity_id == target_entity_id)
     elif dept_name:
-         q = q.filter(models.Feedback.recipient_dept_id == db.query(models.Department.id).filter(models.Department.name == dept_name).scalar_subquery())
+        entity = db.query(models.Entity).filter(models.Entity.name == dept_name).first()
+        if entity:
+            q = q.filter(models.Feedback.entity_id == entity.id)
+        else:
+            q = q.filter(models.Feedback.recipient_dept_id == db.query(models.Department.id).filter(models.Department.name == dept_name).scalar_subquery())
         
     rows = q.group_by(models.Entity.name)\
             .order_by(func.count(models.Feedback.id).desc()).all()
@@ -241,7 +255,11 @@ def analytics_by_status(days: int = 30, dept_name: Optional[str] = None, entity_
     if target_entity_id:
         q = q.filter(models.Feedback.entity_id == target_entity_id)
     elif dept_name:
-         q = q.filter(models.Feedback.recipient_dept_id == db.query(models.Department.id).filter(models.Department.name == dept_name).scalar_subquery())
+        entity = db.query(models.Entity).filter(models.Entity.name == dept_name).first()
+        if entity:
+            q = q.filter(models.Feedback.entity_id == entity.id)
+        else:
+            q = q.filter(models.Feedback.recipient_dept_id == db.query(models.Department.id).filter(models.Department.name == dept_name).scalar_subquery())
     rows = q.group_by(models.Feedback.status).all()
     return [{"status": str(r.status).replace("FeedbackStatus.", ""), "count": r.count} for r in rows]
 
@@ -258,7 +276,11 @@ def analytics_ratings(days: int = 30, dept_name: Optional[str] = None, entity_id
     if target_entity_id:
         q = q.filter(models.Feedback.entity_id == target_entity_id)
     elif dept_name:
-         q = q.filter(models.Feedback.recipient_dept_id == db.query(models.Department.id).filter(models.Department.name == dept_name).scalar_subquery())
+        entity = db.query(models.Entity).filter(models.Entity.name == dept_name).first()
+        if entity:
+            q = q.filter(models.Feedback.entity_id == entity.id)
+        else:
+            q = q.filter(models.Feedback.recipient_dept_id == db.query(models.Department.id).filter(models.Department.name == dept_name).scalar_subquery())
     rows = q.group_by(models.Feedback.rating)\
             .order_by(models.Feedback.rating).all()
     return [{"rating": r.rating, "count": r.count} for r in rows]
@@ -302,11 +324,18 @@ def analytics_top_users(
     ).filter(models.User.role.notin_(["admin", "superadmin"]))
     
     if effective_dept:
-        query = query.filter(
-            (models.User.unit_name == effective_dept) |
-            (models.User.program == effective_dept) |
-            (models.User.department == effective_dept)
-        )
+        entity = db.query(models.Entity).filter(models.Entity.name == effective_dept).first()
+        if entity:
+            query = query.filter(
+                (models.User.id.in_(db.query(models.Feedback.sender_id).filter(models.Feedback.entity_id == entity.id))) |
+                (models.User.id.in_(db.query(models.UserContext.user_id).filter(models.UserContext.entity_id == entity.id)))
+            )
+        else:
+            query = query.filter(
+                (models.User.unit_name == effective_dept) |
+                (models.User.program == effective_dept) |
+                (models.User.department == effective_dept)
+            )
         
     rows = query.all()
     
@@ -344,7 +373,15 @@ def analytics_engagement(
      .join(models.User, models.Reply.user_id == models.User.id)\
      .filter(models.User.role.notin_(["admin", "superadmin"]))
 
-    q = apply_data_scope(q, models.Feedback, admin)
+    # Scoping
+    if dept_name and has_global_admin_access(admin):
+        entity = db.query(models.Entity).filter(models.Entity.name == dept_name).first()
+        if entity:
+            q = q.filter(models.Feedback.entity_id == entity.id)
+        else:
+            q = q.filter(models.Feedback.recipient_dept_id == db.query(models.Department.id).filter(models.Department.name == dept_name).scalar_subquery())
+    else:
+        q = apply_data_scope(q, models.Feedback, admin)
 
     rows = q.group_by(cast(models.Reply.created_at, Date))\
         .order_by(cast(models.Reply.created_at, Date)).all()
@@ -360,7 +397,15 @@ def analytics_by_location(dept_name: Optional[str] = None, db: Session = Depends
         func.count(models.Feedback.id).label("count")
     ).filter(models.Feedback.region != None)
     
-    q = apply_data_scope(q, models.Feedback, admin)
+    # Scoping
+    if dept_name and has_global_admin_access(admin):
+        entity = db.query(models.Entity).filter(models.Entity.name == dept_name).first()
+        if entity:
+            q = q.filter(models.Feedback.entity_id == entity.id)
+        else:
+            q = q.filter(models.Feedback.recipient_dept_id == db.query(models.Department.id).filter(models.Department.name == dept_name).scalar_subquery())
+    else:
+        q = apply_data_scope(q, models.Feedback, admin)
         
     rows = q.group_by(models.Feedback.region, models.Feedback.city)\
             .order_by(func.count(models.Feedback.id).desc()).all()
