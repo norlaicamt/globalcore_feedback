@@ -159,8 +159,51 @@ const FeedbackSidePanel = ({ feedback, isClosing, onClose, onUpdateStatus, theme
           {/* Feedback Body */}
           <section>
             <h4 style={{ fontSize: "11px", color: "var(--primary-color)", fontWeight: "900", marginBottom: "16px", textTransform: "uppercase", letterSpacing: "0.1em" }}>Voice of User</h4>
-            <div style={{ fontSize: "15px", lineHeight: "1.7", color: theme.text, background: theme.bg, padding: "24px", borderRadius: "20px", border: `1px solid ${theme.border}`, boxShadow: "inset 0 2px 4px rgba(0,0,0,0.02)" }}>
-              {feedback?.description || "No message provided."}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {(() => {
+                const config = feedback?.entity?.fields;
+                const responses = feedback?.custom_data || {};
+                
+                // If no structured data or config, show legacy description
+                if (!config || !config.steps || Object.keys(responses).length === 0) {
+                  return (
+                    <div style={{ fontSize: "15px", lineHeight: "1.7", color: theme.text, background: theme.bg, padding: "24px", borderRadius: "20px", border: `1px solid ${theme.border}`, boxShadow: "inset 0 2px 4px rgba(0,0,0,0.02)" }}>
+                      {feedback?.description || "No message provided."}
+                    </div>
+                  );
+                }
+
+                // Render all fields for admin
+                return config.steps.flatMap(s => s.items || []).map((it, idx) => {
+                  const val = responses[it.id] || responses[it.key];
+                  if (val === undefined || val === null || val === "" || (Array.isArray(val) && val.length === 0)) return null;
+
+                  let displayVal = val;
+                  if (typeof val === 'object' && !Array.isArray(val)) {
+                    displayVal = Object.entries(val).map(([k, v]) => `${k}: ${v}/5`).join(', ');
+                  } else if (Array.isArray(val)) {
+                    displayVal = val.join(', ');
+                  }
+
+                  return (
+                    <div key={idx} style={{ padding: '16px', background: theme.bg, borderRadius: '16px', border: `1px solid ${theme.border}`, position: 'relative' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                        <div style={{ fontSize: '10px', fontWeight: '900', color: 'var(--primary-color)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                          {it.label_override}
+                        </div>
+                        {it.include_in_post ? (
+                          <span style={{ fontSize: '9px', fontWeight: '800', background: '#DCFCE7', color: '#15803D', padding: '2px 6px', borderRadius: '4px' }}>PUBLIC</span>
+                        ) : (
+                          <span style={{ fontSize: '9px', fontWeight: '800', background: '#F1F5F9', color: '#64748B', padding: '2px 6px', borderRadius: '4px' }}>PRIVATE</span>
+                        )}
+                      </div>
+                      <div style={{ fontSize: '14px', color: theme.text, fontWeight: '600', lineHeight: '1.5' }}>
+                        {displayVal}
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
             </div>
           </section>
 
@@ -305,10 +348,10 @@ const FeedbackSidePanel = ({ feedback, isClosing, onClose, onUpdateStatus, theme
                      )}
                    </div>
                    
-                   {selectedStatus === 'CLOSED' && (
+                   {selectedStatus === 'RESOLVED' && (
                      <div style={{ marginTop: '16px', animation: 'fadeIn 0.2s ease' }}>
                        <textarea
-                         placeholder={systemMode === 'GOVERNMENT' ? "Explain why this case is being closed (Optional)..." : "Resolution summary or internal note (Optional)..."}
+                         placeholder={systemMode === 'GOVERNMENT' ? "Explain how this case was resolved (Optional)..." : "Resolution summary or internal note (Optional)..."}
                          style={{ 
                            width: "100%", padding: "12px", borderRadius: "12px", border: `1px solid ${theme.border}`, 
                            background: "white", fontSize: "13px", color: theme.text, minHeight: "80px", 
@@ -318,7 +361,7 @@ const FeedbackSidePanel = ({ feedback, isClosing, onClose, onUpdateStatus, theme
                          onChange={e => setClosureNote(e.target.value)}
                        />
                        <p style={{ margin: "6px 0 0", fontSize: "10px", color: theme.textMuted }}>
-                         Suggestion: {systemMode === 'GOVERNMENT' ? "Issue resolved during implementation / Duplicate submission" : "Concern addressed during guest checkout / Fixed reported issue"}
+                         Suggestion: {systemMode === 'GOVERNMENT' ? "Concern addressed / Project completed" : "Issue fixed / Customer satisfied"}
                        </p>
                      </div>
                    )}
@@ -792,11 +835,10 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
                   borderBottom: `1px solid ${theme.border}`, 
                   cursor: "pointer", 
                   transition: "0.15s",
-                  opacity: f.status === 'CLOSED' ? 0.65 : 1,
-                  backgroundColor: f.status === 'CLOSED' ? (darkMode ? 'rgba(0,0,0,0.1)' : '#F8FAFC') : 'transparent'
+                  backgroundColor: "transparent"
                 }}
                 onMouseEnter={e => e.currentTarget.style.background = darkMode ? "rgba(255,255,255,0.03)" : "#FAFAFA"}
-                onMouseLeave={e => e.currentTarget.style.background = f.status === 'CLOSED' ? (darkMode ? 'rgba(0,0,0,0.1)' : '#F8FAFC') : "none"}
+                onMouseLeave={e => e.currentTarget.style.background = "none"}
               >
                 <td style={{ padding: "16px 20px" }}>
                   <div style={{ fontWeight: "800", color: theme.text, fontSize: "14px", letterSpacing: "-0.01em" }}>{f.entity_name || "General"}</div>

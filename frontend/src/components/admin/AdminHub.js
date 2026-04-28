@@ -5,7 +5,6 @@ import { useTerminology } from "../../context/TerminologyContext";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminUsers from "./pages/AdminUsers";
 import AdminFeedbacks from "./pages/AdminFeedbacks";
-import AdminPendingSuggestions from "./pages/AdminPendingSuggestions";
 import AdminBroadcast from "./pages/AdminBroadcast";
 import AdminBroadcastAnalytics from "./pages/AdminBroadcastAnalytics";
 import AdminSettings from "./pages/AdminSettings";
@@ -13,18 +12,17 @@ import AdminAuditLogs from "./pages/AdminAuditLogs";
 import AdminPrograms from "./pages/AdminPrograms";
 import AdminFormDesigner from "./pages/AdminFormDesigner";
 import CustomModal from "../CustomModal";
-import { adminGetPendingSuggestions, adminUpdatePresence } from "../../services/adminApi";
+import { adminUpdatePresence } from "../../services/adminApi";
 
 const NAV_ITEMS = [
   { id: "dashboard", label: "INSIGHT HUB", icon: <ChartIcon /> },
   { id: "users", label: "User Management", icon: <UsersIcon /> },
   { id: "feedbacks", label: "Submissions", icon: <FeedIcon /> },
-  { id: "broadcast", label: "Announcements", icon: <BellIcon /> },
-  { id: "broadcast_analytics", label: "Reach Analytics", icon: <ChartIcon />, isSub: true },
   { id: "auditlogs", label: "System Audit Trail", icon: <ClockIcon />, superOnly: true },
   { type: "label", label: "ORGANIZATION" },
+  { id: "broadcast", label: "Announcements", icon: <BellIcon /> },
+  { id: "broadcast_analytics", label: "Reach Analytics", icon: <ChartIcon />, isSub: true },
   { id: "programs", label: "Workspaces", icon: <OrgIcon /> },
-  { id: "pendingsuggestions", label: "Approval Queue", icon: <ClockIcon />, isSub: true, superOnly: true },
   { id: "formdesigner", label: "Form Layout", icon: <OrgIcon /> },
   { type: "label", label: "PREFERENCES" },
   { id: "settings", label: "Global Settings", icon: <SettingsIcon />, superOnly: true },
@@ -44,7 +42,6 @@ const AdminHub = ({ adminUser, onLogout }) => {
   const [view, setView] = useState(getViewFromUrl);
   const [darkMode, setDarkMode] = useState(localStorage.getItem(STORAGE_KEYS.ADMIN_DARK_MODE) === "true");
   const [logoutDialog, setLogoutDialog] = useState(false);
-  const [pendingCount, setPendingCount] = useState(0);
   const [currentTime, setCurrentTime] = useState(new Date());
 
   // Real-time Clock synchronization
@@ -53,17 +50,7 @@ const AdminHub = ({ adminUser, onLogout }) => {
     return () => clearInterval(timer);
   }, []);
 
-  const fetchPendingCount = useCallback(() => {
-    if (!hasGlobalAdminAccess) return;
-    adminGetPendingSuggestions().then(data => {
-      setPendingCount(data.length);
-    }).catch(console.error);
-  }, [hasGlobalAdminAccess]);
-
   useEffect(() => {
-    fetchPendingCount();
-    const interval = setInterval(fetchPendingCount, 60000); // refresh every minute
-
     // Support browser back/forward buttons
     const handlePopState = () => {
       const v = getViewFromUrl();
@@ -77,10 +64,9 @@ const AdminHub = ({ adminUser, onLogout }) => {
     }
 
     return () => {
-      clearInterval(interval);
       window.removeEventListener("popstate", handlePopState);
     };
-  }, [hasGlobalAdminAccess, view, fetchPendingCount, getViewFromUrl]);
+  }, [view, getViewFromUrl]);
 
   // --- BRANDING: Primary Color Synchronization ---
   useEffect(() => {
@@ -124,7 +110,6 @@ const AdminHub = ({ adminUser, onLogout }) => {
         broadcast_analytics: "Analyzing Reach Metrics",
         auditlogs: "Reviewing Audit Logs",
         programs: "Configuring Programs",
-        pendingsuggestions: "Reviewing Approvals",
         formdesigner: "Designing Forms",
         settings: "Adjusting Global Settings"
       };
@@ -186,7 +171,6 @@ const AdminHub = ({ adminUser, onLogout }) => {
       case "users": return <AdminUsers {...props} />;
       case "feedbacks": return <AdminFeedbacks {...props} />;
       case "programs": return <AdminPrograms {...props} />;
-      case "pendingsuggestions": return <AdminPendingSuggestions {...props} refreshCount={fetchPendingCount} />;
       case "formdesigner": return <AdminFormDesigner {...props} />;
       case "broadcast": return <AdminBroadcast {...props} />;
       case "broadcast_analytics": return <AdminBroadcastAnalytics {...props} />;
@@ -261,7 +245,7 @@ const AdminHub = ({ adminUser, onLogout }) => {
               const isScopedAdmin = !!localAdminUser?.entity_id;
               if (isScopedAdmin) {
                 // Hide global configuration tools from program admins
-                const globalTools = ["feedbacktypes", "settings", "auditlogs", "pendingsuggestions"];
+                const globalTools = ["feedbacktypes", "settings", "auditlogs"];
                 if (globalTools.includes(item.id)) return false;
 
                 // Hide "ORGANIZATION" and "PREFERENCES" labels if all their sub-items are hidden
@@ -291,9 +275,6 @@ const AdminHub = ({ adminUser, onLogout }) => {
                 >
                   <span style={styles.navIcon}>{item.icon}</span>
                   <span style={{ flex: 1 }}>{item.label}</span>
-                  {item.id === "pendingsuggestions" && pendingCount > 0 && (
-                    <div style={styles.badge}>{pendingCount}</div>
-                  )}
                 </button>
               )
             ))}

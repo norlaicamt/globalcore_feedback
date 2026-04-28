@@ -438,18 +438,7 @@ const AdminUsers = ({ theme, darkMode, adminUser }) => {
              </h2>
           </div>
           <div style={{ display: "flex", gap: "12px", alignItems: "center", flex: 1, justifyContent: "flex-end" }}>
-            {hasGlobalAdminAccess ? (
-              <select 
-                value={entityFilter} 
-                onChange={e => setEntityFilter(e.target.value)}
-                style={{ marginRight: '12px', padding: '8px 16px', background: theme.bg, borderRadius: '10px', fontSize: '11px', fontWeight: '800', color: 'var(--primary-color)', border: `1.5px solid var(--primary-color)`, outline: 'none', cursor: 'pointer' }}
-              >
-                <option value="all">ALL WORKSPACES</option>
-                {scopeOptions.map(opt => (
-                  <option key={opt.id} value={opt.id}>{opt.label.toUpperCase()}</option>
-                ))}
-              </select>
-            ) : (
+            {!hasGlobalAdminAccess && (
               <div style={{ marginRight: '12px', padding: '8px 16px', background: theme.bg, borderRadius: '10px', fontSize: '11px', fontWeight: '800', color: theme.textMuted, border: `1px solid ${theme.border}` }}>
                 SCOPE LOCKED: <span style={{ color: 'var(--primary-color)' }}>{activeScope.toUpperCase()}</span>
               </div>

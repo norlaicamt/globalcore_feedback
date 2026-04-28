@@ -11,11 +11,23 @@ import {
 const CHART_COLORS = ["var(--primary-color)", "#2563EB", "#3B82F6", "#60A5FA", "#93C5FD", "#BFDBFE"];
 
 // --- COMPONENT: Section Header ---
-const SectionHeader = ({ title, icon, theme }) => (
-  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', marginTop: '8px' }}>
-    <span style={{ fontSize: '18px' }}>{icon}</span>
-    <h2 style={{ fontSize: '13px', fontWeight: '800', color: theme.text, textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>{title}</h2>
-    <div style={{ flex: 1, height: '1px', background: theme.border, marginLeft: '12px' }} />
+const SectionHeader = ({ title, icon, theme, subtitle, timeContext }) => (
+  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '12px', marginTop: '8px' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <span style={{ fontSize: '18px' }}>{icon}</span>
+      <h2 style={{ fontSize: '12px', fontWeight: '800', color: theme.text, textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0 }}>{title}</h2>
+      <div style={{ flex: 1, height: '1px', background: theme.border, marginLeft: '12px' }} />
+      {timeContext && (
+        <div style={{ 
+          padding: '2px 8px', borderRadius: '4px', background: theme.bg, 
+          border: `1px solid ${theme.border}`, fontSize: '9px', fontWeight: '700', 
+          color: theme.textMuted, textTransform: 'uppercase' 
+        }}>
+          {timeContext}
+        </div>
+      )}
+    </div>
+    {subtitle && <p style={{ margin: 0, fontSize: '10px', color: theme.textMuted, fontWeight: '600', marginLeft: '26px' }}>{subtitle}</p>}
   </div>
 );
 
@@ -32,9 +44,9 @@ const HorizontalSentimentBar = ({ data, theme }) => {
 
   return (
     <div style={{ padding: '4px 0' }}>
-      <div style={{ height: '12px', width: '100%', display: 'flex', borderRadius: '6px', overflow: 'hidden', background: theme.bg, marginBottom: '20px' }}>
+      <div style={{ height: '10px', width: '100%', display: 'flex', borderRadius: '5px', overflow: 'hidden', background: theme.bg, marginBottom: '20px', gap: '2px' }}>
         <div style={{ width: `${getPct(positive)}%`, background: '#10B981', transition: '0.3s' }} />
-        <div style={{ width: `${getPct(neutral)}%`, background: '#64748B', transition: '0.3s' }} />
+        <div style={{ width: `${getPct(neutral)}%`, background: '#94A3B8', transition: '0.3s' }} />
         <div style={{ width: `${getPct(frustrated)}%`, background: '#EF4444', transition: '0.3s' }} />
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -47,7 +59,7 @@ const HorizontalSentimentBar = ({ data, theme }) => {
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={{ width: '8px', height: '8px', borderRadius: '2px', background: '#64748B' }} />
+            <div style={{ width: '8px', height: '8px', borderRadius: '2px', background: '#94A3B8' }} />
             <span style={{ fontSize: '11px', fontWeight: '700', color: theme.text }}>Neutral</span>
           </div>
           <span style={{ fontSize: '11px', fontWeight: '800', color: theme.textMuted }}>{Math.round(getPct(neutral))}%</span>
@@ -64,21 +76,35 @@ const HorizontalSentimentBar = ({ data, theme }) => {
   );
 };
 
-const KpiCard = ({ label, value, sub, onClick, theme, color }) => (
+const KpiCard = ({ label, value, sub, onClick, theme, color, priority, statusLabel, light }) => (
   <div
     onClick={onClick}
     style={{
-      background: theme.surface, borderRadius: "12px", padding: "12px 14px", border: `1px solid ${theme.border}`,
-      boxShadow: "0 1px 4px rgba(0,0,0,0.02)", cursor: onClick ? "pointer" : "default",
-      transition: "transform 0.1s, border-color 0.15s",
-      position: 'relative', overflow: 'hidden'
+      background: priority ? (color ? `${color}15` : theme.surface) : (light ? 'transparent' : theme.surface), 
+      borderRadius: "12px", padding: priority ? "16px 20px" : "10px 14px", 
+      border: priority ? `2px solid ${color || 'var(--primary-color)'}` : (light ? `1px dashed ${theme.border}` : `1px solid ${theme.border}`),
+      boxShadow: priority ? `0 4px 12px ${color ? `${color}25` : 'rgba(0,0,0,0.05)'}` : "none", 
+      cursor: onClick ? "pointer" : "default",
+      transition: "all 0.2s",
+      position: 'relative', overflow: 'hidden',
+      display: 'flex', flexDirection: 'column', justifyContent: 'center',
+      flex: 1
     }}
-    onMouseEnter={e => { if (onClick) { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.borderColor = color || '#3B82F6'; } }}
-    onMouseLeave={e => { if (onClick) { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = theme.border; } }}
   >
-    <p style={{ fontSize: "9px", color: theme.textMuted, margin: "0 0 2px 0", fontWeight: "800", textTransform: "uppercase", letterSpacing: "0.05em" }}>{label}</p>
-    <p style={{ fontSize: "18px", fontWeight: "900", color: color || theme.text, margin: "0 0 2px 0", letterSpacing: "-0.02em" }}>{value}</p>
-    {sub && <p style={{ fontSize: "9px", color: theme.textMuted, margin: 0, fontWeight: "600" }}>{sub}</p>}
+    {statusLabel && (
+      <div style={{ 
+        position: 'absolute', top: '10px', right: '10px', padding: '2px 6px', 
+        borderRadius: '4px', background: color, color: 'white', fontSize: '8px', fontWeight: '900', textTransform: 'uppercase' 
+      }}>
+        {statusLabel}
+      </div>
+    )}
+    <p style={{ fontSize: priority ? "10px" : "8px", color: theme.textMuted, margin: "0 0 2px 0", fontWeight: "800", textTransform: "uppercase", letterSpacing: "0.05em" }}>{label}</p>
+    <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
+      <p style={{ fontSize: priority ? "26px" : "16px", fontWeight: "900", color: color || theme.text, margin: 0, letterSpacing: "-0.02em" }}>{value}</p>
+      {priority && <span style={{ fontSize: '10px', color: theme.textMuted, fontWeight: '700' }}>pending</span>}
+    </div>
+    {sub && <p style={{ fontSize: "9px", color: theme.textMuted, margin: "2px 0 0 0", fontWeight: "600" }}>{sub}</p>}
   </div>
 );
 
@@ -222,8 +248,14 @@ const AdminDashboard = ({ onNavigate, theme, darkMode, adminUser }) => {
   const lowestRated = programRankings.lowest[0];
   const hasActionableIssue = lowestRated && lowestRated.avg_rating < 3 && lowestRated.count >= 1;
 
+  // Helper to get status counts for Overview
+  const getStatusCount = (s) => byStatus.find(b => b.status === s)?.count || 0;
+  const newCount = getStatusCount("OPEN");
+  const inReviewCount = getStatusCount("IN_PROGRESS");
+  const resolvedCount = getStatusCount("RESOLVED");
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "28px" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: "32px" }}>
 
       {/* 🧭 Top Navigation & Multi-Tenant Filters */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -248,130 +280,143 @@ const AdminDashboard = ({ onNavigate, theme, darkMode, adminUser }) => {
         <TimeFilter value={days} onChange={setDays} theme={theme} />
       </div>
 
-      {/* 🔷 SECTION 1: USER OVERVIEW */}
+      {/* 🔷 SECTION 1: COMMAND CENTER (Tiers) */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         <SectionHeader
-          title="User Overview"
-          icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>}
+          title="Command Center"
+          subtitle="Priority actions and contextual system volume."
+          icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>}
           theme={theme}
+          timeContext="Real-time"
         />
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "16px" }}>
+        
+        {/* Tier 1: Actionable (Dominant) */}
+        <div style={{ display: "flex", gap: "16px", marginBottom: "4px" }}>
+          <KpiCard
+            label="New Submissions"
+            value={newCount}
+            sub={newCount > 0 ? "Action required" : "All cleared"}
+            theme={theme}
+            color="#EAB308"
+            priority={newCount > 0}
+            statusLabel="High Priority"
+            onClick={() => onNavigate("feedbacks")}
+          />
+          <KpiCard
+            label="In Review"
+            value={inReviewCount}
+            sub="Active handling"
+            theme={theme}
+            color="#3B82F6"
+            priority={inReviewCount > 0}
+            statusLabel="Processing"
+            onClick={() => onNavigate("feedbacks")}
+          />
+        </div>
+
+        {/* Tier 2: Contextual (Lightweight) */}
+        <div style={{ display: "flex", gap: "12px" }}>
           <KpiCard
             label="Total Citizens"
             value={summary?.global_total_users ?? 0}
-            sub="Total Organization Reach"
             theme={theme}
+            light
           />
           <KpiCard
-            label={!selectedDept ? "Engaged Citizens" : "Program Users"}
+            label="Engaged"
             value={summary?.total_users ?? 0}
-            sub={!selectedDept ? "Interaction-based" : "Participating in service"}
             theme={theme}
-            color="#3B82F6"
+            light
           />
           <KpiCard
-            label="Cross-Program Reach"
-            value={summary?.cross_program_reach ?? 0}
-            sub="Users in 2+ services"
+            label="Resolved"
+            value={resolvedCount}
             theme={theme}
-            color="var(--primary-color)"
-          />
-          <KpiCard
-            label="Average Experience"
-            value={
-              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                {summary?.avg_rating ?? 0}
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="#FBBF24" stroke="#FBBF24" strokeWidth="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
-              </div>
-            }
-            sub="Based on ratings" theme={theme}
+            light
+            color="#10B981"
           />
         </div>
       </div>
-      {/* 🔷 SECTION 2: CASE MANAGEMENT (OPERATIONAL) */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        <SectionHeader
-          title="Case Management"
-          icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>}
-          theme={theme}
-        />
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "16px" }}>
-          {(() => {
-            const getCount = (s) => byStatus.find(b => b.status === s)?.count || 0;
-            const open = getCount("OPEN");
-            const inProgress = getCount("IN_PROGRESS");
-            const resolved = getCount("RESOLVED");
-            const closed = getCount("CLOSED");
-            const total = open + inProgress + resolved + closed;
-            const resolvedRate = total > 0 ? Math.round((resolved / total) * 100) : 0;
 
-            return (
-              <>
-                <KpiCard
-                  label="New Submissions" value={open} sub="Awaiting review"
-                  icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>}
-                  theme={theme} color="#EAB308"
-                />
-                <KpiCard
-                  label="In Review" value={inProgress} sub="Ongoing handling"
-                  icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>}
-                  theme={theme} color="#3B82F6"
-                />
-                <KpiCard
-                  label="Resolved" value={resolved} sub="Completed cases"
-                  icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>}
-                  theme={theme} color="#10B981"
-                />
-                <KpiCard
-                  label="Resolution Rate (%)" value={`${resolvedRate}%`} sub={`Out of ${total} total`}
-                  icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>}
-                  theme={theme}
-                />
-              </>
-            );
-          })()}
-        </div>
-      </div>
-
-      {/* 🔷 SECTION 3: ACTIVITY TRENDS */}
+      {/* 🔷 SECTION 2: ACTIVITY TRENDS (Interpretation Layer) */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         <SectionHeader
           title="Activity Trends"
+          subtitle="Monitoring submission volume and engagement spikes."
           icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>}
           theme={theme}
+          timeContext={`Last ${days} days`}
         />
-        <Section theme={theme} title="Submission & Engagement Volume" empty={volume.length === 0} emptyText="No submissions yet. Data will appear once users start submitting feedback.">
-          <ResponsiveContainer width="100%" height={260}>
-            <AreaChart data={volume.map((v, i) => ({ ...v, engagement: engagement[i]?.comments || 0 }))}>
-              <defs>
-                <linearGradient id="volGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="var(--primary-color)" stopOpacity={darkMode ? 0.4 : 0.15} />
-                  <stop offset="95%" stopColor="var(--primary-color)" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <XAxis dataKey="day" tick={{ fontSize: 10, fill: theme.textMuted }} tickLine={false} axisLine={false} />
-              <YAxis tick={{ fontSize: 10, fill: theme.textMuted }} tickLine={false} axisLine={false} />
-              <Tooltip contentStyle={tooltipStyle} />
-              <Area type="monotone" dataKey="count" stroke="var(--primary-color)" fill="url(#volGrad)" strokeWidth={2} dot={false} name="Reports" />
-              <Area type="monotone" dataKey="engagement" stroke="#2563EB" fill="transparent" strokeWidth={2} strokeDasharray="5 5" dot={false} name="Comments" />
-            </AreaChart>
-          </ResponsiveContainer>
+        <Section theme={theme} title="Volume & Engagement Analysis" empty={volume.length === 0} emptyText="No activity data detected for this scope.">
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 200px', gap: '20px' }}>
+            <ResponsiveContainer width="100%" height={240}>
+              <AreaChart data={volume.map((v, i) => ({ ...v, engagement: engagement[i]?.comments || 0 }))}>
+                <defs>
+                  <linearGradient id="volGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="var(--primary-color)" stopOpacity={darkMode ? 0.4 : 0.15} />
+                    <stop offset="95%" stopColor="var(--primary-color)" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <XAxis dataKey="day" tick={{ fontSize: 10, fill: theme.textMuted }} tickLine={false} axisLine={false} />
+                <YAxis tick={{ fontSize: 10, fill: theme.textMuted }} tickLine={false} axisLine={false} />
+                <Tooltip contentStyle={tooltipStyle} />
+                <Area type="monotone" dataKey="count" stroke="var(--primary-color)" fill="url(#volGrad)" strokeWidth={2} dot={false} name="Reports" />
+                <Area type="monotone" dataKey="engagement" stroke="#2563EB" fill="transparent" strokeWidth={2} strokeDasharray="5 5" dot={false} name="Comments" />
+              </AreaChart>
+            </ResponsiveContainer>
+            <div style={{ 
+              background: theme.bg, padding: '16px', borderRadius: '12px', border: `1px solid ${theme.border}`,
+              display: 'flex', flexDirection: 'column', gap: '10px'
+            }}>
+              <h4 style={{ margin: 0, fontSize: '9px', fontWeight: '800', color: theme.textMuted, textTransform: 'uppercase' }}>Summary</h4>
+              {(() => {
+                const recent = volume.slice(-3).reduce((acc, v) => acc + v.count, 0);
+                const previous = volume.slice(-6, -3).reduce((acc, v) => acc + v.count, 0);
+                const diff = previous > 0 ? ((recent - previous) / previous) * 100 : 0;
+                
+                return (
+                  <>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <p style={{ margin: 0, fontSize: '12px', fontWeight: '800', color: diff >= 0 ? '#10B981' : '#EF4444' }}>
+                        {diff >= 0 ? '+' : ''}{Math.round(diff)}%
+                      </p>
+                      <p style={{ margin: 0, fontSize: '9px', color: theme.textMuted }}>vs prev.</p>
+                    </div>
+                    <p style={{ margin: 0, fontSize: '11px', color: theme.text, lineHeight: '1.4', fontWeight: '500' }}>
+                      {diff >= 0 
+                        ? `Activity is trending up.`
+                        : `Activity is trending down.`
+                      }
+                    </p>
+                    <div style={{ marginTop: 'auto', padding: '8px', background: theme.surface, borderRadius: '6px', border: `1px solid ${theme.border}` }}>
+                      <p style={{ margin: 0, fontSize: '9px', color: theme.textMuted }}>Next step:</p>
+                      <p style={{ margin: '2px 0 0 0', fontSize: '10px', fontWeight: '700', color: theme.text }}>
+                        {newCount > 0 ? `Review pending` : "Check backlog"}
+                      </p>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+          </div>
         </Section>
       </div>
 
-      {/* 🔷 SECTION 4: EXPERIENCE & SENTIMENT */}
+      {/* 🔷 SECTION 3: FEEDBACK QUALITY (Interpretation Layer) */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         <SectionHeader
-          title="Experience & Feedback"
-          icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>}
+          title="Feedback Quality"
+          subtitle="Analyzing sentiment, scores, and categorical focus areas."
+          icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>}
           theme={theme}
+          timeContext="Aggregate"
         />
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "16px" }}>
-          <Section theme={theme} title="Overall Sentiment">
+          <Section theme={theme} title="Overall Mood (Sentiment)">
             <HorizontalSentimentBar data={sentiment} theme={theme} />
           </Section>
 
-          <Section theme={theme} title="Rating Distribution" empty={summary?.total_feedback === 0}>
+          <Section theme={theme} title="Service Quality Score (Rating)" empty={summary?.total_feedback === 0}>
             <ResponsiveContainer width="100%" height={140}>
               <BarChart data={ratings}>
                 <XAxis dataKey="rating" tick={{ fontSize: 10, fill: theme.textMuted }} tickLine={false} axisLine={false} tickFormatter={v => `${v}★`} />
@@ -386,7 +431,7 @@ const AdminDashboard = ({ onNavigate, theme, darkMode, adminUser }) => {
             </ResponsiveContainer>
           </Section>
 
-          <Section theme={theme} title="Feedback Category" empty={Object.keys(feedbackTypeDist).length === 0}>
+          <Section theme={theme} title="Category (Focus Areas)" empty={Object.keys(feedbackTypeDist).length === 0}>
             <div style={{ position: 'relative', height: '140px' }}>
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
@@ -415,12 +460,13 @@ const AdminDashboard = ({ onNavigate, theme, darkMode, adminUser }) => {
         </div>
       </div>
 
-      {/* 🔷 SECTION 5: PROGRAM PERFORMANCE */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         <SectionHeader
-          title="Program Performance"
-          icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><line x1="9" y1="22" x2="9" y2="2"></line><line x1="15" y1="22" x2="15" y2="2"></line><line x1="4" y1="6" x2="20" y2="6"></line><line x1="4" y1="10" x2="20" y2="10"></line><line x1="4" y1="14" x2="20" y2="14"></line><line x1="4" y1="18" x2="20" y2="18"></line></svg>}
+          title="Programs & Participation"
+          subtitle="Performance benchmarking and active contributor visibility."
+          icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="7"></circle><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"></polyline></svg>}
           theme={theme}
+          timeContext="All-time"
         />
 
         {/* 🚨 Actionable Alert Bar */}
@@ -444,145 +490,44 @@ const AdminDashboard = ({ onNavigate, theme, darkMode, adminUser }) => {
 
         <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: "16px" }}>
           <Section theme={theme} title={`Performance Across ${getLabel("category_label_plural", "Programs")}`} empty={programRankings.all.length === 0}>
-            <ResponsiveContainer width="100%" height={160}>
-              <BarChart data={programRankings.all.slice(0, 5)} layout="vertical" barGap={0} categoryGap="20%">
-                <XAxis type="number" hide />
-                <YAxis dataKey="name" type="category" tick={{ fontSize: 10, fill: theme.textMuted }} width={120} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'transparent' }} />
-                <Bar dataKey="avg_rating" fill="var(--primary-color)" radius={[0, 4, 4, 0]} barSize={16}>
-                  {programRankings.all.map((entry, index) => (
-                    <Cell key={`p-${index}`} fill={entry.avg_rating >= 4 ? "#10B981" : entry.avg_rating < 3 ? "#EF4444" : "#3B82F6"} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </Section>
-
-          <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-            <Section 
-              theme={theme} 
-              title={
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-                  <span>Performing Programs</span>
-                  <select 
-                    value={performanceFilter} 
-                    onChange={(e) => setPerformanceFilter(e.target.value)}
-                    style={{
-                      padding: '4px 8px', borderRadius: '6px', fontSize: '10px', fontWeight: '800',
-                      background: theme.bg, color: theme.text, border: `1px solid ${theme.border}`,
-                      cursor: 'pointer', outline: 'none', textTransform: 'uppercase'
-                    }}
-                  >
-                    <option value="top">Top</option>
-                    <option value="neutral">Neutral</option>
-                    <option value="lowest">Lowest</option>
-                  </select>
-                </div>
-              }
-            >
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {(() => {
-                  let filtered = [];
-                  if (performanceFilter === "top") {
-                    filtered = programRankings.all.filter(p => p.avg_rating >= 4.0).sort((a, b) => b.avg_rating - a.avg_rating);
-                  } else if (performanceFilter === "lowest") {
-                    filtered = programRankings.all.filter(p => p.avg_rating < 3.0).sort((a, b) => a.avg_rating - b.avg_rating);
-                  } else {
-                    filtered = programRankings.all.filter(p => p.avg_rating >= 3.0 && p.avg_rating < 4.0).sort((a, b) => b.avg_rating - a.avg_rating);
-                  }
-
-                  if (filtered.length === 0) {
-                    return <p style={{ fontSize: '12px', color: theme.textMuted, textAlign: 'center', padding: '10px' }}>
-                      No {performanceFilter} performing programs.
-                    </p>;
-                  }
-
-                  return filtered.slice(0, 5).map((p, i) => (
-                    <div key={i} style={{ 
-                      display: 'flex', justifyContent: 'space-between', padding: '8px 12px', 
-                      background: performanceFilter === 'top' ? (darkMode ? 'rgba(16, 185, 129, 0.1)' : '#F0FDF4') : 
-                                 performanceFilter === 'lowest' ? (darkMode ? 'rgba(239, 68, 68, 0.1)' : '#FEF2F2') :
-                                 (darkMode ? 'rgba(59, 130, 246, 0.1)' : '#EFF6FF'), 
-                      borderRadius: '8px', 
-                      border: `1px solid ${performanceFilter === 'top' ? (darkMode ? 'rgba(16, 185, 129, 0.2)' : '#DCFCE7') : 
-                                          performanceFilter === 'lowest' ? (darkMode ? 'rgba(239, 68, 68, 0.2)' : '#FEE2E2') :
-                                          (darkMode ? 'rgba(59, 130, 246, 0.2)' : '#DBEAFE')}` 
-                    }}>
-                      <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <span style={{ fontSize: '13px', fontWeight: '700', color: theme.text }}>{p.name}</span>
-                        <span style={{ fontSize: '10px', color: theme.textMuted }}>{p.count} reports</span>
-                      </div>
-                      <div style={{ 
-                        display: "flex", alignItems: "center", gap: "4px", fontSize: "13px", fontWeight: "800", 
-                        color: performanceFilter === 'top' ? "#10B981" : performanceFilter === 'lowest' ? "#EF4444" : "#3B82F6" 
-                      }}>
-                        {p.avg_rating}
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
-                      </div>
-                    </div>
-                  ));
-                })()}
-              </div>
-            </Section>
-          </div>
-        </div>
-      </div>
-
-      {/* 🔷 SECTION 6: USER MONITORING */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        <SectionHeader
-          title="User Monitoring"
-          icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>}
-          theme={theme}
-        />
-        <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: "16px" }}>
-          <Section theme={theme} title="User Engagement Status" empty={summary?.total_users === 0} emptyText="No users registered yet.">
-            <div style={{ position: 'relative', height: '160px' }}>
+            <div style={{ height: '220px', width: '100%' }}>
               <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={[
-                      { name: "Active (7d)", value: summary?.active_users || 0 },
-                      { name: "Inactive", value: summary?.inactive_users || 0 }
-                    ]}
-                    cx="50%" cy="50%" innerRadius={45} outerRadius={60} paddingAngle={5} dataKey="value"
-                    stroke="none"
-                  >
-                    <Cell fill="#10B981" />
-                    <Cell fill={darkMode ? "#334155" : "#E2E8F0"} />
-                  </Pie>
-                  <Tooltip contentStyle={tooltipStyle} />
-                  <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: '700', textTransform: 'uppercase' }} />
-                </PieChart>
+                <BarChart data={programRankings.all.slice(0, 8)} layout="vertical" barGap={0} categoryGap="20%">
+                  <XAxis type="number" hide />
+                  <YAxis dataKey="name" type="category" tick={{ fontSize: 10, fill: theme.textMuted }} width={120} axisLine={false} tickLine={false} />
+                  <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'transparent' }} />
+                  <Bar dataKey="avg_rating" fill="var(--primary-color)" radius={[0, 4, 4, 0]} barSize={16}>
+                    {programRankings.all.slice(0, 8).map((entry, index) => (
+                      <Cell key={`p-${index}`} fill={entry.avg_rating >= 4 ? "#10B981" : entry.avg_rating < 3 ? "#EF4444" : "#3B82F6"} />
+                    ))}
+                  </Bar>
+                </BarChart>
               </ResponsiveContainer>
-              <div style={{ 
-                position: 'absolute', top: '42%', left: '50%', transform: 'translate(-50%, -50%)', 
-                textAlign: 'center', pointerEvents: 'none' 
-              }}>
-                <p style={{ margin: 0, fontSize: '18px', fontWeight: '900', color: theme.text }}>
-                  {Math.round(((summary?.active_users || 0) / (summary?.total_users || 1)) * 100)}%
-                </p>
-                <p style={{ margin: 0, fontSize: '8px', fontWeight: '800', color: theme.textMuted, textTransform: 'uppercase' }}>Active</p>
-              </div>
             </div>
           </Section>
 
-          <Section theme={theme} title="Most Active Users" empty={topUsers.length === 0} emptyText="User activity will appear once feedback is submitted.">
+          <Section theme={theme} title="Community Participation" empty={topUsers.length === 0} emptyText="No community activity detected.">
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {topUsers.slice(0, 5).map((u, i) => (
-                <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '4px 0' }}>
-                  <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: theme.bg, border: `1px solid ${theme.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: '800', color: theme.text }}>{i + 1}</div>
-                  <div style={{ flex: 1, overflow: 'hidden' }}>
-                    <p style={{ margin: 0, fontSize: '12px', fontWeight: '700', color: theme.text, whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{u.name}</p>
+                <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '4px 0' }}>
+                  <div style={{ 
+                    width: '28px', height: '28px', borderRadius: '50%', 
+                    background: theme.bg, border: `1.5px solid ${theme.border}`,
+                    color: theme.textMuted,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: '800' 
+                  }}>
+                    {u.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
                   </div>
-                  <span style={{ fontSize: '12px', fontWeight: '800', color: '#10B981' }}>{u.impact_points} pts</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ margin: 0, fontSize: '12px', fontWeight: '700', color: theme.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.name}</p>
+                    <p style={{ margin: 0, fontSize: '9px', color: theme.textMuted }}>Recent Contribution</p>
+                  </div>
                 </div>
               ))}
             </div>
           </Section>
         </div>
       </div>
-
     </div>
   );
 };

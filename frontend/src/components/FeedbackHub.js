@@ -1371,9 +1371,48 @@ const FeedCard = ({ item: initialItem, currentUser, onShowToast, onOpenComments,
           </div>
         </div>
       ) : (
-        <p style={{ ...styles.cardText, color: '#000000' }}>
-          {(item.description || '').substring(0, 200) + ((item.description || '').length > 200 ? '...' : '')}
-        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginBottom: '16px' }}>
+          {/* Structured Feedback Content */}
+          {(() => {
+            const config = item.entity?.fields;
+            const responses = item.custom_data || {};
+            
+            // If no structured data, fallback to legacy description
+            if (!config || !config.steps || Object.keys(responses).length === 0) {
+               return <p style={{ ...styles.cardText, color: '#000000', margin: 0 }}>
+                 {(item.description || '').substring(0, 400) + ((item.description || '').length > 400 ? '...' : '')}
+               </p>;
+            }
+
+            // Render based on Form Design
+            return config.steps.flatMap(s => s.items || []).map((it, idx) => {
+              if (!it.include_in_post) return null;
+              
+              const val = responses[it.id] || responses[it.key];
+              if (val === undefined || val === null || val === "" || (Array.isArray(val) && val.length === 0)) return null;
+
+              // Formatting the value
+              let displayVal = val;
+              if (typeof val === 'object' && !Array.isArray(val)) {
+                // Handle Matrix Ratings
+                displayVal = Object.entries(val).map(([k, v]) => `${k}: ${v}/5`).join(', ');
+              } else if (Array.isArray(val)) {
+                displayVal = val.join(', ');
+              }
+
+              return (
+                <div key={idx} style={{ borderLeft: '3px solid var(--primary-soft)', paddingLeft: '12px', marginBottom: '4px' }}>
+                  <div style={{ fontSize: '10px', fontWeight: '900', color: 'var(--primary-color)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
+                    {it.label_override}
+                  </div>
+                  <div style={{ fontSize: '14px', color: '#1E293B', lineHeight: '1.5', fontWeight: '500' }}>
+                    {displayVal}
+                  </div>
+                </div>
+              );
+            });
+          })()}
+        </div>
       )}
 
       {/* ATTACHMENTS GRID */}
