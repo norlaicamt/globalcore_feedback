@@ -82,6 +82,16 @@ export const markNotificationsAsRead = async (id) => {
   return response.data;
 };
 
+export const markNotificationAsRead = async (id) => {
+  const response = await axios.post(`${API_BASE}/users/notifications/${id}/read`);
+  return response.data;
+};
+
+export const trackBroadcastView = async (userId, broadcastId) => {
+  const response = await axios.post(`${API_BASE}/users/${userId}/notifications/broadcast/${broadcastId}/view`);
+  return response.data;
+};
+
 export const acknowledgeBroadcast = async (userId, broadcastId) => {
   const response = await axios.post(`${API_BASE}/users/${userId}/notifications/broadcast/${broadcastId}/acknowledge`);
   return response.data;

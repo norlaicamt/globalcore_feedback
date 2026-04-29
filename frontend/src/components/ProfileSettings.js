@@ -224,6 +224,38 @@ const ProfileView = ({ currentUser, onUserUpdate, showToast }) => {
         loadBarangays();
     }, [formData.city]);
 
+    const handleAvatarChange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        try {
+            const reader = new FileReader();
+            reader.onload = async (event) => {
+                let base64 = event.target.result;
+                // Compression logic (Simplified for consistency)
+                if (base64.length > 300000) {
+                    const img = new Image();
+                    img.src = base64;
+                    await new Promise(r => img.onload = r);
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    const scale = Math.sqrt(300000 / base64.length);
+                    canvas.width = img.width * scale;
+                    canvas.height = img.height * scale;
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    base64 = canvas.toDataURL('image/jpeg', 0.7);
+                }
+                
+                const updated = await updateUser(currentUser.id, { avatar_url: base64 });
+                onUserUpdate(updated);
+                showToast("Avatar updated successfully");
+            };
+            reader.readAsDataURL(file);
+        } catch (err) {
+            showToast("Failed to update avatar");
+        }
+    };
+
     const handleSave = async () => {
         try {
             const updatedUser = await updateUser(currentUser.id, formData);
@@ -253,7 +285,10 @@ const ProfileView = ({ currentUser, onUserUpdate, showToast }) => {
                                 {currentUser.name?.[0] || "U"}
                             </div>
                         )}
-                        <div style={styles.heroEditBadge}><Icons.Edit /></div>
+                        <input type="file" id="citizen-avatar-upload" hidden onChange={handleAvatarChange} accept="image/*" />
+                        <label htmlFor="citizen-avatar-upload" style={styles.heroEditBadge}>
+                            <Icons.Edit />
+                        </label>
                     </div>
                     <div style={styles.heroText}>
                         <h3 style={styles.heroName}>{currentUser.name}</h3>
@@ -264,8 +299,17 @@ const ProfileView = ({ currentUser, onUserUpdate, showToast }) => {
                             <span style={styles.statusBadge}>Verified Citizen</span>
                         </div>
                     </div>
-                    <button style={styles.premiumEditBtn} onClick={() => setIsEditing(!isEditing)}>
-                        {isEditing ? "Cancel Edit" : "Modify Details"}
+                    <button 
+                        style={{ 
+                            ...styles.premiumEditBtn, 
+                            background: isEditing ? '#F1F5F9' : 'var(--primary-color)', 
+                            color: isEditing ? '#64748B' : 'white',
+                            boxShadow: isEditing ? 'none' : '0 8px 16px rgba(var(--primary-rgb), 0.2)',
+                            border: isEditing ? '1px solid #E2E8F0' : 'none'
+                        }} 
+                        onClick={() => setIsEditing(!isEditing)}
+                    >
+                        {isEditing ? "Cancel Changes" : "Edit Personal Profile"}
                     </button>
                 </div>
 

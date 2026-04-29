@@ -105,17 +105,42 @@ const UserOnboarding = ({ currentUser, onBack, onComplete }) => {
 
   // 2. Auto-save with debounce
   useEffect(() => {
-    if (saving) return; // Don't save while finalizing
+    if (saving || !currentUser?.id) return; // Don't save while finalizing
     const draftKey = `user.onboarding_draft_${currentUser?.id}`;
     
     const timer = setTimeout(() => {
+      // Create a copy of the form for the draft, but EXCLUDE large base64 data URLs
+      // like avatar_url which quickly exceed localStorage quota (5MB limit)
+      const draftForm = { ...form };
+      if (draftForm.avatar_url && draftForm.avatar_url.startsWith('data:')) {
+        delete draftForm.avatar_url;
+      }
+
       const draft = {
         version: DRAFT_VERSION,
         savedAt: Date.now(),
         step,
-        form
+        form: draftForm
       };
-      localStorage.setItem(draftKey, JSON.stringify(draft));
+
+      try {
+        localStorage.setItem(draftKey, JSON.stringify(draft));
+      } catch (err) {
+        // QuotaExceededError or other storage failures
+        console.warn("Failed to save onboarding draft to localStorage (likely quota exceeded).", err);
+        
+        // If we still fail even after excluding avatar, we might need to clear old drafts
+        if (err.name === 'QuotaExceededError') {
+          try {
+            // Optional: Clear any other onboarding drafts to make room
+            Object.keys(localStorage).forEach(key => {
+              if (key.startsWith('user.onboarding_draft_') && key !== draftKey) {
+                localStorage.removeItem(key);
+              }
+            });
+          } catch (e) { /* ignore */ }
+        }
+      }
     }, 1000); // 1s debounce for stability
 
     return () => clearTimeout(timer);
@@ -178,19 +203,41 @@ const UserOnboarding = ({ currentUser, onBack, onComplete }) => {
         ...(updatedFromApi || {}),
         onboarding_completed: true,
       };
-      localStorage.setItem(STORAGE_KEYS.USER_VIEW, "home");
-      localStorage.setItem(STORAGE_KEYS.USER_CURRENT, JSON.stringify(updated));
+
+      // Safely set items to avoid QuotaExceededError from large avatars
+      try {
+        localStorage.setItem(STORAGE_KEYS.USER_VIEW, "home");
+        localStorage.setItem(STORAGE_KEYS.USER_CURRENT, JSON.stringify(updated));
+      } catch (storageErr) {
+        if (storageErr.name === 'QuotaExceededError') {
+          console.warn("Quota exceeded while saving user. Stripping avatar for local session.");
+          const stripped = { ...updated };
+          delete stripped.avatar_url;
+          localStorage.setItem(STORAGE_KEYS.USER_CURRENT, JSON.stringify(stripped));
+        } else {
+          throw storageErr;
+        }
+      }
+      
       localStorage.removeItem(`user.onboarding_draft_${currentUser.id}`);
-      // Note: we don't call onComplete immediately, we wait for the Welcome screen
       return updated;
     } catch (err) {
+      console.error("Save onboarding failed", err);
       const fallbackUser = {
         ...currentUser,
         ...form,
         onboarding_completed: true,
       };
-      localStorage.setItem(STORAGE_KEYS.USER_VIEW, "home");
-      localStorage.setItem(STORAGE_KEYS.USER_CURRENT, JSON.stringify(fallbackUser));
+      
+      try {
+        localStorage.setItem(STORAGE_KEYS.USER_VIEW, "home");
+        localStorage.setItem(STORAGE_KEYS.USER_CURRENT, JSON.stringify(fallbackUser));
+      } catch (storageErr) {
+        const stripped = { ...fallbackUser };
+        delete stripped.avatar_url;
+        localStorage.setItem(STORAGE_KEYS.USER_CURRENT, JSON.stringify(stripped));
+      }
+      
       return fallbackUser;
     } finally {
       setSaving(false);

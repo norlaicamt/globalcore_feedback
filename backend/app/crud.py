@@ -1038,9 +1038,50 @@ def get_notifications(db: Session, user_id: int):
     return results
 
 def mark_notifications_as_read(db: Session, user_id: int):
-    db.query(models.Notification).filter(models.Notification.user_id == user_id, models.Notification.is_read == False).update({"is_read": True}, synchronize_session=False)
+    # Get all unread notifications for this user
+    unread_notifs = db.query(models.Notification).filter(
+        models.Notification.user_id == user_id, 
+        models.Notification.is_read == False
+    ).all()
+    
+    for notif in unread_notifs:
+        notif.is_read = True
+        # If it's a broadcast, increment the read_count of the log
+        if notif.broadcast_id:
+            log = db.query(models.BroadcastLog).filter(models.BroadcastLog.id == notif.broadcast_id).first()
+            if log:
+                log.read_count += 1
+    
     db.commit()
     return True
+
+def mark_single_notification_as_read(db: Session, notification_id: int):
+    notif = db.query(models.Notification).filter(models.Notification.id == notification_id).first()
+    if notif and not notif.is_read:
+        notif.is_read = True
+        if notif.broadcast_id:
+            log = db.query(models.BroadcastLog).filter(models.BroadcastLog.id == notif.broadcast_id).first()
+            if log:
+                log.read_count += 1
+        db.commit()
+    return notif
+
+def mark_broadcast_as_viewed(db: Session, broadcast_id: int, user_id: int):
+    """Specific tracker for when a user actually opens/clicks the broadcast."""
+    notif = db.query(models.Notification).filter(
+        models.Notification.broadcast_id == broadcast_id,
+        models.Notification.user_id == user_id
+    ).first()
+    
+    if notif:
+        if not notif.is_read:
+            notif.is_read = True
+            log = db.query(models.BroadcastLog).filter(models.BroadcastLog.id == broadcast_id).first()
+            if log:
+                log.read_count += 1
+            db.commit()
+        return True
+    return False
 
 def acknowledge_broadcast(db: Session, broadcast_id: int, user_id: int):
     """Marks a broadcast notification as acknowledged and increments the read_count."""

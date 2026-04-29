@@ -66,19 +66,19 @@ const SectionCard = ({ title, subtitle, children, theme }) => (
 
 const AccordionCard = ({ title, subtitle, children, theme, status, defaultExpanded = false }) => {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
-  
+
   return (
     <div style={{ background: theme.surface, borderRadius: "24px", border: `1.5px solid ${theme.border}`, marginBottom: "20px", overflow: 'hidden', transition: '0.3s', boxShadow: isExpanded ? '0 10px 30px rgba(0,0,0,0.04)' : 'none' }}>
-      <div 
+      <div
         onClick={() => setIsExpanded(!isExpanded)}
         style={{ padding: "24px 28px", cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: isExpanded ? 'rgba(var(--primary-rgb), 0.02)' : 'transparent', transition: '0.2s' }}
       >
         <div style={{ flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-             <p style={{ margin: 0, fontSize: "14px", fontWeight: "900", color: theme.text, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{title}</p>
-             {status && (
-               <div style={{ padding: '3px 10px', borderRadius: '6px', background: status.color + '15', color: status.color, fontSize: '10px', fontWeight: '900', border: `1px solid ${status.color}20` }}>{status.label}</div>
-             )}
+            <p style={{ margin: 0, fontSize: "14px", fontWeight: "900", color: theme.text, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{title}</p>
+            {status && (
+              <div style={{ padding: '3px 10px', borderRadius: '6px', background: status.color + '15', color: status.color, fontSize: '10px', fontWeight: '900', border: `1px solid ${status.color}20` }}>{status.label}</div>
+            )}
           </div>
           {subtitle && <p style={{ margin: "4px 0 0 0", fontSize: "12px", color: theme.textMuted, fontWeight: '500' }}>{subtitle}</p>}
         </div>
@@ -86,11 +86,11 @@ const AccordionCard = ({ title, subtitle, children, theme, status, defaultExpand
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
         </div>
       </div>
-      
-      <div style={{ 
-        maxHeight: isExpanded ? '2000px' : '0', 
-        opacity: isExpanded ? 1 : 0, 
-        overflow: 'hidden', 
+
+      <div style={{
+        maxHeight: isExpanded ? '2000px' : '0',
+        opacity: isExpanded ? 1 : 0,
+        overflow: 'hidden',
         transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
         borderTop: isExpanded ? `1.5px solid ${theme.border}` : '0.5px solid transparent'
       }}>
@@ -156,7 +156,8 @@ const SaveConfirmationModal = ({ changes, onConfirm, onCancel, theme, darkMode }
 );
 
 const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, onAdminUpdate }) => {
-  const { labels, refreshLabels, getLabel, systemName } = useTerminology();
+  const { labels, refreshLabels, getLabel, systemName, systemLogo } = useTerminology();
+  const isGlobalAdmin = ["admin", "superadmin"].includes(adminUser?.role) && !adminUser?.department;
   const isGlobalCoreAdmin = (adminUser?.email || "").toLowerCase() === "admin@globalcore.com";
 
   // 🌍 ORGANIZATION CONTEXT (Neutral Engine)
@@ -183,10 +184,10 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
     }
   };
 
-  const [settings, setSettings] = useState({ 
-    allow_voice: true, 
-    public_feed: true, 
-    email_notifications: false, 
+  const [settings, setSettings] = useState({
+    allow_voice: true,
+    public_feed: true,
+    email_notifications: false,
     status_notifications: true,
     primary_color: "#3B82F6",
     font_family: "'Outfit', sans-serif",
@@ -263,7 +264,7 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
   const [pendingChanges, setPendingChanges] = useState([]);
   const [showCurrentPass, setShowCurrentPass] = useState(false);
   const [showNewPass, setShowNewPass] = useState(false);
-  
+
   const [showRevertModal, setShowRevertModal] = useState(null);
 
   const getActivityMeta = (type) => {
@@ -276,13 +277,13 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
 
   useEffect(() => {
     const root = document.documentElement;
-    
+
     if (settings.primary_color) {
       const primary = settings.primary_color;
       const rgb = hexToRgb(primary);
       const contrast = getContrastColor(primary);
       const hover = adjustBrightness(primary, -20);
-      
+
       root.style.setProperty('--primary-color', primary);
       root.style.setProperty('--primary-rgb', rgb);
       root.style.setProperty('--primary-contrast', contrast);
@@ -355,7 +356,7 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
             updated_by: mapped.logo_updated_by || null
           });
         }
-        
+
         setProfile(profileData);
         const currentForm = {
           ...form,
@@ -385,7 +386,7 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
         };
         setTermForm(initialTerms);
         setPristineTermForm(initialTerms);
-        
+
         // 🚀 CRITICAL: Set pristine settings AFTER backend load
         setPristineSettings(mergedSettings);
       } catch (e) {
@@ -482,6 +483,18 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
       alert("Failed to process image.");
     } finally {
       setIsProcessingLogo(false);
+    }
+  };
+
+  const handleAvatarChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      const compressed = await compressImage(file);
+      setForm(prev => ({ ...prev, avatar_url: compressed }));
+    } catch (err) {
+      console.error(err);
+      alert("Failed to process image.");
     }
   };
 
@@ -590,7 +603,7 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
     setShowConfirmModal(false);
     setProfileSaving(true);
     setTermSaving(true);
-    
+
     try {
       const promises = [];
 
@@ -632,7 +645,7 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
 
       localStorage.setItem('admin_time_format', settings.time_format || "12h");
       localStorage.setItem('admin_date_format', settings.date_format || "MMMM DD, YYYY");
-      
+
       setLastSaved(new Date());
       setPristineForm({ ...form });
       setPristineTermForm({ ...termForm });
@@ -640,7 +653,7 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
       setIsEditingProfile(false);
       setShowSaveToast(true);
       setTimeout(() => setShowSaveToast(false), 3000);
-      
+
       if (onAdminUpdate) {
         const updatedProfile = await adminGetProfile();
         onAdminUpdate(updatedProfile);
@@ -710,7 +723,7 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
               onClick={handleGlobalSave}
               disabled={!hasUnsavedChanges || profileSaving}
               style={{
-                padding: '10px 24px', background: hasUnsavedChanges ? 'var(--primary-color)' : theme.surface, 
+                padding: '10px 24px', background: hasUnsavedChanges ? 'var(--primary-color)' : theme.surface,
                 color: hasUnsavedChanges ? 'white' : theme.textMuted, border: `1.5px solid ${hasUnsavedChanges ? 'transparent' : theme.border}`, borderRadius: '12px',
                 fontSize: '12px', fontWeight: '900', cursor: hasUnsavedChanges ? 'pointer' : 'default',
                 boxShadow: hasUnsavedChanges ? '0 12px 24px rgba(var(--primary-rgb), 0.3)' : 'none',
@@ -786,9 +799,17 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
                     {!isEditingProfile ? (
                       <div style={{ display: "flex", gap: "32px", alignItems: "center" }}>
                         <div style={{ position: "relative" }}>
-                          {profile.avatar_url
-                            ? <img src={profile.avatar_url} alt={profile.name} style={{ width: "120px", height: "120px", borderRadius: "28px", objectFit: "cover", border: `3px solid ${theme.border}`, boxShadow: '0 8px 20px rgba(0,0,0,0.08)' }} />
-                            : <div style={{ width: "120px", height: "120px", borderRadius: "28px", background: "linear-gradient(135deg, var(--primary-color), #4F46E5)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "42px", fontWeight: "900", boxShadow: '0 8px 20px rgba(var(--primary-rgb), 0.2)' }}>{profile.name?.charAt(0)}</div>}
+                          {isGlobalAdmin ? (
+                            systemLogo ? (
+                              <img src={systemLogo} alt="System Logo" style={{ width: "120px", height: "120px", borderRadius: "28px", objectFit: "contain", background: 'white', padding: '10px', border: `3px solid ${theme.border}`, boxShadow: '0 8px 20px rgba(0,0,0,0.08)' }} />
+                            ) : (
+                              <div style={{ width: "120px", height: "120px", borderRadius: "28px", background: "linear-gradient(135deg, var(--primary-color), #4F46E5)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "42px", fontWeight: "900", boxShadow: '0 8px 20px rgba(var(--primary-rgb), 0.2)' }}>{profile.name?.charAt(0)}</div>
+                            )
+                          ) : (
+                            profile.avatar_url
+                              ? <img src={profile.avatar_url} alt={profile.name} style={{ width: "120px", height: "120px", borderRadius: "28px", objectFit: "cover", border: `3px solid ${theme.border}`, boxShadow: '0 8px 20px rgba(0,0,0,0.08)' }} />
+                              : <div style={{ width: "120px", height: "120px", borderRadius: "28px", background: "linear-gradient(135deg, var(--primary-color), #4F46E5)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "42px", fontWeight: "900", boxShadow: '0 8px 20px rgba(var(--primary-rgb), 0.2)' }}>{profile.name?.charAt(0)}</div>
+                          )}
                           {profile.profile_completed && (
                             <div style={{ position: 'absolute', bottom: -4, right: -4, background: '#10B981', border: `4px solid ${theme.surface}`, borderRadius: '50%', padding: '6px', display: 'flex', boxShadow: '0 4px 10px rgba(0,0,0,0.1)' }}>
                               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="4"><polyline points="20 6 9 17 4 12" /></svg>
@@ -810,11 +831,9 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
                             </div>
                             <button
                               onClick={() => setIsEditingProfile(true)}
-                              style={{ padding: "10px 20px", background: theme.surface, color: theme.text, border: `1.5px solid ${theme.border}`, borderRadius: "12px", fontSize: "12px", fontWeight: "800", cursor: "pointer", transition: '0.2s' }}
-                              onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--primary-color)'}
-                              onMouseLeave={e => e.currentTarget.style.borderColor = theme.border}
+                              style={{ padding: "12px 24px", background: 'var(--primary-color)', color: "white", border: "none", borderRadius: "12px", fontSize: "13px", fontWeight: "900", cursor: "pointer", transition: '0.3s', boxShadow: '0 8px 16px rgba(var(--primary-rgb), 0.2)' }}
                             >
-                              Edit Details
+                              Modify Account Identity
                             </button>
                           </div>
 
@@ -832,18 +851,37 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
                       </div>
                     ) : (
                       <form onSubmit={handleProfileSave}>
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px", marginBottom: '32px' }}>
-                          <div style={{ gridColumn: '1 / span 2' }}>
-                            <label style={labelStyle}>Full Legal Name</label>
-                            <input value={form.name} onChange={e => setForm(prev => ({ ...prev, name: e.target.value }))} style={inputStyle} placeholder="Full name for audit trails..." />
+                        <div style={{ display: 'flex', gap: '32px', alignItems: 'flex-start', marginBottom: '32px' }}>
+                          <div style={{ position: 'relative' }}>
+                            <div style={{ width: "120px", height: "120px", borderRadius: "28px", background: theme.bg, border: `3px dashed ${theme.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                              {isGlobalAdmin ? (
+                                systemLogo ? <img src={systemLogo} style={{ width: '100%', height: '100%', objectFit: 'contain', background: 'white', padding: '10px' }} /> : <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke={theme.textMuted} strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+                              ) : (
+                                form.avatar_url ? <img src={form.avatar_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke={theme.textMuted} strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+                              )}
+                            </div>
+                            {!isGlobalAdmin && (
+                              <>
+                                <input type="file" id="avatar-upload" hidden onChange={handleAvatarChange} accept="image/*" />
+                                <label htmlFor="avatar-upload" style={{ position: 'absolute', bottom: -8, right: -8, width: '36px', height: '36px', background: 'var(--primary-color)', color: 'white', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 4px 10px rgba(var(--primary-rgb), 0.3)', border: `3px solid ${theme.surface}` }}>
+                                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" /><circle cx="12" cy="13" r="4" /></svg>
+                                </label>
+                              </>
+                            )}
                           </div>
-                          <div>
-                            <label style={labelStyle}>Public Position Title</label>
-                            <input value={form.position_title} onChange={e => setForm(prev => ({ ...prev, position_title: e.target.value }))} style={inputStyle} placeholder="e.g. Director of Operations" />
-                          </div>
-                          <div>
-                            <label style={labelStyle}>{getLabel("category_label", "Assigned Unit")}</label>
-                            <input value={form.unit_name} onChange={e => setForm(prev => ({ ...prev, unit_name: e.target.value }))} style={inputStyle} placeholder="Primary working unit..." />
+                          <div style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
+                            <div style={{ gridColumn: '1 / span 2' }}>
+                              <label style={labelStyle}>Full Legal Name</label>
+                              <input value={form.name} onChange={e => setForm(prev => ({ ...prev, name: e.target.value }))} style={inputStyle} placeholder="Full name for audit trails..." />
+                            </div>
+                            <div>
+                              <label style={labelStyle}>Public Position Title</label>
+                              <input value={form.position_title} onChange={e => setForm(prev => ({ ...prev, position_title: e.target.value }))} style={inputStyle} placeholder="e.g. Director of Operations" />
+                            </div>
+                            <div>
+                              <label style={labelStyle}>{getLabel("category_label", "Assigned Unit")}</label>
+                              <input value={form.unit_name} onChange={e => setForm(prev => ({ ...prev, unit_name: e.target.value }))} style={inputStyle} placeholder="Primary working unit..." />
+                            </div>
                           </div>
                         </div>
 
@@ -988,14 +1026,14 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
                       <div>
                         <label style={labelStyle}>Current Password</label>
                         <div style={{ position: 'relative' }}>
-                          <input 
-                            type={showCurrentPass ? "text" : "password"} 
-                            value={form.current_password || ""} 
-                            onChange={e => setForm(prev => ({ ...prev, current_password: e.target.value }))} 
-                            style={{ ...inputStyle, paddingRight: '40px' }} 
-                            placeholder="Verify identity..." 
+                          <input
+                            type={showCurrentPass ? "text" : "password"}
+                            value={form.current_password || ""}
+                            onChange={e => setForm(prev => ({ ...prev, current_password: e.target.value }))}
+                            style={{ ...inputStyle, paddingRight: '40px' }}
+                            placeholder="Verify identity..."
                           />
-                          <div 
+                          <div
                             onClick={() => setShowCurrentPass(!showCurrentPass)}
                             style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', cursor: 'pointer', color: theme.textMuted, display: 'flex' }}
                           >
@@ -1006,14 +1044,14 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
                       <div>
                         <label style={labelStyle}>New Password</label>
                         <div style={{ position: 'relative' }}>
-                          <input 
-                            type={showNewPass ? "text" : "password"} 
-                            value={form.password || ""} 
-                            onChange={e => setForm(prev => ({ ...prev, password: e.target.value }))} 
-                            style={{ ...inputStyle, paddingRight: '40px' }} 
-                            placeholder="Enter new password..." 
+                          <input
+                            type={showNewPass ? "text" : "password"}
+                            value={form.password || ""}
+                            onChange={e => setForm(prev => ({ ...prev, password: e.target.value }))}
+                            style={{ ...inputStyle, paddingRight: '40px' }}
+                            placeholder="Enter new password..."
                           />
-                          <div 
+                          <div
                             onClick={() => setShowNewPass(!showNewPass)}
                             style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', cursor: 'pointer', color: theme.textMuted, display: 'flex' }}
                           >
@@ -1041,8 +1079,25 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
                     <ToggleRow title="Enable 2FA" description="Require identity verification on every sign-in attempt." checked={form.two_factor_enabled} onChange={() => setForm(prev => ({ ...prev, two_factor_enabled: !prev.two_factor_enabled }))} loading={profileSaving} theme={theme} darkMode={darkMode} />
                     <ImpactScope modules="Authentication / Login" users="Administrators" description={`2FA is required for system administrators under the current ${activeProfile.policy_ref}.`} theme={theme} />
                   </div>
-                  <div style={{ borderTop: `1px solid ${theme.border}`, paddingTop: '12px' }}>
-                    <ToggleRow title="Session Persistence" description="Maintain login state for 24 hours on this device." checked={form.biometrics_enabled} onChange={() => setForm(prev => ({ ...prev, biometrics_enabled: !prev.biometrics_enabled }))} theme={theme} darkMode={darkMode} />
+                  <div style={{ marginTop: '32px', borderTop: `1px solid ${theme.border}`, paddingTop: '24px' }}>
+                    <button
+                      onClick={handleGlobalSave}
+                      disabled={!isSettingsDirty && !isFormDirty}
+                      style={{
+                        padding: '12px 28px',
+                        background: (isSettingsDirty || isFormDirty) ? 'var(--primary-color)' : theme.bg,
+                        color: (isSettingsDirty || isFormDirty) ? 'white' : theme.textMuted,
+                        border: 'none',
+                        borderRadius: '12px',
+                        fontSize: '13px',
+                        fontWeight: '900',
+                        cursor: (isSettingsDirty || isFormDirty) ? 'pointer' : 'default',
+                        boxShadow: (isSettingsDirty || isFormDirty) ? '0 8px 20px rgba(var(--primary-rgb), 0.2)' : 'none',
+                        transition: '0.3s'
+                      }}
+                    >
+                      Apply Security Updates
+                    </button>
                   </div>
                 </div>
               </SectionCard>
@@ -1085,8 +1140,8 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
                     <ToggleRow title="New Feedback Received" description="Get notified immediately when a parent or citizen submits new feedback." checked={form.email_notifications} onChange={() => setForm(prev => ({ ...prev, email_notifications: !prev.email_notifications }))} theme={theme} darkMode={darkMode} />
                   </div>
                   <div style={{ padding: '0 0 16px 0', display: 'flex', gap: '16px', borderBottom: `1px solid ${theme.border}` }}>
-                     <div style={{ fontSize: '10px', color: theme.textMuted }}><strong>Sent to:</strong> All Program Personnel</div>
-                     <div style={{ fontSize: '10px', color: theme.textMuted }}><strong>Trigger:</strong> New submission recorded</div>
+                    <div style={{ fontSize: '10px', color: theme.textMuted }}><strong>Sent to:</strong> All Program Personnel</div>
+                    <div style={{ fontSize: '10px', color: theme.textMuted }}><strong>Trigger:</strong> New submission recorded</div>
                   </div>
 
                   <div style={{ position: 'relative' }}>
@@ -1094,8 +1149,8 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
                     <ToggleRow title="Task Assignments" description="Receive an alert whenever a case or location is assigned to your unit." checked={form.notify_announcements} onChange={() => setForm(prev => ({ ...prev, notify_announcements: !prev.notify_announcements }))} theme={theme} darkMode={darkMode} />
                   </div>
                   <div style={{ padding: '0 0 16px 0', display: 'flex', gap: '16px' }}>
-                     <div style={{ fontSize: '10px', color: theme.textMuted }}><strong>Sent to:</strong> Assigned Responders</div>
-                     <div style={{ fontSize: '10px', color: theme.textMuted }}><strong>Trigger:</strong> Staff assignment changed</div>
+                    <div style={{ fontSize: '10px', color: theme.textMuted }}><strong>Sent to:</strong> Assigned Responders</div>
+                    <div style={{ fontSize: '10px', color: theme.textMuted }}><strong>Trigger:</strong> Staff assignment changed</div>
                   </div>
                 </div>
               </SectionCard>
@@ -1104,8 +1159,8 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   <ToggleRow title="Emergency Broadcasts" description="Critical system-wide notices regarding program suspensions or urgent advisories." checked={form.push_notifications} onChange={() => setForm(prev => ({ ...prev, push_notifications: !prev.push_notifications }))} theme={theme} darkMode={darkMode} />
                   <div style={{ padding: '0 0 16px 0', display: 'flex', gap: '16px' }}>
-                     <div style={{ fontSize: '10px', color: '#EF4444' }}><strong>Sent to:</strong> Everyone</div>
-                     <div style={{ fontSize: '10px', color: theme.textMuted }}><strong>Trigger:</strong> High-priority manual broadcast</div>
+                    <div style={{ fontSize: '10px', color: '#EF4444' }}><strong>Sent to:</strong> Everyone</div>
+                    <div style={{ fontSize: '10px', color: theme.textMuted }}><strong>Trigger:</strong> High-priority manual broadcast</div>
                   </div>
                 </div>
               </SectionCard>
@@ -1114,8 +1169,8 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   <ToggleRow title="Performance Digest" description="Weekly high-level summary of feedback trends and operational health." checked={form.weekly_digest} onChange={() => setForm(prev => ({ ...prev, weekly_digest: !prev.weekly_digest }))} theme={theme} darkMode={darkMode} />
                   <div style={{ padding: '0 0 16px 0', display: 'flex', gap: '16px', borderBottom: `1px solid ${theme.border}` }}>
-                     <div style={{ fontSize: '10px', color: theme.textMuted }}><strong>Sent to:</strong> Supervisors & Executives</div>
-                     <div style={{ fontSize: '10px', color: theme.textMuted }}><strong>Trigger:</strong> Every Monday at 8:00 AM</div>
+                    <div style={{ fontSize: '10px', color: theme.textMuted }}><strong>Sent to:</strong> Supervisors & Executives</div>
+                    <div style={{ fontSize: '10px', color: theme.textMuted }}><strong>Trigger:</strong> Every Monday at 8:00 AM</div>
                   </div>
                 </div>
 
@@ -1170,39 +1225,39 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
                     <label style={labelStyle}>Primary System Color</label>
                     <p style={{ margin: '-4px 0 12px 0', fontSize: '11px', color: theme.textMuted }}>Used for buttons, highlights, and main action elements.</p>
                     <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-                      <input 
-                        type="color" 
-                        value={settings.primary_color} 
-                        onChange={e => setSettings(s => ({ ...s, primary_color: e.target.value }))} 
-                        style={{ width: '56px', height: '56px', padding: 0, border: 'none', background: 'none', cursor: 'pointer', borderRadius: '12px', overflow: 'hidden' }} 
+                      <input
+                        type="color"
+                        value={settings.primary_color}
+                        onChange={e => setSettings(s => ({ ...s, primary_color: e.target.value }))}
+                        style={{ width: '56px', height: '56px', padding: 0, border: 'none', background: 'none', cursor: 'pointer', borderRadius: '12px', overflow: 'hidden' }}
                       />
                       <div style={{ flex: 1 }}>
-                         <input 
-                           type="text" 
-                           value={settings.primary_color} 
-                           onChange={e => setSettings(s => ({ ...s, primary_color: e.target.value }))} 
-                           style={{ ...inputStyle, fontFamily: 'monospace', fontWeight: '700' }} 
-                         />
-                         <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
-                            {['#3B82F6', '#6366F1', '#10B981', '#F59E0B', '#EF4444', '#1E293B'].map(c => (
-                              <div key={c} onClick={() => setSettings(s => ({ ...s, primary_color: c }))} style={{ width: '28px', height: '28px', borderRadius: '8px', background: c, cursor: 'pointer', border: settings.primary_color === c ? '2px solid white' : '1px solid rgba(0,0,0,0.1)', boxShadow: settings.primary_color === c ? '0 0 0 2px var(--primary-color)' : 'none', transition: '0.2s' }} />
-                            ))}
-                         </div>
+                        <input
+                          type="text"
+                          value={settings.primary_color}
+                          onChange={e => setSettings(s => ({ ...s, primary_color: e.target.value }))}
+                          style={{ ...inputStyle, fontFamily: 'monospace', fontWeight: '700' }}
+                        />
+                        <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+                          {['#3B82F6', '#6366F1', '#10B981', '#F59E0B', '#EF4444', '#1E293B'].map(c => (
+                            <div key={c} onClick={() => setSettings(s => ({ ...s, primary_color: c }))} style={{ width: '28px', height: '28px', borderRadius: '8px', background: c, cursor: 'pointer', border: settings.primary_color === c ? '2px solid white' : '1px solid rgba(0,0,0,0.1)', boxShadow: settings.primary_color === c ? '0 0 0 2px var(--primary-color)' : 'none', transition: '0.2s' }} />
+                          ))}
+                        </div>
                       </div>
                     </div>
-                    
+
                     <div style={{ marginTop: '24px', paddingTop: '20px', borderTop: `1px solid ${theme.border}` }}>
-                       <label style={{ ...labelStyle, fontSize: '11px', color: theme.textMuted }}>Accessibility Check</label>
-                       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '8px', padding: '12px', background: 'rgba(0,0,0,0.02)', borderRadius: '12px' }}>
-                          <div style={{ padding: '6px 12px', background: settings.primary_color, color: getContrastColor(settings.primary_color), borderRadius: '6px', fontSize: '12px', fontWeight: '900' }}>Aa</div>
-                          <div style={{ flex: 1 }}>
-                             <p style={{ margin: 0, fontSize: '11px', fontWeight: '700', color: theme.text }}>Readability Status</p>
-                             <p style={{ margin: 0, fontSize: '10px', color: theme.textMuted }}>{getContrastColor(settings.primary_color) === '#ffffff' ? 'Pass: High visibility (Light Text)' : 'Pass: High visibility (Dark Text)'}</p>
-                          </div>
-                          <div style={{ color: '#10B981' }}>
-                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12" /></svg>
-                          </div>
-                       </div>
+                      <label style={{ ...labelStyle, fontSize: '11px', color: theme.textMuted }}>Accessibility Check</label>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '8px', padding: '12px', background: 'rgba(0,0,0,0.02)', borderRadius: '12px' }}>
+                        <div style={{ padding: '6px 12px', background: settings.primary_color, color: getContrastColor(settings.primary_color), borderRadius: '6px', fontSize: '12px', fontWeight: '900' }}>Aa</div>
+                        <div style={{ flex: 1 }}>
+                          <p style={{ margin: 0, fontSize: '11px', fontWeight: '700', color: theme.text }}>Readability Status</p>
+                          <p style={{ margin: 0, fontSize: '10px', color: theme.textMuted }}>{getContrastColor(settings.primary_color) === '#ffffff' ? 'Pass: High visibility (Light Text)' : 'Pass: High visibility (Dark Text)'}</p>
+                        </div>
+                        <div style={{ color: '#10B981' }}>
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12" /></svg>
+                        </div>
+                      </div>
                     </div>
                   </div>
 
@@ -1210,54 +1265,54 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
                     <label style={labelStyle}>Visual Presets</label>
                     <p style={{ margin: '-4px 0 16px 0', fontSize: '11px', color: theme.textMuted }}>Choose a framework that matches your organization type.</p>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                       {[
-                         { id: 'gov', name: 'Government Standard', color: '#1E40AF', sub: 'Formal and accessible. Best for public programs (DSWD Style).' },
-                         { id: 'hosp', name: 'Hospitality Premium', color: '#B45309', sub: 'Warm and friendly. Best for guest services (Resorts/Hotels).' },
-                         { id: 'corp', name: 'Corporate Minimal', color: '#0F172A', sub: 'Clean and neutral. Best for internal business operations.' }
-                       ].map(p => (
-                         <button 
-                           key={p.id} 
-                           onClick={() => setSettings(s => ({ ...s, primary_color: p.color, font_family: p.id === 'gov' ? "'Inter', sans-serif" : p.id === 'hosp' ? "'Outfit', sans-serif" : "'Inter', sans-serif" }))}
-                           style={{ padding: '12px', background: theme.surface, border: `1.5px solid ${theme.border}`, borderRadius: '12px', cursor: 'pointer', textAlign: 'left', transition: '0.2s', display: 'flex', alignItems: 'center', gap: '12px' }}
-                           onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--primary-color)'}
-                           onMouseLeave={e => e.currentTarget.style.borderColor = theme.border}
-                         >
-                            <div style={{ width: '12px', height: '12px', borderRadius: '4px', background: p.color }} />
-                            <div style={{ flex: 1 }}>
-                               <p style={{ margin: 0, fontSize: '12px', fontWeight: '800', color: theme.text }}>{p.name}</p>
-                               <p style={{ margin: 0, fontSize: '10px', color: theme.textMuted, lineHeight: '1.3' }}>{p.sub}</p>
-                            </div>
-                         </button>
-                       ))}
+                      {[
+                        { id: 'gov', name: 'Government Standard', color: '#1E40AF', sub: 'Formal and accessible. Best for public programs (DSWD Style).' },
+                        { id: 'hosp', name: 'Hospitality Premium', color: '#B45309', sub: 'Warm and friendly. Best for guest services (Resorts/Hotels).' },
+                        { id: 'corp', name: 'Corporate Minimal', color: '#0F172A', sub: 'Clean and neutral. Best for internal business operations.' }
+                      ].map(p => (
+                        <button
+                          key={p.id}
+                          onClick={() => setSettings(s => ({ ...s, primary_color: p.color, font_family: p.id === 'gov' ? "'Inter', sans-serif" : p.id === 'hosp' ? "'Outfit', sans-serif" : "'Inter', sans-serif" }))}
+                          style={{ padding: '12px', background: theme.surface, border: `1.5px solid ${theme.border}`, borderRadius: '12px', cursor: 'pointer', textAlign: 'left', transition: '0.2s', display: 'flex', alignItems: 'center', gap: '12px' }}
+                          onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--primary-color)'}
+                          onMouseLeave={e => e.currentTarget.style.borderColor = theme.border}
+                        >
+                          <div style={{ width: '12px', height: '12px', borderRadius: '4px', background: p.color }} />
+                          <div style={{ flex: 1 }}>
+                            <p style={{ margin: 0, fontSize: '12px', fontWeight: '800', color: theme.text }}>{p.name}</p>
+                            <p style={{ margin: 0, fontSize: '10px', color: theme.textMuted, lineHeight: '1.3' }}>{p.sub}</p>
+                          </div>
+                        </button>
+                      ))}
                     </div>
                   </div>
                 </div>
 
                 <div style={{ marginTop: '32px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
-                   <div style={{ padding: '24px', background: 'rgba(var(--primary-rgb), 0.05)', borderRadius: '20px', border: `1.5px solid ${theme.border}` }}>
-                      <label style={labelStyle}>System Logo</label>
-                      <p style={{ margin: '-4px 0 16px 0', fontSize: '11px', color: theme.textMuted }}>Shown in both admin and user screens.</p>
-                      <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-                         <div style={{ width: '64px', height: '64px', borderRadius: '12px', background: theme.surface, border: `1.5px solid ${theme.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', padding: '8px' }}>
-                            {logoPreview ? <img src={logoPreview} style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={theme.textMuted} strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>}
-                         </div>
-                         <div style={{ flex: 1 }}>
-                            <input type="file" id="logo-upload-premium" hidden onChange={handleLogoChange} accept="image/*" />
-                            <label htmlFor="logo-upload-premium" style={{ display: 'inline-block', padding: '10px 16px', background: 'var(--primary-color)', color: 'white', borderRadius: '10px', fontSize: '12px', fontWeight: '800', cursor: 'pointer' }}>Update Asset</label>
-                         </div>
+                  <div style={{ padding: '24px', background: 'rgba(var(--primary-rgb), 0.05)', borderRadius: '20px', border: `1.5px solid ${theme.border}` }}>
+                    <label style={labelStyle}>System Logo</label>
+                    <p style={{ margin: '-4px 0 16px 0', fontSize: '11px', color: theme.textMuted }}>Shown in both admin and user screens.</p>
+                    <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                      <div style={{ width: '64px', height: '64px', borderRadius: '12px', background: theme.surface, border: `1.5px solid ${theme.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', padding: '8px' }}>
+                        {logoPreview ? <img src={logoPreview} style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={theme.textMuted} strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>}
                       </div>
-                   </div>
-
-                    <div style={{ padding: '24px', background: theme.bg, borderRadius: '20px', border: `1.5px solid ${theme.border}` }}>
-                       <label style={labelStyle}>Font Style</label>
-                       <p style={{ margin: '-4px 0 16px 0', fontSize: '11px', color: theme.textMuted }}>Controls how text looks across the system.</p>
-                       <select value={settings.font_family} onChange={e => setSettings(s => ({ ...s, font_family: e.target.value }))} style={{ ...inputStyle, fontWeight: '700' }}>
-                          <option value="'Outfit', sans-serif">Outfit (Premium & Rounded)</option>
-                          <option value="'Inter', sans-serif">Inter (Modern & Professional)</option>
-                          <option value="'Roboto', sans-serif">Roboto (Structured & Clean)</option>
-                          <option value="'Poppins', sans-serif">Poppins (Dynamic & Playful)</option>
-                       </select>
+                      <div style={{ flex: 1 }}>
+                        <input type="file" id="logo-upload-premium" hidden onChange={handleLogoChange} accept="image/*" />
+                        <label htmlFor="logo-upload-premium" style={{ display: 'inline-block', padding: '10px 16px', background: 'var(--primary-color)', color: 'white', borderRadius: '10px', fontSize: '12px', fontWeight: '800', cursor: 'pointer' }}>Update Asset</label>
+                      </div>
                     </div>
+                  </div>
+
+                  <div style={{ padding: '24px', background: theme.bg, borderRadius: '20px', border: `1.5px solid ${theme.border}` }}>
+                    <label style={labelStyle}>Font Style</label>
+                    <p style={{ margin: '-4px 0 16px 0', fontSize: '11px', color: theme.textMuted }}>Controls how text looks across the system.</p>
+                    <select value={settings.font_family} onChange={e => setSettings(s => ({ ...s, font_family: e.target.value }))} style={{ ...inputStyle, fontWeight: '700' }}>
+                      <option value="'Outfit', sans-serif">Outfit (Premium & Rounded)</option>
+                      <option value="'Inter', sans-serif">Inter (Modern & Professional)</option>
+                      <option value="'Roboto', sans-serif">Roboto (Structured & Clean)</option>
+                      <option value="'Poppins', sans-serif">Poppins (Dynamic & Playful)</option>
+                    </select>
+                  </div>
                 </div>
               </SectionCard>
             </div>
@@ -1338,7 +1393,7 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
                             </div>
                           </div>
                           <div style={{ display: 'flex', gap: '8px' }}>
-                            <button 
+                            <button
                               onClick={() => setShowRevertModal(act)}
                               style={{ padding: '8px 16px', borderRadius: '10px', background: 'none', border: `1.5px solid ${theme.border}`, fontSize: '12px', fontWeight: '800', color: theme.text, cursor: 'pointer', transition: '0.2s' }}
                               onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--primary-color)'}
@@ -1474,7 +1529,7 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
               <div style={{ background: theme.surface, borderRadius: '24px', padding: '28px', border: `1.5px solid ${theme.border}`, boxShadow: '0 10px 30px rgba(0,0,0,0.04)', position: 'sticky', top: '24px' }}>
                 <h4 style={{ margin: '0 0 20px 0', fontSize: '12px', fontWeight: '900', color: theme.textMuted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Context Preview</h4>
-                
+
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                   <div style={{ padding: '20px', background: theme.bg, borderRadius: '16px', border: `1.5px solid ${theme.border}` }}>
                     <p style={{ margin: '0 0 12px 0', fontSize: '10px', fontWeight: '900', color: theme.textMuted, textTransform: 'uppercase' }}>Dashboard View</p>
@@ -1496,9 +1551,9 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
                 </div>
 
                 <div style={{ marginTop: '32px', padding: '16px', background: 'rgba(var(--primary-rgb), 0.05)', borderRadius: '14px', border: `1px solid rgba(var(--primary-rgb), 0.1)` }}>
-                   <p style={{ margin: 0, fontSize: '11px', color: 'var(--primary-color)', fontWeight: '700', lineHeight: '1.6' }}>
-                     💡 These labels will be visible to both staff members and citizens system-wide.
-                   </p>
+                  <p style={{ margin: 0, fontSize: '11px', color: 'var(--primary-color)', fontWeight: '700', lineHeight: '1.6' }}>
+                    💡 These labels will be visible to both staff members and citizens system-wide.
+                  </p>
                 </div>
               </div>
             </div>
@@ -1511,7 +1566,7 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
               <SectionCard theme={theme} title="Organization Profile" subtitle="Select the primary operational mode for the platform.">
                 <div style={{ padding: '16px', background: 'rgba(var(--primary-rgb), 0.05)', borderRadius: '12px', border: `1px solid rgba(var(--primary-rgb), 0.1)` }}>
                   <label style={labelStyle}>Operational Logic Mode</label>
-                  <select style={inputStyle} value={settings.org_type || "government"} onChange={e => setSettings(s => ({...s, org_type: e.target.value}))}>
+                  <select style={inputStyle} value={settings.org_type || "government"} onChange={e => setSettings(s => ({ ...s, org_type: e.target.value }))}>
                     <option value="government">Government & Public Program (Governance focus)</option>
                     <option value="service">Hospitality & Service Business (Guest Experience focus)</option>
                     <option value="corporate">Internal Enterprise (SOP & Staff focus)</option>
@@ -1522,9 +1577,9 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
                 </div>
               </SectionCard>
 
-              <AccordionCard 
-                theme={theme} 
-                title="Time & Regional Strategy" 
+              <AccordionCard
+                theme={theme}
+                title="Time & Regional Strategy"
                 subtitle="Standardize temporal governance across all programs and interactions."
                 status={{ label: settings.timezone.split(' ')[0], color: 'var(--primary-color)' }}
               >
@@ -1542,21 +1597,21 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
                   <div style={{ padding: '16px', background: theme.bg, borderRadius: '16px', border: `1.5px solid ${theme.border}` }}>
                     <label style={labelStyle}>Time Display Format</label>
                     <div style={{ display: 'flex', gap: '8px' }}>
-                       {['12h', '24h'].map(f => (
-                         <button 
-                           key={f}
-                           onClick={() => setSettings(s => ({ ...s, time_format: f }))}
-                           style={{ 
-                             flex: 1, padding: '10px', borderRadius: '8px', fontSize: '11px', fontWeight: '800',
-                             background: settings.time_format === f ? 'var(--primary-color)' : theme.surface,
-                             color: settings.time_format === f ? 'white' : theme.text,
-                             border: `1.5px solid ${settings.time_format === f ? 'var(--primary-color)' : theme.border}`,
-                             cursor: 'pointer'
-                           }}
-                         >
-                           {f === '12h' ? '12-Hour (02:00 PM)' : '24-Hour (14:00)'}
-                         </button>
-                       ))}
+                      {['12h', '24h'].map(f => (
+                        <button
+                          key={f}
+                          onClick={() => setSettings(s => ({ ...s, time_format: f }))}
+                          style={{
+                            flex: 1, padding: '10px', borderRadius: '8px', fontSize: '11px', fontWeight: '800',
+                            background: settings.time_format === f ? 'var(--primary-color)' : theme.surface,
+                            color: settings.time_format === f ? 'white' : theme.text,
+                            border: `1.5px solid ${settings.time_format === f ? 'var(--primary-color)' : theme.border}`,
+                            cursor: 'pointer'
+                          }}
+                        >
+                          {f === '12h' ? '12-Hour (02:00 PM)' : '24-Hour (14:00)'}
+                        </button>
+                      ))}
                     </div>
                   </div>
 
@@ -1571,9 +1626,9 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
                 </div>
               </AccordionCard>
 
-              <AccordionCard 
-                theme={theme} 
-                title="System Labeling & Visibility" 
+              <AccordionCard
+                theme={theme}
+                title="System Labeling & Visibility"
                 subtitle="Configure localized branding and form element visibility."
                 status={{ label: `${[settings.form_show_staff, settings.form_show_rating, settings.form_show_attachments, settings.form_show_voice].filter(Boolean).length} Controls Active`, color: '#10B981' }}
               >
@@ -1601,9 +1656,9 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
                 </div>
               </AccordionCard>
 
-              <AccordionCard 
-                theme={theme} 
-                title="Operational Guardrails" 
+              <AccordionCard
+                theme={theme}
+                title="Operational Guardrails"
                 subtitle={`Settings anchored to ${activeProfile.policy_ref}.`}
                 status={{ label: `Rate Limit: ${settings.submission_rate_limit}`, color: '#F59E0B' }}
               >
@@ -1613,19 +1668,19 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
 
                   <div style={{ borderTop: `1px solid ${theme.border}`, paddingTop: '24px' }}>
                     <label style={labelStyle}>Submission Rate Limit (per {activeProfile.audience.split(' / ')[0]})</label>
-                    <input 
-                      type="number" 
-                      value={settings.submission_rate_limit || 5} 
+                    <input
+                      type="number"
+                      value={settings.submission_rate_limit || 5}
                       onChange={e => setSettings(s => ({ ...s, submission_rate_limit: parseInt(e.target.value) }))}
-                      style={inputStyle} 
+                      style={inputStyle}
                     />
                     <ImpactScope modules="Submission API" users={activeProfile.audience} description={`Prevents data duplication and ensures high-quality ${getLabel("feedback_label", "feedback")} records.`} theme={theme} />
                   </div>
 
                   <div style={{ borderTop: `1px solid ${theme.border}`, paddingTop: '24px' }}>
                     <label style={labelStyle}>Data Sovereignty Protocol</label>
-                    <select 
-                      style={inputStyle} 
+                    <select
+                      style={inputStyle}
                       value={settings.data_sovereignty || "on-premise"}
                       onChange={e => setSettings(s => ({ ...s, data_sovereignty: e.target.value }))}
                     >

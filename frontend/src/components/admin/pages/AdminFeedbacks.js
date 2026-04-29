@@ -178,6 +178,12 @@ const FeedbackSidePanel = ({ feedback, isClosing, onClose, onUpdateStatus, theme
                   const val = responses[it.id] || responses[it.key];
                   if (val === undefined || val === null || val === "" || (Array.isArray(val) && val.length === 0)) return null;
 
+                  // --- SMART VISIBILITY CHECK (for labeling) ---
+                  const key = it.key || "";
+                  let isPublic = true;
+                  if (['contact_number', 'email_address', 'mailing_address'].includes(key)) isPublic = false;
+                  if (key === 'full_name' && feedback.is_anonymous) isPublic = false;
+
                   let displayVal = val;
                   if (typeof val === 'object' && !Array.isArray(val)) {
                     displayVal = Object.entries(val).map(([k, v]) => `${k}: ${v}/5`).join(', ');
@@ -191,7 +197,7 @@ const FeedbackSidePanel = ({ feedback, isClosing, onClose, onUpdateStatus, theme
                         <div style={{ fontSize: '10px', fontWeight: '900', color: 'var(--primary-color)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                           {it.label_override}
                         </div>
-                        {it.include_in_post ? (
+                        {isPublic ? (
                           <span style={{ fontSize: '9px', fontWeight: '800', background: '#DCFCE7', color: '#15803D', padding: '2px 6px', borderRadius: '4px' }}>PUBLIC</span>
                         ) : (
                           <span style={{ fontSize: '9px', fontWeight: '800', background: '#F1F5F9', color: '#64748B', padding: '2px 6px', borderRadius: '4px' }}>PRIVATE</span>

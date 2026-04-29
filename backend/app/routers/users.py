@@ -67,6 +67,16 @@ def mark_user_notifications_as_read(user_id: int, db: Session = Depends(get_db))
     crud.mark_notifications_as_read(db, user_id=user_id)
     return None
 
+@router.post("/notifications/{notification_id}/read", status_code=204)
+def mark_notification_as_read(notification_id: int, db: Session = Depends(get_db)):
+    crud.mark_single_notification_as_read(db, notification_id=notification_id)
+    return None
+
+@router.post("/{user_id}/notifications/broadcast/{broadcast_id}/view", status_code=204)
+def view_broadcast(user_id: int, broadcast_id: int, db: Session = Depends(get_db)):
+    crud.mark_broadcast_as_viewed(db, broadcast_id=broadcast_id, user_id=user_id)
+    return None
+
 @router.post("/{user_id}/notifications/broadcast/{broadcast_id}/acknowledge", status_code=204)
 def acknowledge_broadcast(user_id: int, broadcast_id: int, db: Session = Depends(get_db)):
     success = crud.acknowledge_broadcast(db, broadcast_id=broadcast_id, user_id=user_id)

@@ -9,34 +9,28 @@ const Icons = {
   Reply: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 17 4 12 9 7"></polyline><path d="M20 18v-2a4 4 0 0 0-4-4H4"></path></svg>,
   Clock: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>,
   CheckCircle: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>,
-  BellRing: () => <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+  BellRing: () => <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>,
+  AtSign: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4"></circle><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-3.92 7.94"></path></svg>,
+  ThumbsUp: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path></svg>
 };
 
-const NotificationsView = ({ currentUser, onBack, onOpenComment, onRead }) => {
-  const [notifications, setNotifications] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+const NotificationsView = ({ currentUser, onBack, onOpenComment, onRead, notifications: propsNotifications }) => {
+  const [internalNotifications, setInternalNotifications] = useState([]);
+  const [isLoading, setIsLoading] = useState(!propsNotifications);
+
+  const notifications = propsNotifications || internalNotifications;
 
   useEffect(() => {
+    if (propsNotifications) {
+      setIsLoading(false);
+      return;
+    }
+
     const fetchNotifications = async () => {
       setIsLoading(true);
       try {
         const data = await getUserNotifications(currentUser.id);
-        setNotifications(data);
-        
-        // Mark as read after a short delay
-        if (data.some(n => !n.is_read)) {
-          setTimeout(async () => {
-             try {
-               await markNotificationsAsRead(currentUser.id);
-               // Update local state to reflect read status immediately
-               setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
-               // Notify parent to clear bubble count
-               if (onRead) onRead();
-             } catch (err) {
-               console.error("Failed to mark read:", err);
-             }
-          }, 1000); // 1s is faster than 2s
-        }
+        setInternalNotifications(data);
       } catch (err) {
         console.error("Error fetching notifications:", err);
       } finally {
@@ -44,7 +38,7 @@ const NotificationsView = ({ currentUser, onBack, onOpenComment, onRead }) => {
       }
     };
     if (currentUser) fetchNotifications();
-  }, [currentUser]);
+  }, [currentUser, propsNotifications]);
 
   const formatDateTime = (dateStr) => {
     if (!dateStr) return { date: "N/A", time: "N/A" };
@@ -55,54 +49,127 @@ const NotificationsView = ({ currentUser, onBack, onOpenComment, onRead }) => {
     };
   };
 
+  const getVisuals = (type) => {
+    const t = type.toLowerCase();
+    if (t === 'comment') return { icon: <Icons.Message />, bg: '#E0F2FE', color: '#0369A1' };
+    if (t === 'reply') return { icon: <Icons.Reply />, bg: '#F3E8FF', color: '#7E22CE' };
+    if (t === 'like') return { icon: <Icons.ThumbsUp />, bg: '#DCFCE7', color: '#15803D' };
+    if (t === 'dislike') return { icon: <Icons.ThumbsDown />, bg: '#FFF7ED', color: '#C2410C' };
+    if (t === 'announcement') return { icon: <Icons.BellRing />, bg: '#FEF3C7', color: '#92400E' };
+    if (t === 'mention') return { icon: <Icons.AtSign />, bg: '#E0E7FF', color: '#4338CA' };
+    return { icon: <Icons.Message />, bg: '#F1F5F9', color: '#64748B' };
+  };
+
+  const getNotifText = (type, meta) => {
+    const t = type.toLowerCase();
+    if (t === 'comment') return 'commented on';
+    if (t === 'reply') return 'replied directly to';
+    if (t === 'like') {
+      if (meta?.actor_count > 1) return 'and others liked';
+      return 'liked';
+    }
+    if (t === 'dislike') return 'disliked';
+    if (t === 'announcement') return 'sent an announcement';
+    if (t === 'mention') return 'mentioned you in';
+    return 'reacted to';
+  };
+
+  const getTargetText = (type) => {
+    const t = type.toLowerCase();
+    if (t === 'reply') return `your comment`;
+    if (t === 'mention') return `their post`;
+    if (t === 'dislike') return `your feedback`;
+    return `your feedback`;
+  };
+
   return (
     <div style={styles.container}>
       <style>{`
         .notif-card-wow {
           background: #FFFFFF;
-          border-radius: 20px;
-          padding: 20px;
-          border: 1px solid rgba(226, 232, 240, 0.8);
-          box-shadow: 0 4px 15px rgba(0,0,0,0.02);
+          border-radius: 12px;
+          padding: 16px 20px;
+          border: 1px solid #F1F5F9;
           cursor: pointer;
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
           position: relative;
           overflow: hidden;
           display: flex;
           gap: 16px;
           align-items: flex-start;
+          margin-bottom: 4px;
+          font-family: 'Inter', sans-serif !important;
+        }
+        .notif-card-wow * {
+          font-family: 'Inter', sans-serif !important;
         }
         .notif-card-wow:hover {
-          transform: translateY(-4px);
-          box-shadow: 0 12px 30px rgba(37, 99, 235, 0.08);
-          border-color: rgba(59, 130, 246, 0.4);
+          border-color: #E2E8F0;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+          transform: translateX(4px);
         }
-        .notif-card-wow::before {
-          content: '';
-          position: absolute;
-          top: 0; left: 0; width: 4px; height: 100%;
-          background: transparent;
-          transition: background 0.3s ease;
+        .section-divider {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          margin: 24px 0 16px;
+          font-family: 'Inter', sans-serif !important;
         }
-        .notif-card-wow:hover::before {
-          background: linear-gradient(180deg, var(--primary-color) 0%, #8B5CF6 100%);
+        .section-title {
+          font-size: 11px;
+          font-weight: 800;
+          color: #94A3B8;
+          text-transform: uppercase;
+          letter-spacing: 0.1em;
+          white-space: nowrap;
+          display: flex;
+          align-items: center;
+          gap: 6px;
         }
-        .notif-avatar-cont {
-          width: 48px; height: 48px; border-radius: 14px; display: flex; align-items: center; justify-content: center;
-          flex-shrink: 0; box-shadow: inset 0 2px 4px rgba(255,255,255,0.5);
+        .section-line {
+          height: 1px;
+          background: #F1F5F9;
+          flex: 1;
         }
-        .header-glass {
-          background: rgba(255, 255, 255, 0.85);
-          backdrop-filter: blur(12px);
-          border-bottom: 1px solid rgba(255,255,255,0.5);
+        .count-badge {
+          background: #F1F5F9;
+          color: #64748B;
+          padding: 2px 6px;
+          borderRadius: 6px;
+          fontSize: 10px;
         }
       `}</style>
 
       <div style={styles.headerWrapper}>
         <header style={{ ...styles.header }}>
           <div style={{ width: 40 }}></div>
-          <h1 style={styles.headerTitle}>Notifications</h1>
-          <div style={{ width: 40 }}></div>
+          <h1 style={styles.headerTitle}>System Notifications</h1>
+          {notifications.some(n => !n.is_read) ? (
+            <button 
+              onClick={async () => {
+                try {
+                  await markNotificationsAsRead(currentUser.id);
+                  if (onRead) onRead();
+                  setInternalNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+                } catch (e) { console.error("Could not mark all as read", e); }
+              }}
+              style={{
+                background: '#F1F5F9',
+                border: 'none',
+                color: '#64748B',
+                fontSize: '10px',
+                fontWeight: '800',
+                textTransform: 'uppercase',
+                cursor: 'pointer',
+                padding: '6px 12px',
+                borderRadius: '20px'
+              }}
+            >
+              Mark All Read
+            </button>
+          ) : (
+            <div style={{ width: 40 }}></div>
+          )}
         </header>
       </div>
 
@@ -111,101 +178,141 @@ const NotificationsView = ({ currentUser, onBack, onOpenComment, onRead }) => {
           {isLoading ? (
             <div style={styles.loadingState}>
               <div style={styles.spinner}></div>
-              <p>Syncing your activity...</p>
+              <p>Syncing system records...</p>
             </div>
           ) : notifications.length === 0 ? (
             <div style={styles.emptyState}>
               <div style={{ color: '#CBD5E1', marginBottom: '16px' }}><Icons.BellRing /></div>
-              <h3 style={{ margin: '0 0 8px 0', color: '#1E293B', fontSize: '18px' }}>You're all caught up!</h3>
-              <p style={{ color: '#94A3B8', margin: 0, fontSize: '14px', lineHeight: '1.5' }}>When people react or reply to your posts, you'll find it here.</p>
+              <h3 style={{ margin: '0 0 8px 0', color: '#1E293B', fontSize: '18px' }}>No Activity</h3>
+              <p style={{ color: '#94A3B8', margin: 0, fontSize: '14px', lineHeight: '1.5' }}>Your notification log is currently empty.</p>
             </div>
           ) : (
-            notifications.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).map((notif) => {
-              const isCommentReaction = (notif.type === 'like' || notif.type === 'dislike') && notif.reply_id;
+            (() => {
+              const sorted = [...notifications].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+              const groups = { today: [], yesterday: [], earlier: [] };
+              const now = new Date();
+              const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+              const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
 
-              const getVisuals = () => {
-                const t = notif.type.toLowerCase();
-                if (t === 'comment') return { icon: <Icons.Message />, bg: 'linear-gradient(135deg, #E0F2FE 0%, #BAE6FD 100%)', color: '#0369A1' };
-                if (t === 'reply') return { icon: <Icons.Reply />, bg: 'linear-gradient(135deg, #F3E8FF 0%, #E9D5FF 100%)', color: '#7E22CE' };
-                if (t === 'like') return { icon: <Icons.HeartFill />, bg: 'linear-gradient(135deg, #FEE2E2 0%, #FECACA 100%)', color: '#B91C1C' };
-                if (t === 'announcement') return { icon: <Icons.BellRing />, bg: 'linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%)', color: '#92400E' };
-                if (t === 'mention') return { icon: <Icons.AtSign />, bg: 'linear-gradient(135deg, #DCFCE7 0%, #BBF7D0 100%)', color: '#15803D' };
-                return { icon: <Icons.Message />, bg: '#F1F5F9', color: '#64748B' };
-              };
+              sorted.forEach(n => {
+                const d = new Date(n.created_at);
+                const compareDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+                if (compareDate.getTime() === today.getTime()) groups.today.push(n);
+                else if (compareDate.getTime() === yesterday.getTime()) groups.yesterday.push(n);
+                else groups.earlier.push(n);
+              });
 
-              const getNotifText = () => {
-                const t = notif.type.toLowerCase();
-                if (t === 'comment') return 'commented on';
-                if (t === 'reply') return 'replied directly to';
-                if (t === 'like') {
-                  if (notif.meta?.actor_count > 1) return 'and others liked';
-                  return 'liked';
-                }
-                if (t === 'announcement') return 'sent an announcement';
-                if (t === 'mention') return 'mentioned you in';
-                return 'reacted to';
-              };
+              return Object.entries(groups).map(([key, list]) => {
+                if (list.length === 0) return null;
+                const unreadCount = list.filter(n => !n.is_read).length;
 
-              const getTargetText = () => {
-                if (notif.type === 'reply') return `your comment`;
-                if (notif.type === 'mention') return `their post`;
-                return `your feedback`;
-              };
-
-              const viz = getVisuals();
-
-              return (
-                <div 
-                  key={notif.id} 
-                  className="notif-card-wow" 
-                  onClick={() => onOpenComment && onOpenComment(notif)}
-                  style={{
-                    backgroundColor: notif.is_read ? '#FFFFFF' : 'rgba(var(--primary-rgb), 0.05)',
-                    borderLeft: notif.is_read ? 'none' : '4px solid var(--primary-color)',
-                    position: 'relative'
-                  }}
-                >
-                  {/* UNREAD BLUE DOT indicator */}
-                  {!notif.is_read && (
-                    <div style={{ position: 'absolute', top: '10px', left: '10px', width: '8px', height: '8px', backgroundColor: 'var(--primary-color)', borderRadius: '50%' }}></div>
-                  )}
-                  <div className="notif-avatar-cont" style={{ background: viz.bg, color: viz.color }}>
-                    {viz.icon}
-                  </div>
-                  
-                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center' }}>
-                      <p style={styles.notifText}>
-                        {notif.type === 'announcement' ? (
-                          <>
-                            <span style={{ color: '#0F172A', fontWeight: 700 }}>Announcement:</span> {notif.subject || "Important Update"}
-                          </>
-                        ) : notif.type === 'like' && notif.meta?.actor_count > 1 ? (
-                          <span style={{ color: '#0F172A', fontWeight: notif.is_read ? 600 : 800 }}>
-                            {notif.message || "Multiple people liked your feedback"}
-                          </span>
-                        ) : (
-                          <>
-                            <span style={{ color: '#0F172A', fontWeight: notif.is_read ? 600 : 800 }}>{notif.actor_name || "Someone"}</span> 
-                            <span style={{ fontWeight: notif.is_read ? 400 : 600, color: notif.is_read ? '#64748B' : '#1E293B' }}> {getNotifText()} </span>
-                            <span style={{ color: 'var(--primary-color)', fontWeight: notif.is_read ? 600 : 800 }}>{getTargetText()}</span>
-                          </>
-                        )}
-                      </p>
-                    </div>
-                    
-                    <div style={styles.cardFooter}>
-                      <div style={{ ...styles.typeBadge, backgroundColor: 'rgba(241, 245, 249, 0.8)', color: '#64748B' }}>
-                        {notif.type.toUpperCase()}
+                return (
+                  <div key={key} style={{ display: 'flex', flexDirection: 'column' }}>
+                    <div className="section-divider">
+                      <div className="section-title">
+                        {key === 'today' ? 'New for You' : key === 'yesterday' ? 'Yesterday' : 'Earlier'}
+                        {unreadCount > 0 && <span className="count-badge">{unreadCount}</span>}
                       </div>
-                      <div style={styles.timeLabel}>
-                        <Icons.Clock /> {formatDateTime(notif.created_at).date} • {formatDateTime(notif.created_at).time}
-                      </div>
+                      <div className="section-line" />
                     </div>
+                    {list.map((notif) => {
+                      const viz = getVisuals(notif.type);
+                      const isAnnouncement = notif.type.toLowerCase() === 'announcement';
+                      const cleanSubject = isAnnouncement && notif.subject 
+                        ? notif.subject.replace(/\[OFFICIAL\]\s*/i, '').replace(/SYSTEM\s*-\s*/i, '') 
+                        : (notif.subject || "System Update");
+
+                      const nText = getNotifText(notif.type, notif.meta);
+                      const tText = getTargetText(notif.type);
+
+                      return (
+                        <div 
+                          key={notif.id} 
+                          className="notif-card-wow" 
+                          onClick={() => onOpenComment && onOpenComment(notif)}
+                          style={{
+                            backgroundColor: notif.is_read ? '#FFFFFF' : '#F4F8FF',
+                            borderLeft: notif.is_read ? '3px solid #E2E8F0' : '3px solid #3B82F6',
+                            transition: 'all 0.3s ease'
+                          }}
+                        >
+                          <div className="notif-avatar-cont" style={{ 
+                            background: notif.is_read ? '#F1F5F9' : viz.bg, 
+                            color: notif.is_read ? '#94A3B8' : viz.color,
+                            width: '40px',
+                            height: '40px',
+                            borderRadius: '10px',
+                            fontSize: '18px'
+                          }}>
+                            {viz.icon}
+                          </div>
+                          
+                          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <h4 style={{ 
+                                margin: 0, 
+                                color: '#0F172A', 
+                                fontWeight: notif.is_read ? 500 : 700, 
+                                fontSize: '14px',
+                                lineHeight: '1.2'
+                              }}>
+                                {cleanSubject}
+                              </h4>
+                              {!notif.is_read && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <span style={{ fontSize: '9px', fontWeight: '900', color: '#3B82F6', letterSpacing: '0.05em' }}>NEW</span>
+                                  <div style={{ width: '6px', height: '6px', backgroundColor: '#3B82F6', borderRadius: '50%' }} />
+                                </div>
+                              )}
+                            </div>
+
+                            <p style={{ 
+                              margin: '2px 0', 
+                              fontSize: '11px', 
+                              fontWeight: '700', 
+                              color: notif.is_read ? '#94A3B8' : '#64748B',
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.02em'
+                            }}>
+                              {isAnnouncement ? 'Official Bulletin • System Notice' : `${notif.type.toUpperCase()} • System Notification`}
+                            </p>
+
+                            <p style={{ 
+                              color: '#475569', 
+                              fontSize: '12.5px', 
+                              lineHeight: '1.5',
+                              margin: '4px 0',
+                              fontWeight: notif.is_read ? 400 : 500,
+                              display: '-webkit-box',
+                              WebkitLineClamp: 2,
+                              WebkitBoxOrient: 'vertical',
+                              overflow: 'hidden'
+                            }}>
+                              {isAnnouncement ? notif.message : (
+                                <span>
+                                  <strong style={{ color: '#1E293B' }}>{notif.actor_name || "Someone"}</strong> {nText} {tText}
+                                </span>
+                              )}
+                            </p>
+                            
+                            <div style={{ 
+                              fontSize: '11px', 
+                              color: '#94A3B8', 
+                              marginTop: '4px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px'
+                            }}>
+                              {formatDateTime(notif.created_at).time} • {formatDateTime(notif.created_at).date}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                </div>
-              );
-            })
+                );
+              });
+            })()
           )}
         </div>
       </main>
@@ -235,7 +342,6 @@ const styles = {
   spinner: { width: '30px', height: '30px', border: '3px solid #E2E8F0', borderTop: '3px solid var(--primary-color)', borderRadius: '50%', animation: 'spin 1s linear infinite' }
 };
 
-// Inject keyframes to document gracefully, outside of React scope to prevent duplicate injections on hot-reload:
 if (typeof document !== 'undefined') {
   let styleTag = document.getElementById('notif-spin-keyframes');
   if (!styleTag) {

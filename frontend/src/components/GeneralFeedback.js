@@ -88,7 +88,7 @@ const hexToRgb = (hex) => {
 };
 
 const GeneralFeedback = ({ currentUser, onBack, onSuccess, overrideConfig = null, isPreview = false }) => {
-  const { getLabel } = useTerminology();
+  const { getLabel, systemSettings } = useTerminology();
   const [step, setStep] = useState("");
   const [feedbackType, setFeedbackType] = useState("");
   const [selectedEntity, setSelectedEntity] = useState(null);
@@ -122,7 +122,8 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, overrideConfig = null
   const [matrixRatings, setMatrixRatings] = useState({});
   const [selectionMethod, setSelectionMethod] = useState("manual"); // auto | manual
 
-  const primaryColor = formConfig?.theme?.primary_color || "#10B981";
+  const adminColor = systemSettings?.primary_color || "#10B981";
+  const primaryColor = formConfig?.theme?.primary_color || adminColor;
   const bgStyle = formConfig?.theme?.bg_style || "abstract";
 
   const getDynamicBackground = () => {
@@ -166,11 +167,25 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, overrideConfig = null
     }).catch(console.error).finally(() => setLoading(false));
   }, []);
 
+  const resetForm = () => {
+    setStep("");
+    setRating(0);
+    setIdea("");
+    setFeedbackType("");
+    setCustomFields({});
+    setMatrixRatings({});
+    setSelectedBranch(null);
+    setSelectedStaff(null);
+    setShowErrors(false);
+  };
+
   useEffect(() => {
     if (overrideConfig) {
       setFormConfig(overrideConfig);
       setConfigLoaded(true);
       setLoading(false);
+      // Reset progress when config is swapped (e.g. in Admin Designer)
+      resetForm();
       return;
     }
   }, [overrideConfig]);
@@ -198,14 +213,30 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, overrideConfig = null
   }, [formConfig]);
 
   useEffect(() => {
-    if (enabledSteps.length > 0 && !step) {
-      setStep(enabledSteps[0].id);
+    if (enabledSteps.length > 0 && !loading) {
+      const isValid = enabledSteps.some(s => s.id === step);
+      if (!step || !isValid) {
+        setStep(enabledSteps[0].id);
+      }
     }
-  }, [enabledSteps, step]);
+  }, [enabledSteps, step, loading]);
 
   useEffect(() => {
     if (selectedEntity) {
       setLoading(true);
+      // Reset form state to Step 1 whenever a new entity is selected
+      if (!overrideConfig) {
+        setRating(0);
+        setIdea("");
+        setFeedbackType("");
+        setCustomFields({});
+        setMatrixRatings({});
+        setSelectedBranch(null);
+        setSelectedStaff(null);
+        setShowErrors(false);
+        setStep(""); // This will trigger the enabledSteps effect to set Step 1
+      }
+      
       Promise.all([getBranches(selectedEntity.id), getEntityFormConfig(selectedEntity.id)])
         .then(([bd, cd]) => {
           setBranches(bd.filter(b => b.is_active));
@@ -476,35 +507,67 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, overrideConfig = null
       <header style={styles.header}>
         <div style={{ width: 40 }} />
         <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
-          <WorkflowStepper steps={enabledSteps} currentIndex={currentIndex} primaryColor="var(--primary-color)" onStepClick={setStep} />
+          {selectedEntity && (
+            <WorkflowStepper steps={enabledSteps} currentIndex={currentIndex} primaryColor="var(--primary-color)" onStepClick={setStep} />
+          )}
         </div>
         <div style={{ width: 40 }} />
       </header>
       <main style={styles.content}>
         {!selectedEntity && !overrideConfig ? (
           <div style={{
-            flex: 1,
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'center',
-            padding: '16px',
-            background: 'linear-gradient(180deg, #F8FAFC 0%, #FFFFFF 100%)',
-            position: 'relative'
+            alignItems: 'center',
+            padding: '40px 24px',
+            background: '#FFFFFF',
+            borderRadius: '24px',
+            border: '1px solid #E5E7EB',
+            boxShadow: '0 12px 40px -10px rgba(0,0,0,0.08)',
+            margin: '20px',
+            position: 'relative',
+            overflow: 'hidden'
           }}>
-              <h2 style={{ fontSize: '14px', fontWeight: '600', color: '#0F172A', margin: '0 0 4px 0', letterSpacing: '-0.02em', lineHeight: '1.4' }}>
+            {/* INTENTIONAL HEADER */}
+            <div style={{ textAlign: 'center', marginBottom: '40px' }}>
+              <h2 style={{ 
+                fontSize: '22px', 
+                fontWeight: '800', 
+                color: '#0F172A', 
+                margin: '0 0 8px 0', 
+                letterSpacing: '-0.03em', 
+                lineHeight: '1.2' 
+              }}>
                 How can we help?
               </h2>
-              <p style={{ fontSize: '11px', color: '#64748B', fontWeight: '400', lineHeight: '1.4' }}>
-                Select a service to begin.
+              <div style={{ 
+                width: '32px', 
+                height: '3px', 
+                background: 'var(--primary-color)', 
+                margin: '0 auto 12px', 
+                borderRadius: '2px',
+                opacity: 0.6
+              }} />
+              <p style={{ 
+                fontSize: '13px', 
+                color: '#64748B', 
+                fontWeight: '500', 
+                lineHeight: '1.4',
+                maxWidth: '240px',
+                margin: '0 auto'
+              }}>
+                Please select the service category you interacted with today.
               </p>
+            </div>
 
             <div style={{
               display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
-              gap: '12px',
-              maxWidth: '340px',
-              margin: '0 auto',
-              width: '100%'
+              gridTemplateColumns: 'repeat(2, 1fr)',
+              gap: '16px',
+              maxWidth: '380px',
+              width: '100%',
+              justifyContent: 'center'
             }}>
               {dbEntities.map(ent => {
                 const isSel = selectedEntity?.id === ent.id;
@@ -512,11 +575,11 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, overrideConfig = null
                 const IconComp = LocalIcons[iconName] || LocalIcons.Layers;
                 
                 const colorMap = {
-                  spa: { bg: '#F0FDFA', icon: '#0D9488' },
-                  restaurant: { bg: '#FFFBEB', icon: '#D97706' },
-                  pool: { bg: '#EFF6FF', icon: '#2563EB' },
-                  gym: { bg: '#F5F3FF', icon: '#7C3AED' },
-                  default: { bg: '#F8FAFC', icon: '#475569' }
+                  spa: { bg: '#F0FDFA', icon: '#0D9488', border: '#CCFBF1' },
+                  restaurant: { bg: '#FFF7ED', icon: '#EA580C', border: '#FFEDD5' },
+                  pool: { bg: '#EFF6FF', icon: '#2563EB', border: '#DBEAFE' },
+                  gym: { bg: '#F5F3FF', icon: '#7C3AED', border: '#EDE9FE' },
+                  default: { bg: '#F8FAFC', icon: adminColor, border: '#F1F5F9' }
                 };
                 const theme = colorMap[ent.name.toLowerCase()] || colorMap.default;
 
@@ -525,63 +588,80 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, overrideConfig = null
                     key={ent.id} 
                     onClick={() => { 
                       setConfirmingSelection(ent); 
-                      setTimeout(() => { setSelectedEntity(ent); setConfirmingSelection(null); handleNext(null, null, ent); }, 800); 
+                      setTimeout(() => { 
+                        setSelectedEntity(ent); 
+                        setConfirmingSelection(null); 
+                      }, 800); 
                     }} 
-                    className="minimal-service-card"
+                    className="minimal-service-card press-effect"
                     style={{ 
-                      ...styles.typeCard,
                       position: 'relative',
                       display: 'flex',
                       flexDirection: 'column',
                       alignItems: 'center',
                       textAlign: 'center',
-                      padding: '16px 12px',
-                      backgroundColor: 'transparent',
-                      borderRadius: '20px',
-                      border: isSel ? '2px solid var(--primary-color)' : '1px solid transparent',
+                      padding: '24px 16px',
+                      backgroundColor: isSel ? theme.bg : '#FFFFFF',
+                      borderRadius: '24px',
+                      border: `1.5px solid ${isSel ? 'var(--primary-color)' : '#F1F5F9'}`,
                       cursor: 'pointer',
-                      transition: 'all 0.5s cubic-bezier(0.2, 1, 0.3, 1)',
+                      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                      boxShadow: isSel 
+                        ? `0 10px 20px -5px rgba(${hexToRgb(primaryColor)}, 0.2)` 
+                        : '0 4px 12px rgba(0,0,0,0.03)',
                       zIndex: isSel ? 2 : 1
                     }}
                   >
                     <div style={{
-                      width: '60px',
-                      height: '60px',
-                      borderRadius: '20px',
+                      width: '52px',
+                      height: '52px',
+                      borderRadius: '16px',
                       backgroundColor: isSel ? 'var(--primary-color)' : theme.bg,
-                      color: isSel ? 'white' : theme.icon,
+                      color: isSel ? '#FFFFFF' : theme.icon,
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      marginBottom: '10px',
-                      transition: 'all 0.4s ease',
-                      boxShadow: isSel ? '0 10px 20px rgba(var(--primary-rgb), 0.3)' : '0 4px 10px rgba(0,0,0,0.02)'
+                      marginBottom: '16px',
+                      transition: 'all 0.3s ease',
+                      boxShadow: isSel 
+                        ? '0 8px 16px rgba(var(--primary-rgb), 0.3)' 
+                        : `inset 0 0 0 1px ${theme.border}`
                     }}>
-                      <IconComp size={28} />
+                      <IconComp size={24} />
                     </div>
                     
                     <div style={{ 
                       fontSize: '14px', 
                       fontWeight: '800', 
                       color: isSel ? 'var(--primary-color)' : '#1E293B',
-                      transition: 'all 0.3s ease'
+                      letterSpacing: '-0.01em'
                     }}>
                       {ent.name}
+                    </div>
+                    
+                    <div style={{ 
+                      fontSize: '10px', 
+                      fontWeight: '600', 
+                      color: isSel ? 'var(--primary-color)' : '#94A3B8',
+                      marginTop: '4px',
+                      opacity: isSel ? 0.8 : 0.6
+                    }}>
+                      {isSel ? 'Selected' : 'Service Point'}
                     </div>
 
                     {confirmingSelection?.id === ent.id && (
                       <div style={{ 
                         position: 'absolute', 
-                        inset: -5, 
-                        background: 'rgba(255, 255, 255, 0.8)', 
-                        backdropFilter: 'blur(8px)',
-                        borderRadius: '24px', 
+                        inset: 0, 
+                        background: 'rgba(255, 255, 255, 0.9)', 
+                        backdropFilter: 'blur(4px)',
+                        borderRadius: '22px', 
                         display: 'flex', 
                         alignItems: 'center', 
                         justifyContent: 'center', 
                         color: 'var(--primary-color)', 
                         zIndex: 10,
-                        animation: 'fadeIn 0.3s ease'
+                        animation: 'fadeIn 0.2s ease'
                       }}>
                          <div className="loader-mini" style={{ width: '20px', height: '20px', border: '3px solid var(--primary-color)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }}></div>
                       </div>
@@ -593,11 +673,15 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, overrideConfig = null
             
             <style>{`
               .minimal-service-card:hover {
-                transform: translateY(-6px);
+                transform: translateY(-4px);
+                box-shadow: 0 12px 24px rgba(0,0,0,0.06);
+                border-color: #E2E8F0;
               }
-              .minimal-service-card:hover > div {
-                transform: scale(1.05);
-                box-shadow: 0 15px 30px rgba(0,0,0,0.08);
+              .minimal-service-card:active {
+                transform: scale(0.97);
+              }
+              .press-effect:active {
+                transform: scale(0.97);
               }
             `}</style>
           </div>

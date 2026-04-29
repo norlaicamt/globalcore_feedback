@@ -14,7 +14,7 @@ import NotificationsView from './NotificationsView';
 import CustomModal from './CustomModal';
 import GeneralFeedback from './GeneralFeedback';
 import ActivityView from './ActivityView';
-import { getFeedbacks, getUserById, getUserNotifications, getFeedbackReplies, createFeedbackReply, updateFeedbackReply, deleteFeedbackReply, toggleReaction, toggleReplyReaction, getReactionsSummary, markNotificationsAsRead, updateFeedback, deleteFeedback, getAdminSettings, getEntities, acknowledgeBroadcast, updateUserPresence } from "../services/api";
+import { getFeedbacks, getUserById, getUserNotifications, getFeedbackReplies, createFeedbackReply, updateFeedbackReply, deleteFeedbackReply, toggleReaction, toggleReplyReaction, getReactionsSummary, markNotificationsAsRead, markNotificationAsRead, updateFeedback, deleteFeedback, getAdminSettings, getEntities, trackBroadcastView, acknowledgeBroadcast, updateUserPresence } from "../services/api";
 import { useTerminology } from "../context/TerminologyContext";
 import { IconRegistry } from "./IconRegistry";
 
@@ -70,7 +70,7 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [reportStep, setReportStep] = useState('general');
   const [dialogState, setDialogState] = useState({ isOpen: false });
-  const [, setNotifications] = useState([]);
+  const [notifications, setNotifications] = useState([]);
   // hasUnreadNotifications setter not needed currently
 
   const [commentingFeedback, setCommentingFeedback] = useState(null);
@@ -120,7 +120,18 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
   const handleUserUpdate = (updatedUser) => {
     setLocalUser((prev) => {
       const merged = { ...(prev || {}), ...(updatedUser || {}) };
-      localStorage.setItem(STORAGE_KEYS.USER_CURRENT, JSON.stringify(merged));
+      
+      try {
+        localStorage.setItem(STORAGE_KEYS.USER_CURRENT, JSON.stringify(merged));
+      } catch (err) {
+        if (err.name === 'QuotaExceededError') {
+          console.warn("FeedbackHub: Storage quota exceeded. Saving stripped profile.");
+          const stripped = { ...merged };
+          delete stripped.avatar_url;
+          localStorage.setItem(STORAGE_KEYS.USER_CURRENT, JSON.stringify(stripped));
+        }
+      }
+      
       return merged;
     });
   };
@@ -193,14 +204,6 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
     setPrevView(view);
     setView("notifications");
     setIsMenuOpen(false);
-
-    if (unreadNotifCount > 0) {
-      try {
-        await markNotificationsAsRead(localUser.id);
-        setUnreadNotifCount(0);
-        fetchNotifications();
-      } catch (e) { console.error("Could not mark notifications as read", e); }
-    }
   };
 
   const fetchUserProfile = async () => {
@@ -212,7 +215,9 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
   };
 
   useEffect(() => {
-    localStorage.setItem("userView", view);
+    try {
+      localStorage.setItem("userView", view);
+    } catch (e) { console.warn("Could not save userView", e); }
     if (view === "home") {
       fetchFeed(0);
       fetchNotifications();
@@ -431,11 +436,29 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
         ) : view === "notifications" ? (
           <NotificationsView
             currentUser={localUser}
+            notifications={notifications}
             onBack={() => setView("home")}
             onRead={() => setUnreadNotifCount(0)}
             onOpenComment={async (n) => {
-              if (n.type === 'announcement') {
+              // Mark this single notification as read when clicked
+              if (!n.is_read) {
+                try {
+                  await markNotificationAsRead(n.id);
+                  setNotifications(prev => prev.map(notif => 
+                    notif.id === n.id ? { ...notif, is_read: true } : notif
+                  ));
+                  setUnreadNotifCount(prev => Math.max(0, prev - 1));
+                } catch (e) { console.error("Could not mark notif as read", e); }
+              }
+
+              if (n.type && n.type.toLowerCase() === 'announcement') {
                 setSelectedBroadcast(n);
+                // Track view if it's a broadcast
+                if (n.broadcast_id) {
+                  try {
+                    await trackBroadcastView(localUser.id, n.broadcast_id);
+                  } catch (e) { console.error("Could not track broadcast view", e); }
+                }
                 return;
               }
               let post = feed.find(f => f.id === n.feedback_id);
@@ -463,7 +486,7 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
       {isMenuOpen && (
         <div style={styles.menuOverlay} onClick={() => setIsMenuOpen(false)}>
           <div style={styles.menuContent} onClick={e => e.stopPropagation()}>
-            <div style={{ ...styles.menuHeader, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+            <div style={{ ...styles.menuHeader, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', cursor: 'pointer' }} onClick={() => navigateTo('profile')}>
               <div style={{ position: 'relative', display: 'inline-block' }}>
                 {localUser?.avatar_url ? (
                   <img src={localUser.avatar_url} alt="avatar" style={{ ...styles.avatarLarge, objectFit: 'cover', display: 'flex' }} />
@@ -1386,7 +1409,16 @@ const FeedCard = ({ item: initialItem, currentUser, onShowToast, onOpenComments,
 
             // Render based on Form Design
             return config.steps.flatMap(s => s.items || []).map((it, idx) => {
-              if (!it.include_in_post) return null;
+              // --- SMART VISIBILITY RULES ---
+              const key = it.key || "";
+              let isPublic = true;
+              
+              // Always Hidden Identity Fields
+              if (['contact_number', 'email_address', 'mailing_address'].includes(key)) isPublic = false;
+              // Conditional Identity Fields
+              if (key === 'full_name' && item.is_anonymous) isPublic = false;
+              
+              if (!isPublic) return null;
               
               const val = responses[it.id] || responses[it.key];
               if (val === undefined || val === null || val === "" || (Array.isArray(val) && val.length === 0)) return null;
@@ -2057,95 +2089,178 @@ const styles = {
   emptyFeedText: { textAlign: 'center', color: '#94A3B8', fontSize: '14px', width: '100%', margin: '40px 0' }
 };
 
-const BroadcastViewModal = ({ notif, currentUser, onClose }) => {
+const BroadcastViewModal = ({ notif, currentUser, onClose, onAcknowledge }) => {
   const { systemName } = useTerminology();
-  const isHighPriority = notif.priority === 'high';
+  const isHighPriority = notif.priority === 'high' || (notif.subject && notif.subject.toLowerCase().includes('urgent'));
   const requireAck = notif.require_ack === true;
 
+  // Cleanup subject for cleaner UI (removing [OFFICIAL] if redundant)
+  const displaySubject = notif.subject ? notif.subject.replace(/\[OFFICIAL\]\s*/i, '').replace(/SYSTEM\s*-\s*/i, '') : 'Official Announcement';
+
   return (
-    <div style={{ ...styles.modalOverlay, cursor: requireAck ? 'default' : 'pointer' }} onClick={requireAck ? null : onClose}>
+    <div style={{ ...styles.modalOverlay, zIndex: 1000, cursor: requireAck ? 'default' : 'pointer' }} onClick={requireAck ? null : onClose}>
       <div
         style={{
           ...styles.commentModalContent,
-          maxWidth: '500px',
+          maxWidth: '520px',
           height: 'auto',
           maxHeight: '90vh',
-          border: isHighPriority ? '2px solid #EF4444' : '1px solid #E2E8F0',
-          boxShadow: isHighPriority ? '0 20px 50px rgba(239, 68, 68, 0.2)' : '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
+          borderRadius: '32px',
+          border: 'none',
+          boxShadow: isHighPriority 
+            ? '0 30px 60px -12px rgba(239, 68, 68, 0.25), 0 18px 36px -18px rgba(0, 0, 0, 0.3)' 
+            : '0 30px 60px -12px rgba(0, 0, 0, 0.25), 0 18px 36px -18px rgba(0, 0, 0, 0.3)',
+          overflow: 'hidden'
         }}
         onClick={e => e.stopPropagation()}
       >
-        <header style={{
-          ...styles.commentModalHeader,
-          backgroundColor: isHighPriority ? '#FEF2F2' : '#FFFFFF',
-          borderBottom: '1px solid #E2E8F0'
+        {/* TOP META ROW */}
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          padding: '24px 24px 0',
         }}>
-          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-            <div style={{
-              padding: '10px',
-              background: isHighPriority ? '#EF4444' : 'linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%)',
-              borderRadius: '12px',
-              color: isHighPriority ? '#FFFFFF' : '#92400E'
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <span style={{ 
+              background: isHighPriority ? '#FEE2E2' : '#F1F5F9', 
+              color: isHighPriority ? '#EF4444' : '#64748B', 
+              padding: '4px 10px', 
+              borderRadius: '6px', 
+              fontSize: '10px', 
+              fontWeight: '800', 
+              textTransform: 'uppercase', 
+              letterSpacing: '0.5px' 
             }}>
-              {isHighPriority ? (
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-              ) : (
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
-              )}
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: isHighPriority ? '#991B1B' : '#0F172A' }}>
-                {isHighPriority && '🚨 '}{notif.subject || 'System Announcement'}
-              </h3>
-              <span style={{ fontSize: '11px', color: isHighPriority ? '#B91C1C' : '#64748B' }}>
-                {isHighPriority ? 'URGENT COORDINATION' : `Posted by ${systemName} Admin`}
-              </span>
-            </div>
+              {isHighPriority ? 'Urgent Alert' : 'Official Update'}
+            </span>
           </div>
+
           {!requireAck && (
-            <button onClick={onClose} style={{ ...styles.closeBtn, backgroundColor: '#F1F5F9', color: '#64748B' }}>✕</button>
-          )}
-        </header>
-        <div style={{ padding: '24px', backgroundColor: isHighPriority ? '#FFF5F5' : '#FFFFFF' }}>
-          <p style={{ margin: 0, fontSize: '14px', lineHeight: '1.6', color: isHighPriority ? '#7F1D1D' : '#334155', whiteSpace: 'pre-wrap', fontWeight: isHighPriority ? '500' : 'normal' }}>
-            {notif.message}
-          </p>
-          <div style={{
-            marginTop: '24px',
-            paddingTop: '16px',
-            borderTop: isHighPriority ? '1px solid #FEE2E2' : '1px dotted #E2E8F0',
-            display: 'flex',
-            justifyContent: 'flex-end',
-            alignItems: 'center',
-            gap: '12px'
-          }}>
-            {requireAck && (
-              <span style={{ fontSize: '11px', color: isHighPriority ? '#EF4444' : '#64748B', fontWeight: '700' }}>
-                Acknowledgment Required
-              </span>
-            )}
-            <button
-              onClick={async () => {
-                if (currentUser && notif.broadcast_id) {
-                  try {
-                    await acknowledgeBroadcast(currentUser.id, notif.broadcast_id);
-                  } catch (e) { console.error("Could not acknowledge broadcast", e); }
-                }
-                onClose();
-              }}
-              style={{
-                ...styles.modalSendBtn,
-                backgroundColor: isHighPriority ? '#EF4444' : 'var(--primary-color)',
-                width: 'auto',
-                padding: '10px 32px',
-                fontWeight: '800',
-                boxShadow: isHighPriority ? '0 4px 12px rgba(239, 68, 68, 0.3)' : 'none'
+            <button 
+              onClick={onClose} 
+              style={{ 
+                background: 'none', 
+                border: 'none', 
+                cursor: 'pointer', 
+                color: '#94A3B8',
+                fontSize: '18px',
+                padding: '4px'
               }}
             >
-              {requireAck ? 'Acknowledge' : 'Confirm'}
+              ✕
             </button>
-          </div>
+          )}
         </div>
+
+        {/* HEADER SECTION */}
+        <header style={{ padding: '20px 24px 24px' }}>
+          <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
+            <div style={{ 
+              width: '40px', 
+              height: '40px', 
+              borderRadius: '12px', 
+              background: isHighPriority ? '#EF4444' : 'var(--primary-color)', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              flexShrink: 0
+            }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+              </svg>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+              <h2 style={{ 
+                margin: 0, 
+                fontSize: '18px', 
+                fontWeight: '800', 
+                color: '#0F172A',
+                lineHeight: 1.2
+              }}>
+                {displaySubject}
+              </h2>
+              <p style={{ margin: 0, fontSize: '13px', color: '#64748B', fontWeight: '500' }}>
+                Posted by {notif.actor_name || systemName + ' Administration'}
+              </p>
+            </div>
+          </div>
+        </header>
+
+        <div style={{ height: '1px', background: '#F1F5F9', margin: '0 24px' }} />
+
+        {/* MESSAGE AREA */}
+        <div style={{ 
+          padding: '24px', 
+          maxHeight: '400px', 
+          overflowY: 'auto' 
+        }}>
+          <p style={{ 
+            margin: 0, 
+            fontSize: '15px', 
+            color: '#334155', 
+            lineHeight: '1.7',
+            whiteSpace: 'pre-wrap'
+          }}>
+            {notif.message}
+          </p>
+        </div>
+
+        <div style={{ height: '1px', background: '#F1F5F9', margin: '0 24px' }} />
+
+        {/* FOOTER & ACTIONS */}
+        <footer style={{ padding: '24px', textAlign: 'center' }}>
+          <button
+            className="press-effect"
+            onClick={async () => {
+              if (currentUser && notif.broadcast_id) {
+                try {
+                  await acknowledgeBroadcast(currentUser.id, notif.broadcast_id);
+                } catch (e) { console.error("Could not acknowledge broadcast", e); }
+              }
+              if (onAcknowledge) onAcknowledge(notif);
+              else onClose();
+            }}
+            style={{
+              width: '100%',
+              padding: '14px',
+              borderRadius: '12px',
+              background: isHighPriority ? '#EF4444' : 'var(--primary-color)',
+              color: 'white',
+              border: 'none',
+              fontSize: '15px',
+              fontWeight: '700',
+              cursor: 'pointer',
+              boxShadow: '0 4px 12px rgba(var(--primary-rgb), 0.2)',
+              transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+              marginBottom: '16px'
+            }}
+          >
+            {requireAck ? 'Confirm Receipt' : 'Understood'}
+          </button>
+
+          <div style={{ 
+            display: 'flex', 
+            flexDirection: 'column', 
+            alignItems: 'center', 
+            gap: '2px'
+          }}>
+            <p style={{ 
+              margin: 0, 
+              fontSize: '10px', 
+              fontWeight: '800', 
+              color: '#94A3B8', 
+              textTransform: 'uppercase', 
+              letterSpacing: '0.5px' 
+            }}>
+              Internal Communication
+            </p>
+            <p style={{ margin: 0, fontSize: '11px', color: '#64748B' }}>
+              Published {new Date(notif.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+            </p>
+          </div>
+        </footer>
       </div>
     </div>
   );

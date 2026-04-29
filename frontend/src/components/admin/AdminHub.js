@@ -25,7 +25,7 @@ const NAV_ITEMS = [
   { id: "programs", label: "Workspaces", icon: <OrgIcon /> },
   { id: "formdesigner", label: "Form Layout", icon: <OrgIcon /> },
   { type: "label", label: "PREFERENCES" },
-  { id: "settings", label: "Global Settings", icon: <SettingsIcon />, superOnly: true },
+  { id: "settings", label: "Portal Settings", icon: <SettingsIcon /> },
 ];
 
 const AdminHub = ({ adminUser, onLogout }) => {
@@ -154,7 +154,17 @@ const AdminHub = ({ adminUser, onLogout }) => {
   const handleAdminUpdate = (updated) => {
     const merged = { ...localAdminUser, ...updated };
     setLocalAdminUser(merged);
-    localStorage.setItem(STORAGE_KEYS.ADMIN_CURRENT, JSON.stringify(merged));
+
+    try {
+      localStorage.setItem(STORAGE_KEYS.ADMIN_CURRENT, JSON.stringify(merged));
+    } catch (err) {
+      if (err.name === 'QuotaExceededError') {
+        console.warn("AdminHub: Storage quota exceeded. Saving stripped profile.");
+        const stripped = { ...merged };
+        delete stripped.avatar_url;
+        localStorage.setItem(STORAGE_KEYS.ADMIN_CURRENT, JSON.stringify(stripped));
+      }
+    }
   };
 
   const renderView = () => {
@@ -245,7 +255,7 @@ const AdminHub = ({ adminUser, onLogout }) => {
               const isScopedAdmin = !!localAdminUser?.entity_id;
               if (isScopedAdmin) {
                 // Hide global configuration tools from program admins
-                const globalTools = ["feedbacktypes", "settings", "auditlogs"];
+                const globalTools = ["feedbacktypes", "auditlogs"];
                 if (globalTools.includes(item.id)) return false;
 
                 // Hide "ORGANIZATION" and "PREFERENCES" labels if all their sub-items are hidden
@@ -282,11 +292,15 @@ const AdminHub = ({ adminUser, onLogout }) => {
 
         {/* Bottom user info */}
         <div style={styles.sidebarFooter}>
-          <div style={styles.profileCard}>
+          <div style={{ ...styles.profileCard, cursor: 'pointer' }} onClick={() => handleSetView("settings")}>
             <div style={styles.profileMain}>
-              <div style={{ ...styles.adminAvatar, background: hasGlobalAdminAccess ? 'linear-gradient(135deg, #9333ea, #7c3aed)' : 'var(--primary-color)' }}>
-                {localAdminUser?.name?.charAt(0) || "A"}
-              </div>
+              {hasGlobalAdminAccess && systemLogo ? (
+                <img src={systemLogo} alt="Admin" style={{ ...styles.adminAvatar, objectFit: 'contain', background: 'white', padding: '4px' }} />
+              ) : (
+                <div style={{ ...styles.adminAvatar, background: hasGlobalAdminAccess ? 'linear-gradient(135deg, #9333ea, #7c3aed)' : 'var(--primary-color)' }}>
+                  {localAdminUser?.name?.charAt(0) || "A"}
+                </div>
+              )}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <p style={styles.adminName} title={localAdminUser?.name}>
                   {localAdminUser?.name || "Admin"}

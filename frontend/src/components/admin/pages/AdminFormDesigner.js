@@ -238,10 +238,45 @@ const MODULE_OPTIONS = [
   }
 ];
 
+// ── Sanitize for robust comparison ──────────────────────────────────────────
+function sanitizeConfig(config) {
+  if (!config) return null;
+
+  // Create a deep copy to avoid mutations
+  const clean = JSON.parse(JSON.stringify(config));
+
+  // Deep sort keys to ensure JSON.stringify is order-independent
+  const deepSort = (obj) => {
+    if (obj === null || typeof obj !== 'object') return obj;
+    if (Array.isArray(obj)) return obj.map(deepSort);
+    const sortedKeys = Object.keys(obj).sort();
+    const result = {};
+    sortedKeys.forEach(key => {
+      const val = deepSort(obj[key]);
+
+      // Smart filter: skip undefined, null, empty arrays, and empty objects
+      const isNullish = val === undefined || val === null;
+      const isEmptyArr = Array.isArray(val) && val.length === 0;
+      const isEmptyObj = val !== null && typeof val === 'object' && !Array.isArray(val) && Object.keys(val).length === 0;
+
+      if (!isNullish && !isEmptyArr && !isEmptyObj) {
+        result[key] = val;
+      }
+    });
+    return result;
+  };
+
+  const normalized = normalizeConfig(clean);
+  return deepSort(normalized);
+}
+
 // ── Normalize for safe rendering ──────────────────────────────────────────────
 function normalizeConfig(config) {
   if (!config) return config;
-  
+
+  // Create a deep copy to avoid mutating the original data
+  const normalized = JSON.parse(JSON.stringify(config));
+
   // Create a flat map of default module labels for quick lookup
   const defaultLabels = {};
   MODULE_OPTIONS.forEach(group => {
@@ -250,23 +285,25 @@ function normalizeConfig(config) {
     });
   });
 
-  config.steps = (config.steps || []).map((s, idx) => {
-    const norm = { 
-      ...s, 
+  normalized.steps = (normalized.steps || []).map((s, idx) => {
+    const norm = {
+      ...s,
+      enabled: s.enabled !== undefined ? !!s.enabled : true,
+      locked: !!s.locked,
       items: (s.items || []).map(it => ({
         ...it,
         label_override: it.label_override || defaultLabels[it.key] || "New Interaction",
-        include_in_post: it.include_in_post !== undefined ? it.include_in_post : true
+        required: !!it.required
       }))
     };
     return norm;
   });
-  
-  config.sections = config.sections || [];
-  config.toggles = config.toggles || {};
-  config.terminology = config.terminology || {};
-  config.layout_mode = config.layout_mode || 'custom';
-  return config;
+
+  normalized.sections = normalized.sections || [];
+  normalized.toggles = normalized.toggles || {};
+  normalized.terminology = normalized.terminology || {};
+  normalized.layout_mode = normalized.layout_mode || 'custom';
+  return normalized;
 }
 
 // ── Validation ────────────────────────────────────────────────────────────────
@@ -301,21 +338,16 @@ function AdminFormDesigner({ theme, darkMode, adminUser }) {
   const [modal, setModal] = useState({ isOpen: false, title: "", message: "", type: "info" });
   const [searchTerm, setSearchTerm] = useState("");
   const [initialConfig, setInitialConfig] = useState(null);
-  const [isDirty, setIsDirty] = useState(false);
   const [previewMode, setPreviewMode] = useState("app"); // 'app' or 'post'
   const [editingTemplateId, setEditingTemplateId] = useState(null); // Track if current config is based on a template
   const [galleryFilter, setGalleryFilter] = useState('ALL');
   const [history, setHistory] = useState([]);
   const previewChannel = React.useRef(null);
 
-  useEffect(() => {
-    if (!config || !initialConfig) {
-      setIsDirty(false);
-      return;
-    }
-    // Deep comparison for dirtiness
-    const isChanged = JSON.stringify(config) !== JSON.stringify(initialConfig);
-    setIsDirty(isChanged);
+  // Synchronous deep comparison for dirtiness to prevent race conditions
+  const isDirty = React.useMemo(() => {
+    if (!config || !initialConfig) return false;
+    return JSON.stringify(sanitizeConfig(config)) !== JSON.stringify(sanitizeConfig(initialConfig));
   }, [config, initialConfig]);
 
   React.useEffect(() => {
@@ -359,12 +391,17 @@ function AdminFormDesigner({ theme, darkMode, adminUser }) {
         const norm = normalizeConfig(data);
         const draftKey = `form_draft_${selectedEntId}`;
         const savedDraft = localStorage.getItem(draftKey);
-        
+
         if (savedDraft) {
           try {
-            const parsedDraft = JSON.parse(savedDraft);
-            const isDifferent = JSON.stringify(parsedDraft) !== JSON.stringify(norm);
-            if (isDifferent) {
+            const draftObj = JSON.parse(savedDraft);
+            const cleanServer = JSON.stringify(sanitizeConfig(norm));
+            const cleanDraft = JSON.stringify(sanitizeConfig(draftObj));
+
+            if (cleanServer === cleanDraft) {
+              localStorage.removeItem(draftKey);
+              // Fall through to default setup
+            } else {
               setModal({
                 isOpen: true,
                 title: "Draft Recovery",
@@ -373,7 +410,8 @@ function AdminFormDesigner({ theme, darkMode, adminUser }) {
                 confirmText: "Restore Draft",
                 cancelText: "Discard Draft",
                 onConfirm: () => {
-                  setConfig(parsedDraft);
+                  const normDraft = normalizeConfig(draftObj);
+                  setConfig(normDraft);
                   setInitialConfig(norm);
                   setModal({ isOpen: false });
                 },
@@ -384,7 +422,7 @@ function AdminFormDesigner({ theme, darkMode, adminUser }) {
                   setModal({ isOpen: false });
                 }
               });
-              setLoading(false);
+              // Stop here, modal will handle state
               return;
             }
           } catch (e) {
@@ -392,6 +430,7 @@ function AdminFormDesigner({ theme, darkMode, adminUser }) {
           }
         }
 
+        // Default: No draft or identical draft
         setConfig(norm);
         setInitialConfig(JSON.parse(JSON.stringify(norm)));
       })
@@ -400,8 +439,14 @@ function AdminFormDesigner({ theme, darkMode, adminUser }) {
   }, [selectedEntId]);
 
   useEffect(() => {
-    if (config && selectedEntId && isDirty) {
-      localStorage.setItem(`form_draft_${selectedEntId}`, JSON.stringify(config));
+    if (config && selectedEntId) {
+      const draftKey = `form_draft_${selectedEntId}`;
+      if (isDirty) {
+        localStorage.setItem(draftKey, JSON.stringify(config));
+      } else {
+        // If state is back to clean (e.g. via undo), clear the draft
+        localStorage.removeItem(draftKey);
+      }
     }
   }, [config, selectedEntId, isDirty]);
 
@@ -520,7 +565,6 @@ function AdminFormDesigner({ theme, darkMode, adminUser }) {
           await updateEntityFormConfig(selectedEntId, config);
           localStorage.removeItem(`form_draft_${selectedEntId}`);
           setInitialConfig(JSON.parse(JSON.stringify(config)));
-          setIsDirty(false);
           setModal({ isOpen: false });
           setTimeout(() => {
             setModal({ isOpen: true, title: "Success", message: "Workflow is now live!", type: "success" });
@@ -538,7 +582,7 @@ function AdminFormDesigner({ theme, darkMode, adminUser }) {
   const getDefaultItem = (key) => {
     const module = MODULE_OPTIONS.flatMap(g => g.items).find(m => m.key === key);
     let defaultLabel = module?.label || "New Question";
-    
+
     // Smart Defaults
     if (key === 'star_rating') defaultLabel = "How would you rate your overall experience?";
     if (key === 'emoji_rating') defaultLabel = "How do you feel about our service today?";
@@ -587,6 +631,11 @@ function AdminFormDesigner({ theme, darkMode, adminUser }) {
     pushHistory(config);
     setConfig({ ...config, steps: [...(config.steps || []), newStep] });
     setExpandedSteps(prev => ({ ...prev, [newStep.id]: true }));
+  };
+
+  const onStepDragStart = (e, sIdx) => {
+    e.dataTransfer.setData("stepIndex", sIdx.toString());
+    e.currentTarget.style.opacity = '0.4';
   };
 
   const removeStep = (sIdx) => {
@@ -676,10 +725,12 @@ function AdminFormDesigner({ theme, darkMode, adminUser }) {
     setIsLoadingTpl(true);
     try {
       const data = await adminGetWorkflowTemplates();
-      setTemplates(data);
+      setTemplates(data || []);
+      return data || [];
     } catch (e) {
       console.error("Templates load failed");
       setModal({ isOpen: true, title: "Error", message: "Could not load templates.", type: "warning" });
+      return [];
     } finally {
       setIsLoadingTpl(false);
     }
@@ -744,51 +795,85 @@ function AdminFormDesigner({ theme, darkMode, adminUser }) {
   };
 
   const saveAsTemplate = async () => {
-    console.log("SAVE AS TEMPLATE CLICKED - VERSION 2");
-    await fetchTemplates(); // Ensure we have latest list
-    const editableTemplates = templates.filter(t => !t.is_system);
+    const allTemplates = await fetchTemplates();
+    const editableTemplates = allTemplates.filter(t => !t.is_system);
 
-    setModal({
-      isOpen: true,
-      title: "Save as Template",
-      message: "Define a name and category for this organizational standard.",
-      type: "confirm",
-      confirmText: "Save Template",
-      content: (
+    // Internal component for the modal to manage its own dropdown state
+    const TemplateModalContent = () => {
+      const [isOpen, setIsOpen] = useState(false);
+      const [name, setName] = useState("");
+      const [category, setCategory] = useState("General");
+      const [filtered, setFiltered] = useState(editableTemplates);
+
+      useEffect(() => {
+        const matchingTpl = editableTemplates.find(t => t.name.toLowerCase() === name.toLowerCase());
+        const confirmBtn = document.querySelector('[data-modal-confirm]');
+        if (confirmBtn) {
+          confirmBtn.innerText = matchingTpl ? "Overwrite Template" : "Save Template";
+        }
+
+        setFiltered(editableTemplates.filter(t => t.name.toLowerCase().includes(name.toLowerCase())));
+      }, [name]);
+
+      return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginTop: '16px', width: '100%', boxSizing: 'border-box' }}>
           <div style={{ textAlign: 'left' }}>
             <label style={{ fontSize: '10px', fontWeight: '900', color: theme.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Template Name</label>
             <div style={{ position: 'relative', marginTop: '6px' }}>
               <input
                 id="modal-tpl-name"
-                list="tpl-datalist"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                onFocus={() => setIsOpen(true)}
                 placeholder="e.g., Q1 Service Evaluation"
                 style={{ ...st.input(theme), paddingRight: '40px' }}
                 autoFocus
-                onInput={(e) => {
-                  const val = e.target.value;
-                  const tpl = editableTemplates.find(t => t.name.toLowerCase() === val.toLowerCase());
-                  const confirmBtn = document.querySelector('[data-modal-confirm]');
-                  
-                  if (tpl) {
-                    const catEl = document.getElementById('modal-tpl-cat');
-                    if (catEl) catEl.value = tpl.category || "General";
-                    if (confirmBtn) confirmBtn.innerText = "Overwrite Template";
-                  } else {
-                    if (confirmBtn) confirmBtn.innerText = "Save Template";
-                  }
-                }}
+                autoComplete="off"
               />
-              <datalist id="tpl-datalist">
-                {editableTemplates.map(t => <option key={t.id} value={t.name} />)}
-              </datalist>
-              <div style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: theme.textMuted, opacity: 0.5 }}>
+              <button
+                onClick={() => setIsOpen(!isOpen)}
+                style={{
+                  position: 'absolute', right: '4px', top: '4px', bottom: '4px', width: '32px',
+                  background: 'none', border: 'none', cursor: 'pointer', color: theme.textMuted,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', transition: '0.2s',
+                  transform: isOpen ? 'rotate(180deg)' : 'none'
+                }}
+              >
                 {Ico.ChevronDown}
-              </div>
+              </button>
+
+              {isOpen && filtered.length > 0 && (
+                <div style={{
+                  position: 'absolute', top: '100%', left: 0, right: 0, marginTop: '4px',
+                  background: theme.surface, borderRadius: '12px', border: `1px solid ${theme.border}`,
+                  boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)', zIndex: 1000, maxHeight: '200px', overflowY: 'auto'
+                }}>
+                  {filtered.map(t => (
+                    <button
+                      key={t.id}
+                      onClick={() => {
+                        setName(t.name);
+                        setCategory(t.category || "General");
+                        setIsOpen(false);
+                      }}
+                      style={{
+                        width: '100%', padding: '10px 12px', border: 'none', background: 'none',
+                        textAlign: 'left', cursor: 'pointer', fontSize: '12px', color: theme.text,
+                        borderBottom: `1px solid ${theme.border}40`
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.background = 'rgba(0,0,0,0.03)'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'none'}
+                    >
+                      <div style={{ fontWeight: '700' }}>{t.name}</div>
+                      <div style={{ fontSize: '10px', color: theme.textMuted }}>{t.category || "General"}</div>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             {editableTemplates.length > 0 && (
               <p style={{ margin: '6px 0 0', fontSize: '10px', color: theme.textMuted, fontStyle: 'italic' }}>
-                Tip: Type a name or select from the dropdown to overwrite an existing template.
+                Tip: Select an existing template to overwrite it.
               </p>
             )}
           </div>
@@ -797,13 +882,26 @@ function AdminFormDesigner({ theme, darkMode, adminUser }) {
             <label style={{ fontSize: '10px', fontWeight: '900', color: theme.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Category</label>
             <input
               id="modal-tpl-cat"
-              defaultValue="General"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
               placeholder="e.g., Healthcare, Retail"
               style={{ ...st.input(theme), marginTop: '6px' }}
             />
           </div>
+
+          {/* Close dropdown on click outside */}
+          {isOpen && <div style={{ position: 'fixed', inset: 0, zIndex: 999 }} onClick={() => setIsOpen(false)} />}
         </div>
-      ),
+      );
+    };
+
+    setModal({
+      isOpen: true,
+      title: "Save as Template",
+      message: "Define a name and category for this organizational standard.",
+      type: "confirm",
+      confirmText: "Save Template",
+      content: <TemplateModalContent />,
       onConfirm: async () => {
         const name = document.getElementById('modal-tpl-name')?.value;
         const category = document.getElementById('modal-tpl-cat')?.value || "General";
@@ -817,17 +915,19 @@ function AdminFormDesigner({ theme, darkMode, adminUser }) {
 
         if (targetTpl) {
           setModal({ isOpen: false });
-          setModal({
-            isOpen: true,
-            title: "Confirm Overwrite",
-            message: `A template named "${targetTpl.name}" already exists. Do you want to replace it with your current design?`,
-            type: "confirm",
-            confirmText: "Yes, Overwrite",
-            onConfirm: () => {
-              setModal({ isOpen: false });
-              executeUpdateTemplate(targetTpl);
-            }
-          });
+          setTimeout(() => {
+            setModal({
+              isOpen: true,
+              title: "Confirm Overwrite",
+              message: `A template named "${targetTpl.name}" already exists. Do you want to replace it with your current design?`,
+              type: "confirm",
+              confirmText: "Yes, Overwrite",
+              onConfirm: () => {
+                setModal({ isOpen: false });
+                executeUpdateTemplate(targetTpl);
+              }
+            });
+          }, 100);
         } else {
           setModal({ isOpen: false });
           executeSaveTemplate(name, category);
@@ -999,9 +1099,22 @@ function AdminFormDesigner({ theme, darkMode, adminUser }) {
 
   const onDrop = (e, targetStepIdx, targetItemIdx = null) => {
     e.preventDefault();
-    if (config.steps[targetStepIdx]?.locked) return; // Prevent drops if locked
     const itemIndexRaw = e.dataTransfer.getData('itemIndex');
     const newModuleKey = e.dataTransfer.getData('newModuleKey');
+    const stepIndexRaw = e.dataTransfer.getData('stepIndex');
+
+    if (stepIndexRaw) {
+      const fromSIdx = parseInt(stepIndexRaw);
+      if (fromSIdx === targetStepIdx) return;
+      pushHistory(config);
+      const steps = [...config.steps];
+      const [movedStep] = steps.splice(fromSIdx, 1);
+      steps.splice(targetStepIdx, 0, movedStep);
+      setConfig({ ...config, steps });
+      return;
+    }
+
+    if (config.steps[targetStepIdx]?.locked) return;
 
     const steps = [...config.steps];
     let itemToPlace = null;
@@ -1018,7 +1131,7 @@ function AdminFormDesigner({ theme, darkMode, adminUser }) {
 
     const targetItems = [...(steps[targetStepIdx].items || [])];
     const newIdx = targetItemIdx === null ? targetItems.length : targetItemIdx;
-    
+
     if (targetItemIdx === null) targetItems.push(itemToPlace);
     else targetItems.splice(targetItemIdx, 0, itemToPlace);
 
@@ -1029,7 +1142,7 @@ function AdminFormDesigner({ theme, darkMode, adminUser }) {
 
   const onDragOver = (e) => {
     e.preventDefault();
-    
+
     // Only apply highlight styles to actual drop targets (steps), not the main container
     if (e.currentTarget.dataset?.isStep) {
       e.currentTarget.style.borderColor = 'var(--primary-color)';
@@ -1064,8 +1177,8 @@ function AdminFormDesigner({ theme, darkMode, adminUser }) {
       }}>
 
         {/* LEFT: Context & Title */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-          <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: 'var(--primary-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '24px', flex: 1 }}>
+          <div style={{ width: '46px', height: '46px', borderRadius: '14px', background: 'var(--primary-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', boxShadow: '0 8px 16px -4px rgba(var(--primary-rgb), 0.3)' }}>
             {Ico.Layers}
           </div>
           <div>
@@ -1084,23 +1197,32 @@ function AdminFormDesigner({ theme, darkMode, adminUser }) {
           </div>
         </div>
 
-        {/* CENTER: Context Toggles */}
-        <div style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', display: 'flex', alignItems: 'center', gap: '12px' }}>
+        {/* CENTER: Context Toggles & Template Save */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: 1, justifyContent: 'center' }}>
           <div style={st.segmentedControl(theme)}>
             <button onClick={() => setShowPreview(false)} style={st.segment(!showPreview, theme)}>Design</button>
             <button onClick={() => setShowPreview(true)} style={st.segment(showPreview, theme)}>Preview</button>
           </div>
+          <button 
+            onClick={saveAsTemplate} 
+            disabled={isSavingTpl} 
+            style={{ 
+              background: 'none', border: 'none', color: theme.text, fontSize: '13px', fontWeight: '700', 
+              cursor: 'pointer', padding: '0 12px', height: '36px', borderRadius: '10px', 
+              transition: '0.2s', display: 'flex', alignItems: 'center', gap: '6px'
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = 'rgba(0,0,0,0.03)'}
+            onMouseLeave={e => e.currentTarget.style.background = 'none'}
+          >
+            {isSavingTpl ? "..." : "Save as Template"}
+          </button>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <button onClick={saveAsTemplate} disabled={isSavingTpl} style={{ ...st.btnOutline(theme), height: '36px', padding: '0 12px' }}>
-              {Ico.Save} <span style={{ marginLeft: '4px' }}>{isSavingTpl ? "..." : "Save"}</span>
-            </button>
-            <button onClick={handleUseTemplate} disabled={isLoadingTpl} style={{ ...st.btnOutline(theme), height: '36px', padding: '0 12px' }}>
-              {Ico.Layers} <span style={{ marginLeft: '4px' }}>{isLoadingTpl ? "..." : "Template"}</span>
-            </button>
-          </div>
+        {/* RIGHT: Actions & Selector */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flex: 1, justifyContent: 'flex-end' }}>
+          <button onClick={handleUseTemplate} disabled={isLoadingTpl} style={{ ...st.btnOutline(theme), height: '40px', padding: '0 16px', borderRadius: '12px' }}>
+            {Ico.Layers} <span style={{ marginLeft: '6px' }}>{isLoadingTpl ? "..." : "Templates"}</span>
+          </button>
 
           <div style={{ width: '1px', height: '32px', background: theme.border, opacity: 0.6 }} />
 
@@ -1115,11 +1237,11 @@ function AdminFormDesigner({ theme, darkMode, adminUser }) {
           <div style={{ width: '1px', height: '32px', background: theme.border, opacity: 0.6 }} />
 
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px', justifyContent: 'center', position: 'relative' }}>
-            <button onClick={handleSave} disabled={isSaving || !isDirty} style={{ ...st.btnPrimary(isSaving || !isDirty), minWidth: '140px', height: '36px' }}>
-              {isSaving ? "Deploying..." : "Deploy Flow"}
+            <button onClick={handleSave} disabled={isSaving || !isDirty} style={{ ...st.btnPrimary(isSaving || !isDirty), minWidth: '150px', height: '40px', borderRadius: '12px' }}>
+              {isSaving ? "Saving..." : <>{Ico.Save} <span style={{ marginLeft: '8px' }}>Save & Deploy</span></>}
             </button>
             {isDirty && (
-              <div style={{ fontSize: '10px', fontWeight: '900', color: '#EAB308', display: 'flex', alignItems: 'center', gap: '4px', animation: 'fadeIn 0.3s ease', position: 'absolute', bottom: '-18px' }}>
+              <div style={{ fontSize: '10px', fontWeight: '900', color: '#EAB308', display: 'flex', alignItems: 'center', gap: '4px', animation: 'fadeIn 0.3s ease', position: 'absolute', bottom: '-20px' }}>
                 <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#EAB308' }} /> Changes not live yet
               </div>
             )}
@@ -1276,7 +1398,7 @@ function AdminFormDesigner({ theme, darkMode, adminUser }) {
       )}
 
       {config && (
-        <div 
+        <div
           onDragOver={onDragOver}
           style={{ display: 'flex', gap: '24px', alignItems: 'flex-start' }}
         >
@@ -1339,9 +1461,9 @@ function AdminFormDesigner({ theme, darkMode, adminUser }) {
               <h3 style={{ margin: '0 0 10px', fontSize: '14px', fontWeight: '800' }}>Branding & Style</h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <input 
-                    type="color" 
-                    value={config.theme?.primary_color || "#10B981"} 
+                  <input
+                    type="color"
+                    value={config.theme?.primary_color || "#10B981"}
                     onChange={e => updateTheme('primary_color', e.target.value)}
                     style={{ width: '32px', height: '32px', padding: '0', border: 'none', borderRadius: '8px', cursor: 'pointer' }}
                   />
@@ -1349,8 +1471,8 @@ function AdminFormDesigner({ theme, darkMode, adminUser }) {
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                   <label style={{ fontSize: '9px', fontWeight: '900', color: theme.textMuted, textTransform: 'uppercase' }}>Background Style</label>
-                  <select 
-                    value={config.theme?.bg_style || "abstract"} 
+                  <select
+                    value={config.theme?.bg_style || "abstract"}
                     onChange={e => updateTheme('bg_style', e.target.value)}
                     style={{ ...st.input(theme), height: '32px', fontSize: '11px' }}
                   >
@@ -1372,17 +1494,20 @@ function AdminFormDesigner({ theme, darkMode, adminUser }) {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <h2 style={{ fontSize: '16px', fontWeight: '800', color: theme.text, margin: 0 }}>Workflow Steps</h2>
+                <div style={{ fontSize: '11px', color: theme.textMuted, marginLeft: '12px', background: 'rgba(0,0,0,0.03)', padding: '4px 10px', borderRadius: '8px', fontWeight: '600' }}>
+                  Certain identity fields are automatically hidden from public view.
+                </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px', borderLeft: `1px solid ${theme.border}`, paddingLeft: '12px', marginLeft: '4px' }}>
-                  <button 
-                    onClick={handleUndo} 
-                    disabled={history.length === 0} 
+                  <button
+                    onClick={handleUndo}
+                    disabled={history.length === 0}
                     title="Undo Last Action"
                     style={{ ...st.btnGhost(theme), width: '28px', height: '28px', padding: 0, opacity: history.length === 0 ? 0.3 : 0.7 }}
                   >
                     {Ico.Undo}
                   </button>
-                  <button 
-                    onClick={handleReset} 
+                  <button
+                    onClick={handleReset}
                     title="Reset Workflow"
                     style={{ ...st.btnGhost(theme), width: '28px', height: '28px', padding: 0, opacity: 0.7 }}
                     onMouseEnter={e => e.currentTarget.style.color = '#EF4444'}
@@ -1425,19 +1550,26 @@ function AdminFormDesigner({ theme, darkMode, adminUser }) {
                   }}
                 >
                   <div
+                    draggable={!step.locked}
+                    onDragStart={(e) => !step.locked && onStepDragStart(e, sIdx)}
+                    onDragEnd={onDragEnd}
                     style={{
                       padding: '12px 16px',
                       background: 'rgba(0,0,0,0.02)',
                       display: 'flex',
                       alignItems: 'center',
                       gap: '10px',
-                      cursor: 'pointer'
+                      cursor: step.locked ? 'pointer' : 'grab'
                     }}
                     onClick={() => { toggleStepExpand(step.id); setSelectedItem({ sIdx, itIdx: null }); }}
                   >
                     <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ fontSize: '12px', opacity: 0.8 }}>{stepIcon}</span>
-                      <span style={{ fontSize: '10px', fontWeight: '900', color: theme.textMuted, opacity: 0.5 }}>STEP {sIdx + 1}</span>
+                      {!step.locked && (
+                        <div style={{ color: theme.textMuted, opacity: 0.5 }}>
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M8 6h2v2H8V6zm0 4h2v2H8v-2zm0 4h2v2H8v-2zm6-8h2v2h-2V6zm0 4h2v2h-2v-2zm0 4h2v2h-2v-2z" /></svg>
+                        </div>
+                      )}
+                      <span style={{ fontSize: '10px', fontWeight: '900', color: theme.textMuted, opacity: 0.5 }}>BLOCK</span>
                       <input
                         value={step.label}
                         disabled={step.locked}
@@ -1487,7 +1619,7 @@ function AdminFormDesigner({ theme, darkMode, adminUser }) {
                             onClick={(e) => { e.stopPropagation(); setSelectedItem({ sIdx, itIdx: iIdx }); }}
                             style={{
                               display: 'flex', flexDirection: 'column', gap: '10px', padding: '12px',
-                              background: theme.bg, borderRadius: '12px', 
+                              background: theme.bg, borderRadius: '12px',
                               border: `1.5px solid ${selectedItem?.sIdx === sIdx && selectedItem?.itIdx === iIdx ? 'var(--primary-color)' : theme.border}`,
                               boxShadow: selectedItem?.sIdx === sIdx && selectedItem?.itIdx === iIdx ? '0 0 0 3px var(--primary-soft)' : 'none',
                               cursor: step.locked ? 'default' : 'pointer', transition: 'all 0.2s',
@@ -1523,17 +1655,6 @@ function AdminFormDesigner({ theme, darkMode, adminUser }) {
                                   </div>
                                 </div>
 
-                                <div
-                                  style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: step.locked ? 'not-allowed' : 'pointer', opacity: step.locked ? 0.5 : 1 }}
-                                  onClick={(e) => { e.stopPropagation(); !step.locked && updateItem(sIdx, iIdx, 'include_in_post', !item.include_in_post); }}
-                                  title="Show this result in the public feedback post?"
-                                >
-                                  <span style={{ fontSize: '9px', fontWeight: '900', color: theme.textMuted }}>POST</span>
-                                  <div style={st.toggle(item.include_in_post)}>
-                                    <div style={st.toggleKnob(item.include_in_post)}></div>
-                                  </div>
-                                </div>
-
                                 <button
                                   onClick={(e) => { e.stopPropagation(); removeItem(sIdx, iIdx); }}
                                   disabled={step.locked}
@@ -1552,16 +1673,16 @@ function AdminFormDesigner({ theme, darkMode, adminUser }) {
                                     <label style={{ fontSize: '10px', fontWeight: '900', color: theme.textMuted }}>OPTIONS</label>
                                     {(item.config?.options || []).map((opt, idx) => (
                                       <div key={idx} style={{ display: 'flex', gap: '8px' }}>
-                                        <input 
-                                          value={opt} 
+                                        <input
+                                          value={opt}
                                           onChange={e => {
                                             const newOpts = [...item.config.options];
                                             newOpts[idx] = e.target.value;
                                             updateItem(sIdx, iIdx, 'config', { ...item.config, options: newOpts });
                                           }}
-                                          style={{ ...st.input(theme), flex: 1, height: '32px', fontSize: '12px' }} 
+                                          style={{ ...st.input(theme), flex: 1, height: '32px', fontSize: '12px' }}
                                         />
-                                        <button 
+                                        <button
                                           onClick={() => {
                                             const newOpts = item.config.options.filter((_, i) => i !== idx);
                                             updateItem(sIdx, iIdx, 'config', { ...item.config, options: newOpts });
@@ -1572,7 +1693,7 @@ function AdminFormDesigner({ theme, darkMode, adminUser }) {
                                         </button>
                                       </div>
                                     ))}
-                                    <button 
+                                    <button
                                       onClick={() => updateItem(sIdx, iIdx, 'config', { ...item.config, options: [...(item.config?.options || []), `Option ${item.config?.options?.length + 1}`] })}
                                       style={{ ...st.btnTertiary(theme), width: 'fit-content', fontSize: '10px', padding: '6px 12px' }}
                                     >
@@ -1586,16 +1707,16 @@ function AdminFormDesigner({ theme, darkMode, adminUser }) {
                                     <label style={{ fontSize: '10px', fontWeight: '900', color: theme.textMuted }}>CRITERIA</label>
                                     {(item.config?.criteria || []).map((crit, idx) => (
                                       <div key={idx} style={{ display: 'flex', gap: '8px' }}>
-                                        <input 
-                                          value={crit} 
+                                        <input
+                                          value={crit}
                                           onChange={e => {
                                             const newCrits = [...item.config.criteria];
                                             newCrits[idx] = e.target.value;
                                             updateItem(sIdx, iIdx, 'config', { ...item.config, criteria: newCrits });
                                           }}
-                                          style={{ ...st.input(theme), flex: 1, height: '32px', fontSize: '12px' }} 
+                                          style={{ ...st.input(theme), flex: 1, height: '32px', fontSize: '12px' }}
                                         />
-                                        <button 
+                                        <button
                                           onClick={() => {
                                             const newCrits = item.config.criteria.filter((_, i) => i !== idx);
                                             updateItem(sIdx, iIdx, 'config', { ...item.config, criteria: newCrits });
@@ -1606,7 +1727,7 @@ function AdminFormDesigner({ theme, darkMode, adminUser }) {
                                         </button>
                                       </div>
                                     ))}
-                                    <button 
+                                    <button
                                       onClick={() => updateItem(sIdx, iIdx, 'config', { ...item.config, criteria: [...(item.config?.criteria || []), `Criteria ${item.config?.criteria?.length + 1}`] })}
                                       style={{ ...st.btnTertiary(theme), width: 'fit-content', fontSize: '10px', padding: '6px 12px' }}
                                     >
@@ -1618,11 +1739,11 @@ function AdminFormDesigner({ theme, darkMode, adminUser }) {
                                 {['short_text', 'long_text', 'message_input', 'number_input'].includes(item.key) && (
                                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                                     <label style={{ fontSize: '10px', fontWeight: '900', color: theme.textMuted }}>PLACEHOLDER</label>
-                                    <input 
-                                      value={item.config?.placeholder || ""} 
+                                    <input
+                                      value={item.config?.placeholder || ""}
                                       onChange={e => updateItem(sIdx, iIdx, 'config', { ...item.config, placeholder: e.target.value })}
                                       style={{ ...st.input(theme), height: '32px', fontSize: '12px' }}
-                                      />
+                                    />
                                   </div>
                                 )}
                               </div>
@@ -1645,13 +1766,13 @@ function AdminFormDesigner({ theme, darkMode, adminUser }) {
                 <div style={{ padding: '30px 20px 10px', background: 'white', borderBottom: '1px solid #F1F5F9' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div style={{ display: 'flex', background: 'rgba(0,0,0,0.05)', padding: '2px', borderRadius: '8px' }}>
-                      <button 
+                      <button
                         onClick={() => setPreviewMode('app')}
                         style={{ padding: '4px 10px', borderRadius: '6px', fontSize: '10px', fontWeight: '800', border: 'none', background: previewMode === 'app' ? 'white' : 'transparent', color: previewMode === 'app' ? 'var(--primary-color)' : '#64748B', cursor: 'pointer' }}
                       >
                         APP
                       </button>
-                      <button 
+                      <button
                         onClick={() => setPreviewMode('post')}
                         style={{ padding: '4px 10px', borderRadius: '6px', fontSize: '10px', fontWeight: '800', border: 'none', background: previewMode === 'post' ? 'white' : 'transparent', color: previewMode === 'post' ? 'var(--primary-color)' : '#64748B', cursor: 'pointer' }}
                       >
@@ -1676,10 +1797,17 @@ function AdminFormDesigner({ theme, darkMode, adminUser }) {
                             <div style={{ height: '6px', width: '50px', background: '#F1F5F9', borderRadius: '4px' }} />
                           </div>
                         </div>
-                        
+
                         {/* THE ACTUAL POST COMPOSITION PREVIEW */}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                          {config.steps.flatMap(s => s.items).filter(it => it.include_in_post).map((it, idx) => (
+                          {config.steps.flatMap(s => s.items).filter(it => {
+                            // --- SMART VISIBILITY RULES FOR PREVIEW ---
+                            const key = it.key || "";
+                            // Always Hidden Identity Fields
+                            if (['contact_number', 'email_address', 'mailing_address'].includes(key)) return false;
+                            // Note: Preview assumes non-anonymous for visual confirmation of fields
+                            return true;
+                          }).map((it, idx) => (
                             <div key={idx} style={{ borderLeft: '3px solid var(--primary-color)', paddingLeft: '12px' }}>
                               <div style={{ fontSize: '10px', fontWeight: '900', color: 'var(--primary-color)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
                                 {it.label_override}
@@ -1689,9 +1817,9 @@ function AdminFormDesigner({ theme, darkMode, adminUser }) {
                               </div>
                             </div>
                           ))}
-                          {config.steps.flatMap(s => s.items).filter(it => it.include_in_post).length === 0 && (
+                          {config.steps.flatMap(s => s.items).filter(it => !['contact_number', 'email_address', 'mailing_address'].includes(it.key)).length === 0 && (
                             <div style={{ textAlign: 'center', padding: '40px 20px', color: '#94A3B8', fontSize: '12px' }}>
-                              No modules selected for post display.
+                              No public-facing modules in this workflow.
                             </div>
                           )}
                         </div>
