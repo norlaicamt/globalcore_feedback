@@ -1640,7 +1640,6 @@ def get_user_activity(db: Session, user_id: int):
             "branch_name": f.branch.name if f.branch else f.branch_name_snapshot,
             "region": f.region,
             "city": f.city,
-            "province": f.province,
             "barangay": f.barangay,
             "entity_name": f.entity.name if f.entity else None
         })
@@ -1670,10 +1669,28 @@ def get_user_activity(db: Session, user_id: int):
             "message": "Liked this post" if rx.is_like else "Disliked this post",
             "created_at": rx.created_at
         })
+
+    # 4. User's Reactions (Replies)
+    reply_reactions = db.query(models.ReplyReaction).filter(models.ReplyReaction.user_id == user_id).all()
+    for rrx in reply_reactions:
+        reply = db.query(models.Reply).filter(models.Reply.id == rrx.reply_id).first()
+        fb = None
+        if reply:
+            fb = db.query(models.Feedback).filter(models.Feedback.id == reply.feedback_id).first()
+        
+        results.append({
+            "id": f"reply_react_{rrx.id}",
+            "type": "like" if rrx.is_like else "dislike",
+            "feedback_id": fb.id if fb else None,
+            "title": fb.title if fb else "a comment",
+            "message": f"{'Liked' if rrx.is_like else 'Disliked'} a comment",
+            "created_at": rrx.created_at
+        })
         
     # Sort by date DESC
-    results.sort(key=lambda x: x["created_at"], reverse=True)
-    return results[:50]
+    results.sort(key=lambda x: x["created_at"] if x["created_at"] else datetime.min, reverse=True)
+    
+    return results[:100]
 
 def get_user_distribution(db: Session, dept_name: Optional[str] = None, entity_id: Optional[int] = None):
     """Provides breakdown of users by Entity and Role Identity with Admin mapping."""

@@ -53,6 +53,7 @@ const Icons = {
   TrendingDownGood: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"></polyline><polyline points="17 18 23 18 23 12"></polyline></svg>,
   Lock: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>,
   Tag: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>,
+  Activity: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>,
 };
 
 
@@ -311,15 +312,15 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
       subItems: [
         { id: 'history', label: 'Sent', icon: <Icons.User /> },
         { id: 'mentioned', label: 'Mentions', icon: <Icons.Tag /> },
-        { id: 'drafts', label: 'Drafts', icon: <Icons.Message /> }
+        { id: 'drafts', label: 'Drafts', icon: <Icons.Message /> },
+        { id: 'activity', label: 'Interaction Activity', icon: <Icons.Activity /> }
       ]
     },
     {
       id: 'settings_group', label: 'Settings', icon: <Icons.Gear />, subItems: [
         { id: 'profile', label: 'Personal Details', icon: <Icons.User /> },
         { id: 'notifs_settings', label: 'Notification Preferences', icon: <Icons.Bell /> },
-        { id: 'privacy', label: 'Security', icon: <Icons.Lock /> },
-        { id: 'activity', label: 'Activity Feed', icon: <Icons.Bell /> }
+        { id: 'privacy', label: 'Security', icon: <Icons.Lock /> }
       ]
     },
     { id: 'logout', label: 'Logout', icon: <Icons.Logout />, color: '#EF4444', action: triggerLogout },
@@ -783,7 +784,7 @@ const CommentModal = ({ item, currentUser, onClose, onShowToast, onRefreshProfil
 
   const handleReplyReaction = async (replyId, isLike) => {
     try {
-      await toggleReplyReaction(item.id, replyId, currentUser.id, isLike);
+      await toggleReplyReaction(item.id, replyId, currentUser?.id || 1, isLike);
       const updated = await getFeedbackReplies(item.id, currentUser.id);
       setComments(updated);
     } catch (e) { }

@@ -258,17 +258,26 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, overrideConfig = null
       if (key === 'short_text' || key === 'long_text' || key === 'message_input') return !!idea.trim();
       if (key === 'rating_matrix') {
         const ratings = matrixRatings[item.id] || {};
-        return (item.criteria || []).every(c => !!ratings[c]);
+        const criteria = item.config?.criteria || item.criteria || [];
+        return criteria.every(c => !!ratings[c]);
+      }
+      if (key === 'multiple_choice') {
+        return !!customFields[item.id || key];
       }
       if (['full_name', 'contact_number', 'email_address', 'mailing_address', 'number_input'].includes(key)) {
-        return !!customFields[item.id || key]?.trim();
+        const val = customFields[item.id || key];
+        return val !== undefined && val !== null && val.toString().trim() !== "";
       }
       return true;
     }
     if (item.type === "section") {
       const section = formConfig?.sections?.find(s => s.id === item.section_id);
       if (!section) return true;
-      return (section.fields || []).every(f => !f.required || !!customFields[f.id]);
+      return (section.fields || []).every(f => {
+        if (!f.required) return true;
+        const val = customFields[f.id];
+        return val !== undefined && val !== null && val.toString().trim() !== "";
+      });
     }
     return true;
   };
@@ -284,17 +293,21 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, overrideConfig = null
     }
     const current = enabledSteps.find(s => s.id === step);
     if (!current) return;
+    
     const allValid = isPreviewMode ? true : current.items.every(it => isItemFilled(it));
     if (!allValid && !overrideKey) {
       setShowErrors(true);
       return;
     }
+
     setShowErrors(false);
     const idx = enabledSteps.findIndex(s => s.id === step);
+    
     if (idx < enabledSteps.length - 1) {
-      setIsNavigating(true);
-      setStep(enabledSteps[idx + 1].id);
-      setTimeout(() => setIsNavigating(false), 400);
+      const nextStepId = enabledSteps[idx + 1].id;
+      setStep(nextStepId);
+      // Optional: scroll to top
+      window.scrollTo(0, 0);
     } else {
       setShowPrivacyModal(true);
     }
@@ -504,15 +517,17 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, overrideConfig = null
         '--primary-rgb': hexToRgb(primaryColor)
       }}
     >
-      <header style={styles.header}>
-        <div style={{ width: 40 }} />
-        <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
-          {selectedEntity && (
-            <WorkflowStepper steps={enabledSteps} currentIndex={currentIndex} primaryColor="var(--primary-color)" onStepClick={setStep} />
-          )}
-        </div>
-        <div style={{ width: 40 }} />
-      </header>
+      {(selectedEntity || overrideConfig) && (
+        <header style={styles.header}>
+          <div style={{ width: 40 }} />
+          <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
+            {selectedEntity && (
+              <WorkflowStepper steps={enabledSteps} currentIndex={currentIndex} primaryColor="var(--primary-color)" onStepClick={setStep} />
+            )}
+          </div>
+          <div style={{ width: 40 }} />
+        </header>
+      )}
       <main style={styles.content}>
         {!selectedEntity && !overrideConfig ? (
           <div style={{
@@ -520,7 +535,7 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, overrideConfig = null
             flexDirection: 'column',
             justifyContent: 'center',
             alignItems: 'center',
-            padding: '40px 24px',
+            padding: '24px 16px',
             background: '#FFFFFF',
             borderRadius: '24px',
             border: '1px solid #E5E7EB',
@@ -530,7 +545,7 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, overrideConfig = null
             overflow: 'hidden'
           }}>
             {/* INTENTIONAL HEADER */}
-            <div style={{ textAlign: 'center', marginBottom: '40px' }}>
+            <div style={{ textAlign: 'center', marginBottom: '24px' }}>
               <h2 style={{ 
                 fontSize: '22px', 
                 fontWeight: '800', 
@@ -564,7 +579,7 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, overrideConfig = null
             <div style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(2, 1fr)',
-              gap: '16px',
+              gap: '12px',
               maxWidth: '380px',
               width: '100%',
               justifyContent: 'center'
@@ -600,7 +615,7 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, overrideConfig = null
                       flexDirection: 'column',
                       alignItems: 'center',
                       textAlign: 'center',
-                      padding: '24px 16px',
+                      padding: '18px 12px',
                       backgroundColor: isSel ? theme.bg : '#FFFFFF',
                       borderRadius: '24px',
                       border: `1.5px solid ${isSel ? 'var(--primary-color)' : '#F1F5F9'}`,
@@ -613,15 +628,15 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, overrideConfig = null
                     }}
                   >
                     <div style={{
-                      width: '52px',
-                      height: '52px',
+                      width: '44px',
+                      height: '44px',
                       borderRadius: '16px',
                       backgroundColor: isSel ? 'var(--primary-color)' : theme.bg,
                       color: isSel ? '#FFFFFF' : theme.icon,
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      marginBottom: '16px',
+                      marginBottom: '12px',
                       transition: 'all 0.3s ease',
                       boxShadow: isSel 
                         ? '0 8px 16px rgba(var(--primary-rgb), 0.3)' 

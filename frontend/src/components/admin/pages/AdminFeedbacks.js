@@ -27,7 +27,7 @@ const STATUSES = {
 };
 
 // --- COMPONENT: Side Detail Panel ---
-const FeedbackSidePanel = ({ feedback, isClosing, onClose, onUpdateStatus, theme, darkMode, getModeLabel, systemMode }) => {
+const FeedbackSidePanel = ({ feedback, isClosing, onClose, onUpdateStatus, theme, darkMode, getModeLabel, systemMode, onShowToast }) => {
   const [replyMessage, setReplyMessage] = useState("");
   const [isSendingReply, setIsSendingReply] = useState(false);
   const [templates, setTemplates] = useState([]);
@@ -71,7 +71,7 @@ const FeedbackSidePanel = ({ feedback, isClosing, onClose, onUpdateStatus, theme
     if (!replyMessage.trim()) return;
     
     if (saveAsTemplate && !templateName.trim()) {
-        alert("Please provide a name for the new template.");
+        if (onShowToast) onShowToast("Please provide a name for the new template.", "error");
         return;
     }
 
@@ -88,7 +88,7 @@ const FeedbackSidePanel = ({ feedback, isClosing, onClose, onUpdateStatus, theme
       };
 
       await adminUnifiedReply(feedback.id, payload);
-      alert("Official response dispatched and discussion thread updated!");
+      if (onShowToast) onShowToast("Official response dispatched and discussion thread updated!");
       
       setReplyMessage("");
       setSaveAsTemplate(false);
@@ -100,7 +100,7 @@ const FeedbackSidePanel = ({ feedback, isClosing, onClose, onUpdateStatus, theme
       onUpdateStatus(feedback.id, selectedStatus || feedback.status);
     } catch (e) {
       console.error(e);
-      alert("Failed to dispatch response: " + (e.response?.data?.detail || e.message));
+      if (onShowToast) onShowToast("Failed to dispatch response: " + (e.response?.data?.detail || e.message), "error");
     } finally {
       setIsSendingReply(false);
     }
@@ -421,30 +421,8 @@ const FeedbackSidePanel = ({ feedback, isClosing, onClose, onUpdateStatus, theme
             </div>
           </div>
 
-          {/* Workflow Transitions */}
-          <div style={{ borderTop: `1px solid ${theme.border}`, paddingTop: "32px", marginBottom: "40px" }}>
-            <h4 style={{ fontSize: "11px", color: "var(--primary-color)", fontWeight: "900", marginBottom: "20px", textTransform: "uppercase", letterSpacing: "0.1em" }}>Governance Workflow</h4>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-              {Object.entries(STATUSES).map(([key, cfg]) => (
-                <button
-                  key={key}
-                  disabled={feedback?.status === key}
-                  onClick={() => onUpdateStatus(feedback?.id, key)}
-                  style={{
-                    padding: "14px", borderRadius: "12px", border: `1.5px solid ${feedback?.status === key ? cfg.color : theme.border}`,
-                    background: feedback?.status === key ? cfg.bg : theme.surface, color: feedback?.status === key ? cfg.color : theme.text,
-                    fontSize: "13px", fontWeight: "700", cursor: feedback?.status === key ? "default" : "pointer",
-                    textAlign: "left", display: "flex", alignItems: "center", gap: "10px", transition: "0.2s"
-                  }}
-                  onMouseEnter={e => { if (feedback?.status !== key) { e.currentTarget.style.borderColor = cfg.color; e.currentTarget.style.background = cfg.bg + "20"; } }}
-                  onMouseLeave={e => { if (feedback?.status !== key) { e.currentTarget.style.borderColor = theme.border; e.currentTarget.style.background = theme.surface; } }}
-                >
-                  <span style={{ opacity: feedback?.status === key ? 1 : 0.5 }}>{cfg.icon}</span> {cfg.label}
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
+
 
         <style>{`
           @keyframes slideInRight { from { transform: translateX(100%); } to { transform: translateX(0); } }
@@ -573,6 +551,12 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
   const [showStatusFilter, setShowStatusFilter] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
   const [dialog, setDialog] = useState({ isOpen: false });
+  const [toast, setToast] = useState(null);
+
+  const showToast = (msg, type = "success") => {
+    setToast({ message: msg, type });
+    setTimeout(() => setToast(null), 3000);
+  };
 
   const closePanel = () => {
     setIsClosing(true);
@@ -904,6 +888,7 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
         isClosing={isClosing}
         onClose={closePanel} 
         onUpdateStatus={handleUpdateStatus}
+        onShowToast={showToast}
         theme={theme} 
         darkMode={darkMode} 
         getModeLabel={getModeLabel}
@@ -911,6 +896,30 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
       />
 
       <CustomModal isOpen={dialog.isOpen} title={dialog.title} message={dialog.message} type={dialog.type} confirmText={dialog.confirmText} isDestructive={dialog.isDestructive} onConfirm={dialog.onConfirm} onCancel={dialog.onCancel} />
+      
+      {/* Toast Notification */}
+      {toast && (
+        <div style={{
+          position: "fixed", bottom: "40px", left: "50%", transform: "translateX(-50%)",
+          background: "#1E293B", color: "white", padding: "12px 24px", borderRadius: "12px",
+          boxShadow: "0 10px 25px rgba(0,0,0,0.2)", zIndex: 9999, fontSize: "14px", fontWeight: "600",
+          display: "flex", alignItems: "center", gap: "10px", animation: "slideUp 0.3s ease",
+          border: `1px solid ${toast.type === 'error' ? '#EF4444' : '#10B981'}40`
+        }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={toast.type === 'error' ? '#EF4444' : '#10B981'} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+            {toast.type === 'error' ? (
+              <><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></>
+            ) : (
+              <><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></>
+            )}
+          </svg>
+          {toast.message}
+        </div>
+      )}
+
+      <style>{`
+        @keyframes slideUp { from { transform: translate(-50%, 20px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+      `}</style>
     </div>
   );
 };

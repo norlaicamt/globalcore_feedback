@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { adminGetProfile, adminUpdateProfile, getSystemLabels, updateSystemLabelsBulk, adminGetProfileActivity, getAdminSettings, updateAdminSetting } from "../../../services/adminApi";
 import { useTerminology } from "../../../context/TerminologyContext";
 import { STORAGE_KEYS } from "../../../utils/storage";
+import ImageCropperModal from "../../ImageCropperModal";
 
 const hexToRgb = (hex) => {
   let defaultRgb = "31, 42, 86";
@@ -239,6 +240,7 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
     unit_name: "",
     phone: "",
   });
+  const [cropper, setCropper] = useState({ isOpen: false, image: null });
 
   const [recentActions, setRecentActions] = useState([]);
   const [activityLoading, setActivityLoading] = useState(false);
@@ -439,26 +441,22 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
         img.onerror = reject;
         img.onload = () => {
           const canvas = document.createElement('canvas');
-          let width = img.width;
-          let height = img.height;
-          const maxDim = 400; // slightly higher for quality
-          if (width > height) {
-            if (width > maxDim) {
-              height *= maxDim / width;
-              width = maxDim;
-            }
-          } else {
-            if (height > maxDim) {
-              width *= maxDim / height;
-              height = maxDim;
-            }
-          }
-          canvas.width = width;
-          canvas.height = height;
           const ctx = canvas.getContext('2d');
+          
+          // Enforce 1x1 square crop (center-weighted)
+          const size = Math.min(img.width, img.height);
+          const targetSize = Math.min(size, 400); 
+          
+          canvas.width = targetSize;
+          canvas.height = targetSize;
+          
+          const offsetX = (img.width - size) / 2;
+          const offsetY = (img.height - size) / 2;
+          
           ctx.imageSmoothingEnabled = true;
           ctx.imageSmoothingQuality = 'high';
-          ctx.drawImage(img, 0, 0, width, height);
+          ctx.drawImage(img, offsetX, offsetY, size, size, 0, 0, targetSize, targetSize);
+          
           resolve(canvas.toDataURL('image/jpeg', 0.85));
         };
       };
@@ -486,16 +484,19 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
     }
   };
 
-  const handleAvatarChange = async (e) => {
+  const handleAvatarChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    try {
-      const compressed = await compressImage(file);
-      setForm(prev => ({ ...prev, avatar_url: compressed }));
-    } catch (err) {
-      console.error(err);
-      alert("Failed to process image.");
-    }
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setCropper({ isOpen: true, image: event.target.result });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleCropConfirm = (croppedBase64) => {
+    setCropper({ isOpen: false, image: null });
+    setForm(prev => ({ ...prev, avatar_url: croppedBase64 }));
   };
 
   const handleRemoveLogo = async () => {
@@ -1709,6 +1710,12 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
             </div>
           </div>
         )}
+        <ImageCropperModal 
+          isOpen={cropper.isOpen} 
+          imageSrc={cropper.image} 
+          onCrop={handleCropConfirm} 
+          onCancel={() => setCropper({ isOpen: false, image: null })} 
+        />
       </div>
     </div>
   );

@@ -410,7 +410,7 @@ class FeedbackDetail(Feedback):
 class ActivityEntry(BaseModel):
     id: str
     type: str
-    feedback_id: int
+    feedback_id: Optional[int] = None
     title: Optional[str] = None
     message: Optional[str] = None
     created_at: datetime
@@ -421,7 +421,7 @@ class ActivityEntry(BaseModel):
     city: Optional[str] = None
     province: Optional[str] = None
     barangay: Optional[str] = None
-    entity_name: Optional[str] = None # Added for consistency
+    entity_name: Optional[str] = None 
     model_config = ConfigDict(from_attributes=True)
 
 class SystemSettingBase(BaseModel):

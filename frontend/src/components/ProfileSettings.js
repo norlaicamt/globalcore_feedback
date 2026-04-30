@@ -8,6 +8,7 @@ import {
     changePassword
 } from "../services/api";
 import CustomModal from "./CustomModal";
+import ImageCropperModal from "./ImageCropperModal";
 
 // --- ICONS & REGISTRY ---
 
@@ -153,6 +154,7 @@ const ProfileView = ({ currentUser, onUserUpdate, showToast }) => {
     const [barangayList, setBarangayList] = useState([]);
     const [barangayCache, setBarangayCache] = useState({});
     const [isLoadingLocations, setIsLoadingLocations] = useState(false);
+    const [cropper, setCropper] = useState({ isOpen: false, image: null });
 
     const normalize = (val) => val?.toLowerCase().trim();
 
@@ -224,33 +226,22 @@ const ProfileView = ({ currentUser, onUserUpdate, showToast }) => {
         loadBarangays();
     }, [formData.city]);
 
-    const handleAvatarChange = async (e) => {
+    const handleAvatarChange = (e) => {
         const file = e.target.files[0];
         if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            setCropper({ isOpen: true, image: event.target.result });
+        };
+        reader.readAsDataURL(file);
+    };
 
+    const handleCropConfirm = async (croppedBase64) => {
+        setCropper({ isOpen: false, image: null });
         try {
-            const reader = new FileReader();
-            reader.onload = async (event) => {
-                let base64 = event.target.result;
-                // Compression logic (Simplified for consistency)
-                if (base64.length > 300000) {
-                    const img = new Image();
-                    img.src = base64;
-                    await new Promise(r => img.onload = r);
-                    const canvas = document.createElement('canvas');
-                    const ctx = canvas.getContext('2d');
-                    const scale = Math.sqrt(300000 / base64.length);
-                    canvas.width = img.width * scale;
-                    canvas.height = img.height * scale;
-                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                    base64 = canvas.toDataURL('image/jpeg', 0.7);
-                }
-                
-                const updated = await updateUser(currentUser.id, { avatar_url: base64 });
-                onUserUpdate(updated);
-                showToast("Avatar updated successfully");
-            };
-            reader.readAsDataURL(file);
+            const updated = await updateUser(currentUser.id, { avatar_url: croppedBase64 });
+            onUserUpdate(updated);
+            showToast("Avatar updated successfully");
         } catch (err) {
             showToast("Failed to update avatar");
         }
@@ -465,6 +456,12 @@ const ProfileView = ({ currentUser, onUserUpdate, showToast }) => {
                     </div>
                 )}
             </div>
+            <ImageCropperModal 
+                isOpen={cropper.isOpen} 
+                imageSrc={cropper.image} 
+                onCrop={handleCropConfirm} 
+                onCancel={() => setCropper({ isOpen: false, image: null })} 
+            />
         </div>
     );
 };
