@@ -97,6 +97,34 @@ class User(Base):
     entity = relationship("Entity", foreign_keys=[entity_id])
     contexts = relationship("UserContext", back_populates="user", cascade="all, delete-orphan")
     feedbacks_sent = relationship("Feedback", foreign_keys="[Feedback.sender_id]", back_populates="sender")
+    admin_requests = relationship("AdminRequest", foreign_keys="[AdminRequest.user_id]", back_populates="user", cascade="all, delete-orphan")
+
+class AdminRequest(Base):
+    __tablename__ = "admin_requests"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("global_user.id"))
+    entity_id = Column(Integer, ForeignKey("entities.id"))
+    requested_role = Column(String)  # admin / superadmin / staff
+    reason = Column(Text, nullable=True)
+    status = Column(String, default="pending")  # pending / approved / rejected
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    reviewed_by = Column(Integer, ForeignKey("global_user.id"), nullable=True)
+    reviewed_at = Column(DateTime, nullable=True)
+    
+    user = relationship("User", foreign_keys=[user_id], back_populates="admin_requests")
+    entity = relationship("Entity")
+    reviewer = relationship("User", foreign_keys=[reviewed_by])
+
+class InternalNote(Base):
+    __tablename__ = "internal_notes"
+    id = Column(Integer, primary_key=True, index=True)
+    feedback_id = Column(Integer, ForeignKey("feedbacks.id"))
+    user_id = Column(Integer, ForeignKey("global_user.id"))
+    message = Column(Text)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    
+    user = relationship("User")
+    feedback = relationship("Feedback", back_populates="internal_notes")
 
 
 class UserContext(Base):
@@ -209,6 +237,7 @@ class Feedback(Base):
     entity = relationship("Entity", back_populates="feedbacks")
     branch = relationship("Branch", back_populates="feedbacks")
     sender = relationship("User", foreign_keys=[sender_id], back_populates="feedbacks_sent")
+    internal_notes = relationship("InternalNote", back_populates="feedback", cascade="all, delete-orphan")
     recipient_user = relationship("User", foreign_keys=[recipient_user_id])
     recipient_dept = relationship("Department")
     closed_by = relationship("User", foreign_keys=[closed_by_id])
@@ -452,3 +481,5 @@ class UserMergeLog(Base):
     master_user = relationship("User", foreign_keys=[master_user_id])
     merged_user = relationship("User", foreign_keys=[merged_user_id])
     merged_by = relationship("User", foreign_keys=[merged_by_id])
+
+

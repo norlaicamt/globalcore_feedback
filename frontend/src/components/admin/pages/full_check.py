@@ -1,33 +1,32 @@
+import re
 
-content = open('c:/GlobalCore-Feedback/frontend/src/components/admin/pages/AdminBroadcast.js', 'r', encoding='utf-8').read()
+def check_file_div_balance(file_path):
+    with open(file_path, 'r', encoding='utf-8') as f:
+        content = f.read()
+    
+    # Simple regex to find all <div and </div
+    # To handle self-closing, we need to find <div ... />
+    
+    opens = 0
+    closes = 0
+    
+    # Find all <div
+    # Use finditer to check if it's self-closing
+    for match in re.finditer(r'<div', content):
+        # Check if it's self-closing
+        # Find the next >
+        end_idx = content.find('>', match.start())
+        if end_idx != -1:
+            tag_content = content[match.start():end_idx+1]
+            if tag_content.endswith('/>'):
+                # Self-closing, don't count as open
+                pass
+            else:
+                opens += 1
+                
+    # Find all </div
+    closes = len(re.findall(r'</div', content))
+    
+    print(f"File Total Divs: {opens} open, {closes} close")
 
-stack = []
-for i, c in enumerate(content):
-    if c == '{': stack.append(('{', i))
-    elif c == '}':
-        if not stack or stack[-1][0] != '{': 
-            line = content.count('\n', 0, i) + 1
-            print(f"Extra }} at line {line}")
-            break
-        stack.pop()
-    elif c == '(': stack.append(('(', i))
-    elif c == ')':
-        if not stack or stack[-1][0] != '(': 
-            line = content.count('\n', 0, i) + 1
-            print(f"Extra ) at line {line}")
-            break
-        stack.pop()
-    elif c == '[': stack.append(('[', i))
-    elif c == ']':
-        if not stack or stack[-1][0] != '[': 
-            line = content.count('\n', 0, i) + 1
-            print(f"Extra ] at line {line}")
-            break
-        stack.pop()
-
-if stack:
-    for t, pos in stack:
-        line = content.count('\n', 0, pos) + 1
-        print(f"Unclosed {t} at line {line}")
-else:
-    print("All balanced!")
+check_file_div_balance('c:/GlobalCore-Feedback/frontend/src/components/admin/pages/AdminFeedbacks.js')

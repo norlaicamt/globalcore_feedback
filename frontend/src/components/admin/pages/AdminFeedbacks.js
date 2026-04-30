@@ -2,7 +2,9 @@ import React, { useEffect, useRef, useState } from "react";
 import { 
   adminGetFeedbacks, adminDeleteFeedback, adminUpdateFeedbackStatus,
   adminGetResponseTemplates, adminUnifiedReply,
-  adminRevealIdentity
+  adminRevealIdentity,
+  adminGetInternalNotes, adminAddInternalNote,
+  adminGetStaffList, adminAssignFeedback
 } from "../../../services/adminApi";
 import { useTerminology } from "../../../context/TerminologyContext";
 import CustomModal from "../../CustomModal";
@@ -27,7 +29,7 @@ const STATUSES = {
 };
 
 // --- COMPONENT: Side Detail Panel ---
-const FeedbackSidePanel = ({ feedback, isClosing, onClose, onUpdateStatus, theme, darkMode, getModeLabel, systemMode, onShowToast }) => {
+const FeedbackSidePanel = ({ feedback, isClosing, onClose, onUpdateStatus, theme, darkMode, getModeLabel, systemMode, onShowToast, adminUser, onRefresh }) => {
   const [replyMessage, setReplyMessage] = useState("");
   const [isSendingReply, setIsSendingReply] = useState(false);
   const [templates, setTemplates] = useState([]);
@@ -39,16 +41,52 @@ const FeedbackSidePanel = ({ feedback, isClosing, onClose, onUpdateStatus, theme
   const [closureNote, setClosureNote] = useState("");
   const [revealedIdentity, setRevealedIdentity] = useState(null);
   const [isRevealing, setIsRevealing] = useState(false);
+  const [activeTab, setActiveTab] = useState("response"); // "response" | "discussion"
+  const [internalNotes, setInternalNotes] = useState([]);
+  const [noteMessage, setNoteMessage] = useState("");
+  const [isPostingNote, setIsPostingNote] = useState(false);
+  const [notesLoading, setNotesLoading] = useState(false);
+  const [staff, setStaff] = useState([]);
+  const [isReassigning, setIsReassigning] = useState(false);
 
   useEffect(() => {
     if (feedback) {
       adminGetResponseTemplates().then(setTemplates).catch(console.error);
-      setSelectedStatus(null); // Reset on new feedback selection
+      adminGetStaffList().then(setStaff).catch(console.error);
+      setSelectedStatus(null); 
       setReplyMessage("");
       setSaveAsTemplate(false);
       setRevealedIdentity(null);
+      setActiveTab("response");
+      setInternalNotes([]);
     }
   }, [feedback]);
+
+  useEffect(() => {
+    if (feedback && activeTab === "discussion") {
+      setNotesLoading(true);
+      adminGetInternalNotes(feedback.id)
+        .then(setInternalNotes)
+        .catch(console.error)
+        .finally(() => setNotesLoading(false));
+    }
+  }, [feedback, activeTab]);
+
+  const handlePostNote = async () => {
+    if (!noteMessage.trim()) return;
+    setIsPostingNote(true);
+    try {
+      const newNote = await adminAddInternalNote(feedback.id, noteMessage.trim());
+      setInternalNotes(prev => [...prev, newNote]);
+      setNoteMessage("");
+      if (onShowToast) onShowToast("Internal note posted successfully");
+    } catch (err) {
+      console.error(err);
+      if (onShowToast) onShowToast("Failed to post internal note", "error");
+    } finally {
+      setIsPostingNote(false);
+    }
+  };
 
   const handleRevealIdentity = async () => {
     if (!feedback?.id) return;
@@ -111,6 +149,24 @@ const FeedbackSidePanel = ({ feedback, isClosing, onClose, onUpdateStatus, theme
     setShowTemplateMenu(false);
   };
 
+  const handleReassign = async (newUserId) => {
+    if (!feedback?.id || !newUserId) return;
+    setIsReassigning(true);
+    try {
+      await adminAssignFeedback(feedback.id, newUserId);
+      if (onShowToast) onShowToast("Case successfully reassigned");
+      if (onRefresh) onRefresh();
+      onClose();
+    } catch (e) {
+      console.error(e);
+      if (onShowToast) onShowToast("Reassignment failed", "error");
+    } finally {
+      setIsReassigning(false);
+    }
+  };
+
+  const isAssignedToMe = feedback?.assigned_to_user_id === adminUser?.id;
+
   return (
     <>
       {/* Backdrop */}
@@ -134,7 +190,7 @@ const FeedbackSidePanel = ({ feedback, isClosing, onClose, onUpdateStatus, theme
         {/* Header */}
         <div style={{ padding: "32px 40px", borderBottom: `1px solid ${theme.border}`, display: "flex", justifyContent: "space-between", alignItems: "flex-start", background: theme.bg }}>
           <div>
-            <h3 style={{ margin: 0, fontSize: "20px", fontWeight: "900", color: theme.text, letterSpacing: "-0.02em" }}>Submission Intelligence</h3>
+            <h3 style={{ margin: 0, fontSize: "20px", fontWeight: "900", color: theme.text, letterSpacing: "-0.02em" }}>Case Workspace</h3>
             <p style={{ margin: "6px 0 0", fontSize: "13px", fontWeight: "600", color: theme.textMuted }}>Reference ID: #{feedback?.id}</p>
           </div>
           <button onClick={onClose} style={{ background: theme.surface, border: `1px solid ${theme.border}`, color: theme.text, width: "36px", height: "36px", borderRadius: "50%", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "0.2s" }}
@@ -155,6 +211,40 @@ const FeedbackSidePanel = ({ feedback, isClosing, onClose, onUpdateStatus, theme
              </span>
              <span style={{ fontSize: "12px", fontWeight: "700", color: theme.textMuted }}>Received {feedback?.created_at ? new Date(feedback.created_at).toLocaleDateString() : "—"}</span>
           </div>
+
+          {/* Ownership & Reassign */}
+          <div style={{ padding: "16px 20px", background: isAssignedToMe ? "rgba(16, 185, 129, 0.05)" : theme.bg, borderRadius: "16px", border: `1px solid ${isAssignedToMe ? "#10B98130" : theme.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: feedback?.assigned_to_user_id ? "#10B981" : "#EF4444" }} />
+              <div>
+                <p style={{ margin: 0, fontSize: "10px", fontWeight: "800", color: theme.textMuted, textTransform: "uppercase" }}>Ownership</p>
+                <p style={{ margin: 0, fontSize: "13px", fontWeight: "700", color: theme.text }}>
+                  {isAssignedToMe ? "Assigned to: You" : (feedback?.assigned_to_name ? `Assigned to: ${feedback.assigned_to_name}` : "Unassigned")}
+                </p>
+              </div>
+            </div>
+            
+            <select 
+              onChange={(e) => handleReassign(e.target.value)}
+              disabled={isReassigning}
+              style={{ padding: "6px 10px", borderRadius: "8px", border: `1px solid ${theme.border}`, background: theme.surface, color: theme.text, fontSize: "11px", fontWeight: "700", outline: "none", cursor: "pointer" }}
+              value=""
+            >
+              <option value="" disabled>{isReassigning ? "Updating..." : "Reassign Case"}</option>
+              {staff.filter(s => s.id !== feedback?.assigned_to_user_id).map(s => (
+                <option key={s.id} value={s.id}>{s.name} ({s.position_title || s.role})</option>
+              ))}
+            </select>
+          </div>
+
+          {!isAssignedToMe && feedback?.assigned_to_user_id && (
+            <div style={{ padding: "12px 16px", background: "#FEF2F2", borderRadius: "12px", border: "1px solid #FCA5A5", display: "flex", alignItems: "center", gap: "10px" }}>
+               <span style={{ fontSize: "16px" }}>⚠️</span>
+               <p style={{ margin: 0, fontSize: "12px", color: "#991B1B", fontWeight: "600", lineHeight: "1.4" }}>
+                 This case is assigned to <strong>{feedback.assigned_to_name}</strong>. You may coordinate or reassign if needed.
+               </p>
+            </div>
+          )}
 
           {/* Feedback Body */}
           <section>
@@ -311,116 +401,195 @@ const FeedbackSidePanel = ({ feedback, isClosing, onClose, onUpdateStatus, theme
               </div>
             </div>
 
-            <div style={{ position: "relative" }}>
-              <textarea 
-                value={replyMessage}
-                onChange={e => setReplyMessage(e.target.value)}
-                placeholder="Type your official response here..."
-                style={{ 
-                  width: "100%", height: "140px", padding: "16px", borderRadius: "16px", 
-                  background: theme.bg, border: `1.5px solid ${theme.border}`, color: theme.text, 
-                  fontSize: "14px", resize: "none", outline: "none", transition: "0.2s",
-                  marginBottom: "20px"
-                }}
-                onFocus={e => e.currentTarget.style.borderColor = "var(--primary-color)"}
-                onBlur={e => e.currentTarget.style.borderColor = theme.border}
-              />
+            {/* NAVIGATION TABS */}
+            <div style={{ display: "flex", borderBottom: `1.5px solid ${theme.border}`, marginBottom: "24px" }}>
+              {[
+                { id: "response", label: "Official Response" },
+                { id: "discussion", label: "Internal Discussion" }
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  style={{
+                    padding: "12px 20px", background: "none", border: "none",
+                    borderBottom: activeTab === tab.id ? "3px solid var(--primary-color)" : "3px solid transparent",
+                    color: activeTab === tab.id ? "var(--primary-color)" : theme.textMuted,
+                    fontSize: "13px", fontWeight: "800", cursor: "pointer", transition: "0.2s"
+                  }}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
 
-              {/* Status Update & Save Template Controls */}
-              <div style={{ display: "flex", flexDirection: "column", gap: "20px", marginBottom: "24px" }}>
-                
-                {/* Status Selector */}
-                <div>
-                   <p style={{ margin: "0 0 10px", fontSize: "10px", fontWeight: "800", color: theme.textMuted, textTransform: "uppercase" }}>Next Operational Step</p>
-                   <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-                     {[
-                       { id: "IN_PROGRESS", label: "In Review", color: "#EAB308", bg: "rgba(234, 179, 8, 0.1)" },
-                       { id: "RESOLVED", label: "Resolve Case", color: "#10B981", bg: "rgba(16, 185, 129, 0.1)" }
-                     ].map(st => (
-                       <button
-                         key={st.id}
-                         onClick={() => setSelectedStatus(selectedStatus === st.id ? null : st.id)}
-                         style={{ 
-                           padding: "8px 14px", borderRadius: "10px", border: `1.5px solid ${selectedStatus === st.id ? st.color : theme.border}`,
-                           background: selectedStatus === st.id ? st.bg : theme.surface, color: selectedStatus === st.id ? st.color : theme.text,
-                           fontSize: "12px", fontWeight: "700", cursor: "pointer", transition: "0.2s"
-                         }}
-                       >
-                         {st.label}
-                       </button>
-                     ))}
-                     {selectedStatus && (
-                       <button onClick={() => setSelectedStatus(null)} style={{ padding: "8px", border: "none", background: "none", color: "#EF4444", fontSize: "11px", fontWeight: "700", cursor: "pointer" }}>Reset</button>
-                     )}
-                   </div>
-                   
-                   {selectedStatus === 'RESOLVED' && (
-                     <div style={{ marginTop: '16px', animation: 'fadeIn 0.2s ease' }}>
-                       <textarea
-                         placeholder={systemMode === 'GOVERNMENT' ? "Explain how this case was resolved (Optional)..." : "Resolution summary or internal note (Optional)..."}
-                         style={{ 
-                           width: "100%", padding: "12px", borderRadius: "12px", border: `1px solid ${theme.border}`, 
-                           background: "white", fontSize: "13px", color: theme.text, minHeight: "80px", 
-                           outline: "none", transition: "0.2s" 
-                         }}
-                         value={closureNote}
-                         onChange={e => setClosureNote(e.target.value)}
-                       />
-                       <p style={{ margin: "6px 0 0", fontSize: "10px", color: theme.textMuted }}>
-                         Suggestion: {systemMode === 'GOVERNMENT' ? "Concern addressed / Project completed" : "Issue fixed / Customer satisfied"}
-                       </p>
-                     </div>
-                   )}
+            {activeTab === "response" ? (
+              <div style={{ position: "relative" }}>
+                <textarea 
+                  value={replyMessage}
+                  onChange={e => setReplyMessage(e.target.value)}
+                  placeholder="Type your official response here..."
+                  style={{ 
+                    width: "100%", height: "140px", padding: "16px", borderRadius: "16px", 
+                    background: theme.bg, border: `1.5px solid ${theme.border}`, color: theme.text, 
+                    fontSize: "14px", resize: "none", outline: "none", transition: "0.2s",
+                    marginBottom: "20px"
+                  }}
+                  onFocus={e => e.currentTarget.style.borderColor = "var(--primary-color)"}
+                  onBlur={e => e.currentTarget.style.borderColor = theme.border}
+                />
+
+                {/* Status Update & Save Template Controls */}
+                <div style={{ display: "flex", flexDirection: "column", gap: "20px", marginBottom: "24px" }}>
+                  
+                  {/* Status Selector */}
+                  <div>
+                    <p style={{ margin: "0 0 10px", fontSize: "10px", fontWeight: "800", color: theme.textMuted, textTransform: "uppercase" }}>Next Operational Step</p>
+                    <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+                      {[
+                        { id: "IN_PROGRESS", label: "In Review", color: "#EAB308", bg: "rgba(234, 179, 8, 0.1)" },
+                        { id: "RESOLVED", label: "Resolve Case", color: "#10B981", bg: "rgba(16, 185, 129, 0.1)" }
+                      ].map(st => (
+                        <button
+                          key={st.id}
+                          onClick={() => setSelectedStatus(selectedStatus === st.id ? null : st.id)}
+                          style={{ 
+                            padding: "8px 14px", borderRadius: "10px", border: `1.5px solid ${selectedStatus === st.id ? st.color : theme.border}`,
+                            background: selectedStatus === st.id ? st.bg : theme.surface, color: selectedStatus === st.id ? st.color : theme.text,
+                            fontSize: "12px", fontWeight: "700", cursor: "pointer", transition: "0.2s"
+                          }}
+                        >
+                          {st.label}
+                        </button>
+                      ))}
+                      {selectedStatus && (
+                        <button onClick={() => setSelectedStatus(null)} style={{ padding: "8px", border: "none", background: "none", color: "#EF4444", fontSize: "11px", fontWeight: "700", cursor: "pointer" }}>Reset</button>
+                      )}
+                    </div>
+                    
+                    {selectedStatus === 'RESOLVED' && (
+                      <div style={{ marginTop: '16px', animation: 'fadeIn 0.2s ease' }}>
+                        <textarea
+                          placeholder={systemMode === 'GOVERNMENT' ? "Explain how this case was resolved (Optional)..." : "Resolution summary or internal note (Optional)..."}
+                          style={{ 
+                            width: "100%", padding: "12px", borderRadius: "12px", border: `1px solid ${theme.border}`, 
+                            background: "white", fontSize: "13px", color: theme.text, minHeight: "80px", 
+                            outline: "none", transition: "0.2s" 
+                          }}
+                          value={closureNote}
+                          onChange={e => setClosureNote(e.target.value)}
+                        />
+                        <p style={{ margin: "6px 0 0", fontSize: "10px", color: theme.textMuted }}>
+                          Suggestion: {systemMode === 'GOVERNMENT' ? "Concern addressed / Project completed" : "Issue fixed / Customer satisfied"}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Save as Template Toggle */}
+                  <div style={{ padding: "16px", background: theme.bg, borderRadius: "14px", border: `1px solid ${theme.border}` }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: "10px", cursor: "pointer", marginBottom: saveAsTemplate ? "16px" : 0 }}>
+                      <input type="checkbox" checked={saveAsTemplate} onChange={e => setSaveAsTemplate(e.target.checked)} style={{ width: "16px", height: "16px" }} />
+                      <span style={{ fontSize: "13px", fontWeight: "700", color: theme.text }}>Save as reusable template</span>
+                    </label>
+                    
+                    {saveAsTemplate && (
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", animation: "fadeIn 0.2s ease" }}>
+                        <input 
+                          placeholder="Template Name"
+                          value={templateName}
+                          onChange={e => setTemplateName(e.target.value)}
+                          style={{ padding: "10px", borderRadius: "8px", border: `1.5px solid ${theme.border}`, background: theme.surface, color: theme.text, fontSize: "12px", outline: "none" }}
+                        />
+                        <select 
+                          value={templateCategory}
+                          onChange={e => setTemplateCategory(e.target.value)}
+                          style={{ padding: "10px", borderRadius: "8px", border: `1.5px solid ${theme.border}`, background: theme.surface, color: theme.text, fontSize: "12px", outline: "none" }}
+                        >
+                          {["Acknowledgement", "Apology", "Resolution", "Follow-up"].map(c => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
-                {/* Save as Template Toggle */}
-                <div style={{ padding: "16px", background: theme.bg, borderRadius: "14px", border: `1px solid ${theme.border}` }}>
-                  <label style={{ display: "flex", alignItems: "center", gap: "10px", cursor: "pointer", marginBottom: saveAsTemplate ? "16px" : 0 }}>
-                    <input type="checkbox" checked={saveAsTemplate} onChange={e => setSaveAsTemplate(e.target.checked)} style={{ width: "16px", height: "16px" }} />
-                    <span style={{ fontSize: "13px", fontWeight: "700", color: theme.text }}>Save as reusable template</span>
-                  </label>
-                  
-                  {saveAsTemplate && (
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", animation: "fadeIn 0.2s ease" }}>
-                      <input 
-                        placeholder="Template Name"
-                        value={templateName}
-                        onChange={e => setTemplateName(e.target.value)}
-                        style={{ padding: "10px", borderRadius: "8px", border: `1.5px solid ${theme.border}`, background: theme.surface, color: theme.text, fontSize: "12px", outline: "none" }}
-                      />
-                      <select 
-                        value={templateCategory}
-                        onChange={e => setTemplateCategory(e.target.value)}
-                        style={{ padding: "10px", borderRadius: "8px", border: `1.5px solid ${theme.border}`, background: theme.surface, color: theme.text, fontSize: "12px", outline: "none" }}
-                      >
-                        {["Acknowledgement", "Apology", "Resolution", "Follow-up"].map(c => <option key={c} value={c}>{c}</option>)}
-                      </select>
-                    </div>
+                <button 
+                  onClick={handleSendReply}
+                  disabled={isSendingReply || !replyMessage.trim()}
+                  style={{ 
+                    width: "100%", padding: "16px", borderRadius: "14px", border: "none",
+                    background: replyMessage.trim() ? "var(--primary-color)" : theme.border, 
+                    color: "white", fontSize: "14px", fontWeight: "900", cursor: replyMessage.trim() ? "pointer" : "not-allowed",
+                    transition: "0.2s", display: "flex", alignItems: "center", justifyContent: "center", gap: "10px",
+                    boxShadow: replyMessage.trim() ? "0 4px 15px rgba(31, 42, 86, 0.2)" : "none"
+                  }}
+                >
+                  {isSendingReply ? "Dispatching Official Response..." : (
+                    <>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                      Dispatch Unified Response
+                    </>
+                  )}
+                </button>
+              </div>
+            ) : (
+              <div style={{ animation: "fadeIn 0.3s ease" }}>
+                <div style={{ 
+                  maxHeight: "300px", overflowY: "auto", marginBottom: "20px", 
+                  display: "flex", flexDirection: "column", gap: "12px", paddingRight: "8px"
+                }}>
+                  {notesLoading ? (
+                    <p style={{ textAlign: "center", padding: "20px", fontSize: "12px", color: theme.textMuted }}>Loading internal notes...</p>
+                  ) : internalNotes.length === 0 ? (
+                    <p style={{ textAlign: "center", padding: "40px 20px", fontSize: "13px", color: theme.textMuted, background: theme.bg, borderRadius: "16px" }}>
+                      No internal notes yet. Coordination helps resolve cases faster.
+                    </p>
+                  ) : (
+                    internalNotes.map(note => (
+                      <div key={note.id} style={{ padding: "14px", background: theme.bg, borderRadius: "14px", border: `1px solid ${theme.border}` }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
+                          <span style={{ fontSize: "12px", fontWeight: "800", color: "var(--primary-color)" }}>{note.user_name} <span style={{ fontWeight: "400", fontSize: "10px", color: theme.textMuted, marginLeft: "4px" }}>({note.user_role})</span></span>
+                          <span style={{ fontSize: "10px", color: theme.textMuted }}>{new Date(note.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        </div>
+                        <p style={{ margin: 0, fontSize: "13px", color: theme.text, lineHeight: "1.5", whiteSpace: "pre-wrap" }}>
+                          {note.message.split(/(@\w+)/g).map((part, i) => (
+                            part.startsWith('@') ? <span key={i} style={{ color: "var(--primary-color)", fontWeight: "700" }}>{part}</span> : part
+                          ))}
+                        </p>
+                      </div>
+                    ))
                   )}
                 </div>
+
+                <div style={{ position: "relative" }}>
+                  <textarea 
+                    value={noteMessage}
+                    onChange={e => setNoteMessage(e.target.value)}
+                    placeholder="Coordinate with other admins (@name to mention)..."
+                    style={{ 
+                      width: "100%", height: "100px", padding: "14px", borderRadius: "16px", 
+                      background: "white", border: `1.5px solid ${theme.border}`, color: theme.text, 
+                      fontSize: "13px", resize: "none", outline: "none", transition: "0.2s",
+                      marginBottom: "16px"
+                    }}
+                    onFocus={e => e.currentTarget.style.borderColor = "var(--primary-color)"}
+                    onBlur={e => e.currentTarget.style.borderColor = theme.border}
+                  />
+                  <button 
+                    onClick={handlePostNote}
+                    disabled={isPostingNote || !noteMessage.trim()}
+                    style={{ 
+                      width: "100%", padding: "12px", borderRadius: "12px", border: "none",
+                      background: noteMessage.trim() ? "#1E293B" : theme.border, 
+                      color: "white", fontSize: "13px", fontWeight: "800", cursor: noteMessage.trim() ? "pointer" : "not-allowed",
+                      transition: "0.2s"
+                    }}
+                  >
+                    {isPostingNote ? "Posting..." : "Post Internal Note"}
+                  </button>
+                </div>
               </div>
-
-              <button 
-                onClick={handleSendReply}
-                disabled={isSendingReply || !replyMessage.trim()}
-                style={{ 
-                  width: "100%", padding: "16px", borderRadius: "14px", border: "none",
-                  background: replyMessage.trim() ? "var(--primary-color)" : theme.border, 
-                  color: "white", fontSize: "14px", fontWeight: "900", cursor: replyMessage.trim() ? "pointer" : "not-allowed",
-                  transition: "0.2s", display: "flex", alignItems: "center", justifyContent: "center", gap: "10px",
-                  boxShadow: replyMessage.trim() ? "0 4px 15px rgba(31, 42, 86, 0.2)" : "none"
-                }}
-              >
-                {isSendingReply ? "Dispatching Official Response..." : (
-                  <>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
-                    Dispatch Unified Response
-                  </>
-                )}
-              </button>
-            </div>
+            )}
           </div>
-
         </div>
 
 
@@ -585,7 +754,20 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
     adminGetFeedbacks({ limit: 200 }).then(setFeedbacks).catch(console.error).finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, [adminUser]);
+  useEffect(() => { 
+    load(); 
+    // Check for forced filter from Team page
+    const forcedFilter = localStorage.getItem("admin_feedback_filter");
+    if (forcedFilter) {
+      if (forcedFilter === "MY_CASES") setActiveTab("MY_CASES");
+      else if (forcedFilter === "UNASSIGNED") setActiveTab("UNASSIGNED");
+      else {
+        // Assume it's a user name or ID for search
+        setSearch(forcedFilter);
+      }
+      localStorage.removeItem("admin_feedback_filter");
+    }
+  }, [adminUser]);
 
   const handleUpdateStatus = async (id, status) => {
     try {
@@ -596,19 +778,25 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
   };
 
   const filtered = feedbacks.filter(f => {
-    const tabMatch = activeTab === "ALL" || f.status === activeTab;
+    let tabMatch = activeTab === "ALL" || f.status === activeTab;
+    if (activeTab === "MY_CASES") tabMatch = f.assigned_to_user_id === adminUser.id;
+    if (activeTab === "UNASSIGNED") tabMatch = !f.assigned_to_user_id;
+
     const programMatch = selectedProgram === "ALL" || f.entity_name === selectedProgram;
     const ratingMatch = selectedRating === "ALL" || f.rating === parseInt(selectedRating);
     const statusMatch = selectedStatusFilter === "ALL" || f.status === selectedStatusFilter;
     const searchMatch = !search || 
       f.description?.toLowerCase().includes(search.toLowerCase()) ||
       f.user_name?.toLowerCase().includes(search.toLowerCase()) ||
+      f.assigned_to_name?.toLowerCase().includes(search.toLowerCase()) ||
       f.entity_name?.toLowerCase().includes(search.toLowerCase());
     return tabMatch && searchMatch && programMatch && ratingMatch && statusMatch;
   });
 
   const stats = {
     TOTAL: feedbacks.length,
+    MY_CASES: feedbacks.filter(f => f.assigned_to_user_id === adminUser?.id).length,
+    UNASSIGNED: feedbacks.filter(f => !f.assigned_to_user_id).length,
     OPEN: feedbacks.filter(f => f.status === "OPEN").length,
     IN_PROGRESS: feedbacks.filter(f => f.status === "IN_PROGRESS").length,
     RESOLVED: feedbacks.filter(f => f.status === "RESOLVED").length,
@@ -666,6 +854,8 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
       <div style={{ display: "flex", gap: "8px", borderBottom: `1px solid ${theme.border}`, paddingBottom: "2px", marginBottom: "0", flexShrink: 0 }}>
         {[
           { key: "ALL", label: "All Submissions", count: stats.TOTAL },
+          { key: "MY_CASES", label: "My Cases", count: stats.MY_CASES, color: "var(--primary-color)" },
+          { key: "UNASSIGNED", label: "Unassigned", count: stats.UNASSIGNED, color: "#EF4444" },
           { key: "OPEN", label: "New", count: stats.OPEN, color: "#3B82F6" },
           { key: "IN_PROGRESS", label: "In Review", count: stats.IN_PROGRESS, color: "#EAB308" },
           { key: "RESOLVED", label: "Resolved", count: stats.RESOLVED, color: "#10B981" }
@@ -812,6 +1002,7 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
                   </div>
                 </div>
               </th>
+              <th style={{ padding: "16px 20px", textAlign: "left", fontSize: "11px", fontWeight: "800", color: theme.textMuted, textTransform: "uppercase", letterSpacing: "0.05em" }}>Assignee</th>
               <th style={{ padding: "16px 20px", textAlign: "left", fontSize: "11px", fontWeight: "800", color: theme.textMuted, textTransform: "uppercase", letterSpacing: "0.05em" }}>Date</th>
               <th style={{ padding: "16px 20px", textAlign: "right", fontSize: "11px", fontWeight: "800", color: theme.textMuted, textTransform: "uppercase", letterSpacing: "0.05em" }}></th>
             </tr>
@@ -864,6 +1055,16 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
                     {STATUSES[f.status]?.label || f.status}
                   </span>
                 </td>
+                <td style={{ padding: "16px 20px" }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: f.assigned_to_user_id ? 'var(--primary-color)' : theme.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: 'white', fontWeight: '800' }}>
+                      {f.assigned_to_name ? f.assigned_to_name.charAt(0) : '?'}
+                    </div>
+                    <span style={{ fontSize: '12px', color: f.assigned_to_user_id ? theme.text : theme.textMuted, fontWeight: f.assigned_to_user_id ? '700' : '400' }}>
+                      {f.assigned_to_user_id === adminUser.id ? "You" : (f.assigned_to_name || "Unassigned")}
+                    </span>
+                  </div>
+                </td>
                 <td style={{ padding: "16px 20px", color: theme.textMuted, fontWeight: "500", fontSize: "12px" }}>{f.created_at?.split("T")[0]}</td>
                 <td style={{ padding: "16px 20px", textAlign: "right" }} onClick={e => e.stopPropagation()}>
                   <DotsMenu onUpdateStatus={(s) => handleUpdateStatus(f.id, s)} onDelete={() => handleDelete(f)} theme={theme} darkMode={darkMode} currentStatus={f.status} />
@@ -872,7 +1073,7 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
             ))}
             {!loading && filtered.length === 0 && (
               <tr>
-                <td colSpan={7} style={{ padding: "48px 24px", textAlign: "center" }}>
+                <td colSpan={8} style={{ padding: "48px 24px", textAlign: "center" }}>
                    <div style={{ fontSize: "18px", marginBottom: "8px" }}>📦</div>
                    <p style={{ margin: 0, fontSize: "14px", fontWeight: "600", color: theme.text }}>No feedback submissions found.</p>
                    <p style={{ margin: "4px 0 0", fontSize: "12px", color: theme.textMuted }}>Once users submit feedback, they will appear here for review and action.</p>
@@ -889,10 +1090,12 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
         onClose={closePanel} 
         onUpdateStatus={handleUpdateStatus}
         onShowToast={showToast}
+        onRefresh={load}
         theme={theme} 
         darkMode={darkMode} 
         getModeLabel={getModeLabel}
         systemMode={systemMode}
+        adminUser={adminUser}
       />
 
       <CustomModal isOpen={dialog.isOpen} title={dialog.title} message={dialog.message} type={dialog.type} confirmText={dialog.confirmText} isDestructive={dialog.isDestructive} onConfirm={dialog.onConfirm} onCancel={dialog.onCancel} />

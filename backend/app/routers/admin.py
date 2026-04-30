@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, cast, Date
 from typing import List, Optional
 from datetime import datetime, timedelta, timezone
+from pydantic import BaseModel
 import os
 import uuid
 from dotenv import load_dotenv
@@ -718,6 +719,47 @@ def admin_update_user_details(
 # FEEDBACK MANAGEMENT
 # ?????????????????????????????????????????????
 
+@router.get("/feedbacks/unassigned")
+def get_unassigned_feedbacks(
+    entity_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(get_current_admin)
+):
+    target_entity = entity_id
+    if not target_entity:
+        primary_ctx = db.query(models.UserContext).filter(models.UserContext.user_id == admin.id).first()
+        if primary_ctx: target_entity = primary_ctx.entity_id
+        elif admin.entity_id: target_entity = admin.entity_id
+
+    if not target_entity: return []
+
+    q = db.query(
+        models.Feedback.id, models.Feedback.title, models.Feedback.description,
+        models.Feedback.created_at, models.User.name.label("sender_name")
+    ).outerjoin(models.User, models.Feedback.sender_id == models.User.id)\
+     .filter(models.Feedback.entity_id == target_entity)\
+     .filter(models.Feedback.recipient_user_id.is_(None))\
+     .filter(models.Feedback.status.in_(["OPEN", "IN_PROGRESS"]))
+     
+    res = q.order_by(models.Feedback.created_at.desc()).all()
+    return [{"id": r.id, "title": r.title, "description": r.description, "created_at": r.created_at, "sender_name": r.sender_name} for r in res]
+
+class AssignFeedbackRequest(BaseModel):
+    user_id: int
+
+@router.post("/feedbacks/{feedback_id}/assign")
+def assign_feedback(
+    feedback_id: int,
+    payload: AssignFeedbackRequest,
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(get_current_admin)
+):
+    fb = db.query(models.Feedback).filter(models.Feedback.id == feedback_id).first()
+    if not fb: raise HTTPException(status_code=404, detail="Feedback not found")
+    fb.recipient_user_id = payload.user_id
+    db.commit()
+    return {"success": True}
+
 @router.get("/feedbacks")
 def admin_get_feedbacks(
     skip: int = 0, limit: int = 50,
@@ -727,19 +769,25 @@ def admin_get_feedbacks(
     db: Session = Depends(get_db),
     admin: models.User = Depends(get_current_admin)
 ):
+    # Aliases for joining assignee user
+    Assignee = models.User.__table__.alias("assignee")
+    
     q = db.query(
         models.Feedback.id, models.Feedback.title, models.Feedback.description,
         models.Feedback.status, models.Feedback.is_anonymous, models.Feedback.created_at,
         models.Feedback.rating, models.Feedback.sender_id, models.Feedback.custom_data,
+        models.Feedback.recipient_user_id,
         models.User.name.label("user_name"),
         models.Entity.name.label("entity_name"),
         models.Department.name.label("dept_name"),
+        Assignee.c.name.label("assignee_name"),
         func.count(models.Reply.id).label("comments_count")
     ).outerjoin(models.User, models.Feedback.sender_id == models.User.id)\
      .outerjoin(models.Entity, models.Feedback.entity_id == models.Entity.id)\
      .outerjoin(models.Department, models.Feedback.recipient_dept_id == models.Department.id)\
+     .outerjoin(Assignee, models.Feedback.recipient_user_id == Assignee.c.id)\
      .outerjoin(models.Reply, models.Reply.feedback_id == models.Feedback.id)\
-     .group_by(models.Feedback.id, models.User.name, models.Entity.name, models.Department.name)
+     .group_by(models.Feedback.id, models.User.name, models.Entity.name, models.Department.name, Assignee.c.name)
 
     if status:
         q = q.filter(models.Feedback.status == status)
@@ -761,7 +809,9 @@ def admin_get_feedbacks(
         "rating": r.rating, "sender_id": r.sender_id,
         "user_name": r.user_name, "entity_name": r.entity_name,
         "dept_name": r.dept_name, "comments_count": r.comments_count,
-        "custom_data": r.custom_data
+        "custom_data": r.custom_data,
+        "assigned_to_user_id": r.recipient_user_id,
+        "assigned_to_name": r.assignee_name
     } for r in rows]
 
 
@@ -2176,3 +2226,77 @@ def reveal_identity(
         "phone": user.phone or "N/A",
         "role": user.role_identity or "General User"
     }
+
+# --- INTERNAL NOTES ---
+@router.post("/feedbacks/{feedback_id}/notes", response_model=schemas.InternalNote)
+def add_internal_note(
+    feedback_id: int,
+    note: schemas.InternalNoteBase,
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(get_current_admin)
+):
+    note_create = schemas.InternalNoteCreate(feedback_id=feedback_id, message=note.message)
+    return crud.create_internal_note(db, user_id=admin.id, note=note_create)
+
+@router.get("/feedbacks/{feedback_id}/notes", response_model=List[schemas.InternalNote])
+def get_internal_notes(
+    feedback_id: int,
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(get_current_admin)
+):
+    return crud.get_internal_notes(db, feedback_id=feedback_id)
+
+# --- ACCESS REQUESTS ---
+@router.get("/access-requests", response_model=List[schemas.AdminRequest])
+def list_access_requests(
+    status: Optional[str] = None,
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(get_current_admin)
+):
+    if not has_global_admin_access(admin):
+        raise HTTPException(status_code=403, detail="Only Global Admins can review access requests")
+    return crud.get_admin_requests(db, status=status)
+
+@router.post("/access-requests/{request_id}/review", response_model=schemas.AdminRequest)
+def review_access_request(
+    request_id: int,
+    review: schemas.AdminRequestUpdate,
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(get_current_admin)
+):
+    if not has_global_admin_access(admin):
+        raise HTTPException(status_code=403, detail="Only Global Admins can review access requests")
+    
+    updated = crud.update_admin_request(db, request_id=request_id, reviewer_id=admin.id, status=review.status)
+    if not updated:
+        raise HTTPException(status_code=404, detail="Request not found")
+    return updated
+
+@router.get("/team", response_model=schemas.TeamOverviewResponse)
+def get_service_team(
+    entity_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(get_current_admin)
+):
+    """
+    Get the service team members for coordination.
+    """
+    target_entity_id = entity_id
+    
+    if not target_entity_id:
+        if admin.role in ["superadmin", "GlobalOverseer"]:
+            return {"members": [], "total_active_cases": 0, "unassigned_cases": 0}
+        
+        primary_ctx = db.query(models.UserContext).filter(
+            models.UserContext.user_id == admin.id,
+            models.UserContext.role.in_(["admin", "staff", "coordinator", "service_admin"])
+        ).first()
+        
+        if primary_ctx:
+            target_entity_id = primary_ctx.entity_id
+        elif admin.entity_id:
+            target_entity_id = admin.entity_id
+        else:
+            return {"members": [], "total_active_cases": 0, "unassigned_cases": 0}
+            
+    return crud.get_service_team_members(db=db, entity_id=target_entity_id, current_user_id=admin.id)

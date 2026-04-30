@@ -159,6 +159,21 @@ class UserProfile(BaseModel):
     created_at: datetime
     model_config = ConfigDict(from_attributes=True)
 
+class TeamMemberResponse(BaseModel):
+    user_id: int
+    name: str
+    role: str
+    entities: List[str] = []
+    last_active: Optional[datetime] = None
+    is_you: bool = False
+    active_cases: int = 0
+    avatar_url: Optional[str] = None
+    email: Optional[str] = None
+
+class TeamOverviewResponse(BaseModel):
+    members: List[TeamMemberResponse]
+    total_active_cases: int
+    unassigned_cases: int
 # --- ORGANIZATION SCHEMAS ---
 class OrganizationBase(BaseModel):
     name: str
@@ -405,6 +420,7 @@ class FeedbackDetail(Feedback):
     entity: Optional[Entity] = None
     replies: List[ReplyWithUser] = []
     reactions: List[Reaction] = []
+    internal_notes: List['InternalNote'] = []
     closed_by: Optional[UserSearchEntry] = None
 
 class ActivityEntry(BaseModel):
@@ -648,3 +664,44 @@ class UnifiedReplyRequest(BaseModel):
     save_as_template: bool = False
     template_name: Optional[str] = None
     template_category: Optional[str] = "Acknowledgement"
+
+# --- ADMIN REQUEST SCHEMAS ---
+class AdminRequestBase(BaseModel):
+    entity_id: int
+    requested_role: str
+    reason: Optional[str] = None
+
+class AdminRequestCreate(AdminRequestBase):
+    pass
+
+class AdminRequestUpdate(BaseModel):
+    status: str # approved / rejected
+
+class AdminRequest(AdminRequestBase):
+    id: int
+    user_id: int
+    status: str
+    created_at: datetime
+    reviewed_by: Optional[int] = None
+    reviewed_at: Optional[datetime] = None
+    user_name: Optional[str] = None
+    entity_name: Optional[str] = None
+    
+    model_config = ConfigDict(from_attributes=True)
+
+# --- INTERNAL NOTE SCHEMAS ---
+class InternalNoteBase(BaseModel):
+    message: str
+
+class InternalNoteCreate(InternalNoteBase):
+    feedback_id: int
+
+class InternalNote(InternalNoteBase):
+    id: int
+    feedback_id: int
+    user_id: int
+    created_at: datetime
+    user_name: Optional[str] = None
+    user_role: Optional[str] = None
+    
+    model_config = ConfigDict(from_attributes=True)

@@ -39,6 +39,115 @@ def get_user_by_login_id(db: Session, login_id: str):
 def get_users(db: Session, skip: int = 0, limit: int = 100):
     return db.query(models.User).offset(skip).limit(limit).all()
 
+def get_service_team_members(db: Session, entity_id: int, current_user_id: int):
+    # 1. Base users for this entity (checking both primary User record and UserContext)
+    valid_roles = ["admin", "superadmin", "staff", "coordinator", "service_admin", "GlobalOverseer"]
+    
+    # Get users whose primary entity_id matches
+    primary_users = db.query(models.User).filter(
+        models.User.entity_id == entity_id,
+        models.User.role.in_(valid_roles)
+    ).all()
+    
+    # Get users via UserContext
+    team_contexts = db.query(models.UserContext).filter(
+        models.UserContext.entity_id == entity_id,
+        models.UserContext.role.in_(valid_roles)
+    ).all()
+    context_user_ids = [ctx.user_id for ctx in team_contexts]
+    context_users = []
+    if context_user_ids:
+        context_users = db.query(models.User).filter(models.User.id.in_(context_user_ids)).all()
+        
+    # Combine unique users
+    users = {u.id: u for u in primary_users + context_users}.values()
+    user_ids = [u.id for u in users]
+    
+    unassigned_cases_count = db.query(func.count(models.Feedback.id)).filter(
+        models.Feedback.entity_id == entity_id,
+        models.Feedback.recipient_user_id.is_(None),
+        models.Feedback.status.in_(["OPEN", "IN_PROGRESS"])
+    ).scalar() or 0
+
+    if not user_ids:
+        return {
+            "members": [],
+            "total_active_cases": unassigned_cases_count,
+            "unassigned_cases": unassigned_cases_count
+        }
+    
+    # 2. Get all contexts for these users to build "entities" list
+    all_contexts = db.query(models.UserContext).filter(models.UserContext.user_id.in_(user_ids)).all()
+    
+    # Fetch entity names
+    # Also include the primary entity_ids of these users
+    primary_entity_ids = [u.entity_id for u in users if u.entity_id]
+    context_entity_ids = [ctx.entity_id for ctx in all_contexts if ctx.entity_id]
+    all_entity_ids = list(set(primary_entity_ids + context_entity_ids))
+    
+    entities = []
+    if all_entity_ids:
+        entities = db.query(models.Entity).filter(models.Entity.id.in_(all_entity_ids)).all()
+    entity_map = {e.id: e.name for e in entities}
+    
+    # 3. Get active cases
+    active_feedbacks = db.query(
+        models.Feedback.recipient_user_id,
+        func.count(models.Feedback.id).label("count")
+    ).filter(
+        models.Feedback.recipient_user_id.in_(user_ids),
+        models.Feedback.status.in_(["OPEN", "IN_PROGRESS"])
+    ).group_by(models.Feedback.recipient_user_id).all()
+    
+    case_map = {fb.recipient_user_id: fb.count for fb in active_feedbacks}
+    
+    # Total assigned active cases
+    total_assigned_cases = sum(case_map.values())
+    total_active_cases = total_assigned_cases + unassigned_cases_count
+    
+    # Group contexts by user
+    user_entity_names = {u.id: set() for u in users}
+    
+    # Add primary entities
+    for u in users:
+        if u.entity_id and u.entity_id in entity_map:
+            user_entity_names[u.id].add(entity_map[u.entity_id])
+            
+    # Add context entities
+    for ctx in all_contexts:
+        if ctx.user_id in user_entity_names and ctx.entity_id in entity_map:
+            user_entity_names[ctx.user_id].add(entity_map[ctx.entity_id])
+            
+    specific_role_map = {ctx.user_id: ctx.role for ctx in team_contexts}
+    
+    result = []
+    for u in users:
+        # Determine specific role (context role overrides primary if applicable)
+        raw_role = specific_role_map.get(u.id, u.role)
+        
+        display_role = "Staff"
+        if raw_role in ["admin", "service_admin"]: display_role = "Admin"
+        elif raw_role in ["superadmin", "GlobalOverseer"]: display_role = "Global Admin"
+        elif raw_role: display_role = raw_role.capitalize()
+            
+        result.append({
+            "user_id": u.id,
+            "name": u.name,
+            "role": display_role,
+            "entities": list(user_entity_names[u.id]),
+            "last_active": u.last_seen,
+            "is_you": u.id == current_user_id,
+            "active_cases": case_map.get(u.id, 0),
+            "avatar_url": u.avatar_url,
+            "email": u.email
+        })
+        
+    return {
+        "members": result,
+        "total_active_cases": total_active_cases,
+        "unassigned_cases": unassigned_cases_count
+    }
+
 def get_user_profiles(db: Session):
     return db.query(
         models.User.id,
@@ -1803,3 +1912,84 @@ def reset_password_with_token(db: Session, token: str, new_password: str):
         db.commit()
         return True
     return False
+
+# --- ADMIN REQUEST OPERATIONS ---
+def create_admin_request(db: Session, user_id: int, request: schemas.AdminRequestCreate):
+    db_request = models.AdminRequest(
+        user_id=user_id,
+        entity_id=request.entity_id,
+        requested_role=request.requested_role,
+        reason=request.reason
+    )
+    db.add(db_request)
+    db.commit()
+    db.refresh(db_request)
+    return db_request
+
+def get_admin_requests(db: Session, status: str = None):
+    q = db.query(models.AdminRequest)
+    if status:
+        q = q.filter(models.AdminRequest.status == status)
+    results = q.order_by(models.AdminRequest.created_at.desc()).all()
+    for r in results:
+        r.user_name = r.user.name if r.user else "Unknown User"
+        r.entity_name = r.entity.name if r.entity else "Unknown Service"
+    return results
+
+def update_admin_request(db: Session, request_id: int, reviewer_id: int, status: str):
+    db_req = db.query(models.AdminRequest).filter(models.AdminRequest.id == request_id).first()
+    if not db_req: return None
+    db_req.status = status
+    db_req.reviewed_by = reviewer_id
+    db_req.reviewed_at = datetime.now(timezone.utc)
+    if status == "approved":
+        user = db.query(models.User).filter(models.User.id == db_req.user_id).first()
+        if user:
+            user.role = db_req.requested_role
+            user.entity_id = db_req.entity_id
+    db.commit()
+    db.refresh(db_req)
+    return db_req
+
+# --- INTERNAL NOTE OPERATIONS ---
+def create_internal_note(db: Session, user_id: int, note: schemas.InternalNoteCreate):
+    db_note = models.InternalNote(
+        feedback_id=note.feedback_id,
+        user_id=user_id,
+        message=note.message
+    )
+    db.add(db_note)
+    db.commit()
+    db.refresh(db_note)
+    
+    # Handle Mentions
+    import re
+    mentions = re.findall(r"@(\w+)", note.message)
+    if mentions:
+        for username in mentions:
+            target = db.query(models.User).filter(models.User.username.ilike(username)).first()
+            if target and target.role in ["admin", "superadmin"]:
+                # Create Notification
+                create_notification(db, schemas.NotificationCreate(
+                    user_id=target.id,
+                    actor_id=user_id,
+                    type=models.NotificationType.MENTION,
+                    feedback_id=note.feedback_id,
+                    message=f"mentioned you in an internal note on Submission #{note.feedback_id}"
+                ))
+    
+    return db_note
+
+def get_internal_notes(db: Session, feedback_id: int):
+    results = db.query(models.InternalNote).filter(models.InternalNote.feedback_id == feedback_id).order_by(models.InternalNote.created_at.asc()).all()
+    for r in results:
+        r.user_name = r.user.name if r.user else "Unknown Admin"
+        r.user_role = r.user.role if r.user else "Admin"
+    return results
+
+def create_notification(db: Session, notification: schemas.NotificationCreate):
+    db_notif = models.Notification(**notification.model_dump())
+    db.add(db_notif)
+    db.commit()
+    db.refresh(db_notif)
+    return db_notif

@@ -84,8 +84,10 @@ export const adminUpdateUserDetails = (id, role, department, program, entity_id,
 };
 export const adminDeleteUser = (id) => adminApi.delete(`/users/${id}`);
 export const adminGetStaffList = () => adminApi.get("/staff").then(r => r.data);
+export const adminGetTeam = (entity_id = null) => adminApi.get(`/team${entity_id ? `?entity_id=${entity_id}` : ""}`).then(r => r.data);
 
-// Feedbacks
+export const adminGetUnassignedFeedbacks = (entity_id = null) => adminApi.get(`/feedbacks/unassigned${entity_id ? `?entity_id=${entity_id}` : ""}`).then(r => r.data);
+export const adminAssignFeedback = (id, user_id) => adminApi.post(`/feedbacks/${id}/assign`, { user_id }).then(r => r.data);
 export const adminGetFeedbacks = (params = {}) => {
   const q = new URLSearchParams();
   if (params.status) q.set("status", params.status);
@@ -212,3 +214,17 @@ export const adminUnifiedReply = (feedback_id, payload) =>
 
 export const adminRevealIdentity = (feedback_id) => 
   adminApi.post(`/reveal-identity/${feedback_id}`).then(r => r.data);
+
+// Internal Notes
+export const adminGetInternalNotes = (feedback_id) => 
+  adminApi.get(`/feedbacks/${feedback_id}/notes`).then(r => r.data);
+
+export const adminAddInternalNote = (feedback_id, message) => 
+  adminApi.post(`/feedbacks/${feedback_id}/notes`, { message }).then(r => r.data);
+
+// Access Requests
+export const adminGetAccessRequests = (status = null) => 
+  adminApi.get(`/access-requests${status ? `?status=${status}` : ""}`).then(r => r.data);
+
+export const adminReviewAccessRequest = (request_id, status) => 
+  adminApi.post(`/access-requests/${request_id}/review`, { status }).then(r => r.data);

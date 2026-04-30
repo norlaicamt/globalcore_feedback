@@ -11,6 +11,7 @@ import AdminSettings from "./pages/AdminSettings";
 import AdminAuditLogs from "./pages/AdminAuditLogs";
 import AdminPrograms from "./pages/AdminPrograms";
 import AdminFormDesigner from "./pages/AdminFormDesigner";
+import AdminTeam from "./pages/AdminTeam";
 import CustomModal from "../CustomModal";
 import { adminUpdatePresence } from "../../services/adminApi";
 
@@ -18,6 +19,7 @@ const NAV_ITEMS = [
   { id: "dashboard", label: "INSIGHT HUB", icon: <ChartIcon /> },
   { id: "users", label: "User Management", icon: <UsersIcon /> },
   { id: "feedbacks", label: "Submissions", icon: <FeedIcon /> },
+  { id: "team", label: "My Team", icon: <UsersIcon /> },
   { id: "auditlogs", label: "System Audit Trail", icon: <ClockIcon />, superOnly: true },
   { type: "label", label: "ORGANIZATION" },
   { id: "broadcast", label: "Announcements", icon: <BellIcon /> },
@@ -180,6 +182,7 @@ const AdminHub = ({ adminUser, onLogout }) => {
       case "dashboard": return <AdminDashboard {...props} />;
       case "users": return <AdminUsers {...props} />;
       case "feedbacks": return <AdminFeedbacks {...props} />;
+      case "team": return <AdminTeam {...props} onNavigate={setView} />;
       case "programs": return <AdminPrograms {...props} />;
       case "formdesigner": return <AdminFormDesigner {...props} />;
       case "broadcast": return <AdminBroadcast {...props} />;
@@ -321,22 +324,7 @@ const AdminHub = ({ adminUser, onLogout }) => {
 
       {/* MAIN CONTENT */}
       <main style={styles.main}>
-        {!localAdminUser?.profile_completed && localAdminUser?.email !== "admin@globalcore.com" && (
-          <div style={{ padding: '10px 28px', background: '#FEF3C7', borderBottom: '1px solid #FDE68A', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <span style={{ fontSize: '18px' }}>👋</span>
-              <p style={{ margin: 0, fontSize: '13px', fontWeight: '600', color: '#92400E' }}>
-                Welcome! Complete your profile identity to unlock full reporting features.
-              </p>
-            </div>
-            <button
-              onClick={() => handleSetView("settings")}
-              style={{ padding: '6px 14px', background: '#92400E', color: 'white', border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: '700', cursor: 'pointer' }}
-            >
-              Complete Now
-            </button>
-          </div>
-        )}
+
         <header style={{ ...styles.topBar, backgroundColor: theme.headerBg, borderBottom: `1px solid ${theme.border}` }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
             <div>
@@ -389,6 +377,7 @@ function SunIcon() { return <svg width="20" height="20" viewBox="0 0 24 24" fill
 function MoonIcon() { return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>; }
 function OrgIcon() { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 00-3-3.87" /><path d="M16 3.13a4 4 0 010 7.75" /></svg>; }
 function ClockIcon() { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>; }
+
 
 
 const SIDEBAR_W = 280;
