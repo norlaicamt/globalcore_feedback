@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { adminGetTeam, adminGetEntities, adminGetUnassignedFeedbacks, adminAssignFeedback } from "../../../services/adminApi";
+import { adminGetTeam, adminGetEntities, adminGetUnassignedFeedbacks, adminAssignFeedback, adminGetUsers, adminUpdateUserDetails } from "../../../services/adminApi";
 import { useTerminology } from "../../../context/TerminologyContext";
+import CustomModal from "../../CustomModal";
 
 export default function AdminTeam({ adminUser, onNavigate }) {
   const [teamMembers, setTeamMembers] = useState([]);
@@ -11,12 +12,19 @@ export default function AdminTeam({ adminUser, onNavigate }) {
   const [error, setError] = useState("");
   
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+  const [inviteConfirmModal, setInviteConfirmModal] = useState(false);
+  const [selectedCandidate, setSelectedCandidate] = useState(null);
   const [unassignedCases, setUnassignedCases] = useState([]);
+  const [candidates, setCandidates] = useState([]);
   const [assignLoading, setAssignLoading] = useState(false);
+  const [inviteLoading, setInviteLoading] = useState(false);
   const [targetAssignUser, setTargetAssignUser] = useState(null);
+  const [searchTerm, setSearchTerm] = useState("");
 
   const { systemName } = useTerminology();
   const isGlobalAdmin = ["superadmin", "GlobalOverseer"].includes(adminUser?.role);
+  const canInvite = isGlobalAdmin || adminUser?.role === "admin";
 
   useEffect(() => {
     if (isGlobalAdmin) {
@@ -82,6 +90,55 @@ export default function AdminTeam({ adminUser, onNavigate }) {
     }
   };
 
+  const handleOpenInvite = async () => {
+    setIsInviteModalOpen(true);
+    setInviteLoading(true);
+    setSearchTerm("");
+    try {
+      const allUsers = await adminGetUsers();
+      let potential = [];
+      
+      if (isGlobalAdmin) {
+        // Global Admins see people who are not yet administrators (to promote them)
+        potential = allUsers.filter(u => u.role !== "admin" && u.role !== "superadmin");
+      } else {
+        // Regular SPA Admins only see users who are already administrators but not assigned to a service
+        potential = allUsers.filter(u => u.role === "admin" && !u.entity_id);
+      }
+      
+      potential = potential.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+      setCandidates(potential);
+    } catch (e) {
+      console.error("Failed to fetch candidates", e);
+    } finally {
+      setInviteLoading(false);
+    }
+  };
+
+  const handleInviteUser = (candidate) => {
+    setSelectedCandidate(candidate);
+    setInviteConfirmModal(true);
+  };
+
+  const confirmInvite = async () => {
+    if (!selectedCandidate) return;
+    
+    setInviteLoading(true);
+    setInviteConfirmModal(false);
+    try {
+      // Promote user to admin and assign to current entity
+      await adminUpdateUserDetails(selectedCandidate.id, "admin", undefined, undefined, selectedEntityId, "Service Admin");
+      setIsInviteModalOpen(false);
+      fetchTeam(selectedEntityId); // Refresh team list
+    } catch (e) {
+      console.error("Failed to invite user", e);
+      alert("Failed to add user to team. Check if you have sufficient permissions.");
+    } finally {
+      setInviteLoading(false);
+      setSelectedCandidate(null);
+    }
+  };
+
   const getPresence = (lastActiveDate) => {
     if (!lastActiveDate) return "offline";
     const diffMins = (new Date() - new Date(lastActiveDate)) / 60000;
@@ -100,8 +157,10 @@ export default function AdminTeam({ adminUser, onNavigate }) {
     const you = teamMembers.filter(m => m.is_you);
     const others = teamMembers.filter(m => !m.is_you);
     
-    const coreTeam = others.filter(m => ["Admin", "Global Admin", "Coordinator", "Service_admin", "Superadmin"].includes(m.role));
-    const supportTeam = others.filter(m => !["Admin", "Global Admin", "Coordinator", "Service_admin", "Superadmin"].includes(m.role));
+    const coreTeam = others.filter(m => ["Admin", "Global Admin", "Coordinator", "Service_admin", "Superadmin"].includes(m.role))
+      .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+    const supportTeam = others.filter(m => !["Admin", "Global Admin", "Coordinator", "Service_admin", "Superadmin"].includes(m.role))
+      .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
 
     return { you, coreTeam, supportTeam };
   };
@@ -214,9 +273,14 @@ export default function AdminTeam({ adminUser, onNavigate }) {
         {members.length === 0 ? (
           <div style={{ padding: "20px", textAlign: "center", backgroundColor: "#F9FAFB", borderRadius: "12px", border: "1px dashed #E5E7EB" }}>
             <div style={{ fontSize: "12px", color: "#6B7280", marginBottom: "8px" }}>No staff assigned to this tier yet.</div>
-            <button style={{ padding: "6px 12px", fontSize: "11px", fontWeight: "600", color: "#111827", backgroundColor: "white", border: "1px solid #D1D5DB", borderRadius: "6px", cursor: "pointer" }}>
-              Invite Team Member
-            </button>
+            {canInvite && (
+              <button 
+                onClick={handleOpenInvite}
+                style={{ padding: "6px 12px", fontSize: "11px", fontWeight: "600", color: "#111827", backgroundColor: "white", border: "1px solid #D1D5DB", borderRadius: "6px", cursor: "pointer" }}
+              >
+                Invite Team Member
+              </button>
+            )}
           </div>
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "10px" }}>
@@ -251,7 +315,15 @@ export default function AdminTeam({ adminUser, onNavigate }) {
           <p style={{ margin: 0, fontSize: "13px", color: "#6B7280" }}>Manage workload and assignments for this service</p>
         </div>
         
-        <div>
+        <div style={{ display: "flex", gap: "10px" }}>
+           {canInvite && (
+             <button 
+               onClick={handleOpenInvite}
+               style={{ padding: "8px 14px", fontSize: "12px", fontWeight: "600", color: "#111827", backgroundColor: "white", border: "1px solid #D1D5DB", borderRadius: "6px", cursor: "pointer", boxShadow: "0 1px 2px rgba(0,0,0,0.05)" }}
+             >
+                Invite Team Member
+             </button>
+           )}
            <button 
              onClick={() => {
                localStorage.setItem("admin_feedback_filter", "UNASSIGNED");
@@ -394,6 +466,78 @@ export default function AdminTeam({ adminUser, onNavigate }) {
           </div>
         </div>
       )}
+
+      {/* INVITATION MODAL */}
+      {isInviteModalOpen && (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.5)", zIndex: 1000, display: "flex", justifyContent: "center", alignItems: "center" }}>
+          <div style={{ backgroundColor: "white", padding: "24px", borderRadius: "12px", width: "500px", maxHeight: "80vh", display: "flex", flexDirection: "column", boxShadow: "0 10px 25px rgba(0,0,0,0.2)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+              <h3 style={{ margin: 0, fontSize: "16px", fontWeight: "700", color: "#111827" }}>Assign Service Admin</h3>
+              <button onClick={() => setIsInviteModalOpen(false)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: "16px", color: "#6B7280" }}>✕</button>
+            </div>
+
+            <div style={{ marginBottom: "16px" }}>
+              <input 
+                type="text"
+                placeholder="Search unassigned admins..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                style={{ width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid #E5E7EB", fontSize: "13px", outline: "none" }}
+              />
+            </div>
+            
+            <div style={{ overflowY: "auto", flex: 1, paddingRight: "4px" }}>
+              {inviteLoading && candidates.length === 0 ? (
+                <div style={{ padding: "30px", textAlign: "center", color: "#6B7280", fontSize: "13px" }}>Searching for unassigned admins...</div>
+              ) : candidates.filter(u => u.name.toLowerCase().includes(searchTerm.toLowerCase()) || u.email.toLowerCase().includes(searchTerm.toLowerCase())).length === 0 ? (
+                <div style={{ padding: "40px 20px", textAlign: "center", color: "#6B7280", fontSize: "13px", backgroundColor: "#F9FAFB", borderRadius: "8px", border: "1px dashed #D1D5DB" }}>
+                  {searchTerm ? "No admins match your search." : "No unassigned admins available."}
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                  {candidates
+                    .filter(u => u.name.toLowerCase().includes(searchTerm.toLowerCase()) || u.email.toLowerCase().includes(searchTerm.toLowerCase()))
+                    .map(u => (
+                    <div key={u.id} style={{ padding: "12px", border: "1px solid #E5E7EB", borderRadius: "10px", display: "flex", justifyContent: "space-between", alignItems: "center", backgroundColor: "white" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                        <div style={{ width: "32px", height: "32px", borderRadius: "50%", backgroundColor: "#F3F4F6", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px", fontWeight: "700", color: "#4B5563" }}>
+                          {u.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <div style={{ fontWeight: "600", fontSize: "13px", color: "#111827" }}>{u.name}</div>
+                          <div style={{ fontSize: "11px", color: "#6B7280" }}>{u.email}</div>
+                        </div>
+                      </div>
+                      
+                        <button 
+                          onClick={() => handleInviteUser(u)}
+                          disabled={inviteLoading}
+                          style={{ padding: "6px 12px", background: "#2563EB", color: "white", borderRadius: "6px", border: "none", cursor: "pointer", fontSize: "11px", fontWeight: "600" }}
+                        >
+                          Add to Team
+                        </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CONFIRMATION MODAL */}
+      <CustomModal
+        isOpen={inviteConfirmModal}
+        title="Assign Service Admin?"
+        message={`Are you sure you want to assign ${selectedCandidate?.name} to this service team? They will be granted administrative access to ${entities.find(e => e.id === selectedEntityId)?.name || 'this workspace'}.`}
+        type="info"
+        confirmText="Confirm Assignment"
+        onConfirm={confirmInvite}
+        onCancel={() => {
+          setInviteConfirmModal(false);
+          setSelectedCandidate(null);
+        }}
+      />
     </div>
   );
 }

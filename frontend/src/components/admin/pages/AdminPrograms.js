@@ -57,7 +57,7 @@ const IconPicker = ({ currentIcon, onSelect, theme }) => {
     );
 };
 
-const AdminPrograms = ({ theme, darkMode, adminUser, onNavigate }) => {
+const AdminPrograms = ({ theme, darkMode, adminUser, onNavigate, initialTab }) => {
     const { getLabel } = useTerminology();
     const [programs, setPrograms] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -65,7 +65,7 @@ const AdminPrograms = ({ theme, darkMode, adminUser, onNavigate }) => {
     const [teamUsers, setTeamUsers] = useState([]);
     const [teamLoading, setTeamLoading] = useState(false);
     const [pristineProgram, setPristineProgram] = useState(null);
-    const [activeTab, setActiveTab] = useState("locations");
+    const [activeTab, setActiveTab] = useState(initialTab || "locations");
     const [analyticsTimeframe, setAnalyticsTimeframe] = useState("30d");
     const [detailedAnalytics, setDetailedAnalytics] = useState(null);
     const [analyticsLoading, setAnalyticsLoading] = useState(false);
@@ -113,6 +113,12 @@ const AdminPrograms = ({ theme, darkMode, adminUser, onNavigate }) => {
     useEffect(() => {
         loadDetailedAnalytics();
     }, [selectedProgram, activeTab, analyticsTimeframe]);
+
+    useEffect(() => {
+        if (initialTab && initialTab !== activeTab) {
+            setActiveTab(initialTab);
+        }
+    }, [initialTab]);
 
     const isDirty = selectedProgram && pristineProgram && JSON.stringify(selectedProgram) !== JSON.stringify(pristineProgram);
     const hasGlobalAdminAccess = (adminUser?.role === "superadmin") || (adminUser?.role === "admin" && !adminUser?.entity_id);
@@ -169,6 +175,12 @@ const AdminPrograms = ({ theme, darkMode, adminUser, onNavigate }) => {
                 }
             }));
             setPrograms(enriched);
+
+            // AUTO-SELECT for Scoped Admins
+            if (adminUser?.entity_id) {
+                const scoped = enriched.find(p => p.id === adminUser.entity_id);
+                if (scoped) setSelectedProgram(scoped);
+            }
         } catch (err) { console.error(err); }
         setLoading(false);
     };
@@ -308,8 +320,11 @@ const AdminPrograms = ({ theme, darkMode, adminUser, onNavigate }) => {
     };
 
     // --- RENDER HELPERS ---
-    const renderBreadcrumb = () => (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '20px' }}>
+    const renderBreadcrumb = () => {
+        if (!hasGlobalAdminAccess) return null; // Scoped admins don't need to go back to list
+        
+        return (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '20px' }}>
             <button
                 onClick={() => setSelectedProgram(null)}
                 style={{
@@ -354,6 +369,7 @@ const AdminPrograms = ({ theme, darkMode, adminUser, onNavigate }) => {
             </div>
         </div>
     );
+};
 
     const renderProgramList = () => (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }}>
@@ -517,12 +533,6 @@ const AdminPrograms = ({ theme, darkMode, adminUser, onNavigate }) => {
                                             </div>
                                         </div>
 
-                                        {!hasGlobalAdminAccess && (
-                                            <div style={{ marginBottom: '32px', padding: '14px 20px', background: darkMode ? 'rgba(59, 130, 246, 0.1)' : '#EFF6FF', borderRadius: '14px', border: `1px solid ${darkMode ? 'rgba(59, 130, 246, 0.2)' : '#DBEAFE'}`, display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ color: '#3B82F6' }}><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-                                                <span style={{ fontSize: '12px', color: '#1E40AF', fontWeight: '700' }}>🔒 Governance Lock: Some settings are managed at the system level.</span>
-                                            </div>
-                                        )}
 
                                         {/* SECTION 1: BASIC INFO */}
                                         <div style={{ marginBottom: '40px' }}>
@@ -533,31 +543,23 @@ const AdminPrograms = ({ theme, darkMode, adminUser, onNavigate }) => {
                                             <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start' }}>
                                                 <div style={{ flex: 1 }}>
                                                     <label style={labelStyle(theme)}>
-                                                        {!hasGlobalAdminAccess && '🔒 '}
                                                         {getLabel('category_label', 'Program')} Display Name
                                                     </label>
                                                     <input
                                                         disabled={!hasGlobalAdminAccess}
                                                         value={selectedProgram.name}
                                                         onChange={e => setSelectedProgram({ ...selectedProgram, name: e.target.value })}
-                                                        style={{ ...inputStyle(theme), opacity: hasGlobalAdminAccess ? 1 : 0.6 }}
+                                                        style={inputStyle(theme)}
                                                         placeholder="Enter public name..."
                                                     />
                                                 </div>
                                                 <div style={{ width: '200px' }}>
                                                     <label style={labelStyle(theme)}>Identity Icon</label>
-                                                    {hasGlobalAdminAccess ? (
-                                                        <IconPicker
-                                                            theme={theme}
-                                                            currentIcon={selectedProgram.icon}
-                                                            onSelect={(i) => setSelectedProgram({ ...selectedProgram, icon: i })}
-                                                        />
-                                                    ) : (
-                                                        <div style={{ padding: '12px', borderRadius: '10px', background: theme.bg, display: 'flex', alignItems: 'center', gap: '12px', border: `1px solid ${theme.border}` }}>
-                                                            <div style={{ color: 'var(--primary-color)' }}>{renderIcon(selectedProgram.icon)}</div>
-                                                            <span style={{ fontSize: '12px', fontWeight: '800', color: theme.textMuted }}>FIXED</span>
-                                                        </div>
-                                                    )}
+                                                    <IconPicker
+                                                        theme={theme}
+                                                        currentIcon={selectedProgram.icon}
+                                                        onSelect={(i) => setSelectedProgram({ ...selectedProgram, icon: i })}
+                                                    />
                                                 </div>
                                             </div>
                                         </div>
@@ -577,7 +579,6 @@ const AdminPrograms = ({ theme, darkMode, adminUser, onNavigate }) => {
                                                         <p style={settingDescStyle(theme)}>Toggling this archives the service from all public views.</p>
                                                     </div>
                                                     <Switch
-                                                        disabled={!hasGlobalAdminAccess}
                                                         checked={selectedProgram.fields?.visibility?.is_active ?? true}
                                                         onChange={(val) => updateFields('visibility', 'is_active', val)}
                                                     />
@@ -588,7 +589,6 @@ const AdminPrograms = ({ theme, darkMode, adminUser, onNavigate }) => {
                                                         <p style={settingDescStyle(theme)}>Controls if citizens can currently file new feedback.</p>
                                                     </div>
                                                     <Switch
-                                                        disabled={!hasGlobalAdminAccess}
                                                         checked={selectedProgram.fields?.visibility?.allow_feedback ?? true}
                                                         onChange={(val) => updateFields('visibility', 'allow_feedback', val)}
                                                     />
@@ -616,7 +616,6 @@ const AdminPrograms = ({ theme, darkMode, adminUser, onNavigate }) => {
                                                         <p style={settingDescStyle(theme)}>Activates the 5-star quantitative measurement system.</p>
                                                     </div>
                                                     <Switch
-                                                        disabled={!hasGlobalAdminAccess}
                                                         checked={selectedProgram.fields?.feedback?.enable_rating ?? true}
                                                         onChange={(val) => updateFields('feedback', 'enable_rating', val)}
                                                     />
@@ -627,7 +626,7 @@ const AdminPrograms = ({ theme, darkMode, adminUser, onNavigate }) => {
                                                         <p style={settingDescStyle(theme)}>Mandates comments for 1-3 star ratings to ensure context.</p>
                                                     </div>
                                                     <Switch
-                                                        disabled={!hasGlobalAdminAccess || !(selectedProgram.fields?.feedback?.enable_rating ?? true)}
+                                                        disabled={!(selectedProgram.fields?.feedback?.enable_rating ?? true)}
                                                         checked={selectedProgram.fields?.feedback?.require_comment_low_rating ?? false}
                                                         onChange={(val) => updateFields('feedback', 'require_comment_low_rating', val)}
                                                     />
@@ -671,7 +670,6 @@ const AdminPrograms = ({ theme, darkMode, adminUser, onNavigate }) => {
                                                         )}
                                                     </div>
                                                     <Switch
-                                                        disabled={!hasGlobalAdminAccess}
                                                         checked={selectedProgram.fields?.operational?.enable_locations ?? true}
                                                         onChange={(val) => {
                                                             updateFields('operational', 'enable_locations', val);
@@ -694,7 +692,6 @@ const AdminPrograms = ({ theme, darkMode, adminUser, onNavigate }) => {
                                                 <div>
                                                     <label style={labelStyle(theme)}>Sort Weight (Lower = First)</label>
                                                     <input
-                                                        disabled={!hasGlobalAdminAccess}
                                                         type="number"
                                                         value={selectedProgram.fields?.display?.sort_order ?? 0}
                                                         onChange={(e) => updateFields('display', 'sort_order', parseInt(e.target.value) || 0)}
@@ -708,7 +705,6 @@ const AdminPrograms = ({ theme, darkMode, adminUser, onNavigate }) => {
                                                         <p style={settingDescStyle(theme)}>Controls presence in the public-facing directory.</p>
                                                     </div>
                                                     <Switch
-                                                        disabled={!hasGlobalAdminAccess}
                                                         checked={selectedProgram.fields?.display?.show_public ?? true}
                                                         onChange={(val) => updateFields('display', 'show_public', val)}
                                                     />

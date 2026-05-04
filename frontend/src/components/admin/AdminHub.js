@@ -13,7 +13,7 @@ import AdminPrograms from "./pages/AdminPrograms";
 import AdminFormDesigner from "./pages/AdminFormDesigner";
 import AdminTeam from "./pages/AdminTeam";
 import CustomModal from "../CustomModal";
-import { adminUpdatePresence } from "../../services/adminApi";
+import { adminUpdatePresence, adminGetEntities } from "../../services/adminApi";
 
 const NAV_ITEMS = [
   { id: "dashboard", label: "INSIGHT HUB", icon: <ChartIcon /> },
@@ -45,6 +45,17 @@ const AdminHub = ({ adminUser, onLogout }) => {
   const [darkMode, setDarkMode] = useState(localStorage.getItem(STORAGE_KEYS.ADMIN_DARK_MODE) === "true");
   const [logoutDialog, setLogoutDialog] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [scopedEntity, setScopedEntity] = useState(null);
+
+  // Fetch scoped entity settings if applicable
+  useEffect(() => {
+    if (localAdminUser?.entity_id) {
+      adminGetEntities().then(entities => {
+        const ent = entities.find(e => e.id === localAdminUser.entity_id);
+        if (ent) setScopedEntity(ent);
+      }).catch(err => console.error("Failed to fetch scoped entity", err));
+    }
+  }, [localAdminUser?.entity_id]);
 
   // Real-time Clock synchronization
   useEffect(() => {
@@ -140,6 +151,9 @@ const AdminHub = ({ adminUser, onLogout }) => {
   };
 
   const handleSetView = (newView) => {
+    if (newView === "workspace_locations" && scopedEntity && scopedEntity.fields?.operational?.enable_locations === false) {
+      return; // Locked
+    }
     setView(newView);
     localStorage.setItem(STORAGE_KEYS.ADMIN_VIEW, newView);
     // Push new state to browser history
@@ -183,7 +197,11 @@ const AdminHub = ({ adminUser, onLogout }) => {
       case "users": return <AdminUsers {...props} />;
       case "feedbacks": return <AdminFeedbacks {...props} />;
       case "team": return <AdminTeam {...props} onNavigate={setView} />;
-      case "programs": return <AdminPrograms {...props} />;
+      case "programs": 
+      case "workspace_locations":
+      case "workspace_settings":
+      case "workspace_analytics":
+        return <AdminPrograms {...props} initialTab={view.startsWith("workspace_") ? view.replace("workspace_", "") : "locations"} />;
       case "formdesigner": return <AdminFormDesigner {...props} />;
       case "broadcast": return <AdminBroadcast {...props} />;
       case "broadcast_analytics": return <AdminBroadcastAnalytics {...props} />;
@@ -258,17 +276,42 @@ const AdminHub = ({ adminUser, onLogout }) => {
               const isScopedAdmin = !!localAdminUser?.entity_id;
               if (isScopedAdmin) {
                 // Hide global configuration tools from program admins
-                const globalTools = ["feedbacktypes", "auditlogs"];
+                const globalTools = ["feedbacktypes"];
                 if (globalTools.includes(item.id)) return false;
 
-                // Hide "ORGANIZATION" and "PREFERENCES" labels if all their sub-items are hidden
-                if (item.type === "label") {
-                  if (item.label === "ORGANIZATION") return false;
-                  if (item.label === "PREFERENCES") return false;
-                }
+                // Hide generic "Workspaces" for scoped admins as we'll inject specific items
+                if (item.id === "programs") return false;
+
+                // Hide labels if we're simplifying for scoped view
+                if (item.type === "label" && (item.label === "ORGANIZATION" || item.label === "PREFERENCES")) return false;
               }
 
               return true;
+            })
+            .flatMap((item, idx) => {
+              const isScopedAdmin = !!localAdminUser?.entity_id;
+              
+              // For scoped admins, inject sub-items for their workspace
+              if (isScopedAdmin && item.id === "formdesigner") {
+                const serviceName = localAdminUser?.department || "My Service";
+                const isLocationsEnabled = scopedEntity ? (scopedEntity.fields?.operational?.enable_locations ?? true) : true;
+                
+                return [
+                  { type: "label", label: serviceName },
+                  { 
+                    id: "workspace_locations", 
+                    label: "Service Sites", 
+                    icon: <OrgIcon />,
+                    isDisabled: !isLocationsEnabled,
+                    title: !isLocationsEnabled ? "Locked by Governance" : ""
+                  },
+                  { id: "workspace_settings", label: "Operational Rules", icon: <SettingsIcon />, isSub: true },
+                  { id: "workspace_analytics", label: "Performance Hub", icon: <ChartIcon />, isSub: true },
+                  { id: "auditlogs", label: "Operational Audit", icon: <ClockIcon />, isSub: true },
+                  item // Keep Form Layout
+                ];
+              }
+              return [item];
             })
             .map((item, idx) => (
               item.type === "label" ? (
@@ -276,18 +319,28 @@ const AdminHub = ({ adminUser, onLogout }) => {
               ) : (
                 <button
                   key={item.id}
-                  className={`nav-item${view === item.id ? " active" : ""}`}
-                  onClick={() => handleSetView(item.id)}
+                  disabled={item.isDisabled}
+                  className={`nav-item${(view === item.id || (view.startsWith("workspace_") && item.id === "workspace_" + view.split('_')[1])) ? " active" : ""}`}
                   style={{
                     ...styles.navItem,
                     ...(view === item.id ? styles.navItemActive : {}),
                     marginLeft: item.isSub ? "20px" : "0",
                     width: item.isSub ? "calc(100% - 20px)" : "100%",
-                    fontSize: item.isSub ? "13px" : "14px"
+                    fontSize: item.isSub ? "13px" : "14px",
+                    opacity: item.isDisabled ? 0.4 : 1,
+                    cursor: item.isDisabled ? "not-allowed" : "pointer"
                   }}
+                  title={item.title || ""}
+                  onClick={() => handleSetView(item.id)}
                 >
                   <span style={styles.navIcon}>{item.icon}</span>
                   <span style={{ flex: 1 }}>{item.label}</span>
+                  {item.isDisabled && (
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" style={{ opacity: 0.6 }}>
+                      <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                      <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                    </svg>
+                  )}
                 </button>
               )
             ))}

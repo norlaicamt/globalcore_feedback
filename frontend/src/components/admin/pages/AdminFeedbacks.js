@@ -106,7 +106,8 @@ const FeedbackSidePanel = ({ feedback, isClosing, onClose, onUpdateStatus, theme
   const currentStatus = STATUSES[feedback?.status || "OPEN"] || STATUSES.OPEN;
 
   const handleSendReply = async () => {
-    if (!replyMessage.trim()) return;
+    // Message is only mandatory if no status update is provided
+    if (!replyMessage.trim() && !selectedStatus) return;
     
     if (saveAsTemplate && !templateName.trim()) {
         if (onShowToast) onShowToast("Please provide a name for the new template.", "error");
@@ -119,7 +120,7 @@ const FeedbackSidePanel = ({ feedback, isClosing, onClose, onUpdateStatus, theme
         message: replyMessage.trim(),
         new_status: selectedStatus,
         closure_note: closureNote.trim(),
-        notify: true,
+        notify: !!replyMessage.trim(),
         save_as_template: saveAsTemplate,
         template_name: templateName,
         template_category: templateCategory
@@ -486,9 +487,12 @@ const FeedbackSidePanel = ({ feedback, isClosing, onClose, onUpdateStatus, theme
                   </div>
 
                   {/* Save as Template Toggle */}
-                  <div style={{ padding: "16px", background: theme.bg, borderRadius: "14px", border: `1px solid ${theme.border}` }}>
-                    <label style={{ display: "flex", alignItems: "center", gap: "10px", cursor: "pointer", marginBottom: saveAsTemplate ? "16px" : 0 }}>
-                      <input type="checkbox" checked={saveAsTemplate} onChange={e => setSaveAsTemplate(e.target.checked)} style={{ width: "16px", height: "16px" }} />
+                  <div style={{ 
+                    padding: "16px", background: theme.bg, borderRadius: "14px", border: `1px solid ${theme.border}`,
+                    opacity: replyMessage.trim() ? 1 : 0.5, transition: "0.2s", pointerEvents: replyMessage.trim() ? "auto" : "none"
+                  }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: "10px", cursor: replyMessage.trim() ? "pointer" : "default", marginBottom: saveAsTemplate ? "16px" : 0 }}>
+                      <input type="checkbox" checked={saveAsTemplate} disabled={!replyMessage.trim()} onChange={e => setSaveAsTemplate(e.target.checked)} style={{ width: "16px", height: "16px" }} />
                       <span style={{ fontSize: "13px", fontWeight: "700", color: theme.text }}>Save as reusable template</span>
                     </label>
                     
@@ -514,19 +518,28 @@ const FeedbackSidePanel = ({ feedback, isClosing, onClose, onUpdateStatus, theme
 
                 <button 
                   onClick={handleSendReply}
-                  disabled={isSendingReply || !replyMessage.trim()}
+                  disabled={isSendingReply || (!replyMessage.trim() && !selectedStatus)}
                   style={{ 
                     width: "100%", padding: "16px", borderRadius: "14px", border: "none",
-                    background: replyMessage.trim() ? "var(--primary-color)" : theme.border, 
-                    color: "white", fontSize: "14px", fontWeight: "900", cursor: replyMessage.trim() ? "pointer" : "not-allowed",
+                    background: (replyMessage.trim() || selectedStatus) ? "var(--primary-color)" : theme.border, 
+                    color: "white", fontSize: "14px", fontWeight: "900", cursor: (replyMessage.trim() || selectedStatus) ? "pointer" : "not-allowed",
                     transition: "0.2s", display: "flex", alignItems: "center", justifyContent: "center", gap: "10px",
-                    boxShadow: replyMessage.trim() ? "0 4px 15px rgba(31, 42, 86, 0.2)" : "none"
+                    boxShadow: (replyMessage.trim() || selectedStatus) ? "0 4px 15px rgba(31, 42, 86, 0.2)" : "none"
                   }}
                 >
-                  {isSendingReply ? "Dispatching Official Response..." : (
+                  {isSendingReply ? "Processing Workflow..." : (
                     <>
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
-                      Dispatch Unified Response
+                      {replyMessage.trim() ? (
+                        <>
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                          Dispatch Unified Response
+                        </>
+                      ) : (
+                        <>
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                          Update Operational Status
+                        </>
+                      )}
                     </>
                   )}
                 </button>
@@ -544,7 +557,16 @@ const FeedbackSidePanel = ({ feedback, isClosing, onClose, onUpdateStatus, theme
                       No internal notes yet. Coordination helps resolve cases faster.
                     </p>
                   ) : (
-                    internalNotes.map(note => (
+                    [...internalNotes]
+                      .sort((a, b) => {
+                        const isGlobalA = ["superadmin", "GlobalOverseer"].includes(a.user_role) || (a.user_role === "admin" && !a.entity_id);
+                        const isGlobalB = ["superadmin", "GlobalOverseer"].includes(b.user_role) || (b.user_role === "admin" && !b.entity_id);
+                        
+                        if (isGlobalA && !isGlobalB) return -1;
+                        if (!isGlobalA && isGlobalB) return 1;
+                        return new Date(b.created_at) - new Date(a.created_at);
+                      })
+                      .map(note => (
                       <div key={note.id} style={{ padding: "14px", background: theme.bg, borderRadius: "14px", border: `1px solid ${theme.border}` }}>
                         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
                           <span style={{ fontSize: "12px", fontWeight: "800", color: "var(--primary-color)" }}>{note.user_name} <span style={{ fontWeight: "400", fontSize: "10px", color: theme.textMuted, marginLeft: "4px" }}>({note.user_role})</span></span>

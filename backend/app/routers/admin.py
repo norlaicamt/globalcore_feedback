@@ -1415,8 +1415,14 @@ def admin_broadcast(
 @router.get("/audit-logs", response_model=List[schemas.AuditLog])
 def get_audit_logs(skip: int = 0, limit: int = 200, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
     if not has_global_admin_access(admin):
-        # Department admins can only see their own department's audit logs
-        return crud.get_audit_logs(db, skip=skip, limit=limit, dept_name=admin.department)
+        # Scoped admins can only see logs for their assigned entity or department
+        return crud.get_audit_logs(
+            db, 
+            skip=skip, 
+            limit=limit, 
+            entity_id=admin.entity_id,
+            dept_name=admin.department if not admin.entity_id else None
+        )
     return crud.get_audit_logs(db, skip=skip, limit=limit)
 
 @router.post("/broadcasts/{broadcast_id}/archive")
@@ -2083,9 +2089,11 @@ async def admin_unified_reply(
     5. Optionally saves as a new template
     """
     # 1. Validation
-    msg = payload.message.strip()
-    if not msg:
-        raise HTTPException(status_code=400, detail="Response message cannot be empty")
+    msg = payload.message.strip() if payload.message else ""
+    
+    # If both message and status are empty, nothing to do
+    if not msg and not payload.new_status:
+        raise HTTPException(status_code=400, detail="Either a response message or a status update is required")
 
     feedback = db.query(models.Feedback).filter(models.Feedback.id == feedback_id).first()
     if not feedback:
@@ -2096,17 +2104,19 @@ async def admin_unified_reply(
         if feedback.entity_id != admin.entity_id:
             raise HTTPException(status_code=403, detail="Access denied: Cannot respond to feedback outside your program scope")
 
-    # 2. Save Official Reply
-    db_reply = models.Reply(
-        feedback_id=feedback_id,
-        user_id=admin.id,
-        message=msg,
-        is_official=True,
-        admin_id=admin.id,
-        admin_name_snapshot=admin.name,
-        admin_role_snapshot=admin.position_title or admin.role.capitalize()
-    )
-    db.add(db_reply)
+    # 2. Save Official Reply (Only if message exists)
+    db_reply = None
+    if msg:
+        db_reply = models.Reply(
+            feedback_id=feedback_id,
+            user_id=admin.id,
+            message=msg,
+            is_official=True,
+            admin_id=admin.id,
+            admin_name_snapshot=admin.name,
+            admin_role_snapshot=admin.position_title or admin.role.capitalize()
+        )
+        db.add(db_reply)
 
     # 3. Handle Template Saving
     if payload.save_as_template:
@@ -2157,27 +2167,35 @@ async def admin_unified_reply(
         }
     )
 
-    # 6. Create Stored Notification
-    notif = models.Notification(
-        user_id=feedback.sender_id,
-        actor_id=admin.id,
-        type=models.NotificationType.REPLY,
-        feedback_id=feedback_id,
-        message=f"Official response: {msg[:60]}...",
-        is_read=False
-    )
-    db.add(notif)
-    
-    db.commit()
-    
-    # 7. Real-time Trigger (Best effort via imported sse_manager)
-    try:
-        from app.main import sse_manager
-        await sse_manager.notify(feedback.sender_id)
-    except Exception as e:
-        print(f"SSE Notification failed: {e}")
+    # 6. Create Stored Notification (Only if notify is true)
+    if payload.notify:
+        notif_msg = f"Official response: {msg[:60]}..." if msg else f"Case status updated to {new_status_str}"
+        notif = models.Notification(
+            user_id=feedback.sender_id,
+            actor_id=admin.id,
+            type=models.NotificationType.REPLY,
+            feedback_id=feedback_id,
+            message=notif_msg,
+            is_read=False
+        )
+        db.add(notif)
+        
+        db.commit()
+        
+        # 7. Real-time Trigger (Best effort via imported sse_manager)
+        try:
+            from app.main import sse_manager
+            await sse_manager.notify(feedback.sender_id)
+        except Exception as e:
+            print(f"SSE Notification failed: {e}")
+    else:
+        db.commit()
 
-    return {"status": "success", "reply_id": db_reply.id, "new_status": new_status_str}
+    return {
+        "status": "success", 
+        "reply_id": db_reply.id if db_reply else None, 
+        "new_status": new_status_str
+    }
 @router.post("/reveal-identity/{feedback_id}")
 def reveal_identity(
     feedback_id: int,

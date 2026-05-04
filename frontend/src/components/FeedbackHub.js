@@ -1057,8 +1057,17 @@ const CommentModal = ({ item, currentUser, onClose, onShowToast, onRefreshProfil
           <div style={styles.modalCommentsList}>
             {loading ? <p style={styles.emptyText}>Loading...</p> :
               comments.length === 0 ? <p style={styles.emptyText}>No comments yet. Be the first!</p> :
-                comments.filter(c => !c.parent_id).map(parentComment => {
-                  const thread = getAllRepliesForThread(comments, parentComment.id).sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+                comments
+                  .filter(c => !c.parent_id)
+                  .sort((a, b) => {
+                    // PIN ADMIN COMMENTS TO TOP
+                    if (a.is_official && !b.is_official) return -1;
+                    if (!a.is_official && b.is_official) return 1;
+                    // Otherwise sort by date (Newest First)
+                    return new Date(b.created_at) - new Date(a.created_at);
+                  })
+                  .map(parentComment => {
+                    const thread = getAllRepliesForThread(comments, parentComment.id).sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
                   return (
                     <div key={parentComment.id} style={{ marginBottom: '16px' }}>
                       {renderThreadNode(parentComment, 0)}

@@ -1969,14 +1969,15 @@ def create_internal_note(db: Session, user_id: int, note: schemas.InternalNoteCr
         for username in mentions:
             target = db.query(models.User).filter(models.User.username.ilike(username)).first()
             if target and target.role in ["admin", "superadmin"]:
-                # Create Notification
-                create_notification(db, schemas.NotificationCreate(
+                # Create Notification (Using the Smart notification function at line 1019)
+                create_notification(
+                    db=db,
                     user_id=target.id,
                     actor_id=user_id,
-                    type=models.NotificationType.MENTION,
+                    notif_type=models.NotificationType.MENTION,
                     feedback_id=note.feedback_id,
                     message=f"mentioned you in an internal note on Submission #{note.feedback_id}"
-                ))
+                )
     
     return db_note
 
@@ -1987,9 +1988,3 @@ def get_internal_notes(db: Session, feedback_id: int):
         r.user_role = r.user.role if r.user else "Admin"
     return results
 
-def create_notification(db: Session, notification: schemas.NotificationCreate):
-    db_notif = models.Notification(**notification.model_dump())
-    db.add(db_notif)
-    db.commit()
-    db.refresh(db_notif)
-    return db_notif
