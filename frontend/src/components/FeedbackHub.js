@@ -14,7 +14,7 @@ import NotificationsView from './NotificationsView';
 import CustomModal from './CustomModal';
 import GeneralFeedback from './GeneralFeedback';
 import ActivityView from './ActivityView';
-import { getFeedbacks, getUserById, getUserNotifications, getFeedbackReplies, createFeedbackReply, updateFeedbackReply, deleteFeedbackReply, toggleReaction, toggleReplyReaction, getReactionsSummary, markNotificationsAsRead, markNotificationAsRead, updateFeedback, deleteFeedback, getAdminSettings, getEntities, trackBroadcastView, acknowledgeBroadcast, updateUserPresence } from "../services/api";
+import { getFeedbacks, getUserById, getUserNotifications, getFeedbackReplies, createFeedbackReply, updateFeedbackReply, deleteFeedbackReply, toggleReaction, toggleReplyReaction, getReactionsSummary, markNotificationAsRead, updateFeedback, deleteFeedback, getAdminSettings, getEntities, trackBroadcastView, acknowledgeBroadcast, updateUserPresence } from "../services/api";
 import { useTerminology } from "../context/TerminologyContext";
 import { IconRegistry } from "./IconRegistry";
 
@@ -121,7 +121,7 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
   const handleUserUpdate = (updatedUser) => {
     setLocalUser((prev) => {
       const merged = { ...(prev || {}), ...(updatedUser || {}) };
-      
+
       try {
         localStorage.setItem(STORAGE_KEYS.USER_CURRENT, JSON.stringify(merged));
       } catch (err) {
@@ -132,12 +132,12 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
           localStorage.setItem(STORAGE_KEYS.USER_CURRENT, JSON.stringify(stripped));
         }
       }
-      
+
       return merged;
     });
   };
 
-  const fetchFeed = async (newOffset = 0) => {
+  const fetchFeed = React.useCallback(async (newOffset = 0) => {
     if (newOffset === 0) setLoading(true);
     try {
       const data = await getFeedbacks({ skip: newOffset, limit: 10, status: statusFilter });
@@ -153,7 +153,7 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [statusFilter]);
 
   const loadMoreFeed = () => {
     if (!loading && hasMore) {
@@ -163,7 +163,7 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
 
   const [unreadNotifCount, setUnreadNotifCount] = useState(0);
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = React.useCallback(async () => {
     if (!localUser?.id) return;
     try {
       const data = await getUserNotifications(localUser.id);
@@ -171,7 +171,7 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
       const unread = data.filter(n => !n.is_read).length;
       setUnreadNotifCount(unread);
     } catch (e) { console.error("Could not fetch notifications", e); }
-  };
+  }, [localUser?.id]);
 
   useEffect(() => {
     if (!localUser?.id) return;
@@ -194,8 +194,7 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
     };
 
     return () => eventSource.close();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [localUser?.id]);
+  }, [localUser?.id, fetchNotifications, fetchFeed]);
 
   const handleOpenNotifications = async () => {
     if (view === "notifications") {
@@ -207,13 +206,13 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
     setIsMenuOpen(false);
   };
 
-  const fetchUserProfile = async () => {
+  const fetchUserProfile = React.useCallback(async () => {
     if (!localUser?.id) return;
     try {
       const updated = await getUserById(localUser.id);
       handleUserUpdate(updated);
     } catch (e) { console.error("Could not refresh user profile", e); }
-  };
+  }, [localUser?.id]); // handleUserUpdate is stable if defined correctly, but here it's a regular function
 
   useEffect(() => {
     try {
@@ -224,8 +223,7 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
       fetchNotifications();
       fetchUserProfile();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, localUser?.id, statusFilter]);
+  }, [view, fetchFeed, fetchNotifications, fetchUserProfile]);
 
   // Real-time Presence Heartbeat
   useEffect(() => {
@@ -445,7 +443,7 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
               if (!n.is_read) {
                 try {
                   await markNotificationAsRead(n.id);
-                  setNotifications(prev => prev.map(notif => 
+                  setNotifications(prev => prev.map(notif =>
                     notif.id === n.id ? { ...notif, is_read: true } : notif
                   ));
                   setUnreadNotifCount(prev => Math.max(0, prev - 1));
@@ -675,7 +673,7 @@ const CommentModal = ({ item, currentUser, onClose, onShowToast, onRefreshProfil
   const [replyingTo, setReplyingTo] = useState(null); // { id, name }
   const [itemMeta, setItemMeta] = useState(item);
   // expandedThreads managed via setExpandedThreads only
-  const [, setExpandedThreads] = useState({});
+  // Expanded threads management removed (unused)
   const commentInputRef = useRef(null);
 
   useEffect(() => {
@@ -684,11 +682,6 @@ const CommentModal = ({ item, currentUser, onClose, onShowToast, onRefreshProfil
     }
   }, [loading]);
 
-  const toggleThread = (id) => {
-    setExpandedThreads(prev => ({ ...prev, [id]: !prev[id] }));
-  };
-  // eslint-disable-next-line no-unused-vars
-  void toggleThread;
 
   const [fullscreenImg, setFullscreenImg] = useState(null);
 
@@ -1068,17 +1061,17 @@ const CommentModal = ({ item, currentUser, onClose, onShowToast, onRefreshProfil
                   })
                   .map(parentComment => {
                     const thread = getAllRepliesForThread(comments, parentComment.id).sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-                  return (
-                    <div key={parentComment.id} style={{ marginBottom: '16px' }}>
-                      {renderThreadNode(parentComment, 0)}
-                      {thread.length > 0 && (
-                        <div style={{ marginLeft: '16px', borderLeft: '2px solid #E2E8F0', paddingLeft: '8px' }}>
-                          {thread.map(reply => renderThreadNode(reply, 1))}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })
+                    return (
+                      <div key={parentComment.id} style={{ marginBottom: '16px' }}>
+                        {renderThreadNode(parentComment, 0)}
+                        {thread.length > 0 && (
+                          <div style={{ marginLeft: '16px', borderLeft: '2px solid #E2E8F0', paddingLeft: '8px' }}>
+                            {thread.map(reply => renderThreadNode(reply, 1))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
             }
           </div>
         </div>
@@ -1409,12 +1402,12 @@ const FeedCard = ({ item: initialItem, currentUser, onShowToast, onOpenComments,
           {(() => {
             const config = item.entity?.fields;
             const responses = item.custom_data || {};
-            
+
             // If no structured data, fallback to legacy description
             if (!config || !config.steps || Object.keys(responses).length === 0) {
-               return <p style={{ ...styles.cardText, color: '#000000', margin: 0 }}>
-                 {(item.description || '').substring(0, 400) + ((item.description || '').length > 400 ? '...' : '')}
-               </p>;
+              return <p style={{ ...styles.cardText, color: '#000000', margin: 0 }}>
+                {(item.description || '').substring(0, 400) + ((item.description || '').length > 400 ? '...' : '')}
+              </p>;
             }
 
             // Render based on Form Design
@@ -1422,14 +1415,14 @@ const FeedCard = ({ item: initialItem, currentUser, onShowToast, onOpenComments,
               // --- SMART VISIBILITY RULES ---
               const key = it.key || "";
               let isPublic = true;
-              
+
               // Always Hidden Identity Fields
               if (['contact_number', 'email_address', 'mailing_address'].includes(key)) isPublic = false;
               // Conditional Identity Fields
               if (key === 'full_name' && item.is_anonymous) isPublic = false;
-              
+
               if (!isPublic) return null;
-              
+
               const val = responses[it.id] || responses[it.key];
               if (val === undefined || val === null || val === "" || (Array.isArray(val) && val.length === 0)) return null;
 
@@ -2117,42 +2110,42 @@ const BroadcastViewModal = ({ notif, currentUser, onClose, onAcknowledge }) => {
           maxHeight: '90vh',
           borderRadius: '32px',
           border: 'none',
-          boxShadow: isHighPriority 
-            ? '0 30px 60px -12px rgba(239, 68, 68, 0.25), 0 18px 36px -18px rgba(0, 0, 0, 0.3)' 
+          boxShadow: isHighPriority
+            ? '0 30px 60px -12px rgba(239, 68, 68, 0.25), 0 18px 36px -18px rgba(0, 0, 0, 0.3)'
             : '0 30px 60px -12px rgba(0, 0, 0, 0.25), 0 18px 36px -18px rgba(0, 0, 0, 0.3)',
           overflow: 'hidden'
         }}
         onClick={e => e.stopPropagation()}
       >
         {/* TOP META ROW */}
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center', 
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
           padding: '24px 24px 0',
         }}>
           <div style={{ display: 'flex', gap: '8px' }}>
-            <span style={{ 
-              background: isHighPriority ? '#FEE2E2' : '#F1F5F9', 
-              color: isHighPriority ? '#EF4444' : '#64748B', 
-              padding: '4px 10px', 
-              borderRadius: '6px', 
-              fontSize: '10px', 
-              fontWeight: '800', 
-              textTransform: 'uppercase', 
-              letterSpacing: '0.5px' 
+            <span style={{
+              background: isHighPriority ? '#FEE2E2' : '#F1F5F9',
+              color: isHighPriority ? '#EF4444' : '#64748B',
+              padding: '4px 10px',
+              borderRadius: '6px',
+              fontSize: '10px',
+              fontWeight: '800',
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px'
             }}>
               {isHighPriority ? 'Urgent Alert' : 'Official Update'}
             </span>
           </div>
 
           {!requireAck && (
-            <button 
-              onClick={onClose} 
-              style={{ 
-                background: 'none', 
-                border: 'none', 
-                cursor: 'pointer', 
+            <button
+              onClick={onClose}
+              style={{
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
                 color: '#94A3B8',
                 fontSize: '18px',
                 padding: '4px'
@@ -2166,13 +2159,13 @@ const BroadcastViewModal = ({ notif, currentUser, onClose, onAcknowledge }) => {
         {/* HEADER SECTION */}
         <header style={{ padding: '20px 24px 24px' }}>
           <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
-            <div style={{ 
-              width: '40px', 
-              height: '40px', 
-              borderRadius: '12px', 
-              background: isHighPriority ? '#EF4444' : 'var(--primary-color)', 
-              display: 'flex', 
-              alignItems: 'center', 
+            <div style={{
+              width: '40px',
+              height: '40px',
+              borderRadius: '12px',
+              background: isHighPriority ? '#EF4444' : 'var(--primary-color)',
+              display: 'flex',
+              alignItems: 'center',
               justifyContent: 'center',
               flexShrink: 0
             }}>
@@ -2182,10 +2175,10 @@ const BroadcastViewModal = ({ notif, currentUser, onClose, onAcknowledge }) => {
               </svg>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-              <h2 style={{ 
-                margin: 0, 
-                fontSize: '18px', 
-                fontWeight: '800', 
+              <h2 style={{
+                margin: 0,
+                fontSize: '18px',
+                fontWeight: '800',
                 color: '#0F172A',
                 lineHeight: 1.2
               }}>
@@ -2201,15 +2194,15 @@ const BroadcastViewModal = ({ notif, currentUser, onClose, onAcknowledge }) => {
         <div style={{ height: '1px', background: '#F1F5F9', margin: '0 24px' }} />
 
         {/* MESSAGE AREA */}
-        <div style={{ 
-          padding: '24px', 
-          maxHeight: '400px', 
-          overflowY: 'auto' 
+        <div style={{
+          padding: '24px',
+          maxHeight: '400px',
+          overflowY: 'auto'
         }}>
-          <p style={{ 
-            margin: 0, 
-            fontSize: '15px', 
-            color: '#334155', 
+          <p style={{
+            margin: 0,
+            fontSize: '15px',
+            color: '#334155',
             lineHeight: '1.7',
             whiteSpace: 'pre-wrap'
           }}>
@@ -2250,19 +2243,19 @@ const BroadcastViewModal = ({ notif, currentUser, onClose, onAcknowledge }) => {
             {requireAck ? 'Confirm Receipt' : 'Understood'}
           </button>
 
-          <div style={{ 
-            display: 'flex', 
-            flexDirection: 'column', 
-            alignItems: 'center', 
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
             gap: '2px'
           }}>
-            <p style={{ 
-              margin: 0, 
-              fontSize: '10px', 
-              fontWeight: '800', 
-              color: '#94A3B8', 
-              textTransform: 'uppercase', 
-              letterSpacing: '0.5px' 
+            <p style={{
+              margin: 0,
+              fontSize: '10px',
+              fontWeight: '800',
+              color: '#94A3B8',
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px'
             }}>
               Internal Communication
             </p>

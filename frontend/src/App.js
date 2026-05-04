@@ -138,6 +138,32 @@ function App() {
             {/* CATCH-ALL REDIRECT */}
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
+          
+          {/* Developer Helper: Mobile Test URL */}
+          {process.env.NODE_ENV === 'development' && (
+            <div style={{
+              position: 'fixed',
+              bottom: '20px',
+              left: '20px',
+              background: 'rgba(15, 23, 42, 0.9)',
+              color: 'white',
+              padding: '10px 16px',
+              borderRadius: '12px',
+              fontSize: '11px',
+              fontWeight: '600',
+              zIndex: 9999,
+              boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              backdropFilter: 'blur(8px)',
+              pointerEvents: 'none',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '4px'
+            }}>
+              <div style={{ color: 'var(--primary-color)', fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Mobile Test URL (Tailscale)</div>
+              <div style={{ fontFamily: 'monospace' }}>http://100.125.146.69:3000</div>
+            </div>
+          )}
         </div>
       </Router>
     </TerminologyProvider>

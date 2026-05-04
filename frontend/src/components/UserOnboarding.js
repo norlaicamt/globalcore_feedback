@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { updateUser, getEntities } from "../services/api";
+import { updateUser } from "../services/api";
 import { useTerminology } from "../context/TerminologyContext";
 import { STORAGE_KEYS } from "../utils/storage";
 
@@ -38,7 +38,7 @@ const UserOnboarding = ({ currentUser, onBack, onComplete }) => {
   const [allCities, setAllCities] = useState({});
   const [cityList, setCityList] = useState([]);
   const [barangayList, setBarangayList] = useState([]);
-  const { systemName } = useTerminology();
+  useTerminology();
   const [isLoadingLocations, setIsLoadingLocations] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
   const [restored, setRestored] = useState(false);

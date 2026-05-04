@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { getUserActivity } from "../services/api";
 import { 
-  getEmotion, 
   formatLocation, 
   formatFeedbackDate, 
   renderFeedbackAction,
@@ -19,7 +18,6 @@ const Icons = {
 const ActivityView = ({ currentUser, onBack, onViewPost }) => {
   const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [hoveredId, setHoveredId] = useState(null);
 
   useEffect(() => {
     let isMounted = true;

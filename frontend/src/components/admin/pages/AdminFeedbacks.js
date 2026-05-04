@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { 
+import {
   adminGetFeedbacks, adminDeleteFeedback, adminUpdateFeedbackStatus,
   adminGetResponseTemplates, adminUnifiedReply,
   adminRevealIdentity,
@@ -14,16 +14,16 @@ import * as XLSX from "xlsx";
 
 // --- CONFIG: Workflow Definitions ---
 const STATUSES = {
-  OPEN: { 
-    label: "New", color: "#3B82F6", bg: "rgba(59, 130, 246, 0.1)", 
+  OPEN: {
+    label: "New", color: "#3B82F6", bg: "rgba(59, 130, 246, 0.1)",
     icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
   },
-  IN_PROGRESS: { 
-    label: "In Review", color: "#EAB308", bg: "rgba(234, 179, 8, 0.1)", 
+  IN_PROGRESS: {
+    label: "In Review", color: "#EAB308", bg: "rgba(234, 179, 8, 0.1)",
     icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
   },
-  RESOLVED: { 
-    label: "Resolved", color: "#10B981", bg: "rgba(16, 185, 129, 0.1)", 
+  RESOLVED: {
+    label: "Resolved", color: "#10B981", bg: "rgba(16, 185, 129, 0.1)",
     icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
   }
 };
@@ -53,7 +53,7 @@ const FeedbackSidePanel = ({ feedback, isClosing, onClose, onUpdateStatus, theme
     if (feedback) {
       adminGetResponseTemplates().then(setTemplates).catch(console.error);
       adminGetStaffList().then(setStaff).catch(console.error);
-      setSelectedStatus(null); 
+      setSelectedStatus(null);
       setReplyMessage("");
       setSaveAsTemplate(false);
       setRevealedIdentity(null);
@@ -108,10 +108,10 @@ const FeedbackSidePanel = ({ feedback, isClosing, onClose, onUpdateStatus, theme
   const handleSendReply = async () => {
     // Message is only mandatory if no status update is provided
     if (!replyMessage.trim() && !selectedStatus) return;
-    
+
     if (saveAsTemplate && !templateName.trim()) {
-        if (onShowToast) onShowToast("Please provide a name for the new template.", "error");
-        return;
+      if (onShowToast) onShowToast("Please provide a name for the new template.", "error");
+      return;
     }
 
     setIsSendingReply(true);
@@ -128,13 +128,13 @@ const FeedbackSidePanel = ({ feedback, isClosing, onClose, onUpdateStatus, theme
 
       await adminUnifiedReply(feedback.id, payload);
       if (onShowToast) onShowToast("Official response dispatched and discussion thread updated!");
-      
+
       setReplyMessage("");
       setSaveAsTemplate(false);
       setTemplateName("");
       setSelectedStatus(null);
       setClosureNote("");
-      
+
       // Refresh parent
       onUpdateStatus(feedback.id, selectedStatus || feedback.status);
     } catch (e) {
@@ -171,23 +171,23 @@ const FeedbackSidePanel = ({ feedback, isClosing, onClose, onUpdateStatus, theme
   return (
     <>
       {/* Backdrop */}
-      <div 
+      <div
         onClick={onClose}
-        style={{ 
-          position: "fixed", inset: 0, background: "rgba(15, 23, 42, 0.3)", 
-          zIndex: 1050, backdropFilter: "blur(4px)", 
-          animation: isClosing ? "fadeOut 0.3s ease forwards" : "fadeIn 0.2s ease" 
-        }} 
+        style={{
+          position: "fixed", inset: 0, background: "rgba(15, 23, 42, 0.3)",
+          zIndex: 1050, backdropFilter: "blur(4px)",
+          animation: isClosing ? "fadeOut 0.3s ease forwards" : "fadeIn 0.2s ease"
+        }}
       />
 
-      <div style={{ 
-        position: "fixed", right: 0, top: 0, width: "480px", height: "100vh", 
-        background: theme.surface, borderLeft: `6px solid ${currentStatus.color}`, 
-        boxShadow: "-15px 0 50px rgba(0,0,0,0.15)", zIndex: 1100, 
-        display: "flex", flexDirection: "column", 
-        animation: isClosing ? "slideOutRight 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards" : "slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1)" 
+      <div style={{
+        position: "fixed", right: 0, top: 0, width: "480px", height: "100vh",
+        background: theme.surface, borderLeft: `6px solid ${currentStatus.color}`,
+        boxShadow: "-15px 0 50px rgba(0,0,0,0.15)", zIndex: 1100,
+        display: "flex", flexDirection: "column",
+        animation: isClosing ? "slideOutRight 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards" : "slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1)"
       }}>
-        
+
         {/* Header */}
         <div style={{ padding: "32px 40px", borderBottom: `1px solid ${theme.border}`, display: "flex", justifyContent: "space-between", alignItems: "flex-start", background: theme.bg }}>
           <div>
@@ -204,13 +204,13 @@ const FeedbackSidePanel = ({ feedback, isClosing, onClose, onUpdateStatus, theme
 
         {/* Content */}
         <div style={{ flex: 1, overflowY: "auto", padding: "40px", display: "flex", flexDirection: "column", gap: "32px" }}>
-          
+
           {/* Status Badge & Main Meta */}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-             <span style={{ padding: "6px 14px", borderRadius: "8px", fontSize: "11px", fontWeight: "900", color: currentStatus.color, background: currentStatus.bg, border: `1px solid ${currentStatus.color}40`, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-               {currentStatus.label}
-             </span>
-             <span style={{ fontSize: "12px", fontWeight: "700", color: theme.textMuted }}>Received {feedback?.created_at ? new Date(feedback.created_at).toLocaleDateString() : "—"}</span>
+            <span style={{ padding: "6px 14px", borderRadius: "8px", fontSize: "11px", fontWeight: "900", color: currentStatus.color, background: currentStatus.bg, border: `1px solid ${currentStatus.color}40`, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+              {currentStatus.label}
+            </span>
+            <span style={{ fontSize: "12px", fontWeight: "700", color: theme.textMuted }}>Received {feedback?.created_at ? new Date(feedback.created_at).toLocaleDateString() : "—"}</span>
           </div>
 
           {/* Ownership & Reassign */}
@@ -224,8 +224,8 @@ const FeedbackSidePanel = ({ feedback, isClosing, onClose, onUpdateStatus, theme
                 </p>
               </div>
             </div>
-            
-            <select 
+
+            <select
               onChange={(e) => handleReassign(e.target.value)}
               disabled={isReassigning}
               style={{ padding: "6px 10px", borderRadius: "8px", border: `1px solid ${theme.border}`, background: theme.surface, color: theme.text, fontSize: "11px", fontWeight: "700", outline: "none", cursor: "pointer" }}
@@ -240,10 +240,10 @@ const FeedbackSidePanel = ({ feedback, isClosing, onClose, onUpdateStatus, theme
 
           {!isAssignedToMe && feedback?.assigned_to_user_id && (
             <div style={{ padding: "12px 16px", background: "#FEF2F2", borderRadius: "12px", border: "1px solid #FCA5A5", display: "flex", alignItems: "center", gap: "10px" }}>
-               <span style={{ fontSize: "16px" }}>⚠️</span>
-               <p style={{ margin: 0, fontSize: "12px", color: "#991B1B", fontWeight: "600", lineHeight: "1.4" }}>
-                 This case is assigned to <strong>{feedback.assigned_to_name}</strong>. You may coordinate or reassign if needed.
-               </p>
+              <span style={{ fontSize: "16px" }}>⚠️</span>
+              <p style={{ margin: 0, fontSize: "12px", color: "#991B1B", fontWeight: "600", lineHeight: "1.4" }}>
+                This case is assigned to <strong>{feedback.assigned_to_name}</strong>. You may coordinate or reassign if needed.
+              </p>
             </div>
           )}
 
@@ -254,7 +254,7 @@ const FeedbackSidePanel = ({ feedback, isClosing, onClose, onUpdateStatus, theme
               {(() => {
                 const config = feedback?.entity?.fields;
                 const responses = feedback?.custom_data || {};
-                
+
                 // If no structured data or config, show legacy description
                 if (!config || !config.steps || Object.keys(responses).length === 0) {
                   return (
@@ -306,18 +306,18 @@ const FeedbackSidePanel = ({ feedback, isClosing, onClose, onUpdateStatus, theme
 
           {/* Quick Metrics */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
-            <MetricBox 
-              label="User Identity" 
-              value={feedback?.is_anonymous ? (revealedIdentity ? revealedIdentity.name : "Anonymous (Hidden)") : (feedback?.user_name || "User")} 
-              icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>} 
-              theme={theme} 
+            <MetricBox
+              label="User Identity"
+              value={feedback?.is_anonymous ? (revealedIdentity ? revealedIdentity.name : "Anonymous (Hidden)") : (feedback?.user_name || "User")}
+              icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>}
+              theme={theme}
               extra={feedback?.is_anonymous && !revealedIdentity && (
-                <button 
+                <button
                   onClick={handleRevealIdentity}
                   disabled={isRevealing}
-                  style={{ 
-                    marginTop: "6px", padding: "6px 10px", fontSize: "10px", fontWeight: "800", 
-                    background: "var(--primary-color)", color: "white", border: "none", 
+                  style={{
+                    marginTop: "6px", padding: "6px 10px", fontSize: "10px", fontWeight: "800",
+                    background: "var(--primary-color)", color: "white", border: "none",
                     borderRadius: "6px", cursor: "pointer", opacity: isRevealing ? 0.6 : 1,
                     transition: "0.2s"
                   }}
@@ -329,28 +329,28 @@ const FeedbackSidePanel = ({ feedback, isClosing, onClose, onUpdateStatus, theme
               )}
               subValue={revealedIdentity && (
                 <div style={{ fontSize: "11px", color: theme.textMuted, marginTop: "4px", lineHeight: "1.6", background: darkMode ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)", padding: "8px", borderRadius: "8px", border: `1px solid ${theme.border}` }}>
-                   <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>📧 <span style={{ fontWeight: "600", color: theme.text }}>{revealedIdentity.email}</span></div>
-                   <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "2px" }}>📞 <span style={{ fontWeight: "600", color: theme.text }}>{revealedIdentity.phone}</span></div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>📧 <span style={{ fontWeight: "600", color: theme.text }}>{revealedIdentity.email}</span></div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "2px" }}>📞 <span style={{ fontWeight: "600", color: theme.text }}>{revealedIdentity.phone}</span></div>
                 </div>
               )}
             />
-            <MetricBox 
-              label="Engagement Rating" 
-              value={feedback?.rating ? `${feedback.rating} / 5` : "N/A"} 
-              icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>} 
-              theme={theme} 
+            <MetricBox
+              label="Engagement Rating"
+              value={feedback?.rating ? `${feedback.rating} / 5` : "N/A"}
+              icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>}
+              theme={theme}
             />
-            <MetricBox 
-              label="Primary Location" 
-              value={feedback?.dept_name || "General"} 
-              icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>} 
-              theme={theme} 
+            <MetricBox
+              label="Primary Location"
+              value={feedback?.dept_name || "General"}
+              icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>}
+              theme={theme}
             />
-            <MetricBox 
-              label="Project/Program" 
-              value={feedback?.entity_name || "System"} 
-              icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>} 
-              theme={theme} 
+            <MetricBox
+              label="Project/Program"
+              value={feedback?.entity_name || "System"}
+              icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>}
+              theme={theme}
             />
           </div>
 
@@ -358,15 +358,15 @@ const FeedbackSidePanel = ({ feedback, isClosing, onClose, onUpdateStatus, theme
           <div style={{ borderTop: `1px solid ${theme.border}`, paddingTop: "32px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
               <h4 style={{ fontSize: "11px", color: "var(--primary-color)", fontWeight: "900", margin: 0, textTransform: "uppercase", letterSpacing: "0.1em" }}>Response to Submission</h4>
-              
+
               {/* Template Selector */}
               <div style={{ position: "relative" }}>
-                <button 
+                <button
                   onClick={() => setShowTemplateMenu(!showTemplateMenu)}
-                  style={{ 
-                    padding: "6px 12px", borderRadius: "8px", border: `1.5px solid ${theme.border}`, 
-                    background: theme.surface, color: theme.text, fontSize: "11px", fontWeight: "700", 
-                    cursor: "pointer", display: "flex", alignItems: "center", gap: "6px" 
+                  style={{
+                    padding: "6px 12px", borderRadius: "8px", border: `1.5px solid ${theme.border}`,
+                    background: theme.surface, color: theme.text, fontSize: "11px", fontWeight: "700",
+                    cursor: "pointer", display: "flex", alignItems: "center", gap: "6px"
                   }}
                 >
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
@@ -384,7 +384,7 @@ const FeedbackSidePanel = ({ feedback, isClosing, onClose, onUpdateStatus, theme
                         <div key={cat} style={{ marginBottom: "8px" }}>
                           <p style={{ margin: "4px 8px", fontSize: "9px", fontWeight: "900", color: theme.textMuted, textTransform: "uppercase" }}>{cat}</p>
                           {tpls.map(t => (
-                            <button 
+                            <button
                               key={t.id}
                               onClick={() => applyTemplate(t)}
                               style={{ width: "100%", padding: "8px 12px", border: "none", background: "none", textAlign: "left", fontSize: "12px", fontWeight: "600", color: theme.text, borderRadius: "6px", cursor: "pointer" }}
@@ -425,13 +425,13 @@ const FeedbackSidePanel = ({ feedback, isClosing, onClose, onUpdateStatus, theme
 
             {activeTab === "response" ? (
               <div style={{ position: "relative" }}>
-                <textarea 
+                <textarea
                   value={replyMessage}
                   onChange={e => setReplyMessage(e.target.value)}
                   placeholder="Type your official response here..."
-                  style={{ 
-                    width: "100%", height: "140px", padding: "16px", borderRadius: "16px", 
-                    background: theme.bg, border: `1.5px solid ${theme.border}`, color: theme.text, 
+                  style={{
+                    width: "100%", height: "140px", padding: "16px", borderRadius: "16px",
+                    background: theme.bg, border: `1.5px solid ${theme.border}`, color: theme.text,
                     fontSize: "14px", resize: "none", outline: "none", transition: "0.2s",
                     marginBottom: "20px"
                   }}
@@ -441,7 +441,7 @@ const FeedbackSidePanel = ({ feedback, isClosing, onClose, onUpdateStatus, theme
 
                 {/* Status Update & Save Template Controls */}
                 <div style={{ display: "flex", flexDirection: "column", gap: "20px", marginBottom: "24px" }}>
-                  
+
                   {/* Status Selector */}
                   <div>
                     <p style={{ margin: "0 0 10px", fontSize: "10px", fontWeight: "800", color: theme.textMuted, textTransform: "uppercase" }}>Next Operational Step</p>
@@ -453,7 +453,7 @@ const FeedbackSidePanel = ({ feedback, isClosing, onClose, onUpdateStatus, theme
                         <button
                           key={st.id}
                           onClick={() => setSelectedStatus(selectedStatus === st.id ? null : st.id)}
-                          style={{ 
+                          style={{
                             padding: "8px 14px", borderRadius: "10px", border: `1.5px solid ${selectedStatus === st.id ? st.color : theme.border}`,
                             background: selectedStatus === st.id ? st.bg : theme.surface, color: selectedStatus === st.id ? st.color : theme.text,
                             fontSize: "12px", fontWeight: "700", cursor: "pointer", transition: "0.2s"
@@ -466,15 +466,15 @@ const FeedbackSidePanel = ({ feedback, isClosing, onClose, onUpdateStatus, theme
                         <button onClick={() => setSelectedStatus(null)} style={{ padding: "8px", border: "none", background: "none", color: "#EF4444", fontSize: "11px", fontWeight: "700", cursor: "pointer" }}>Reset</button>
                       )}
                     </div>
-                    
+
                     {selectedStatus === 'RESOLVED' && (
                       <div style={{ marginTop: '16px', animation: 'fadeIn 0.2s ease' }}>
                         <textarea
                           placeholder={systemMode === 'GOVERNMENT' ? "Explain how this case was resolved (Optional)..." : "Resolution summary or internal note (Optional)..."}
-                          style={{ 
-                            width: "100%", padding: "12px", borderRadius: "12px", border: `1px solid ${theme.border}`, 
-                            background: "white", fontSize: "13px", color: theme.text, minHeight: "80px", 
-                            outline: "none", transition: "0.2s" 
+                          style={{
+                            width: "100%", padding: "12px", borderRadius: "12px", border: `1px solid ${theme.border}`,
+                            background: "white", fontSize: "13px", color: theme.text, minHeight: "80px",
+                            outline: "none", transition: "0.2s"
                           }}
                           value={closureNote}
                           onChange={e => setClosureNote(e.target.value)}
@@ -487,7 +487,7 @@ const FeedbackSidePanel = ({ feedback, isClosing, onClose, onUpdateStatus, theme
                   </div>
 
                   {/* Save as Template Toggle */}
-                  <div style={{ 
+                  <div style={{
                     padding: "16px", background: theme.bg, borderRadius: "14px", border: `1px solid ${theme.border}`,
                     opacity: replyMessage.trim() ? 1 : 0.5, transition: "0.2s", pointerEvents: replyMessage.trim() ? "auto" : "none"
                   }}>
@@ -495,16 +495,16 @@ const FeedbackSidePanel = ({ feedback, isClosing, onClose, onUpdateStatus, theme
                       <input type="checkbox" checked={saveAsTemplate} disabled={!replyMessage.trim()} onChange={e => setSaveAsTemplate(e.target.checked)} style={{ width: "16px", height: "16px" }} />
                       <span style={{ fontSize: "13px", fontWeight: "700", color: theme.text }}>Save as reusable template</span>
                     </label>
-                    
+
                     {saveAsTemplate && (
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", animation: "fadeIn 0.2s ease" }}>
-                        <input 
+                        <input
                           placeholder="Template Name"
                           value={templateName}
                           onChange={e => setTemplateName(e.target.value)}
                           style={{ padding: "10px", borderRadius: "8px", border: `1.5px solid ${theme.border}`, background: theme.surface, color: theme.text, fontSize: "12px", outline: "none" }}
                         />
-                        <select 
+                        <select
                           value={templateCategory}
                           onChange={e => setTemplateCategory(e.target.value)}
                           style={{ padding: "10px", borderRadius: "8px", border: `1.5px solid ${theme.border}`, background: theme.surface, color: theme.text, fontSize: "12px", outline: "none" }}
@@ -516,12 +516,12 @@ const FeedbackSidePanel = ({ feedback, isClosing, onClose, onUpdateStatus, theme
                   </div>
                 </div>
 
-                <button 
+                <button
                   onClick={handleSendReply}
                   disabled={isSendingReply || (!replyMessage.trim() && !selectedStatus)}
-                  style={{ 
+                  style={{
                     width: "100%", padding: "16px", borderRadius: "14px", border: "none",
-                    background: (replyMessage.trim() || selectedStatus) ? "var(--primary-color)" : theme.border, 
+                    background: (replyMessage.trim() || selectedStatus) ? "var(--primary-color)" : theme.border,
                     color: "white", fontSize: "14px", fontWeight: "900", cursor: (replyMessage.trim() || selectedStatus) ? "pointer" : "not-allowed",
                     transition: "0.2s", display: "flex", alignItems: "center", justifyContent: "center", gap: "10px",
                     boxShadow: (replyMessage.trim() || selectedStatus) ? "0 4px 15px rgba(31, 42, 86, 0.2)" : "none"
@@ -546,8 +546,8 @@ const FeedbackSidePanel = ({ feedback, isClosing, onClose, onUpdateStatus, theme
               </div>
             ) : (
               <div style={{ animation: "fadeIn 0.3s ease" }}>
-                <div style={{ 
-                  maxHeight: "300px", overflowY: "auto", marginBottom: "20px", 
+                <div style={{
+                  maxHeight: "300px", overflowY: "auto", marginBottom: "20px",
                   display: "flex", flexDirection: "column", gap: "12px", paddingRight: "8px"
                 }}>
                   {notesLoading ? (
@@ -561,47 +561,47 @@ const FeedbackSidePanel = ({ feedback, isClosing, onClose, onUpdateStatus, theme
                       .sort((a, b) => {
                         const isGlobalA = ["superadmin", "GlobalOverseer"].includes(a.user_role) || (a.user_role === "admin" && !a.entity_id);
                         const isGlobalB = ["superadmin", "GlobalOverseer"].includes(b.user_role) || (b.user_role === "admin" && !b.entity_id);
-                        
+
                         if (isGlobalA && !isGlobalB) return -1;
                         if (!isGlobalA && isGlobalB) return 1;
                         return new Date(b.created_at) - new Date(a.created_at);
                       })
                       .map(note => (
-                      <div key={note.id} style={{ padding: "14px", background: theme.bg, borderRadius: "14px", border: `1px solid ${theme.border}` }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
-                          <span style={{ fontSize: "12px", fontWeight: "800", color: "var(--primary-color)" }}>{note.user_name} <span style={{ fontWeight: "400", fontSize: "10px", color: theme.textMuted, marginLeft: "4px" }}>({note.user_role})</span></span>
-                          <span style={{ fontSize: "10px", color: theme.textMuted }}>{new Date(note.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        <div key={note.id} style={{ padding: "14px", background: theme.bg, borderRadius: "14px", border: `1px solid ${theme.border}` }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
+                            <span style={{ fontSize: "12px", fontWeight: "800", color: "var(--primary-color)" }}>{note.user_name} <span style={{ fontWeight: "400", fontSize: "10px", color: theme.textMuted, marginLeft: "4px" }}>({note.user_role})</span></span>
+                            <span style={{ fontSize: "10px", color: theme.textMuted }}>{new Date(note.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                          </div>
+                          <p style={{ margin: 0, fontSize: "13px", color: theme.text, lineHeight: "1.5", whiteSpace: "pre-wrap" }}>
+                            {note.message.split(/(@\w+)/g).map((part, i) => (
+                              part.startsWith('@') ? <span key={i} style={{ color: "var(--primary-color)", fontWeight: "700" }}>{part}</span> : part
+                            ))}
+                          </p>
                         </div>
-                        <p style={{ margin: 0, fontSize: "13px", color: theme.text, lineHeight: "1.5", whiteSpace: "pre-wrap" }}>
-                          {note.message.split(/(@\w+)/g).map((part, i) => (
-                            part.startsWith('@') ? <span key={i} style={{ color: "var(--primary-color)", fontWeight: "700" }}>{part}</span> : part
-                          ))}
-                        </p>
-                      </div>
-                    ))
+                      ))
                   )}
                 </div>
 
                 <div style={{ position: "relative" }}>
-                  <textarea 
+                  <textarea
                     value={noteMessage}
                     onChange={e => setNoteMessage(e.target.value)}
                     placeholder="Coordinate with other admins (@name to mention)..."
-                    style={{ 
-                      width: "100%", height: "100px", padding: "14px", borderRadius: "16px", 
-                      background: "white", border: `1.5px solid ${theme.border}`, color: theme.text, 
+                    style={{
+                      width: "100%", height: "100px", padding: "14px", borderRadius: "16px",
+                      background: "white", border: `1.5px solid ${theme.border}`, color: theme.text,
                       fontSize: "13px", resize: "none", outline: "none", transition: "0.2s",
                       marginBottom: "16px"
                     }}
                     onFocus={e => e.currentTarget.style.borderColor = "var(--primary-color)"}
                     onBlur={e => e.currentTarget.style.borderColor = theme.border}
                   />
-                  <button 
+                  <button
                     onClick={handlePostNote}
                     disabled={isPostingNote || !noteMessage.trim()}
-                    style={{ 
+                    style={{
                       width: "100%", padding: "12px", borderRadius: "12px", border: "none",
-                      background: noteMessage.trim() ? "#1E293B" : theme.border, 
+                      background: noteMessage.trim() ? "#1E293B" : theme.border,
                       color: "white", fontSize: "13px", fontWeight: "800", cursor: noteMessage.trim() ? "pointer" : "not-allowed",
                       transition: "0.2s"
                     }}
@@ -651,10 +651,10 @@ const DotsMenu = ({ onUpdateStatus, onDelete, theme, darkMode, currentStatus }) 
   return (
     <div ref={ref} style={{ position: "relative", display: "inline-block" }}>
       <button onClick={() => setOpen(!open)} style={{ width: "30px", height: "30px", display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", borderRadius: "6px", cursor: "pointer", color: theme.textMuted }}>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle cx="12" cy="19" r="1.5" /></svg>
       </button>
       {open && (
-        <div 
+        <div
           onClick={(e) => e.stopPropagation()}
           style={{ position: "absolute", right: 0, top: "34px", background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: "10px", boxShadow: "0 8px 24px rgba(0,0,0,0.1)", zIndex: 100, minWidth: "160px", padding: "6px" }}
         >
@@ -691,17 +691,17 @@ const ExportDropdown = ({ onExport, theme, darkMode }) => {
 
   return (
     <div ref={ref} style={{ position: "relative" }}>
-      <button 
+      <button
         onClick={() => setOpen(!open)}
-        style={{ 
-          display: "flex", alignItems: "center", gap: "8px", padding: "10px 16px", 
-          background: theme.surface, color: theme.text, border: `1.5px solid ${theme.border}`, 
-          borderRadius: "10px", fontSize: "13px", fontWeight: "600", cursor: "pointer", transition: "0.2s" 
+        style={{
+          display: "flex", alignItems: "center", gap: "8px", padding: "10px 16px",
+          background: theme.surface, color: theme.text, border: `1.5px solid ${theme.border}`,
+          borderRadius: "10px", fontSize: "13px", fontWeight: "600", cursor: "pointer", transition: "0.2s"
         }}
         onMouseEnter={e => e.currentTarget.style.borderColor = "var(--primary-color)"}
         onMouseLeave={e => e.currentTarget.style.borderColor = theme.border}
       >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
         Export
       </button>
       {open && (
@@ -776,8 +776,8 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
     adminGetFeedbacks({ limit: 200 }).then(setFeedbacks).catch(console.error).finally(() => setLoading(false));
   };
 
-  useEffect(() => { 
-    load(); 
+  useEffect(() => {
+    load();
     // Check for forced filter from Team page
     const forcedFilter = localStorage.getItem("admin_feedback_filter");
     if (forcedFilter) {
@@ -807,7 +807,7 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
     const programMatch = selectedProgram === "ALL" || f.entity_name === selectedProgram;
     const ratingMatch = selectedRating === "ALL" || f.rating === parseInt(selectedRating);
     const statusMatch = selectedStatusFilter === "ALL" || f.status === selectedStatusFilter;
-    const searchMatch = !search || 
+    const searchMatch = !search ||
       f.description?.toLowerCase().includes(search.toLowerCase()) ||
       f.user_name?.toLowerCase().includes(search.toLowerCase()) ||
       f.assigned_to_name?.toLowerCase().includes(search.toLowerCase()) ||
@@ -864,9 +864,9 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
   };
 
   return (
-    <div style={{ 
-      display: "flex", 
-      flexDirection: "column", 
+    <div style={{
+      display: "flex",
+      flexDirection: "column",
       gap: "24px",
       height: "calc(100vh - 140px)",
       overflow: "hidden",
@@ -894,8 +894,8 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
           >
             {tab.label}
             {tab.count > 0 && (
-              <span style={{ 
-                fontSize: "10px", padding: "2px 6px", borderRadius: "10px", 
+              <span style={{
+                fontSize: "10px", padding: "2px 6px", borderRadius: "10px",
                 background: activeTab === tab.key ? (tab.color || "var(--primary-color)") : theme.bg,
                 color: activeTab === tab.key ? "white" : theme.textMuted,
                 fontWeight: "700"
@@ -913,7 +913,7 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
       {/* Actions & Filters (Fixed) */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "16px", marginBottom: "0", flexShrink: 0 }}>
         <div style={{ position: "relative", flex: 1, maxWidth: "400px" }}>
-          <svg style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: theme.textMuted }} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <svg style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: theme.textMuted }} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
           <input
             value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Search by user, program, or keyword..."
@@ -924,13 +924,13 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
       </div>
 
       {/* Table Section (Scrollable) */}
-      <div style={{ 
-        background: theme.surface, 
-        borderRadius: "16px", 
-        border: `1px solid ${theme.border}`, 
-        overflowY: "auto", 
+      <div style={{
+        background: theme.surface,
+        borderRadius: "16px",
+        border: `1px solid ${theme.border}`,
+        overflowY: "auto",
         flex: 1,
-        boxShadow: "0 4px 12px rgba(0,0,0,0.03)" 
+        boxShadow: "0 4px 12px rgba(0,0,0,0.03)"
       }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
           <thead>
@@ -939,7 +939,7 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   Program / Service
                   <div style={{ position: 'relative' }} ref={programFilterRef}>
-                    <button 
+                    <button
                       onClick={(e) => { e.stopPropagation(); setShowProgramFilter(!showProgramFilter); }}
                       style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', color: selectedProgram !== 'ALL' ? 'var(--primary-color)' : 'inherit' }}
                     >
@@ -948,10 +948,10 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
                     {showProgramFilter && (
                       <div style={{ position: 'absolute', top: '24px', left: 0, background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: '10px', boxShadow: '0 10px 25px rgba(0,0,0,0.15)', zIndex: 100, minWidth: '150px', padding: '6px' }}>
                         {["ALL", ...new Set(feedbacks.map(f => f.entity_name).filter(Boolean))].map(prog => (
-                          <button 
-                            key={prog} 
+                          <button
+                            key={prog}
                             onClick={(e) => { e.stopPropagation(); setSelectedProgram(prog); setShowProgramFilter(false); }}
-                            style={{ 
+                            style={{
                               display: 'block', width: '100%', padding: '8px 12px', border: 'none', background: selectedProgram === prog ? 'rgba(var(--primary-rgb), 0.1)' : 'none',
                               textAlign: 'left', fontSize: '12px', fontWeight: '600', color: selectedProgram === prog ? 'var(--primary-color)' : theme.text, borderRadius: '6px', cursor: 'pointer'
                             }}
@@ -970,7 +970,7 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   Rating
                   <div style={{ position: 'relative' }} ref={ratingFilterRef}>
-                    <button 
+                    <button
                       onClick={(e) => { e.stopPropagation(); setShowRatingFilter(!showRatingFilter); }}
                       style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', color: selectedRating !== 'ALL' ? 'var(--primary-color)' : 'inherit' }}
                     >
@@ -979,10 +979,10 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
                     {showRatingFilter && (
                       <div style={{ position: 'absolute', top: '24px', left: 0, background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: '10px', boxShadow: '0 10px 25px rgba(0,0,0,0.15)', zIndex: 100, minWidth: '120px', padding: '6px' }}>
                         {["ALL", "5", "4", "3", "2", "1"].map(r => (
-                          <button 
-                            key={r} 
+                          <button
+                            key={r}
                             onClick={(e) => { e.stopPropagation(); setSelectedRating(r); setShowRatingFilter(false); }}
-                            style={{ 
+                            style={{
                               display: 'block', width: '100%', padding: '8px 12px', border: 'none', background: selectedRating === r ? 'rgba(var(--primary-rgb), 0.1)' : 'none',
                               textAlign: 'left', fontSize: '12px', fontWeight: '600', color: selectedRating === r ? 'var(--primary-color)' : theme.text, borderRadius: '6px', cursor: 'pointer'
                             }}
@@ -999,7 +999,7 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   Status
                   <div style={{ position: 'relative' }} ref={statusFilterRef}>
-                    <button 
+                    <button
                       onClick={(e) => { e.stopPropagation(); setShowStatusFilter(!showStatusFilter); }}
                       style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', color: selectedStatusFilter !== 'ALL' ? 'var(--primary-color)' : 'inherit' }}
                     >
@@ -1008,10 +1008,10 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
                     {showStatusFilter && (
                       <div style={{ position: 'absolute', top: '24px', left: 0, background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: '10px', boxShadow: '0 10px 25px rgba(0,0,0,0.15)', zIndex: 100, minWidth: '150px', padding: '6px' }}>
                         {["ALL", "OPEN", "IN_PROGRESS", "RESOLVED"].map(s => (
-                          <button 
-                            key={s} 
+                          <button
+                            key={s}
                             onClick={(e) => { e.stopPropagation(); setSelectedStatusFilter(s); setShowStatusFilter(false); }}
-                            style={{ 
+                            style={{
                               display: 'block', width: '100%', padding: '8px 12px', border: 'none', background: selectedStatusFilter === s ? 'rgba(var(--primary-rgb), 0.1)' : 'none',
                               textAlign: 'left', fontSize: '12px', fontWeight: '600', color: selectedStatusFilter === s ? 'var(--primary-color)' : theme.text, borderRadius: '6px', cursor: 'pointer'
                             }}
@@ -1031,12 +1031,12 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
           </thead>
           <tbody>
             {filtered.map(f => (
-              <tr 
-                key={f.id} 
+              <tr
+                key={f.id}
                 onClick={() => setSelectedFeedback(f)}
-                style={{ 
-                  borderBottom: `1px solid ${theme.border}`, 
-                  cursor: "pointer", 
+                style={{
+                  borderBottom: `1px solid ${theme.border}`,
+                  cursor: "pointer",
                   transition: "0.15s",
                   backgroundColor: "transparent"
                 }}
@@ -1056,8 +1056,8 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
                 </td>
                 <td style={{ padding: "16px 20px" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                    <div style={{ 
-                      width: "10px", height: "10px", borderRadius: "50%", 
+                    <div style={{
+                      width: "10px", height: "10px", borderRadius: "50%",
                       background: f.rating <= 2 ? "#EF4444" : f.rating === 3 ? "#F59E0B" : "#10B981",
                       boxShadow: `0 0 10px ${f.rating <= 2 ? "#EF444450" : f.rating === 3 ? "#F59E0B50" : "#10B98150"}`,
                       border: "2px solid white"
@@ -1066,8 +1066,8 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
                   </div>
                 </td>
                 <td style={{ padding: "16px 20px" }}>
-                  <span style={{ 
-                    padding: "6px 12px", borderRadius: "10px", fontSize: "10px", fontWeight: "700", 
+                  <span style={{
+                    padding: "6px 12px", borderRadius: "10px", fontSize: "10px", fontWeight: "700",
                     textTransform: "uppercase", background: STATUSES[f.status]?.bg, color: STATUSES[f.status]?.color,
                     border: `1px solid ${STATUSES[f.status]?.color}40`,
                     display: "inline-flex", alignItems: "center", gap: "6px",
@@ -1096,9 +1096,9 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
             {!loading && filtered.length === 0 && (
               <tr>
                 <td colSpan={8} style={{ padding: "48px 24px", textAlign: "center" }}>
-                   <div style={{ fontSize: "18px", marginBottom: "8px" }}>📦</div>
-                   <p style={{ margin: 0, fontSize: "14px", fontWeight: "600", color: theme.text }}>No feedback submissions found.</p>
-                   <p style={{ margin: "4px 0 0", fontSize: "12px", color: theme.textMuted }}>Once users submit feedback, they will appear here for review and action.</p>
+                  <div style={{ fontSize: "18px", marginBottom: "8px" }}>📦</div>
+                  <p style={{ margin: 0, fontSize: "14px", fontWeight: "600", color: theme.text }}>No feedback submissions found.</p>
+                  <p style={{ margin: "4px 0 0", fontSize: "12px", color: theme.textMuted }}>Once users submit feedback, they will appear here for review and action.</p>
                 </td>
               </tr>
             )}
@@ -1106,22 +1106,22 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
         </table>
       </div>
 
-      <FeedbackSidePanel 
-        feedback={selectedFeedback} 
+      <FeedbackSidePanel
+        feedback={selectedFeedback}
         isClosing={isClosing}
-        onClose={closePanel} 
+        onClose={closePanel}
         onUpdateStatus={handleUpdateStatus}
         onShowToast={showToast}
         onRefresh={load}
-        theme={theme} 
-        darkMode={darkMode} 
+        theme={theme}
+        darkMode={darkMode}
         getModeLabel={getModeLabel}
         systemMode={systemMode}
         adminUser={adminUser}
       />
 
       <CustomModal isOpen={dialog.isOpen} title={dialog.title} message={dialog.message} type={dialog.type} confirmText={dialog.confirmText} isDestructive={dialog.isDestructive} onConfirm={dialog.onConfirm} onCancel={dialog.onCancel} />
-      
+
       {/* Toast Notification */}
       {toast && (
         <div style={{

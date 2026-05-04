@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
     adminGetEntities, adminCreateEntity, adminUpdateEntity, adminDeleteEntity,
     adminGetBranches, adminCreateBranch, adminUpdateBranch, adminDeleteBranch,
@@ -71,7 +71,7 @@ const AdminPrograms = ({ theme, darkMode, adminUser, onNavigate, initialTab }) =
     const [analyticsLoading, setAnalyticsLoading] = useState(false);
     const [dialog, setDialog] = useState({ isOpen: false });
 
-    const loadDetailedAnalytics = async () => {
+    const loadDetailedAnalytics = useCallback(async () => {
         if (!selectedProgram || activeTab !== "analytics") return;
         setAnalyticsLoading(true);
         try {
@@ -108,17 +108,17 @@ const AdminPrograms = ({ theme, darkMode, adminUser, onNavigate, initialTab }) =
             console.error("Failed to load detailed analytics:", err);
         }
         setAnalyticsLoading(false);
-    };
+    }, [selectedProgram, activeTab, analyticsTimeframe, getLabel]);
 
     useEffect(() => {
         loadDetailedAnalytics();
-    }, [selectedProgram, activeTab, analyticsTimeframe]);
+    }, [loadDetailedAnalytics]);
 
     useEffect(() => {
         if (initialTab && initialTab !== activeTab) {
             setActiveTab(initialTab);
         }
-    }, [initialTab]);
+    }, [initialTab, activeTab]);
 
     const isDirty = selectedProgram && pristineProgram && JSON.stringify(selectedProgram) !== JSON.stringify(pristineProgram);
     const hasGlobalAdminAccess = (adminUser?.role === "superadmin") || (adminUser?.role === "admin" && !adminUser?.entity_id);
@@ -134,7 +134,7 @@ const AdminPrograms = ({ theme, darkMode, adminUser, onNavigate, initialTab }) =
     const [editLocId, setEditLocId] = useState(null);
     const [isAddingLocation, setIsAddingLocation] = useState(false);
 
-    const loadPrograms = async () => {
+    const loadPrograms = useCallback(async () => {
         setLoading(true);
         try {
             const data = await adminGetEntities();
@@ -183,39 +183,42 @@ const AdminPrograms = ({ theme, darkMode, adminUser, onNavigate, initialTab }) =
             }
         } catch (err) { console.error(err); }
         setLoading(false);
-    };
+    }, [adminUser?.entity_id, getLabel]);
 
-    const loadLocations = async (programId) => {
+    const loadLocations = useCallback(async (programId) => {
         setLocLoading(true);
         try {
             const data = await adminGetBranches(programId);
             setLocations(data);
         } catch (err) { console.error(err); }
         setLocLoading(false);
-    };
+    }, []);
 
-    const loadTeam = async (programId) => {
+    const loadTeam = useCallback(async (programId) => {
         setTeamLoading(true);
         try {
             const data = await adminGetUsers(programId);
             setTeamUsers(data);
         } catch (err) { console.error(err); }
         setTeamLoading(false);
-    };
-
-    useEffect(() => {
-        loadPrograms();
     }, []);
 
     useEffect(() => {
-        if (selectedProgram && !pristineProgram) {
-            setPristineProgram(JSON.parse(JSON.stringify(selectedProgram)));
-        }
+        loadPrograms();
+    }, [loadPrograms]);
+
+    useEffect(() => {
         if (selectedProgram) {
+            // Reset pristine state if we switched programs or don't have one yet
+            if (!pristineProgram || pristineProgram.id !== selectedProgram.id) {
+                setPristineProgram(JSON.parse(JSON.stringify(selectedProgram)));
+            }
             loadLocations(selectedProgram.id);
             loadTeam(selectedProgram.id);
+        } else {
+            setPristineProgram(null);
         }
-    }, [selectedProgram, pristineProgram]);
+    }, [selectedProgram, pristineProgram?.id, loadLocations, loadTeam]);
 
     const updateFields = (section, key, value) => {
         setSelectedProgram(prev => ({

@@ -10,7 +10,7 @@ export default function AdminTeam({ adminUser, onNavigate }) {
   const [selectedEntityId, setSelectedEntityId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  
+
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [inviteConfirmModal, setInviteConfirmModal] = useState(false);
@@ -22,7 +22,6 @@ export default function AdminTeam({ adminUser, onNavigate }) {
   const [targetAssignUser, setTargetAssignUser] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
 
-  const { systemName } = useTerminology();
   const isGlobalAdmin = ["superadmin", "GlobalOverseer"].includes(adminUser?.role);
   const canInvite = isGlobalAdmin || adminUser?.role === "admin";
 
@@ -97,7 +96,7 @@ export default function AdminTeam({ adminUser, onNavigate }) {
     try {
       const allUsers = await adminGetUsers();
       let potential = [];
-      
+
       if (isGlobalAdmin) {
         // Global Admins see people who are not yet administrators (to promote them)
         potential = allUsers.filter(u => u.role !== "admin" && u.role !== "superadmin");
@@ -105,7 +104,7 @@ export default function AdminTeam({ adminUser, onNavigate }) {
         // Regular SPA Admins only see users who are already administrators but not assigned to a service
         potential = allUsers.filter(u => u.role === "admin" && !u.entity_id);
       }
-      
+
       potential = potential.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
       setCandidates(potential);
     } catch (e) {
@@ -122,7 +121,7 @@ export default function AdminTeam({ adminUser, onNavigate }) {
 
   const confirmInvite = async () => {
     if (!selectedCandidate) return;
-    
+
     setInviteLoading(true);
     setInviteConfirmModal(false);
     try {
@@ -146,7 +145,7 @@ export default function AdminTeam({ adminUser, onNavigate }) {
     if (diffMins <= 30) return "idle";
     return "offline";
   };
-  
+
   const getWorkloadIcon = (cases) => {
     if (cases <= 3) return "🟢";
     if (cases <= 6) return "🟡";
@@ -156,7 +155,7 @@ export default function AdminTeam({ adminUser, onNavigate }) {
   const groupMembers = () => {
     const you = teamMembers.filter(m => m.is_you);
     const others = teamMembers.filter(m => !m.is_you);
-    
+
     const coreTeam = others.filter(m => ["Admin", "Global Admin", "Coordinator", "Service_admin", "Superadmin"].includes(m.role))
       .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
     const supportTeam = others.filter(m => !["Admin", "Global Admin", "Coordinator", "Service_admin", "Superadmin"].includes(m.role))
@@ -166,19 +165,19 @@ export default function AdminTeam({ adminUser, onNavigate }) {
   };
 
   const { you, coreTeam, supportTeam } = groupMembers();
-  
+
   const availableCount = teamMembers.filter(m => getPresence(m.last_active) === "online").length;
   const overloadedCount = teamMembers.filter(m => m.active_cases >= 7).length;
 
   const renderMemberCard = (m) => {
     const presence = getPresence(m.last_active);
-    
+
     let dotColor = "#9CA3AF";
     if (presence === "online") dotColor = "#22C55E";
     if (presence === "idle") dotColor = "#F59E0B";
-    
+
     const isCore = ["Admin", "Global Admin", "Coordinator", "Service_admin", "Superadmin"].includes(m.role);
-    
+
     return (
       <div key={m.user_id} style={{
         padding: "12px 14px",
@@ -196,14 +195,14 @@ export default function AdminTeam({ adminUser, onNavigate }) {
             <img src={m.avatar_url} alt={m.name} style={{ width: "32px", height: "32px", borderRadius: "50%", objectFit: "cover" }} />
           ) : (
             <div style={{
-              width: "32px", height: "32px", borderRadius: "50%", backgroundColor: "#F3F4F6", 
+              width: "32px", height: "32px", borderRadius: "50%", backgroundColor: "#F3F4F6",
               display: "flex", alignItems: "center", justifyContent: "center", color: "#6B7280",
               fontWeight: "600", fontSize: "13px"
             }}>
               {m.name ? m.name.charAt(0).toUpperCase() : "?"}
             </div>
           )}
-          <div style={{ 
+          <div style={{
             position: "absolute", top: "-2px", right: "-2px",
             width: "10px", height: "10px", borderRadius: "50%",
             backgroundColor: dotColor, border: "2px solid #fff"
@@ -215,13 +214,13 @@ export default function AdminTeam({ adminUser, onNavigate }) {
           <div style={{ fontSize: "13px", fontWeight: "600", color: "#111827", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
             {m.name} {m.is_you && <span style={{ color: "#6B7280", fontWeight: "normal" }}>(You)</span>}
           </div>
-          
+
           <div style={{ fontSize: "11px", color: isCore ? "#4B5563" : "#6B7280", marginTop: "2px", fontWeight: isCore ? "500" : "normal" }}>
             {m.role} {m.entities && m.entities.length > 0 && ` • ${m.entities.join(" • ")}`}
           </div>
 
           <div style={{ display: "block", marginTop: "4px" }}>
-            <span 
+            <span
               style={{ fontSize: "11px", color: "#2563EB", fontWeight: "500", cursor: "pointer", display: "inline-block" }}
               onClick={() => {
                 if (m.is_you) {
@@ -236,18 +235,18 @@ export default function AdminTeam({ adminUser, onNavigate }) {
             </span>
           </div>
         </div>
-        
+
         {/* Action Button */}
         <div>
-          <button 
-            style={{ 
-              padding: "6px 12px", 
-              fontSize: "11px", 
-              fontWeight: "600", 
-              color: "#374151", 
-              backgroundColor: "#F9FAFB", 
-              border: "1px solid #E5E7EB", 
-              borderRadius: "6px", 
+          <button
+            style={{
+              padding: "6px 12px",
+              fontSize: "11px",
+              fontWeight: "600",
+              color: "#374151",
+              backgroundColor: "#F9FAFB",
+              border: "1px solid #E5E7EB",
+              borderRadius: "6px",
               cursor: "pointer",
               transition: "all 0.2s"
             }}
@@ -269,12 +268,12 @@ export default function AdminTeam({ adminUser, onNavigate }) {
         <h3 style={{ fontSize: "12px", fontWeight: "600", color: "#4B5563", marginBottom: "12px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
           {title} • {members.length} {members.length === 1 ? 'member' : 'members'}
         </h3>
-        
+
         {members.length === 0 ? (
           <div style={{ padding: "20px", textAlign: "center", backgroundColor: "#F9FAFB", borderRadius: "12px", border: "1px dashed #E5E7EB" }}>
             <div style={{ fontSize: "12px", color: "#6B7280", marginBottom: "8px" }}>No staff assigned to this tier yet.</div>
             {canInvite && (
-              <button 
+              <button
                 onClick={handleOpenInvite}
                 style={{ padding: "6px 12px", fontSize: "11px", fontWeight: "600", color: "#111827", backgroundColor: "white", border: "1px solid #D1D5DB", borderRadius: "6px", cursor: "pointer" }}
               >
@@ -293,16 +292,16 @@ export default function AdminTeam({ adminUser, onNavigate }) {
 
   return (
     <div style={{ padding: "30px", width: "100%", boxSizing: "border-box" }}>
-      
+
       {/* HEADER */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "4px" }}>
             <h2 style={{ margin: 0, fontSize: "16px", fontWeight: "700", color: "#111827" }}>Service Team</h2>
-            
+
             {isGlobalAdmin && (
-              <select 
-                value={selectedEntityId || ""} 
+              <select
+                value={selectedEntityId || ""}
                 onChange={(e) => setSelectedEntityId(e.target.value)}
                 style={{ padding: "4px 28px 4px 10px", background: "#F3F4F6", fontSize: "13px", fontWeight: "600", color: "#111827", border: "1px solid #E5E7EB", borderRadius: "6px", outline: "none", cursor: "pointer", appearance: "none", backgroundImage: "url(\"data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23111827%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E\")", backgroundRepeat: "no-repeat", backgroundPosition: "right 10px top 50%", backgroundSize: "10px auto" }}
               >
@@ -314,25 +313,25 @@ export default function AdminTeam({ adminUser, onNavigate }) {
           </div>
           <p style={{ margin: 0, fontSize: "13px", color: "#6B7280" }}>Manage workload and assignments for this service</p>
         </div>
-        
+
         <div style={{ display: "flex", gap: "10px" }}>
-           {canInvite && (
-             <button 
-               onClick={handleOpenInvite}
-               style={{ padding: "8px 14px", fontSize: "12px", fontWeight: "600", color: "#111827", backgroundColor: "white", border: "1px solid #D1D5DB", borderRadius: "6px", cursor: "pointer", boxShadow: "0 1px 2px rgba(0,0,0,0.05)" }}
-             >
-                Invite Team Member
-             </button>
-           )}
-           <button 
-             onClick={() => {
-               localStorage.setItem("admin_feedback_filter", "UNASSIGNED");
-               onNavigate("feedbacks");
-             }}
-             style={{ padding: "8px 14px", fontSize: "12px", fontWeight: "600", color: "white", backgroundColor: "#111827", border: "none", borderRadius: "6px", cursor: "pointer", boxShadow: "0 1px 2px rgba(0,0,0,0.1)" }}
-           >
-              Assign Unassigned Cases
-           </button>
+          {canInvite && (
+            <button
+              onClick={handleOpenInvite}
+              style={{ padding: "8px 14px", fontSize: "12px", fontWeight: "600", color: "#111827", backgroundColor: "white", border: "1px solid #D1D5DB", borderRadius: "6px", cursor: "pointer", boxShadow: "0 1px 2px rgba(0,0,0,0.05)" }}
+            >
+              Invite Team Member
+            </button>
+          )}
+          <button
+            onClick={() => {
+              localStorage.setItem("admin_feedback_filter", "UNASSIGNED");
+              onNavigate("feedbacks");
+            }}
+            style={{ padding: "8px 14px", fontSize: "12px", fontWeight: "600", color: "white", backgroundColor: "#111827", border: "none", borderRadius: "6px", cursor: "pointer", boxShadow: "0 1px 2px rgba(0,0,0,0.1)" }}
+          >
+            Assign Unassigned Cases
+          </button>
         </div>
       </div>
 
@@ -345,24 +344,24 @@ export default function AdminTeam({ adminUser, onNavigate }) {
           {/* KPI STRIP */}
           <div style={{ display: "flex", gap: "12px", marginBottom: "30px" }}>
             <div style={{ background: "#F3F4F6", height: "48px", padding: "0 16px", borderRadius: "8px", border: "1px solid #E5E7EB", display: "flex", alignItems: "center", gap: "10px" }}>
-                <span style={{ fontSize: "16px", fontWeight: "700", color: "#111827" }}>{overview.total_active_cases}</span>
-                <span style={{ fontSize: "12px", color: "#4B5563", fontWeight: "500" }}>Active Cases</span>
+              <span style={{ fontSize: "16px", fontWeight: "700", color: "#111827" }}>{overview.total_active_cases}</span>
+              <span style={{ fontSize: "12px", color: "#4B5563", fontWeight: "500" }}>Active Cases</span>
             </div>
-            <div 
+            <div
               style={{ background: overview.unassigned_cases > 0 ? "#FEF2F2" : "#F3F4F6", height: "48px", padding: "0 16px", borderRadius: "8px", border: overview.unassigned_cases > 0 ? "1px solid #FECACA" : "1px solid #E5E7EB", display: "flex", alignItems: "center", gap: "10px", cursor: "pointer" }}
               onClick={() => {
                 localStorage.setItem("admin_feedback_filter", "UNASSIGNED");
                 onNavigate("feedbacks");
               }}
             >
-                <span style={{ fontSize: "16px", fontWeight: "700", color: overview.unassigned_cases > 0 ? "#991B1B" : "#111827" }}>{overview.unassigned_cases}</span>
-                <span style={{ fontSize: "12px", color: overview.unassigned_cases > 0 ? "#B91C1C" : "#4B5563", fontWeight: "500" }}>Unassigned {overview.unassigned_cases > 0 && "⚠️"}</span>
+              <span style={{ fontSize: "16px", fontWeight: "700", color: overview.unassigned_cases > 0 ? "#991B1B" : "#111827" }}>{overview.unassigned_cases}</span>
+              <span style={{ fontSize: "12px", color: overview.unassigned_cases > 0 ? "#B91C1C" : "#4B5563", fontWeight: "500" }}>Unassigned {overview.unassigned_cases > 0 && "⚠️"}</span>
             </div>
           </div>
 
           {/* MAIN GRID */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: "30px" }}>
-            
+
             {/* LEFT PANEL */}
             <div>
               {renderGroup("You", you)}
@@ -373,25 +372,25 @@ export default function AdminTeam({ adminUser, onNavigate }) {
             {/* RIGHT PANEL */}
             <div>
               <div style={{ background: "white", padding: "20px", borderRadius: "12px", border: "1px solid #E5E7EB", position: "sticky", top: "20px", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
-                  <h3 style={{ margin: "0 0 16px", fontSize: "12px", fontWeight: "700", color: "#4B5563", textTransform: "uppercase", letterSpacing: "0.5px" }}>Team Snapshot</h3>
-                  
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px", fontSize: "13px" }}>
-                    <span style={{ color: "#6B7280" }}>Core Team:</span>
-                    <span style={{ fontWeight: "600", color: "#111827" }}>{coreTeam.length}</span>
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "16px", fontSize: "13px", paddingBottom: "16px", borderBottom: "1px solid #F3F4F6" }}>
-                    <span style={{ color: "#6B7280" }}>Support Team:</span>
-                    <span style={{ fontWeight: "600", color: "#111827" }}>{supportTeam.length}</span>
-                  </div>
+                <h3 style={{ margin: "0 0 16px", fontSize: "12px", fontWeight: "700", color: "#4B5563", textTransform: "uppercase", letterSpacing: "0.5px" }}>Team Snapshot</h3>
 
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px", fontSize: "13px" }}>
-                    <span style={{ color: "#6B7280" }}>Available:</span>
-                    <span style={{ fontWeight: "600", color: "#111827" }}>{availableCount} 🟢</span>
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "20px", fontSize: "13px" }}>
-                    <span style={{ color: "#6B7280" }}>Overloaded:</span>
-                    <span style={{ fontWeight: "600", color: "#111827" }}>{overloadedCount} 🔴</span>
-                  </div>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px", fontSize: "13px" }}>
+                  <span style={{ color: "#6B7280" }}>Core Team:</span>
+                  <span style={{ fontWeight: "600", color: "#111827" }}>{coreTeam.length}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "16px", fontSize: "13px", paddingBottom: "16px", borderBottom: "1px solid #F3F4F6" }}>
+                  <span style={{ color: "#6B7280" }}>Support Team:</span>
+                  <span style={{ fontWeight: "600", color: "#111827" }}>{supportTeam.length}</span>
+                </div>
+
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px", fontSize: "13px" }}>
+                  <span style={{ color: "#6B7280" }}>Available:</span>
+                  <span style={{ fontWeight: "600", color: "#111827" }}>{availableCount} 🟢</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "20px", fontSize: "13px" }}>
+                  <span style={{ color: "#6B7280" }}>Overloaded:</span>
+                  <span style={{ fontWeight: "600", color: "#111827" }}>{overloadedCount} 🔴</span>
+                </div>
               </div>
             </div>
 
@@ -409,7 +408,7 @@ export default function AdminTeam({ adminUser, onNavigate }) {
               </h3>
               <button onClick={() => setIsAssignModalOpen(false)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: "16px", color: "#6B7280" }}>✕</button>
             </div>
-            
+
             <div style={{ overflowY: "auto", flex: 1, paddingRight: "4px" }}>
               {assignLoading ? (
                 <div style={{ padding: "30px", textAlign: "center", color: "#6B7280", fontSize: "13px" }}>Loading unassigned cases...</div>
@@ -429,17 +428,17 @@ export default function AdminTeam({ adminUser, onNavigate }) {
                           From: {fb.sender_name || "Anonymous"} • {new Date(fb.created_at).toLocaleDateString()}
                         </div>
                       </div>
-                      
+
                       <div style={{ flexShrink: 0 }}>
                         {targetAssignUser ? (
-                          <button 
+                          <button
                             onClick={() => assignToUser(fb.id, targetAssignUser)}
                             style={{ padding: "6px 14px", background: "#111827", color: "white", borderRadius: "6px", border: "none", cursor: "pointer", fontSize: "11px", fontWeight: "600" }}
                           >
                             Assign Here
                           </button>
                         ) : (
-                          <select 
+                          <select
                             onChange={(e) => {
                               if (e.target.value) {
                                 assignToUser(fb.id, e.target.value);
@@ -477,7 +476,7 @@ export default function AdminTeam({ adminUser, onNavigate }) {
             </div>
 
             <div style={{ marginBottom: "16px" }}>
-              <input 
+              <input
                 type="text"
                 placeholder="Search unassigned admins..."
                 value={searchTerm}
@@ -485,7 +484,7 @@ export default function AdminTeam({ adminUser, onNavigate }) {
                 style={{ width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid #E5E7EB", fontSize: "13px", outline: "none" }}
               />
             </div>
-            
+
             <div style={{ overflowY: "auto", flex: 1, paddingRight: "4px" }}>
               {inviteLoading && candidates.length === 0 ? (
                 <div style={{ padding: "30px", textAlign: "center", color: "#6B7280", fontSize: "13px" }}>Searching for unassigned admins...</div>
@@ -498,26 +497,26 @@ export default function AdminTeam({ adminUser, onNavigate }) {
                   {candidates
                     .filter(u => u.name.toLowerCase().includes(searchTerm.toLowerCase()) || u.email.toLowerCase().includes(searchTerm.toLowerCase()))
                     .map(u => (
-                    <div key={u.id} style={{ padding: "12px", border: "1px solid #E5E7EB", borderRadius: "10px", display: "flex", justifyContent: "space-between", alignItems: "center", backgroundColor: "white" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                        <div style={{ width: "32px", height: "32px", borderRadius: "50%", backgroundColor: "#F3F4F6", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px", fontWeight: "700", color: "#4B5563" }}>
-                          {u.name.charAt(0).toUpperCase()}
+                      <div key={u.id} style={{ padding: "12px", border: "1px solid #E5E7EB", borderRadius: "10px", display: "flex", justifyContent: "space-between", alignItems: "center", backgroundColor: "white" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                          <div style={{ width: "32px", height: "32px", borderRadius: "50%", backgroundColor: "#F3F4F6", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px", fontWeight: "700", color: "#4B5563" }}>
+                            {u.name.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <div style={{ fontWeight: "600", fontSize: "13px", color: "#111827" }}>{u.name}</div>
+                            <div style={{ fontSize: "11px", color: "#6B7280" }}>{u.email}</div>
+                          </div>
                         </div>
-                        <div>
-                          <div style={{ fontWeight: "600", fontSize: "13px", color: "#111827" }}>{u.name}</div>
-                          <div style={{ fontSize: "11px", color: "#6B7280" }}>{u.email}</div>
-                        </div>
-                      </div>
-                      
-                        <button 
+
+                        <button
                           onClick={() => handleInviteUser(u)}
                           disabled={inviteLoading}
                           style={{ padding: "6px 12px", background: "#2563EB", color: "white", borderRadius: "6px", border: "none", cursor: "pointer", fontSize: "11px", fontWeight: "600" }}
                         >
                           Add to Team
                         </button>
-                    </div>
-                  ))}
+                      </div>
+                    ))}
                 </div>
               )}
             </div>

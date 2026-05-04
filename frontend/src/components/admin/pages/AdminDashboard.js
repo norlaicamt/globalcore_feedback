@@ -4,11 +4,10 @@ import {
   getAnalyticsSnapshot, adminGetScopeOptions
 } from "../../../services/adminApi";
 import {
-  AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
-  XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, Legend
+  AreaChart, Area, BarChart, Bar, Cell,
+  XAxis, YAxis, Tooltip, ResponsiveContainer, Legend
 } from "recharts";
 
-const CHART_COLORS = ["var(--primary-color)", "#2563EB", "#3B82F6", "#60A5FA", "#93C5FD", "#BFDBFE"];
 
 // --- COMPONENT: Section Header ---
 const SectionHeader = ({ title, icon, theme, subtitle, timeContext }) => (
@@ -175,7 +174,7 @@ const TimeFilter = ({ value, onChange, theme }) => (
 );
 
 const AdminDashboard = ({ onNavigate, theme, darkMode, adminUser }) => {
-  const { getLabel } = useTerminology();
+  useTerminology();
   const hasGlobalAdminAccess = (adminUser?.role === "superadmin") || (adminUser?.role === "admin" && !adminUser?.entity_id);
   const tooltipStyle = {
     fontSize: "12px", borderRadius: "8px", border: `1px solid ${theme.border}`,
@@ -191,10 +190,9 @@ const AdminDashboard = ({ onNavigate, theme, darkMode, adminUser }) => {
   const [topUsers, setTopUsers] = useState([]);
   const [engagement, setEngagement] = useState([]);
   const [sentiment, setSentiment] = useState({ positive: 0, neutral: 0, frustrated: 0 });
-  const [userDistribution, setUserDistribution] = useState({ by_entity: [], by_role: [] });
   const [programRankings, setProgramRankings] = useState({ top: [], lowest: [], all: [] });
   const [feedbackTypeDist, setFeedbackTypeDist] = useState({});
-  const [performanceFilter, setPerformanceFilter] = useState("top");
+  const [userDistribution, setUserDistribution] = useState({ by_entity: [], by_role: [] });
   const [loading, setLoading] = useState(true);
 
   const [scopeCategories, setScopeCategories] = useState([]);

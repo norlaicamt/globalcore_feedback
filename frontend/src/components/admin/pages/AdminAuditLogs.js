@@ -50,24 +50,25 @@ const AdminAuditLogs = ({ theme, darkMode, adminUser }) => {
   const [filterAction, setFilterAction] = useState("");
   const [searchAdmin, setSearchAdmin] = useState("");
 
-  useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
-      try {
-        const [logData, staffData] = await Promise.all([
-          adminGetAuditLogs(),
-          hasGlobalAdminAccess ? adminGetStaffList() : Promise.resolve([])
-        ]);
-        setLogs(logData);
-        setStaff(staffData);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadData();
+  const loadData = React.useCallback(async () => {
+    setLoading(true);
+    try {
+      const [logData, staffData] = await Promise.all([
+        adminGetAuditLogs(),
+        hasGlobalAdminAccess ? adminGetStaffList() : Promise.resolve([])
+      ]);
+      setLogs(logData);
+      setStaff(staffData);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
   }, [hasGlobalAdminAccess]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const getActionData = (type) => {
     const data = {
