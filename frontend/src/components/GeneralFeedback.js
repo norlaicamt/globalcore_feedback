@@ -484,21 +484,21 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, overrideConfig = null
     if (!content) return null;
 
     return (
-      <div key={item.id || idx} style={{ marginBottom: '32px', background: 'white', padding: '30px', borderRadius: '30px', border: `1.5px solid ${invalid ? '#EF4444' : 'rgba(0,0,0,0.03)'}`, boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.05)', animation: 'fadeIn 0.5s ease-out' }}>
+      <div key={item.id || idx} className="user-portal-card" style={{ marginBottom: '16px', background: 'white', padding: 'var(--card-padding, 30px)', borderRadius: '30px', border: `1.5px solid ${invalid ? '#EF4444' : 'rgba(0,0,0,0.03)'}`, boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.05)', animation: 'fadeIn 0.5s ease-out' }}>
         <div style={{ marginBottom: '12px' }}>
-          <label style={{ ...styles.label, color: '#0F172A', fontSize: '14px', fontWeight: '600', marginBottom: '6px', textTransform: 'none', letterSpacing: '-0.01em', lineHeight: '1.4' }}>{label_override}{item.required && <span style={{ color: '#EF4444', marginLeft: '6px' }}>*</span>}</label>
-          {helper && <p style={{ fontSize: '11px', color: '#64748B', margin: '6px 0 0', fontWeight: '400', lineHeight: '1.4' }}>{helper}</p>}
+          <label style={{ ...styles.label, color: '#0F172A', fontSize: 'var(--size-body, 14px)', fontWeight: '600', marginBottom: '6px', textTransform: 'none', letterSpacing: '-0.01em', lineHeight: '1.4' }}>{label_override}{item.required && <span style={{ color: '#EF4444', marginLeft: '6px' }}>*</span>}</label>
+          {helper && <p style={{ fontSize: 'var(--size-metadata, 11px)', color: '#64748B', margin: '6px 0 0', fontWeight: '400', lineHeight: '1.4' }}>{helper}</p>}
         </div>
         <div style={{ position: 'relative', marginTop: '12px' }}>
           {content}
           {!!itemValue && !['message_input', 'long_text', 'short_text'].includes(key) && (
-            <div style={{ marginTop: '16px', fontSize: '12px', fontWeight: '800', color: 'var(--primary-color)', display: 'flex', alignItems: 'center', gap: '8px', animation: 'fadeIn 0.3s ease' }}>
+            <div style={{ marginTop: '16px', fontSize: 'var(--size-metadata, 12px)', fontWeight: '800', color: 'var(--primary-color)', display: 'flex', alignItems: 'center', gap: '8px', animation: 'fadeIn 0.3s ease' }}>
               <LocalIcons.CheckCircle size={14} strokeWidth={3} />
               <span>Response captured</span>
             </div>
           )}
         </div>
-        {invalid && <div style={{ marginTop: '15px', color: '#EF4444', fontSize: '12px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '6px' }}><LocalIcons.AlertCircle size={14} />Required to continue</div>}
+        {invalid && <div style={{ marginTop: '15px', color: '#EF4444', fontSize: 'var(--size-metadata, 12px)', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '6px' }}><LocalIcons.AlertCircle size={14} />Required to continue</div>}
       </div>
     );
   };
@@ -509,7 +509,7 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, overrideConfig = null
 
   return (
     <div 
-      className="feedback-container"
+      className="feedback-container user-portal-container"
       style={{ 
         ...styles.container, 
         ...getDynamicBackground(),
@@ -547,7 +547,7 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, overrideConfig = null
             {/* INTENTIONAL HEADER */}
             <div style={{ textAlign: 'center', marginBottom: '24px' }}>
               <h2 style={{ 
-                fontSize: '22px', 
+                fontSize: 'var(--size-page-title, 22px)', 
                 fontWeight: '800', 
                 color: '#0F172A', 
                 margin: '0 0 8px 0', 
@@ -565,7 +565,7 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, overrideConfig = null
                 opacity: 0.6
               }} />
               <p style={{ 
-                fontSize: '13px', 
+                fontSize: 'var(--size-body, 13px)', 
                 color: '#64748B', 
                 fontWeight: '500', 
                 lineHeight: '1.4',
@@ -646,7 +646,7 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, overrideConfig = null
                     </div>
                     
                     <div style={{ 
-                      fontSize: '14px', 
+                      fontSize: 'var(--size-card-title, 14px)', 
                       fontWeight: '800', 
                       color: isSel ? 'var(--primary-color)' : '#1E293B',
                       letterSpacing: '-0.01em'
@@ -655,7 +655,7 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, overrideConfig = null
                     </div>
                     
                     <div style={{ 
-                      fontSize: '10px', 
+                      fontSize: 'var(--size-metadata, 10px)', 
                       fontWeight: '600', 
                       color: isSel ? 'var(--primary-color)' : '#94A3B8',
                       marginTop: '4px',
@@ -713,9 +713,9 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, overrideConfig = null
                 currentStep.items.map((it, idx) => renderItem(it, idx))
               )}
               <div style={{ display: 'flex', gap: '12px', marginTop: '10px' }}>
-                <button onClick={handleBack} style={{ ...styles.nextBtn, background: 'white', color: '#64748B', border: '1.5px solid #E2E8F0', boxShadow: 'none', flex: 1, height: '48px' }}>Back</button>
+                <button onClick={handleBack} style={{ ...styles.nextBtn, background: 'white', color: '#64748B', border: '1.5px solid #E2E8F0', boxShadow: 'none', flex: 1, height: 'var(--button-height, 48px)' }}>Back</button>
                 {(!['entity_picker'].includes(currentStep.items[0]?.key) || isPreview) && (
-                  <button onClick={() => handleNext()} style={{ ...styles.nextBtn, flex: 2, height: '48px' }}>{currentIndex === enabledSteps.length - 1 ? "Submit Feedback" : "Continue"}</button>
+                  <button onClick={() => handleNext()} style={{ ...styles.nextBtn, flex: 2, height: 'var(--button-height, 48px)' }}>{currentIndex === enabledSteps.length - 1 ? "Submit Feedback" : "Continue"}</button>
                 )}
               </div>
             </div>
@@ -825,15 +825,15 @@ const styles = {
     flexDirection: 'column',
     fontFamily: "'Outfit', sans-serif" 
   },
-  header: { padding: '24px 20px', background: 'rgba(255, 255, 255, 0.7)', backdropFilter: 'blur(12px)', display: 'flex', alignItems: 'center', gap: '15px', borderBottom: '1px solid rgba(255, 255, 255, 0.3)', position: 'sticky', top: 0, zIndex: 10 },
-  headerTitle: { fontSize: '14px', fontWeight: '600', color: '#0F172A', letterSpacing: '-0.02em' },
-  content: { flex: 1, padding: '24px 20px', overflowY: 'auto' },
+  header: { padding: 'var(--card-padding, 24px 20px)', background: 'rgba(255, 255, 255, 0.7)', backdropFilter: 'blur(12px)', display: 'flex', alignItems: 'center', gap: '15px', borderBottom: '1px solid rgba(255, 255, 255, 0.3)', position: 'sticky', top: 0, zIndex: 10 },
+  headerTitle: { fontSize: 'var(--size-page-title, 14px)', fontWeight: '600', color: '#0F172A', letterSpacing: '-0.02em' },
+  content: { flex: 1, padding: 'var(--card-padding, 24px 20px)', overflowY: 'auto' },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' },
   typeCard: { 
     display: 'flex', 
     flexDirection: 'column', 
     alignItems: 'center', 
-    padding: '24px 16px', 
+    padding: 'var(--card-padding, 24px 16px)', 
     borderRadius: '24px', 
     background: 'rgba(255, 255, 255, 0.8)', 
     backdropFilter: 'blur(10px)',
@@ -856,16 +856,16 @@ const styles = {
     marginBottom: '12px',
     transition: 'all 0.3s'
   },
-  itemName: { fontWeight: '600', fontSize: '14px', color: '#0F172A', marginBottom: '2px' },
+  itemName: { fontWeight: '600', fontSize: 'var(--size-card-title, 14px)', color: '#0F172A', marginBottom: '2px' },
   branchList: { display: 'flex', flexDirection: 'column', gap: '10px' },
-  branchItem: { padding: '16px', borderRadius: '18px', border: '1px solid rgba(255, 255, 255, 0.5)', background: 'rgba(255, 255, 255, 0.8)', backdropFilter: 'blur(10px)', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)', fontWeight: '600', fontSize: '13px', cursor: 'pointer', textAlign: 'left', transition: 'all 0.2s', lineHeight: '1.4' },
+  branchItem: { padding: 'var(--card-padding, 16px)', borderRadius: '18px', border: '1px solid rgba(255, 255, 255, 0.5)', background: 'rgba(255, 255, 255, 0.8)', backdropFilter: 'blur(10px)', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)', fontWeight: '600', fontSize: 'var(--size-body, 13px)', cursor: 'pointer', textAlign: 'left', transition: 'all 0.2s', lineHeight: '1.4' },
   formGroup: { marginBottom: '24px' },
-  label: { fontSize: '14px', fontWeight: '600', color: '#0F172A', marginBottom: '8px', display: 'block', lineHeight: '1.4' },
-  textarea: { width: '100%', padding: '14px 16px', borderRadius: '16px', border: '1.5px solid #E2E8F0', height: '120px', outline: 'none', fontSize: '13px', background: 'white', transition: 'all 0.2s', boxShadow: '0 2px 4px rgba(0,0,0,0.02) inset', lineHeight: '1.5' },
-  input: { width: '100%', padding: '12px 16px', borderRadius: '12px', border: '1.5px solid #E2E8F0', outline: 'none', fontSize: '13px', background: 'white', transition: 'all 0.2s', boxShadow: '0 2px 4px rgba(0,0,0,0.02) inset', lineHeight: '1.5' },
-  nextBtn: { width: '100%', padding: '0 20px', borderRadius: '16px', background: 'linear-gradient(135deg, var(--primary-color) 0%, rgba(var(--primary-rgb), 0.8) 100%)', color: 'white', border: 'none', fontWeight: '600', cursor: 'pointer', fontSize: '14px', boxShadow: '0 10px 20px -5px rgba(var(--primary-rgb), 0.4)', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)', letterSpacing: '0.01em' },
+  label: { fontSize: 'var(--size-body, 14px)', fontWeight: '600', color: '#0F172A', marginBottom: '8px', display: 'block', lineHeight: '1.4' },
+  textarea: { width: '100%', padding: '14px 16px', borderRadius: '16px', border: '1.5px solid #E2E8F0', height: '120px', outline: 'none', fontSize: 'var(--size-body, 13px)', background: 'white', transition: 'all 0.2s', boxShadow: '0 2px 4px rgba(0,0,0,0.02) inset', lineHeight: '1.5' },
+  input: { width: '100%', padding: '12px 16px', borderRadius: '12px', border: '1.5px solid #E2E8F0', outline: 'none', fontSize: 'var(--size-body, 13px)', background: 'white', transition: 'all 0.2s', boxShadow: '0 2px 4px rgba(0,0,0,0.02) inset', lineHeight: '1.5' },
+  nextBtn: { width: '100%', padding: '0 20px', borderRadius: '16px', background: 'linear-gradient(135deg, var(--primary-color) 0%, rgba(var(--primary-rgb), 0.8) 100%)', color: 'white', border: 'none', fontWeight: '600', cursor: 'pointer', fontSize: 'var(--size-nav, 14px)', boxShadow: '0 10px 20px -5px rgba(var(--primary-rgb), 0.4)', height: 'var(--button-height, 48px)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)', letterSpacing: '0.01em' },
   backBtn: { border: 'none', background: 'none', cursor: 'pointer' },
-  sectionTitle: { fontSize: '14px', fontWeight: '600', color: 'var(--primary-color)', marginBottom: '16px', borderBottom: '2px solid #E2E8F0', paddingBottom: '8px', letterSpacing: '-0.01em', lineHeight: '1.4' },
+  sectionTitle: { fontSize: 'var(--size-card-title, 14px)', fontWeight: '600', color: 'var(--primary-color)', marginBottom: '16px', borderBottom: '2px solid #E2E8F0', paddingBottom: '8px', letterSpacing: '-0.01em', lineHeight: '1.4' },
   loader: { padding: '100px', textAlign: 'center', fontWeight: '600', fontSize: '14px', color: 'var(--primary-color)' }
 };
 

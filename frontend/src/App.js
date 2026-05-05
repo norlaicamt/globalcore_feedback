@@ -141,7 +141,7 @@ function App() {
           
           {/* Developer Helper: Mobile Test URL */}
           {process.env.NODE_ENV === 'development' && (
-            <div style={{
+            <div className="mobile-hide-dev" style={{
               position: 'fixed',
               bottom: '20px',
               left: '20px',

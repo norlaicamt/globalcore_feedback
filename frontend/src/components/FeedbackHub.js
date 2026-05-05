@@ -503,16 +503,16 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
                 marginTop: '12px', display: 'flex', gap: '16px', justifyContent: 'center'
               }}>
                 <div style={{ textAlign: 'center' }}>
-                  <p style={{ margin: 0, fontSize: '12px', fontWeight: '900', color: '#FCD34D' }}>{(localUser?.impact_points || 0).toFixed(0)}</p>
-                  <p style={{ margin: 0, fontSize: '7px', color: 'rgba(255,255,255,0.4)', fontWeight: 'bold' }}>PTS</p>
+                  <p style={{ margin: 0, fontSize: 'var(--size-nav, 12px)', fontWeight: '900', color: '#FCD34D' }}>{(localUser?.impact_points || 0).toFixed(0)}</p>
+                  <p style={{ margin: 0, fontSize: 'var(--size-chip, 7px)', color: 'rgba(255,255,255,0.4)', fontWeight: 'bold' }}>PTS</p>
                 </div>
                 <div style={{ textAlign: 'center' }}>
-                  <p style={{ margin: 0, fontSize: '12px', fontWeight: '900', color: 'white' }}>{localUser?.posts_count || 0}</p>
-                  <p style={{ margin: 0, fontSize: '7px', color: 'rgba(255,255,255,0.4)', fontWeight: 'bold' }}>POSTS</p>
+                  <p style={{ margin: 0, fontSize: 'var(--size-nav, 12px)', fontWeight: '900', color: 'white' }}>{localUser?.posts_count || 0}</p>
+                  <p style={{ margin: 0, fontSize: 'var(--size-chip, 7px)', color: 'rgba(255,255,255,0.4)', fontWeight: 'bold' }}>POSTS</p>
                 </div>
                 <div style={{ textAlign: 'center' }}>
-                  <p style={{ margin: 0, fontSize: '12px', fontWeight: '900', color: 'white' }}>{localUser?.likes_received || 0}</p>
-                  <p style={{ margin: 0, fontSize: '7px', color: 'rgba(255,255,255,0.4)', fontWeight: 'bold' }}>LIKES</p>
+                  <p style={{ margin: 0, fontSize: 'var(--size-nav, 12px)', fontWeight: '900', color: 'white' }}>{localUser?.likes_received || 0}</p>
+                  <p style={{ margin: 0, fontSize: 'var(--size-chip, 7px)', color: 'rgba(255,255,255,0.4)', fontWeight: 'bold' }}>LIKES</p>
                 </div>
               </div>
             </div>
@@ -521,7 +521,7 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
                 if (item.type === 'label') {
                   return (
                     <div key={`label-${idx}`} style={{
-                      fontSize: '11px', fontWeight: '800', color: 'rgba(255,255,255,0.4)',
+                      fontSize: 'var(--size-chip, 11px)', fontWeight: '800', color: 'rgba(255,255,255,0.4)',
                       letterSpacing: '1px', marginTop: '24px', marginBottom: '12px', paddingLeft: '16px'
                     }}>
                       {item.label}
@@ -570,7 +570,7 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
                               key={sub.id}
                               style={{
                                 ...styles.menuLink,
-                                fontSize: '14px',
+                                fontSize: 'var(--size-nav, 14px)',
                                 backgroundColor: isSubActive ? 'rgba(255, 255, 255, 0.1)' : 'transparent',
                                 color: isSubActive ? 'white' : 'rgba(255, 255, 255, 0.6)',
                                 display: 'flex', alignItems: 'center', gap: '10px'
@@ -913,7 +913,6 @@ const CommentModal = ({ item, currentUser, onClose, onShowToast, onRefreshProfil
         <header style={{ ...styles.commentModalHeader, backgroundColor: '#FFFFFF', borderBottom: '1px solid #E2E8F0' }}>
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             <h3 style={{ ...styles.modalTitle, color: '#1E293B' }}>Community Discussion</h3>
-            <span style={styles.modalSubtitle}>{item.title}</span>
           </div>
           <button onClick={onClose} style={{ ...styles.closeBtn, backgroundColor: '#F1F5F9', color: '#64748B' }}>✕</button>
         </header>
@@ -931,48 +930,32 @@ const CommentModal = ({ item, currentUser, onClose, onShowToast, onRefreshProfil
               </div>
               <div style={{ flex: 1 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontWeight: '800', fontSize: '16px', color: '#1E293B' }}>{itemMeta.is_anonymous ? 'Anonymous' : (itemMeta.user_name || 'Anonymous')}</span>
-                  <div style={{ backgroundColor: '#F1F5F9', padding: '2px 8px', borderRadius: '10px', fontSize: '10px', color: '#64748B', fontWeight: 'bold' }}>{itemMeta.entity_name}</div>
+                  <span style={{ fontWeight: '800', fontSize: 'var(--size-user-name, 11px)', color: '#1E293B' }}>{itemMeta.is_anonymous ? 'Anonymous' : (itemMeta.user_name || 'Anonymous')}</span>
                 </div>
-                <div style={{ fontSize: '12px', color: '#94A3B8', marginTop: '2px' }}>{formatDate(itemMeta.created_at)}</div>
+                <div style={{ fontSize: 'var(--size-chip, 9px)', color: '#94A3B8', marginTop: '2px' }}>{formatDate(itemMeta.created_at)}</div>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
-                <div style={{ ...styles.ratingBadge, backgroundColor: '#FFF7ED', color: '#C2410C', padding: '4px 10px' }}>
-                  <Icons.Star filled={true} size={14} />
+                <div style={{ ...styles.ratingBadge, backgroundColor: '#FFF7ED', color: '#C2410C', padding: '2px 8px' }}>
+                  <Icons.Star filled={true} size={10} />
                   <span>{itemMeta.rating || 0}/5</span>
                 </div>
-                {itemMeta.status && (
-                  <div style={{
-                    fontSize: '10px',
-                    padding: '2px 8px',
-                    borderRadius: '10px',
-                    backgroundColor: itemMeta.status.toUpperCase() === 'CLOSED' ? '#F1F5F9' : '#EFF6FF',
-                    color: itemMeta.status.toUpperCase() === 'CLOSED' ? '#64748B' : '#1D4ED8',
-                    fontWeight: 'bold',
-                    border: '1px solid #DBEAFE',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px'
-                  }}>
-                    {itemMeta.status.toUpperCase() === 'CLOSED' && <Icons.Lock size={10} />}
-                    {itemMeta.status.toUpperCase()}
-                  </div>
-                )}
               </div>
             </div>
 
             {/* LOCATION CHIP */}
             {(itemMeta.barangay || itemMeta.city || itemMeta.province) && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#F8FAFC', padding: '8px 12px', borderRadius: '10px', marginBottom: '16px', border: '1px solid #F1F5F9' }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#64748B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
-                <span style={{ fontSize: '12px', color: '#64748B', fontWeight: '500' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#F8FAFC', padding: '4px 8px', borderRadius: '8px', marginBottom: '12px', border: '1px solid #F1F5F9' }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#64748B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                <span style={{ fontSize: '10px', color: '#64748B', fontWeight: '500' }}>
                   {[itemMeta.barangay, itemMeta.city, itemMeta.province, itemMeta.region].filter(Boolean).join(', ')}
                 </span>
               </div>
             )}
 
-            <h2 style={{ fontSize: '18px', fontWeight: '800', color: 'var(--primary-color)', margin: '0 0 12px 0', lineHeight: 1.3 }}>{itemMeta.title}</h2>
-            <p style={{ ...styles.snippetTextFull, color: '#334155', lineHeight: 1.6, fontSize: '14px', marginBottom: '20px' }}>{itemMeta.description || itemMeta.comment}</p>
+            {itemMeta.title && itemMeta.title.toLowerCase() !== 'feedback entry' && (
+              <h2 style={{ fontSize: 'var(--size-card-title, 12px)', fontWeight: '800', color: 'var(--primary-color)', margin: '0 0 8px 0', lineHeight: 1.3, overflowWrap: 'break-word', wordBreak: 'break-word' }}>{itemMeta.title}</h2>
+            )}
+            <p style={{ ...styles.snippetTextFull, color: '#334155', lineHeight: 1.6, fontSize: 'var(--size-body, 11px)', marginBottom: '16px', overflowWrap: 'break-word', wordBreak: 'break-word' }}>{itemMeta.description || itemMeta.comment}</p>
 
             {/* CLOSURE CONTEXT (Lighter version) */}
             {itemMeta.status?.toUpperCase() === 'CLOSED' && (
@@ -1282,6 +1265,7 @@ const FeedCard = ({ item: initialItem, currentUser, onShowToast, onOpenComments,
 
   return (
     <div
+      className="user-portal-card"
       onClick={() => { if (!isEditing) onOpenComments(item); }}
       style={{
         ...styles.feedCard,
@@ -1327,7 +1311,7 @@ const FeedCard = ({ item: initialItem, currentUser, onShowToast, onOpenComments,
               </span>
             )}
           </div>
-          <div style={{ ...styles.cardMeta, color: '#64748B', fontWeight: '500', fontSize: '12px' }}>
+          <div style={{ ...styles.cardMeta, color: '#64748B', fontWeight: '500', fontSize: 'var(--size-chip, 9px)' }}>
             {formatFeedbackDate(item.created_at)}
             {item.type !== 'comment' && (
               <span style={{ color: '#94A3B8' }}> • {formatLocation(item)}</span>
@@ -1347,22 +1331,22 @@ const FeedCard = ({ item: initialItem, currentUser, onShowToast, onOpenComments,
         <div style={{ position: 'relative', marginLeft: (item.status && item.status.toUpperCase() !== 'OPEN') ? '6px' : 'auto' }}>
           <button
             onClick={(e) => { e.stopPropagation(); setShowOptions(!showOptions); }}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: '#64748B' }}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', width: 'var(--button-height, 32px)', height: 'var(--button-height, 32px)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748B', fontSize: '18px', fontWeight: 'bold', borderRadius: '50%' }}
           >
             ⋮
           </button>
           {showOptions && (
             <div
               onClick={(e) => e.stopPropagation()}
-              style={{ position: 'absolute', right: 0, top: '100%', backgroundColor: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', zIndex: 10 }}
+              style={{ position: 'absolute', right: 0, top: '100%', backgroundColor: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', zIndex: 10, minWidth: '110px', overflow: 'hidden', marginTop: '4px' }}
             >
               {isOwner ? (
                 <>
-                  <button onClick={() => { setIsEditing(true); setShowOptions(false); setEditTitle(item.title); setEditDesc(item.description); }} style={{ display: 'block', width: '100%', padding: '8px 16px', background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer', borderBottom: '1px solid #E2E8F0', color: '#1E293B' }}>Edit</button>
-                  <button onClick={() => { setShowOptions(false); handleDelete(); }} style={{ display: 'block', width: '100%', padding: '8px 16px', background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer', color: '#EF4444' }}>Delete</button>
+                  <button onClick={() => { setIsEditing(true); setShowOptions(false); setEditTitle(item.title); setEditDesc(item.description); }} style={{ display: 'block', width: '100%', padding: '10px 14px', background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer', borderBottom: '1px solid #F1F5F9', color: '#1E293B', fontSize: 'var(--size-nav, 13px)', fontWeight: '600' }}>Edit</button>
+                  <button onClick={() => { setShowOptions(false); handleDelete(); }} style={{ display: 'block', width: '100%', padding: '10px 14px', background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer', color: '#EF4444', fontSize: 'var(--size-nav, 13px)', fontWeight: '600' }}>Delete</button>
                 </>
               ) : (
-                <button onClick={() => { setShowOptions(false); onShowToast("Post reported. Thank you."); }} style={{ display: 'block', width: '100%', padding: '8px 16px', background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer', color: '#EF4444', minWidth: '100px' }}>Report</button>
+                <button onClick={() => { setShowOptions(false); onShowToast("Post reported. Thank you."); }} style={{ display: 'block', width: '100%', padding: '10px 14px', background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer', color: '#EF4444', fontSize: 'var(--size-nav, 13px)', fontWeight: '600' }}>Report</button>
               )}
             </div>
           )}
@@ -1440,7 +1424,7 @@ const FeedCard = ({ item: initialItem, currentUser, onShowToast, onOpenComments,
                   <div style={{ fontSize: '10px', fontWeight: '900', color: 'var(--primary-color)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
                     {it.label_override}
                   </div>
-                  <div style={{ fontSize: '14px', color: '#1E293B', lineHeight: '1.5', fontWeight: '500' }}>
+                  <div style={{ fontSize: '14px', color: '#1E293B', lineHeight: '1.5', fontWeight: '500', overflowWrap: 'break-word', wordBreak: 'break-word' }}>
                     {displayVal}
                   </div>
                 </div>
@@ -1580,7 +1564,7 @@ const DashboardView = ({ feed, loading, hasMore, onLoadMore, onAction, currentUs
 
 
   return (
-    <div style={{ ...styles.fadeIn, display: 'flex', flexDirection: 'column', height: '100%', maxWidth: '1000px', margin: '0 auto', width: '100%', overflow: 'hidden' }}>
+    <div className="user-portal-container" style={{ ...styles.fadeIn, display: 'flex', flexDirection: 'column', height: '100%', maxWidth: '1000px', margin: '0 auto', width: '100%', overflow: 'hidden' }}>
 
       {/* FIXED TOP SECTION */}
       <div style={{ flexShrink: 0, paddingBottom: '8px' }}>
@@ -1592,10 +1576,8 @@ const DashboardView = ({ feed, loading, hasMore, onLoadMore, onAction, currentUs
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, width: '100%', maxWidth: '700px', margin: '0 auto' }}>
 
         {/* RECENT ACTIVITY: Main Feed */}
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-          <div style={styles.feedHeader}>
-          </div>
-
+        <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }} className="scroll-momentum no-scrollbar">
+          {/* CATEGORIES / TABS */}
           <div
             ref={el => {
               if (!el) return;
@@ -1605,7 +1587,7 @@ const DashboardView = ({ feed, loading, hasMore, onLoadMore, onAction, currentUs
               el.onmouseup = () => { isDown = false; el.style.cursor = 'grab'; };
               el.onmousemove = (e) => { if (!isDown) return; e.preventDefault(); const x = e.pageX - el.offsetLeft; el.scrollLeft = scrollLeft - (x - startX) * 1.5; };
             }}
-            style={styles.feedTabsRow}
+            style={{ ...styles.feedTabsRow, flexShrink: 0, padding: '12px 8px' }}
           >
             {tabs.map(tab => (
               <button
@@ -1638,8 +1620,8 @@ const DashboardView = ({ feed, loading, hasMore, onLoadMore, onAction, currentUs
                 value={searchDash}
                 onChange={(e) => setSearchDash(e.target.value)}
                 style={{
-                  width: '100%', padding: '10px 10px 10px 36px', backgroundColor: 'white',
-                  border: '1px solid #E2E8F0', borderRadius: '12px', fontSize: '13px',
+                  width: '100%', height: 'var(--search-height, 44px)', padding: '0 10px 0 36px', backgroundColor: 'white',
+                  border: '1px solid #E2E8F0', borderRadius: '12px', fontSize: 'var(--size-body, 13px)',
                   outline: 'none', transition: 'all 0.2s', boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
                 }}
                 onFocus={(e) => { e.target.style.borderColor = '#2563EB'; e.target.style.boxShadow = '0 0 0 3px rgba(37, 99, 235, 0.1)'; }}
@@ -1726,19 +1708,19 @@ const DashboardView = ({ feed, loading, hasMore, onLoadMore, onAction, currentUs
                         e.currentTarget.style.boxShadow = 'none';
                       }}
                     >
-                      <div style={{ backgroundColor: index === 0 ? '#EFF6FF' : '#F1F5F9', width: '32px', height: '32px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: '12px', flexShrink: 0 }}>
-                        <span style={{ fontSize: '14px', fontWeight: '900', color: index === 0 ? '#2563EB' : '#64748B' }}>{index + 1}</span>
+                      <div style={{ backgroundColor: index === 0 ? '#EFF6FF' : '#F1F5F9', width: 'var(--avatar-size, 32px)', height: 'var(--avatar-size, 32px)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: '12px', flexShrink: 0 }}>
+                        <span style={{ fontSize: 'var(--size-nav, 14px)', fontWeight: '900', color: index === 0 ? '#2563EB' : '#64748B' }}>{index + 1}</span>
                       </div>
                       <div style={{ flex: 1, overflow: 'hidden' }}>
-                        <h4 style={{ fontSize: '12px', fontWeight: '800', color: '#1E293B', margin: '0 0 2px 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.title}</h4>
+                        <h4 style={{ fontSize: 'var(--size-card-title, 12px)', fontWeight: '800', color: '#1E293B', margin: '0 0 2px 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.title}</h4>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                             <div style={{ backgroundColor: '#F0FDF4', padding: '2px', borderRadius: '4px', display: 'flex' }}><Icons.ThumbUp size={8} color="#166534" /></div>
-                            <span style={{ fontSize: '10px', color: '#166534', fontWeight: 'bold' }}>{item.likes_count || 0}</span>
+                            <span style={{ fontSize: 'var(--size-metadata, 10px)', color: '#166534', fontWeight: 'bold' }}>{item.likes_count || 0}</span>
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                             <div style={{ backgroundColor: '#FEF2F2', padding: '2px', borderRadius: '4px', display: 'flex' }}><Icons.ThumbDown size={8} color="#991B1B" /></div>
-                            <span style={{ fontSize: '10px', color: '#991B1B', fontWeight: 'bold' }}>{item.dislikes_count || 0}</span>
+                            <span style={{ fontSize: 'var(--size-metadata, 10px)', color: '#991B1B', fontWeight: 'bold' }}>{item.dislikes_count || 0}</span>
                           </div>
                         </div>
                       </div>
@@ -1748,11 +1730,12 @@ const DashboardView = ({ feed, loading, hasMore, onLoadMore, onAction, currentUs
               ) : (
                 <p style={{ fontSize: '10px', color: '#94A3B8', margin: 0, textAlign: 'center', padding: '10px' }}>No trending topics yet.</p>
               )}
-
             </div>
           </section>
 
-          <section style={{ ...styles.feedList, flex: 1, overflowY: 'auto', paddingBottom: '20px', border: '1px solid #E2E8F0', borderRadius: '12px', minHeight: '400px', backgroundColor: publicFeedEnabled ? 'transparent' : 'white' }}>
+          <section style={{ padding: '0 8px', marginBottom: '16px' }}>
+            <div style={{ borderTop: '1px solid #F1F5F9', marginBottom: '16px' }} />
+            <div style={{ ...styles.feedList, border: 'none', borderRadius: 0, backgroundColor: 'transparent', minHeight: 'auto' }}>
             {!publicFeedEnabled ? (
               <div style={{ padding: '60px 20px', textAlign: 'center' }}>
                 <div style={{ fontSize: '48px', marginBottom: '16px' }}>🔒</div>
@@ -1810,21 +1793,22 @@ const DashboardView = ({ feed, loading, hasMore, onLoadMore, onAction, currentUs
                 )}
               </>
             )}
-          </section>
-        </div>
+          </div>
+        </section>
       </div>
-
-      {/* FLOATING ACTION BUTTON (FAB) */}
-      <button
-        className="fab-btn"
-        style={styles.fab}
-        onClick={(e) => { e.stopPropagation(); onAction(); }}
-        title={`New ${getLabel("feedback_label", "Report")}`}
-      >
-        <Icons.Plus />
-      </button>
     </div>
-  );
+
+    {/* FLOATING ACTION BUTTON (FAB) */}
+    <button
+      className="fab-btn"
+      style={styles.fab}
+      onClick={(e) => { e.stopPropagation(); onAction(); }}
+      title={`New ${getLabel("feedback_label", "Report")}`}
+    >
+      <Icons.Plus />
+    </button>
+  </div>
+);
 };
 
 // CategorySelection reserved for future step-based form flow
@@ -1856,9 +1840,9 @@ const CategorySelection = ({ onBack, onSelect }) => (
 );
 
 const styles = {
-  hubContainer: { height: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: 'transparent', fontFamily: '"Inter", -apple-system, sans-serif', fontSize: '14px' },
+  hubContainer: { height: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: 'transparent', fontFamily: '"Inter", -apple-system, sans-serif', fontSize: 'var(--size-body, 14px)' },
   header: { padding: '8px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#FFFFFF', borderBottom: '1px solid #F1F5F9', flexShrink: 0 },
-  headerTitle: { fontSize: '14px', fontWeight: '800', color: '#1E293B', margin: 0 },
+  headerTitle: { fontSize: 'var(--size-page-title, 14px)', fontWeight: '800', color: '#1E293B', margin: 0 },
   iconBtn: { background: 'none', border: 'none', cursor: 'pointer', position: 'relative' },
   notifDot: { position: 'absolute', top: '0px', right: '0px', width: '8px', height: '8px', backgroundColor: 'var(--primary-color)', borderRadius: '50%', border: '2px solid white' },
   mainScroll: { flex: 1, overflowY: 'auto', padding: '0 20px 20px 20px', display: 'flex', flexDirection: 'column', borderLeft: '1px solid #E2E8F0', borderRight: '1px solid #E2E8F0' },
@@ -1871,13 +1855,13 @@ const styles = {
   `,
   layoutCenter: { maxWidth: '700px', margin: '0 auto', width: '100%' },
   welcomeSection: { marginBottom: '12px', maxWidth: '700px', margin: '0 auto', width: '100%' },
-  greeting: { fontSize: '16px', fontWeight: '800', background: '-webkit-linear-gradient(45deg, var(--primary-color), #3B82F6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' },
-  subGreeting: { fontSize: '12px', color: '#475569', fontWeight: '500' },
+  greeting: { fontSize: 'var(--size-page-title, 16px)', fontWeight: '800', background: '-webkit-linear-gradient(45deg, var(--primary-color), #3B82F6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' },
+  subGreeting: { fontSize: 'var(--size-secondary, 12px)', color: '#475569', fontWeight: '500' },
   actionGridSingle: { marginBottom: '12px', maxWidth: '700px', margin: '0 auto', width: '100%' },
-  primaryAction: { width: '100%', background: 'linear-gradient(135deg, var(--primary-color) 0%, #2563EB 100%)', color: 'white', border: 'none', borderRadius: '12px', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 6px rgba(37, 99, 235, 0.2)', cursor: 'pointer', transition: 'transform 0.2s', fontWeight: 'bold' },
+  primaryAction: { width: '100%', background: 'linear-gradient(135deg, var(--primary-color) 0%, #2563EB 100%)', color: 'white', border: 'none', borderRadius: '12px', padding: 'var(--card-padding, 10px 14px)', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 6px rgba(37, 99, 235, 0.2)', cursor: 'pointer', transition: 'transform 0.2s', fontWeight: 'bold' },
   actionIconBg: { width: '28px', height: '28px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.2)' },
-  actionText: { fontSize: '14px', fontWeight: 'bold' },
-  sectionTitle: { fontSize: '13px', fontWeight: 'bold' },
+  actionText: { fontSize: 'var(--size-nav, 14px)', fontWeight: 'bold' },
+  sectionTitle: { fontSize: 'var(--size-card-title, 13px)', fontWeight: 'bold' },
   feedHeader: {
     display: 'flex',
     justifyContent: 'space-between',
@@ -1892,26 +1876,26 @@ const styles = {
   },
   feedList: { display: 'flex', flexDirection: 'column', gap: '6px', padding: '6px 0', maxWidth: '700px', margin: '0 auto', width: '100%' },
   feedScroll: { flex: 1, overflowY: 'auto', padding: '6px', display: 'flex', flexDirection: 'column', gap: '6px' },
-  feedCard: { backgroundColor: '#FFFFFF', borderRadius: '12px', padding: '12px 16px', border: '1px solid #F1F5F9', borderLeft: '4px solid var(--primary-color)', cursor: 'pointer', transition: 'all 0.2s ease', position: 'relative', marginBottom: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' },
+  feedCard: { backgroundColor: '#FFFFFF', borderRadius: '12px', padding: 'var(--card-padding, 12px 16px)', border: '1px solid #F1F5F9', borderLeft: '4px solid var(--primary-color)', cursor: 'pointer', transition: 'all 0.2s ease', position: 'relative', marginBottom: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' },
 
   cardHeader: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' },
-  cardAvatar: { width: '32px', height: '32px', borderRadius: '50%', backgroundColor: 'var(--primary-color)', color: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 'bold' },
+  cardAvatar: { width: 'var(--avatar-size, 32px)', height: 'var(--avatar-size, 32px)', borderRadius: '50%', backgroundColor: 'var(--primary-color)', color: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 'var(--size-nav, 14px)', fontWeight: 'bold' },
   cardInfo: { flex: 1 },
-  cardSender: { fontSize: '13px', fontWeight: '700', color: '#000000' },
-  cardMeta: { fontSize: '11px', color: '#64748B' },
-  statusBadge: { padding: '2px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', color: 'white', backgroundColor: 'var(--primary-color)' },
+  cardSender: { fontSize: 'var(--size-user-name, 13px)', fontWeight: '700', color: '#000000' },
+  cardMeta: { fontSize: 'var(--size-metadata, 11px)', color: '#64748B' },
+  statusBadge: { padding: '2px 6px', borderRadius: '4px', fontSize: 'var(--size-chip, 10px)', fontWeight: 'bold', textTransform: 'uppercase', color: 'white', backgroundColor: 'var(--primary-color)' },
 
   cardSubjectRow: { display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '2px' },
-  cardSubject: { fontSize: '13px', fontWeight: '800', color: '#000000' },
-  cardDept: { fontSize: '10px', color: '#FFFFFF', backgroundColor: 'var(--primary-color)', padding: '2px 4px', borderRadius: '4px' },
+  cardSubject: { fontSize: 'var(--size-card-title, 13px)', fontWeight: '800', color: '#000000' },
+  cardDept: { fontSize: 'var(--size-chip, 10px)', color: '#FFFFFF', backgroundColor: 'var(--primary-color)', padding: '2px 4px', borderRadius: '4px' },
   cardRatingRow: { display: 'flex', gap: '2px', marginBottom: '4px', alignItems: 'center' },
 
-  cardText: { fontSize: '14px', color: '#1E293B', lineHeight: '1.5', margin: '8px 0 12px 0' },
+  cardText: { fontSize: 'var(--size-body, 14px)', color: '#1E293B', lineHeight: '1.5', margin: '8px 0 12px 0', overflowWrap: 'break-word', wordBreak: 'break-word' },
 
-  fbSenderRow: { fontSize: '14.5px', color: '#1E293B', lineHeight: '1.4', marginBottom: '2px' },
+  fbSenderRow: { fontSize: 'var(--size-nav, 14.5px)', color: '#1E293B', lineHeight: '1.4', marginBottom: '2px', overflowWrap: 'break-word', wordBreak: 'break-word' },
   fbActionRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #E2E8F0', paddingTop: '8px', marginTop: '12px' },
-  fbActionBtn: { display: 'flex', alignItems: 'center', gap: '8px', background: 'none', border: 'none', cursor: 'pointer', padding: '6px 12px', flex: 1, justifyContent: 'center', borderRadius: '8px', transition: 'background-color 0.2s', fontSize: '13px', color: '#64748B', fontWeight: '600' },
-  actionCount: { fontSize: '13px', fontWeight: '700', marginLeft: '4px' },
+  fbActionBtn: { display: 'flex', alignItems: 'center', gap: '4px', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px', flex: 1, justifyContent: 'center', borderRadius: '6px', transition: 'background-color 0.2s', fontSize: '10px', color: '#64748B', fontWeight: '600' },
+  actionCount: { fontSize: '9px', fontWeight: '700', marginLeft: '2px' },
 
   feedImages: { display: 'flex', flexDirection: 'row', gap: '8px', overflowX: 'auto', padding: '4px 0', marginBottom: '8px', scrollbarWidth: 'none' },
   feedImg: { height: '80px', minWidth: '80px', maxWidth: '160px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #E2E8F0', cursor: 'zoom-in' },
@@ -1944,7 +1928,7 @@ const styles = {
     whiteSpace: 'nowrap',
     transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
     flexShrink: 0,
-    fontSize: '11.5px',
+    fontSize: 'var(--size-chip, 11.5px)',
     boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
   },
   tabIconWrapper: {
@@ -1970,14 +1954,14 @@ const styles = {
     boxShadow: '0 8px 16px rgba(var(--primary-rgb), 0.3)',
     border: 'none',
     cursor: 'pointer',
-    zIndex: 900,
+    zIndex: 200,
     transition: 'transform 0.2s, background-color 0.2s',
   },
 
   metaGrid: { display: 'flex', flexDirection: 'column', gap: '3px', marginBottom: '8px' },
   metaItem: { display: 'flex', alignItems: 'flex-start', gap: '5px' },
-  metaIcon: { fontSize: '11px', flexShrink: 0, marginTop: '1px' },
-  metaText: { fontSize: '11px', color: '#65676B', lineHeight: '1.3' },
+  metaIcon: { fontSize: 'var(--size-metadata, 11px)', flexShrink: 0, marginTop: '1px' },
+  metaText: { fontSize: 'var(--size-metadata, 11px)', color: '#65676B', lineHeight: '1.3' },
 
   feedTarget: { fontSize: '12px', fontWeight: 'bold', color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.5px' },
   feedComment: { fontSize: '14px', margin: '8px 0', lineHeight: '1.5', color: '#334155' },
@@ -1985,9 +1969,9 @@ const styles = {
   livePulse: { display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#10B981', fontWeight: 'bold' },
   pulseDot: { width: '8px', height: '8px', backgroundColor: '#10B981', borderRadius: '50%' },
   emptyState: { padding: '40px 20px', textAlign: 'center', border: '2px dashed #E2E8F0', borderRadius: '20px' },
-  emptyText: { color: '#94A3B8', fontSize: '14px' },
+  emptyText: { color: '#94A3B8', fontSize: 'var(--size-body, 14px)' },
   backBtn: { background: 'none', border: 'none', color: 'var(--primary-color)', fontWeight: 'bold', marginBottom: '16px' },
-  pageTitle: { fontSize: '22px', fontWeight: 'bold', marginBottom: '20px' },
+  pageTitle: { fontSize: 'var(--size-page-title, 22px)', fontWeight: 'bold', marginBottom: '20px' },
   categoryStack: { display: 'flex', flexDirection: 'column', gap: '12px' },
   categoryCard: { display: 'flex', alignItems: 'center', backgroundColor: 'white', padding: '16px', borderRadius: '20px', border: '1px solid #E2E8F0' },
   catIcon: { width: '48px', height: '48px', borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: '16px' },
@@ -1996,10 +1980,11 @@ const styles = {
   menuContent: { width: '280px', height: '100%', background: 'linear-gradient(180deg, var(--primary-color) 0%, #0F172A 100%)', color: 'white', display: 'flex', flexDirection: 'column', boxShadow: '4px 0 24px rgba(0,0,0,0.3)', animation: 'slideRight 0.3s cubic-bezier(0.16, 1, 0.3, 1)' },
   menuHeader: { padding: '50px 24px 30px', borderBottom: '1px solid rgba(255,255,255,0.08)' },
   avatarLarge: { width: '64px', height: '64px', borderRadius: '22px', backgroundColor: 'rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', border: '2px solid rgba(255,255,255,0.3)', marginBottom: '16px', color: 'white' },
-  userName: { margin: 0, color: 'white', fontWeight: 'bold' },
-  userRole: { margin: 0, color: '#94A3B8', fontSize: '13px', marginTop: '4px' },
+  userName: { margin: 0, color: 'white', fontWeight: 'bold', fontSize: 'var(--size-user-name, 16px)' },
+  userRole: { margin: 0, color: '#94A3B8', fontSize: 'var(--size-secondary, 13px)', marginTop: '4px' },
   menuLinks: { padding: '24px', display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, overflowY: 'auto' },
-  menuLink: { background: 'none', border: 'none', textAlign: 'left', padding: '14px 16px', fontSize: '15px', fontWeight: '600', cursor: 'pointer', borderRadius: '12px', transition: 'background-color 0.2s', ':hover': { backgroundColor: 'rgba(255,255,255,0.05)' } },
+  modalBody: { padding: '24px', flex: 1, overflowY: 'auto', overflowWrap: 'break-word', wordBreak: 'break-word' },
+  menuLink: { background: 'none', border: 'none', textAlign: 'left', padding: '14px 16px', fontSize: 'var(--size-nav, 15px)', fontWeight: '600', cursor: 'pointer', borderRadius: '12px', transition: 'background-color 0.2s', ':hover': { backgroundColor: 'rgba(255,255,255,0.05)' } },
   notifOverlay: { position: 'fixed', inset: 0, backgroundColor: 'rgba(15, 23, 42, 0.5)', zIndex: 100 },
   notifContent: { width: '300px', height: '100%', backgroundColor: 'white', position: 'absolute', right: 0 },
   notifHeader: { padding: '20px', display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #E2E8F0' },
@@ -2030,50 +2015,50 @@ const styles = {
     border: '1px solid rgba(255, 255, 255, 0.3)',
     animation: 'modalSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1)'
   },
-  feedAvatar: { width: '36px', height: '36px', borderRadius: '12px', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '16px', flexShrink: 0 },
-  commentToggleBtn: { background: 'none', border: 'none', color: '#64748B', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: '600', cursor: 'pointer', padding: '6px 10px', borderRadius: '8px', transition: 'background-color 0.2s' },
+  feedAvatar: { width: 'var(--avatar-size, 36px)', height: 'var(--avatar-size, 36px)', borderRadius: '12px', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: 'var(--size-nav, 16px)', flexShrink: 0 },
+  commentToggleBtn: { background: 'none', border: 'none', color: '#64748B', display: 'flex', alignItems: 'center', gap: '6px', fontSize: 'var(--size-body, 13px)', fontWeight: '600', cursor: 'pointer', padding: '6px 10px', borderRadius: '8px', transition: 'background-color 0.2s' },
   modalOverlay: { position: 'fixed', inset: 0, backgroundColor: 'rgba(15, 23, 42, 0.7)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(8px)', padding: '20px' },
-  commentModalContent: { backgroundColor: 'white', width: '100%', maxWidth: '500px', maxHeight: '85vh', borderRadius: '28px', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' },
-  commentModalHeader: { padding: '16px 24px', borderBottom: '1px solid #F1F5F9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'white' },
-  modalTitle: { fontSize: '18px', fontWeight: '800', color: 'var(--primary-color)', margin: 0 },
-  closeBtn: { background: '#F1F5F9', border: 'none', width: '32px', height: '32px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#64748B' },
-  commentModalBody: { flex: 1, overflowY: 'auto', padding: '20px', backgroundColor: '#F8FAFC' },
-  originalPostSnippet: { backgroundColor: 'white', padding: '16px', borderRadius: '16px', border: '1px solid #E2E8F0', marginBottom: '24px' },
-  snippetUser: { fontSize: '12px', fontWeight: 'bold', color: 'var(--primary-color)', textTransform: 'uppercase', marginBottom: '6px', display: 'block' },
-  snippetText: { fontSize: '13px', margin: 0, color: '#1E293B', lineHeight: '1.4' },
+  commentModalContent: { backgroundColor: 'white', width: '100%', maxWidth: '500px', maxHeight: '85vh', borderRadius: '24px', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' },
+  commentModalHeader: { padding: 'var(--card-padding, 12px 16px)', borderBottom: '1px solid #F1F5F9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'white' },
+  modalTitle: { fontSize: 'var(--size-page-title, 16px)', fontWeight: '800', color: 'var(--primary-color)', margin: 0, overflowWrap: 'break-word', wordBreak: 'break-word' },
+  closeBtn: { background: '#F1F5F9', border: 'none', width: 'var(--button-height, 28px)', height: 'var(--button-height, 28px)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#64748B' },
+  commentModalBody: { flex: 1, overflowY: 'auto', padding: 'var(--card-padding, 12px)', backgroundColor: '#F8FAFC' },
+  originalPostSnippet: { backgroundColor: 'white', padding: 'var(--card-padding, 12px)', borderRadius: '14px', border: '1px solid #E2E8F0', marginBottom: '16px' },
+  snippetUser: { fontSize: 'var(--size-metadata, 11px)', fontWeight: 'bold', color: 'var(--primary-color)', textTransform: 'uppercase', marginBottom: '6px', display: 'block' },
+  snippetText: { fontSize: 'var(--size-body, 12px)', margin: 0, color: '#1E293B', lineHeight: '1.4' },
   modalCommentsList: { display: 'flex', flexDirection: 'column', gap: '8px' },
   modalCommentItem: { display: 'flex', gap: '8px' },
-  commentAvatarSmall: { width: '32px', height: '32px', borderRadius: '10px', backgroundColor: 'var(--primary-color)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontWeight: 'bold', flexShrink: 0 },
-  commentBubble: { backgroundColor: 'white', padding: '8px 12px', borderRadius: '16px', border: '1px solid #E2E8F0', flex: 1, boxShadow: '0 2px 4px rgba(0,0,0,0.02)' },
-  commentUserName: { fontSize: '12px', fontWeight: '800', color: 'var(--primary-color)' },
-  commentText: { fontSize: '13px', margin: '4px 0 8px', color: '#1E293B', lineHeight: '1.4' },
+  commentAvatarSmall: { width: 'var(--avatar-size, 28px)', height: 'var(--avatar-size, 28px)', borderRadius: '10px', backgroundColor: 'var(--primary-color)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 'var(--size-nav, 11px)', fontWeight: 'bold', flexShrink: 0 },
+  commentBubble: { padding: 'var(--card-padding, 8px 10px)', borderRadius: '12px', border: '1px solid #E2E8F0', position: 'relative', overflowWrap: 'break-word', wordBreak: 'break-word', flex: 1, backgroundColor: 'white', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' },
+  commentUserName: { fontSize: 'var(--size-user-name, 11px)', fontWeight: '800', color: 'var(--primary-color)' },
+  commentText: { fontSize: 'var(--size-body, 11px)', color: '#334155', lineHeight: '1.4', margin: '4px 0 0 0', overflowWrap: 'break-word', wordBreak: 'break-word' },
   commentActionsRow: { display: 'flex', alignItems: 'center', gap: '12px' },
-  commentActionLink: { background: 'none', border: 'none', padding: 0, fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', transition: 'color 0.2s' },
-  commentDate: { fontSize: '10px', color: '#94A3B8', marginLeft: 'auto' },
-  commentModalFooter: { padding: '12px 16px', borderTop: '1px solid #F1F5F9', borderBottomLeftRadius: '28px', borderBottomRightRadius: '28px', backgroundColor: 'white' },
+  commentActionLink: { background: 'none', border: 'none', padding: 0, fontSize: 'var(--size-metadata, 11px)', fontWeight: 'bold', cursor: 'pointer', transition: 'color 0.2s' },
+  commentDate: { fontSize: 'var(--size-metadata, 9px)', color: '#94A3B8', marginLeft: 'auto' },
+  commentModalFooter: { padding: 'var(--card-padding, 8px 12px)', borderTop: '1px solid #F1F5F9', borderBottomLeftRadius: '24px', borderBottomRightRadius: '24px', backgroundColor: 'white' },
   modalInputWrapper: { display: 'flex', alignItems: 'center', gap: '8px' },
   modalCommentInput: {
     flex: 1,
     backgroundColor: '#F1F5F9',
     border: '1px solid #E2E8F0',
-    borderRadius: '20px',
-    padding: '10px 16px',
-    fontSize: '13px',
+    borderRadius: '16px',
+    padding: '8px 12px',
+    fontSize: 'var(--size-body, 11px)',
     outline: 'none',
     transition: 'border-color 0.2s',
     '&:focus': { borderColor: 'var(--primary-color)' }
   },
-  modalSendBtn: { background: 'var(--primary-color)', border: 'none', color: 'white', width: '36px', height: '36px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'transform 0.2s' },
-  modalEditInput: { width: '100%', border: '2px solid var(--primary-color)', borderRadius: '12px', padding: '8px', fontSize: '13px', outline: 'none', marginBottom: '6px', boxSizing: 'border-box' },
-  modalMiniBtn: { background: '#F1F5F9', border: 'none', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', color: '#64748B', padding: '4px 10px', borderRadius: '8px' },
+  modalSendBtn: { background: 'var(--primary-color)', border: 'none', color: 'white', width: 'var(--button-height, 32px)', height: 'var(--button-height, 32px)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'transform 0.2s' },
+  modalEditInput: { width: '100%', padding: '8px', border: '1px solid #E2E8F0', borderRadius: '8px', fontSize: 'var(--size-body, 14px)', outline: 'none', overflowWrap: 'break-word', wordBreak: 'break-word', marginBottom: '6px', boxSizing: 'border-box' },
+  modalMiniBtn: { background: '#F1F5F9', border: 'none', fontSize: 'var(--size-metadata, 11px)', fontWeight: 'bold', cursor: 'pointer', color: '#64748B', padding: '4px 10px', borderRadius: '8px' },
   btnIconTiny: { background: 'none', border: 'none', padding: '3px', cursor: 'pointer', color: '#94A3B8', transition: 'color 0.2s' },
-  modalSubtitle: { fontSize: '11px', color: '#64748B', fontWeight: '600' },
-  originalPostSnippetExtended: { backgroundColor: 'white', padding: '16px', borderRadius: '20px', border: '1px solid #E2E8F0', marginBottom: '16px', boxShadow: '0 4px 6px rgba(0,0,0,0.02)' },
-  snippetUserRow: { display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' },
-  snippetAvatar: { width: '36px', height: '36px', borderRadius: '12px', backgroundColor: '#F1F5F9', color: 'var(--primary-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '16px' },
-  snippetMeta: { fontSize: '11px', color: '#94A3B8' },
-  ratingBadge: { backgroundColor: '#FFF7ED', color: '#C2410C', padding: '3px 6px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: 'bold' },
-  snippetTextFull: { fontSize: '14px', color: '#1E293B', lineHeight: '1.5', margin: 0 },
+  modalSubtitle: { fontSize: 'var(--size-metadata, 11px)', color: '#64748B', fontWeight: '600' },
+  originalPostSnippetExtended: { backgroundColor: 'white', padding: 'var(--card-padding, 12px)', borderRadius: '16px', border: '1px solid #E2E8F0', marginBottom: '12px', boxShadow: '0 4px 6px rgba(0,0,0,0.02)' },
+  snippetUserRow: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' },
+  snippetAvatar: { width: 'var(--avatar-size, 28px)', height: 'var(--avatar-size, 28px)', borderRadius: '10px', backgroundColor: '#F1F5F9', color: 'var(--primary-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: 'var(--size-nav, 12px)' },
+  snippetMeta: { fontSize: 'var(--size-metadata, 10px)', color: '#94A3B8' },
+  ratingBadge: { backgroundColor: '#FFF7ED', color: '#C2410C', padding: '2px 6px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: 'var(--size-chip, 10px)', fontWeight: 'bold' },
+  snippetTextFull: { fontSize: 'var(--size-body, 12px)', color: '#1E293B', lineHeight: '1.4', margin: 0, overflowWrap: 'break-word', wordBreak: 'break-word' },
   commentChain: { display: 'flex', flexDirection: 'column', gap: '6px' },
   commentUserRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' },
   commentOptions: { display: 'flex', gap: '6px' },
@@ -2160,8 +2145,8 @@ const BroadcastViewModal = ({ notif, currentUser, onClose, onAcknowledge }) => {
         <header style={{ padding: '20px 24px 24px' }}>
           <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
             <div style={{
-              width: '40px',
-              height: '40px',
+              width: 'var(--avatar-size, 40px)',
+              height: 'var(--avatar-size, 40px)',
               borderRadius: '12px',
               background: isHighPriority ? '#EF4444' : 'var(--primary-color)',
               display: 'flex',
@@ -2177,14 +2162,14 @@ const BroadcastViewModal = ({ notif, currentUser, onClose, onAcknowledge }) => {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
               <h2 style={{
                 margin: 0,
-                fontSize: '18px',
+                fontSize: 'var(--size-page-title, 18px)',
                 fontWeight: '800',
                 color: '#0F172A',
                 lineHeight: 1.2
               }}>
                 {displaySubject}
               </h2>
-              <p style={{ margin: 0, fontSize: '13px', color: '#64748B', fontWeight: '500' }}>
+              <p style={{ margin: 0, fontSize: 'var(--size-secondary, 13px)', color: '#64748B', fontWeight: '500' }}>
                 Posted by {notif.actor_name || systemName + ' Administration'}
               </p>
             </div>
@@ -2195,13 +2180,13 @@ const BroadcastViewModal = ({ notif, currentUser, onClose, onAcknowledge }) => {
 
         {/* MESSAGE AREA */}
         <div style={{
-          padding: '24px',
+          padding: 'var(--card-padding, 24px)',
           maxHeight: '400px',
           overflowY: 'auto'
         }}>
           <p style={{
             margin: 0,
-            fontSize: '15px',
+            fontSize: 'var(--size-body, 15px)',
             color: '#334155',
             lineHeight: '1.7',
             whiteSpace: 'pre-wrap'
@@ -2227,17 +2212,21 @@ const BroadcastViewModal = ({ notif, currentUser, onClose, onAcknowledge }) => {
             }}
             style={{
               width: '100%',
-              padding: '14px',
+              padding: 'var(--card-padding, 14px)',
               borderRadius: '12px',
               background: isHighPriority ? '#EF4444' : 'var(--primary-color)',
               color: 'white',
               border: 'none',
-              fontSize: '15px',
+              fontSize: 'var(--size-nav, 15px)',
               fontWeight: '700',
               cursor: 'pointer',
               boxShadow: '0 4px 12px rgba(var(--primary-rgb), 0.2)',
               transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-              marginBottom: '16px'
+              marginBottom: '16px',
+              height: 'var(--button-height, 48px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
             }}
           >
             {requireAck ? 'Confirm Receipt' : 'Understood'}

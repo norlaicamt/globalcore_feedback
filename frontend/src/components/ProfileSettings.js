@@ -56,7 +56,7 @@ const calculateProfileCompletion = (user) => {
 // --- HELPERS & SHARED COMPONENTS ---
 
 const PasswordRule = ({ met, text }) => (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: met ? '#10B981' : '#94A3B8', padding: '2px 0' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: 'var(--size-metadata, 11px)', color: met ? '#10B981' : '#94A3B8', padding: '2px 0' }}>
         <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: met ? '#10B981' : '#E2E8F0' }} />
         <span style={{ fontWeight: '600' }}>{text}</span>
     </div>
@@ -81,13 +81,13 @@ const InputGroup = ({ label, value, onChange, placeholder, type, trailingAction 
             backgroundColor: '#F8FAFC', 
             border: '1.5px solid #E2E8F0', 
             borderRadius: '16px', 
-            padding: '10px 16px',
+            padding: 'var(--card-padding, 10px 16px)',
             transition: 'border-color 0.2s',
-            minHeight: '64px'
+            minHeight: 'var(--button-height, 64px)'
         }}>
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '2px' }}>
                 <label style={{ 
-                    fontSize: '10px', 
+                    fontSize: 'var(--size-chip, 10px)', 
                     fontWeight: '800', 
                     color: '#94A3B8', 
                     textTransform: 'uppercase', 
@@ -101,7 +101,7 @@ const InputGroup = ({ label, value, onChange, placeholder, type, trailingAction 
                         border: 'none', 
                         background: 'transparent', 
                         outline: 'none', 
-                        fontSize: '15px', 
+                        fontSize: 'var(--size-body, 15px)', 
                         color: '#1E293B', 
                         padding: '0', 
                         width: '100%',
@@ -135,7 +135,7 @@ const ToggleCard = ({ title, desc, isOn, onToggle, icon, isDisabled }) => (
             onClick={onToggle}
             style={{ ...styles.toggleBtn, backgroundColor: isOn && !isDisabled ? 'var(--primary-color)' : '#F1F5F9', border: isOn && !isDisabled ? 'none' : '1px solid #E2E8F0' }}
         >
-            <div style={{ ...styles.toggleCircle, transform: isOn && !isDisabled ? 'translateX(24px)' : 'translateX(2px)', background: isOn && !isDisabled ? 'white' : '#94A3B8' }} />
+            <div style={{ ...styles.toggleCircle, transform: isOn && !isDisabled ? 'translateX(21px)' : 'translateX(3px)', background: isOn && !isDisabled ? 'white' : '#94A3B8' }} />
         </button>
     </div>
 );
@@ -286,8 +286,10 @@ const ProfileView = ({ currentUser, onUserUpdate, showToast }) => {
                         <p style={styles.heroUsername}>@{currentUser.username || currentUser.name.toLowerCase().replace(" ", ".")}</p>
 
                         <div style={{ ...styles.badgeRow, marginTop: '14px' }}>
-                            <span style={styles.roleBadge}>{currentUser.role === 'superadmin' ? 'Global Admin' : currentUser.role.toUpperCase()}</span>
-                            <span style={styles.statusBadge}>Verified Citizen</span>
+                            {currentUser.role !== 'user' && (
+                                <span style={styles.roleBadge}>{currentUser.role === 'superadmin' ? 'Global Admin' : currentUser.role.toUpperCase()}</span>
+                            )}
+                            <span style={styles.statusBadge}>Verified</span>
                         </div>
                     </div>
                     <button 
@@ -300,7 +302,7 @@ const ProfileView = ({ currentUser, onUserUpdate, showToast }) => {
                         }} 
                         onClick={() => setIsEditing(!isEditing)}
                     >
-                        {isEditing ? "Cancel Changes" : "Edit Personal Profile"}
+                        {isEditing ? "Cancel" : "Edit"}
                     </button>
                 </div>
 
@@ -1098,64 +1100,64 @@ const styles = {
     container: { display: 'flex', flexDirection: 'column', padding: '10px 0', background: 'transparent', fontFamily: '"Inter", sans-serif' },
     contentAreaOnly: { flex: 1 },
     scrollWrapper: { padding: '20px' },
-    viewContainer: { maxWidth: '840px', margin: '0 auto' },
-    sectionHeader: { marginBottom: '48px' },
-    viewTitle: { fontSize: '32px', fontWeight: '900', color: 'var(--primary-color)', margin: '0 0 10px 0', letterSpacing: '-1.5px' },
-    viewSubtitle: { fontSize: '16px', color: '#64748B', margin: 0, fontWeight: '500' },
+    viewContainer: { maxWidth: '840px', margin: '0 auto', fontSize: 'var(--size-body, 14px)' },
+    sectionHeader: { marginBottom: 'var(--card-padding, 48px)' },
+    viewTitle: { fontSize: 'var(--size-page-title, 32px)', fontWeight: '900', color: 'var(--primary-color)', margin: '0 0 10px 0', letterSpacing: '-1.5px' },
+    viewSubtitle: { fontSize: 'var(--size-secondary, 16px)', color: '#64748B', margin: 0, fontWeight: '500' },
 
-    heroCard: { background: 'white', borderRadius: '32px', padding: '40px', border: '1.5px solid #E2E8F0', boxShadow: '0 15px 40px rgba(0,0,0,0.03)', marginBottom: '32px' },
-    heroContent: { display: 'flex', alignItems: 'center', gap: '32px', marginBottom: '40px' },
+    heroCard: { background: 'white', borderRadius: '32px', padding: 'var(--card-padding, 40px)', border: '1.5px solid #E2E8F0', boxShadow: '0 15px 40px rgba(0,0,0,0.03)', marginBottom: '32px' },
+    heroContent: { display: 'flex', alignItems: 'center', gap: 'var(--card-padding, 32px)', marginBottom: 'var(--card-padding, 40px)' },
     avatarLargeContainer: { position: 'relative' },
-    avatarLarge: { width: '110px', height: '110px', borderRadius: '35px', objectFit: 'cover', border: '4px solid white', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' },
-    avatarLargePlaceholder: { width: '110px', height: '110px', borderRadius: '35px', background: '#F1F5F9', color: 'var(--primary-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '40px', fontWeight: '900' },
-    heroEditBadge: { position: 'absolute', bottom: '-4px', right: '-4px', width: '32px', height: '32px', borderRadius: '10px', background: 'var(--primary-color)', color: 'white', border: '2px solid white', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' },
+    avatarLarge: { width: 'var(--avatar-size-large, 110px)', height: 'var(--avatar-size-large, 110px)', borderRadius: '35px', objectFit: 'cover', border: '4px solid white', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' },
+    avatarLargePlaceholder: { width: 'var(--avatar-size-large, 110px)', height: 'var(--avatar-size-large, 110px)', borderRadius: '35px', background: '#F1F5F9', color: 'var(--primary-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 'var(--size-nav, 40px)', fontWeight: '900' },
+    heroEditBadge: { position: 'absolute', bottom: '-4px', right: '-4px', width: 'var(--button-height, 32px)', height: 'var(--button-height, 32px)', borderRadius: '10px', background: 'var(--primary-color)', color: 'white', border: '2px solid white', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' },
     heroText: { flex: 1 },
-    heroName: { fontSize: '26px', fontWeight: '900', color: 'var(--primary-color)', margin: '0 0 4px 0', letterSpacing: '-0.5px' },
-    heroUsername: { fontSize: '13px', fontWeight: '800', color: 'var(--primary-color)', margin: '0 0 6px 0', letterSpacing: '0.5px' },
-    heroEmail: { fontSize: '14px', color: '#64748B', fontWeight: '500', marginBottom: '16px' },
+    heroName: { fontSize: 'var(--size-user-name, 26px)', fontWeight: '900', color: 'var(--primary-color)', margin: '0 0 4px 0', letterSpacing: '-0.5px' },
+    heroUsername: { fontSize: 'var(--size-metadata, 13px)', fontWeight: '800', color: 'var(--primary-color)', margin: '0 0 6px 0', letterSpacing: '0.5px' },
+    heroEmail: { fontSize: 'var(--size-secondary, 14px)', color: '#64748B', fontWeight: '500', marginBottom: '16px' },
     badgeRow: { display: 'flex', gap: '8px' },
-    roleBadge: { padding: '4px 12px', background: '#F0F9FF', color: '#0369A1', borderRadius: '20px', fontSize: '10px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.5px' },
-    statusBadge: { padding: '4px 12px', background: '#F0FDF4', color: '#166534', borderRadius: '20px', fontSize: '10px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.5px' },
-    premiumEditBtn: { padding: '10px 20px', background: 'rgba(var(--primary-rgb), 0.04)', color: 'var(--primary-color)', border: '1.5px solid rgba(var(--primary-rgb), 0.1)', borderRadius: '12px', fontSize: '13px', fontWeight: '800', cursor: 'pointer' },
+    roleBadge: { padding: '2px 8px', background: '#F0F9FF', color: '#0369A1', borderRadius: '20px', fontSize: 'var(--size-chip, 8.5px)', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.5px' },
+    statusBadge: { padding: '2px 8px', background: '#F0FDF4', color: '#166534', borderRadius: '20px', fontSize: 'var(--size-chip, 8.5px)', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.5px' },
+    premiumEditBtn: { padding: 'var(--card-padding, 8px 14px)', height: 'var(--button-height, 32px)', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(var(--primary-rgb), 0.04)', color: 'var(--primary-color)', border: '1.5px solid rgba(var(--primary-rgb), 0.1)', borderRadius: '10px', fontSize: 'var(--size-nav, 11px)', fontWeight: '800', cursor: 'pointer' },
 
-    statsBar: { display: 'flex', padding: '24px 0', borderTop: '1px solid #F1F5F9' },
+    statsBar: { display: 'flex', padding: 'var(--card-padding, 24px 0)', borderTop: '1px solid #F1F5F9' },
     statBox: { flex: 1, textAlign: 'center' },
-    statVal: { fontSize: '24px', fontWeight: '900', color: 'var(--primary-color)', display: 'block' },
-    statLab: { fontSize: '10px', color: '#94A3B8', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1px', marginTop: '4px' },
+    statVal: { fontSize: 'var(--size-nav, 24px)', fontWeight: '900', color: 'var(--primary-color)', display: 'block' },
+    statLab: { fontSize: 'var(--size-chip, 10px)', color: '#94A3B8', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1px', marginTop: '4px' },
     statDivider: { width: '1.5px', background: '#F1F5F9' },
 
-    sectionCardPremium: { background: 'white', borderRadius: '32px', padding: '40px', border: '1.5px solid #E2E8F0', marginBottom: '32px', boxShadow: '0 10px 40px rgba(0,0,0,0.02)' },
-    sectionCardPremiumProfile: { background: 'white', borderRadius: '32px', padding: '40px', border: '1.5px solid #E2E8F0', marginBottom: '32px' },
-    cardTitlePremium: { fontSize: '20px', fontWeight: '900', color: 'var(--primary-color)', letterSpacing: '-0.5px' },
-    cardHeader: { marginBottom: '32px' },
-    dataGridPremium: { display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '20px' },
-    dataTile: { padding: '20px', borderRadius: '20px', background: '#F8FAFC', border: '1px solid #F1F5F9', display: 'flex', gap: '16px' },
-    tileIcon: { width: '40px', height: '40px', background: 'white', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748B', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' },
-    tileLabel: { fontSize: '10px', fontWeight: '800', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '1px', display: 'block', marginBottom: '4px' },
-    tileValue: { fontSize: '14px', fontWeight: '700', color: '#1E293B', display: 'block' },
+    sectionCardPremium: { background: 'white', borderRadius: '32px', padding: 'var(--card-padding, 40px)', border: '1.5px solid #E2E8F0', marginBottom: '32px', boxShadow: '0 10px 40px rgba(0,0,0,0.02)' },
+    sectionCardPremiumProfile: { background: 'white', borderRadius: '32px', padding: 'var(--card-padding, 40px)', border: '1.5px solid #E2E8F0', marginBottom: '32px' },
+    cardTitlePremium: { fontSize: 'var(--size-card-title, 20px)', fontWeight: '900', color: 'var(--primary-color)', letterSpacing: '-0.5px' },
+    cardHeader: { marginBottom: 'var(--card-padding, 32px)' },
+    dataGridPremium: { display: 'grid', gridTemplateColumns: 'repeat(var(--grid-cols, 2), 1fr)', gap: 'var(--card-padding, 20px)' },
+    dataTile: { padding: 'var(--card-padding, 20px)', borderRadius: '20px', background: '#F8FAFC', border: '1px solid #F1F5F9', display: 'flex', gap: '16px' },
+    tileIcon: { width: 'var(--avatar-size, 40px)', height: 'var(--avatar-size, 40px)', background: 'white', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748B', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' },
+    tileLabel: { fontSize: 'var(--size-chip, 10px)', fontWeight: '800', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '1px', display: 'block', marginBottom: '4px' },
+    tileValue: { fontSize: 'var(--size-secondary, 14px)', fontWeight: '700', color: '#1E293B', display: 'block' },
 
-    formGridPremium: { display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '20px' },
+    formGridPremium: { display: 'grid', gridTemplateColumns: 'repeat(var(--grid-cols, 2), 1fr)', gap: 'var(--card-padding, 20px)' },
     inputWrap: { display: 'flex', flexDirection: 'column', gap: '8px' },
-    fieldLabel: { fontSize: '12px', fontWeight: '800', color: 'var(--primary-color)', textTransform: 'uppercase', letterSpacing: '0.5px' },
-    inputField: { padding: '16px', background: '#F8FAFC', border: '1.5px solid #E2E8F0', borderRadius: '16px', fontSize: '15px', color: '#1E293B' },
-    selectFieldPremium: { padding: '16px', background: '#F8FAFC', border: '1.5px solid #E2E8F0', borderRadius: '16px', fontSize: '15px', outline: 'none' },
-    primaryBtnPremium: { padding: '16px 28px', background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '18px', fontSize: '15px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px' },
-    secondaryBtnPremium: { padding: '16px 28px', background: 'transparent', color: '#64748B', border: '1.5px solid #E2E8F0', borderRadius: '18px', fontSize: '15px', fontWeight: '700', cursor: 'pointer' },
+    fieldLabel: { fontSize: 'var(--size-metadata, 12px)', fontWeight: '800', color: 'var(--primary-color)', textTransform: 'uppercase', letterSpacing: '0.5px' },
+    inputField: { padding: '16px', background: '#F8FAFC', border: '1.5px solid #E2E8F0', borderRadius: '16px', fontSize: 'var(--size-body, 15px)', color: '#1E293B' },
+    selectFieldPremium: { padding: '16px', background: '#F8FAFC', border: '1.5px solid #E2E8F0', borderRadius: '16px', fontSize: 'var(--size-body, 15px)', outline: 'none' },
+    primaryBtnPremium: { padding: '16px 28px', background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '18px', fontSize: 'var(--size-nav, 15px)', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', height: 'var(--button-height, 48px)', justifyContent: 'center' },
+    secondaryBtnPremium: { padding: '16px 28px', background: 'transparent', color: '#64748B', border: '1.5px solid #E2E8F0', borderRadius: '18px', fontSize: 'var(--size-nav, 15px)', fontWeight: '700', cursor: 'pointer', height: 'var(--button-height, 48px)', display: 'flex', alignItems: 'center', justifyContent: 'center' },
     formActionsPremium: { display: 'flex', gap: '16px', marginTop: '40px', justifyContent: 'flex-end', borderTop: '1px solid #F1F5F9', paddingTop: '32px' },
 
     scopeAwarenessBanner: { display: 'flex', gap: '20px', background: '#F0F9FF', border: '1px solid #BAE6FD', padding: '24px', borderRadius: '24px', marginBottom: '40px' },
     scopeIcon: { width: '48px', height: '48px', background: '#E0F2FE', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0369A1' },
     scopeText: { flex: 1, fontSize: '14px', color: '#0369A1' },
 
-    notificationGroup: { marginBottom: '48px' },
-    groupHeader: { fontSize: '11px', fontWeight: '900', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '20px', paddingLeft: '8px' },
+    notificationGroup: { marginBottom: 'var(--card-padding, 48px)' },
+    groupHeader: { fontSize: 'var(--size-chip, 11px)', fontWeight: '900', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '20px', paddingLeft: '8px' },
     groupStack: { display: 'flex', flexDirection: 'column', gap: '12px' },
-    toggleCard: { display: 'flex', alignItems: 'center', padding: '24px', background: 'white', borderRadius: '24px', border: '1.5px solid #F1F5F9', transition: 'all 0.2s ease', boxShadow: '0 4px 15px rgba(0,0,0,0.01)' },
-    toggleIconContainer: { width: '52px', height: '52px', background: '#F8FAFC', borderRadius: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748B', marginRight: '24px' },
-    toggleTitle: { fontSize: '16px', fontWeight: '800', color: 'var(--primary-color)', margin: '0 0 4px 0' },
-    toggleDesc: { fontSize: '13px', color: '#64748B', margin: 0, lineHeight: '1.5', paddingRight: '20px' },
-    toggleBtn: { width: '52px', height: '28px', borderRadius: '14px', position: 'relative', cursor: 'pointer', transition: 'all 0.3s' },
-    toggleCircle: { width: '22px', height: '22px', borderRadius: '50%', position: 'absolute', top: '2px', left: '0', transition: 'all 0.3s' },
+    toggleCard: { display: 'flex', alignItems: 'center', padding: 'var(--card-padding, 24px)', background: 'white', borderRadius: '24px', border: '1.5px solid #F1F5F9', transition: 'all 0.2s ease', boxShadow: '0 4px 15px rgba(0,0,0,0.01)' },
+    toggleIconContainer: { width: 'var(--avatar-size, 40px)', height: 'var(--avatar-size, 40px)', background: '#F8FAFC', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748B', marginRight: 'var(--card-padding, 16px)' },
+    toggleTitle: { fontSize: 'var(--size-card-title, 16px)', fontWeight: '800', color: 'var(--primary-color)', margin: '0 0 4px 0' },
+    toggleDesc: { fontSize: 'var(--size-body, 13px)', color: '#64748B', margin: 0, lineHeight: '1.5', paddingRight: '20px' },
+    toggleBtn: { width: '40px', height: '22px', borderRadius: '12px', position: 'relative', cursor: 'pointer', transition: 'all 0.3s', flexShrink: 0 },
+    toggleCircle: { width: '16px', height: '16px', borderRadius: '50%', position: 'absolute', top: '3px', left: '0', transition: 'all 0.3s' },
 
     toast: { position: 'fixed', bottom: '40px', right: '40px', background: 'var(--primary-color)', color: 'white', padding: '20px 32px', borderRadius: '24px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '12px', boxShadow: '0 20px 50px rgba(0,0,0,0.3)', animation: 'slideUp 0.4s ease-out', zIndex: 99999 },
 };

@@ -71,3 +71,66 @@ input::-webkit-credentials-auto-fill-button {
   position: absolute !important;
   right: 0 !important;
 }
+
+/* ── Mobile User Portal Compression (Strictly User-Facing) ── */
+@media (max-width: 768px) {
+  :root {
+    --size-page-title: 12px;
+    --size-user-name: 11px;
+    --size-card-title: 12px;
+    --size-body: 10px;
+    --size-secondary: 9px;
+    --size-metadata: 9px;
+    --size-nav: 10px;
+    --size-chip: 9px;
+    --card-padding: 10px;
+    --avatar-size: 34px;
+    --avatar-size-large: 64px;
+    --button-height: 34px;
+    --button-height-toggle: 22px;
+    --search-height: 34px;
+    --grid-cols: 1;
+    --card-padding: 10px;
+  }
+
+  /* Compact spacing for user portal elements */
+  .user-portal-container *, .user-portal-card * {
+    max-width: 100%;
+    overflow-wrap: break-word;
+    word-break: break-word;
+  }
+
+  .user-portal-container h1 { font-size: var(--size-page-title) !important; }
+  .user-portal-container h2 { font-size: var(--size-card-title) !important; }
+  .user-portal-container h3 { font-size: var(--size-user-name) !important; }
+  .user-portal-container p, .user-portal-container span, .user-portal-container div { 
+    font-size: var(--size-body); 
+  }
+  .user-portal-container small, .user-portal-container label { 
+    font-size: var(--size-chip) !important; 
+  }
+
+  .user-portal-container {
+    padding: 0 4px !important;
+  }
+
+  .user-portal-card {
+    padding: var(--card-padding) !important;
+    border-radius: 12px !important;
+    margin-bottom: 8px !important;
+  }
+
+  .mobile-hide-dev {
+    display: none !important;
+  }
+
+  /* Utility classes for typography compression */
+  .text-page-title { font-size: var(--size-page-title) !important; }
+  .text-user-name { font-size: var(--size-user-name) !important; }
+  .text-card-title { font-size: var(--size-card-title) !important; }
+  .text-body { font-size: var(--size-body) !important; }
+  .text-secondary { font-size: var(--size-secondary) !important; }
+  .text-metadata { font-size: var(--size-metadata) !important; }
+  .text-nav { font-size: var(--size-nav) !important; }
+  .text-chip { font-size: var(--size-chip) !important; }
+}

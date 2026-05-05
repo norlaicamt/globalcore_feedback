@@ -124,7 +124,11 @@ const DraftsView = ({ currentUser, onBack }) => {
               backgroundColor: selectedIds.length > 0 ? '#EF4444' : '#F1F5F9',
               color: selectedIds.length > 0 ? 'white' : '#94A3B8',
               borderRadius: '20px',
-              border: 'none'
+              border: 'none',
+              height: 'var(--button-height, 32px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
             }}
             onClick={handleDeleteSelected}
           >
@@ -200,23 +204,23 @@ const DraftsView = ({ currentUser, onBack }) => {
 };
 
 const styles = {
-  container: { height: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: '#F8FAFC', overflow: 'hidden' },
-  header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 20px', flexShrink: 0, borderBottom: '1px solid #F1F5F9', backgroundColor: 'white' },
-  headerTitle: { fontSize: '18px', fontWeight: '900', color: 'var(--primary-color)', margin: 0 },
-  selectModeBtn: { background: 'none', border: 'none', cursor: 'pointer', fontSize: '14px', fontWeight: '800' },
-  bulkBar: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 20px', backgroundColor: 'white', borderBottom: '1px solid #E2E8F0', width: '100%' },
-  bulkActionBtn: { background: 'none', border: 'none', fontSize: '13px', fontWeight: '900', cursor: 'pointer', padding: '6px 8px', textTransform: 'uppercase', letterSpacing: '0.05em' },
+  container: { height: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: '#F8FAFC', overflow: 'hidden', fontSize: 'var(--size-body, 14px)' },
+  header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'var(--card-padding, 12px 20px)', flexShrink: 0, borderBottom: '1px solid #F1F5F9', backgroundColor: 'white' },
+  headerTitle: { fontSize: 'var(--size-page-title, 18px)', fontWeight: '900', color: 'var(--primary-color)', margin: 0 },
+  selectModeBtn: { background: 'none', border: 'none', cursor: 'pointer', fontSize: 'var(--size-nav, 14px)', fontWeight: '800' },
+  bulkBar: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 'var(--card-padding, 12px 20px)', backgroundColor: 'white', borderBottom: '1px solid #E2E8F0', width: '100%' },
+  bulkActionBtn: { background: 'none', border: 'none', fontSize: 'var(--size-chip, 13px)', fontWeight: '900', cursor: 'pointer', padding: '6px 8px', textTransform: 'uppercase', letterSpacing: '0.05em' },
   iconBtn: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--primary-color)', padding: '4px', display: 'flex' },
-  mainContainer: { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: '16px', maxWidth: '800px', margin: '0 auto', width: '100%' },
+  mainContainer: { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: 'var(--card-padding, 16px)', maxWidth: '800px', margin: '0 auto', width: '100%' },
   listContainer: { flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px', paddingBottom: '40px' },
-  draftCard: { backgroundColor: 'white', borderRadius: '16px', padding: '16px', border: '1px solid #E2E8F0', cursor: 'pointer', transition: 'all 0.2s ease', display: 'flex', gap: '16px', alignItems: 'center' },
+  draftCard: { backgroundColor: 'white', borderRadius: '16px', padding: 'var(--card-padding, 16px)', border: '1px solid #E2E8F0', cursor: 'pointer', transition: 'all 0.2s ease', display: 'flex', gap: '16px', alignItems: 'center' },
   cardHeader: { display: 'flex', justifyContent: 'space-between', marginBottom: '4px', alignItems: 'center' },
-  itemDate: { fontSize: '11px', color: '#94A3B8', fontWeight: 'bold' },
-  itemTitle: { margin: '0 0 6px 0', fontSize: '15px', fontWeight: '800', color: '#1E293B', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
-  itemDesc: { fontSize: '13px', color: '#334155', margin: '0 0 12px 0', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: '1.4' },
+  itemDate: { fontSize: 'var(--size-metadata, 11px)', color: '#94A3B8', fontWeight: 'bold' },
+  itemTitle: { margin: '0 0 6px 0', fontSize: 'var(--size-card-title, 15px)', fontWeight: '800', color: '#1E293B', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
+  itemDesc: { fontSize: 'var(--size-body, 13px)', color: '#334155', margin: '0 0 12px 0', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: '1.4' },
   cardFooter: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
-  draftBadge: { backgroundColor: '#F1F5F9', color: '#475569', padding: '3px 8px', borderRadius: '6px', fontSize: '10px', fontWeight: '900' },
-  timeLabel: { fontSize: '11px', color: '#94A3B8', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: '600' },
+  draftBadge: { backgroundColor: '#F1F5F9', color: '#475569', padding: '3px 8px', borderRadius: '6px', fontSize: 'var(--size-chip, 10px)', fontWeight: '900' },
+  timeLabel: { fontSize: 'var(--size-metadata, 11px)', color: '#94A3B8', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: '600' },
   emptyState: { padding: '60px 20px', border: '2px dashed #E2E8F0', borderRadius: '24px', marginTop: '20px', display: 'flex', justifyContent: 'center', alignItems: 'center' },
 };
 

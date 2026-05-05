@@ -82,7 +82,7 @@ const styles = {
   },
   content: {
     backgroundColor: 'white',
-    padding: '32px 24px',
+    padding: 'var(--card-padding, 32px 24px)',
     borderRadius: '24px',
     width: '100%',
     maxWidth: '340px',
@@ -103,13 +103,13 @@ const styles = {
   },
   title: {
     margin: 0,
-    fontSize: '18px',
+    fontSize: 'var(--size-page-title, 18px)',
     fontWeight: '800',
     letterSpacing: '-0.02em'
   },
   message: {
     margin: '0 0 28px 0',
-    fontSize: '14px',
+    fontSize: 'var(--size-body, 14px)',
     color: '#64748B',
     lineHeight: '1.6',
     fontWeight: '500'
@@ -120,28 +120,36 @@ const styles = {
     width: '100%'
   },
   cancelBtn: {
-    padding: '12px 16px',
+    padding: 'var(--card-padding, 12px 16px)',
     borderRadius: '12px',
     backgroundColor: '#F1F5F9',
     color: '#64748B',
     border: 'none',
-    fontSize: '14px',
+    fontSize: 'var(--size-nav, 14px)',
     fontWeight: '700',
     cursor: 'pointer',
     flex: 1,
-    transition: 'all 0.2s'
+    transition: 'all 0.2s',
+    height: 'var(--button-height, 44px)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center'
   },
   primaryBtn: {
-    padding: '12px 16px',
+    padding: 'var(--card-padding, 12px 16px)',
     borderRadius: '12px',
     color: 'white',
     border: 'none',
-    fontSize: '14px',
+    fontSize: 'var(--size-nav, 14px)',
     fontWeight: '700',
     cursor: 'pointer',
     flex: 1,
     boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-    transition: 'all 0.2s'
+    transition: 'all 0.2s',
+    height: 'var(--button-height, 44px)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center'
   }
 };
 

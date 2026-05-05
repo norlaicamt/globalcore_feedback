@@ -140,7 +140,7 @@ const NotificationsView = ({ currentUser, onBack, onOpenComment, onRead, notific
         .notif-card-wow:hover {
           border-color: #E2E8F0;
           box-shadow: 0 4px 12px rgba(0,0,0,0.03);
-          transform: translateX(4px);
+          transform: none;
         }
         .section-divider {
           display: flex;
@@ -150,7 +150,7 @@ const NotificationsView = ({ currentUser, onBack, onOpenComment, onRead, notific
           font-family: 'Inter', sans-serif !important;
         }
         .section-title {
-          font-size: 11px;
+          font-size: var(--size-chip, 11px);
           font-weight: 800;
           color: #94A3B8;
           text-transform: uppercase;
@@ -170,7 +170,7 @@ const NotificationsView = ({ currentUser, onBack, onOpenComment, onRead, notific
           color: #64748B;
           padding: 2px 6px;
           borderRadius: 6px;
-          fontSize: 10px;
+          fontSize: var(--size-chip, 10px);
         }
       `}</style>
 
@@ -217,8 +217,8 @@ const NotificationsView = ({ currentUser, onBack, onOpenComment, onRead, notific
           ) : notifications.length === 0 ? (
             <div style={styles.emptyState}>
               <div style={{ color: '#CBD5E1', marginBottom: '16px' }}><Icons.BellRing /></div>
-              <h3 style={{ margin: '0 0 8px 0', color: '#1E293B', fontSize: '18px' }}>No Activity</h3>
-              <p style={{ color: '#94A3B8', margin: 0, fontSize: '14px', lineHeight: '1.5' }}>Your notification log is currently empty.</p>
+              <h3 style={{ margin: '0 0 8px 0', color: '#1E293B', fontSize: 'var(--size-page-title, 18px)' }}>No Activity</h3>
+              <p style={{ color: '#94A3B8', margin: 0, fontSize: 'var(--size-body, 14px)', lineHeight: '1.5' }}>Your notification log is currently empty.</p>
             </div>
           ) : (
             (() => {
@@ -285,7 +285,7 @@ const NotificationsView = ({ currentUser, onBack, onOpenComment, onRead, notific
                             backgroundColor: notif.is_read ? '#FFFFFF' : '#F4F8FF',
                             borderLeft: notif.is_read ? '3px solid #E2E8F0' : '3px solid #3B82F6',
                             transition: 'all 0.3s ease',
-                            padding: '16px 20px',
+                            padding: 'var(--card-padding, 16px 20px)',
                             display: 'flex',
                             gap: '16px',
                             alignItems: 'flex-start',
@@ -298,10 +298,10 @@ const NotificationsView = ({ currentUser, onBack, onOpenComment, onRead, notific
                           <div className="notif-avatar-cont" style={{ 
                             background: notif.is_read ? '#F8FAFC' : viz.bg, 
                             color: notif.is_read ? '#CBD5E1' : viz.color,
-                            width: '44px',
-                            height: '44px',
+                            width: 'var(--avatar-size, 44px)',
+                            height: 'var(--avatar-size, 44px)',
                             borderRadius: '14px',
-                            fontSize: '20px',
+                            fontSize: 'var(--size-nav, 20px)',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
@@ -335,7 +335,7 @@ const NotificationsView = ({ currentUser, onBack, onOpenComment, onRead, notific
                                   margin: 0, 
                                   color: '#0F172A', 
                                   fontWeight: notif.is_read ? 600 : 800, 
-                                  fontSize: '15px',
+                                  fontSize: 'var(--size-body, 15px)',
                                   lineHeight: '1.4'
                                 }}>
                                   {isAnnouncement ? (notif.subject || notif.message) : (
@@ -352,7 +352,7 @@ const NotificationsView = ({ currentUser, onBack, onOpenComment, onRead, notific
                               )}
                             </div>
 
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: '#94A3B8', marginTop: '2px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: 'var(--size-metadata, 11px)', color: '#94A3B8', marginTop: '2px' }}>
                               <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                 <Icons.Clock /> {formatDateTime(notif.created_at).date} at {formatDateTime(notif.created_at).time}
                               </span>
@@ -377,18 +377,18 @@ const spinKeyframes = `
 `;
 
 const styles = {
-  container: { height: '100vh', display: 'flex', flexDirection: 'column', background: 'linear-gradient(135deg, #F8FAFC 0%, #EEF2F6 100%)', overflow: 'hidden', fontFamily: '"Inter", -apple-system, sans-serif' },
-  header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 24px', flexShrink: 0, maxWidth: '800px', width: '100%', margin: '0 auto', zIndex: 10 },
-  headerTitle: { fontSize: '16px', fontWeight: '800', color: 'var(--primary-color)', margin: 0 },
+  container: { height: '100vh', display: 'flex', flexDirection: 'column', background: 'linear-gradient(135deg, #F8FAFC 0%, #EEF2F6 100%)', overflow: 'hidden', fontFamily: '"Inter", -apple-system, sans-serif', fontSize: 'var(--size-body, 14px)' },
+  header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'var(--card-padding, 16px 24px)', flexShrink: 0, maxWidth: '800px', width: '100%', margin: '0 auto', zIndex: 10 },
+  headerTitle: { fontSize: 'var(--size-page-title, 16px)', fontWeight: '800', color: 'var(--primary-color)', margin: 0 },
   iconBtn: { width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '12px', cursor: 'pointer', color: 'var(--primary-color)', boxShadow: '0 2px 4px rgba(0,0,0,0.02)', transition: 'transform 0.2s' },
   headerWrapper: { position: 'sticky', top: 0, zIndex: 10, background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(255,255,255,0.5)', flexShrink: 0 },
-  mainContainer: { flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center' },
+  mainContainer: { flex: 1, overflowY: 'auto', padding: 'var(--card-padding, 16px)', display: 'flex', flexDirection: 'column', alignItems: 'center' },
   listContainer: { width: '100%', maxWidth: '800px', display: 'flex', flexDirection: 'column', gap: '12px', paddingBottom: '40px' },
-  notifText: { fontSize: '13px', color: '#475569', margin: '0', lineHeight: '1.4' },
+  notifText: { fontSize: 'var(--size-body, 13px)', color: '#475569', margin: '0', lineHeight: '1.4' },
   cardFooter: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '2px' },
-  typeBadge: { padding: '4px 8px', borderRadius: '6px', fontSize: '10px', fontWeight: '800', letterSpacing: '0.05em' },
-  timeLabel: { fontSize: '11px', color: '#94A3B8', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '600' },
-  viewBtn: { padding: '6px 14px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', backgroundColor: '#F8FAFC', color: 'var(--primary-color)', border: '1px solid #E2E8F0', cursor: 'pointer', flexShrink: 0, transition: 'all 0.2s', ':hover': { backgroundColor: 'rgba(var(--primary-rgb), 0.05)', borderColor: 'rgba(var(--primary-rgb), 0.2)' } },
+  typeBadge: { padding: '4px 8px', borderRadius: '6px', fontSize: 'var(--size-chip, 10px)', fontWeight: '800', letterSpacing: '0.05em' },
+  timeLabel: { fontSize: 'var(--size-metadata, 11px)', color: '#94A3B8', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '600' },
+  viewBtn: { padding: '6px 14px', borderRadius: '8px', fontSize: 'var(--size-nav, 12px)', fontWeight: '700', backgroundColor: '#F8FAFC', color: 'var(--primary-color)', border: '1px solid #E2E8F0', cursor: 'pointer', flexShrink: 0, transition: 'all 0.2s', height: 'var(--button-height, 32px)', display: 'flex', alignItems: 'center', justifyContent: 'center' },
   emptyState: { padding: '60px 20px', backgroundColor: 'transparent', borderRadius: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', marginTop: '40px' },
   loadingState: { padding: '60px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', color: '#94A3B8', gap: '16px', fontWeight: 'bold' },
   spinner: { width: '30px', height: '30px', border: '3px solid #E2E8F0', borderTop: '3px solid var(--primary-color)', borderRadius: '50%', animation: 'spin 1s linear infinite' }

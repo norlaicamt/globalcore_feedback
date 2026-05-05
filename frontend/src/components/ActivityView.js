@@ -53,7 +53,7 @@ const ActivityView = ({ currentUser, onBack, onViewPost }) => {
         .activity-card {
           background: white;
           border-radius: 20px;
-          padding: 18px 24px;
+          padding: var(--card-padding, 18px 24px);
           border: 1px solid #F1F5F9;
           display: flex;
           align-items: center;
@@ -73,8 +73,8 @@ const ActivityView = ({ currentUser, onBack, onViewPost }) => {
           transform: translateY(0);
         }
         .activity-icon-cont {
-          width: 48px;
-          height: 48px;
+          width: var(--avatar-size, 48px);
+          height: var(--avatar-size, 48px);
           border-radius: 14px;
           display: flex;
           align-items: center;
@@ -145,7 +145,7 @@ const ActivityView = ({ currentUser, onBack, onViewPost }) => {
                           {(act.type === 'comment' || act.id.startsWith('react') || act.id.startsWith('reply_react')) && act.message && (
                             <p style={{ 
                               margin: '4px 0 0 0', 
-                              fontSize: '12.5px', 
+                              fontSize: 'var(--size-body, 12.5px)', 
                               color: '#475569', 
                               fontStyle: (act.id.startsWith('react') || act.id.startsWith('reply_react')) ? 'italic' : 'normal',
                               borderLeft: (act.type === 'comment') ? '2px solid #E2E8F0' : 'none',
@@ -194,7 +194,7 @@ const styles = {
     fontFamily: '"Inter", sans-serif' 
   },
   header: { 
-    padding: '20px 24px', 
+    padding: 'var(--card-padding, 20px 24px)', 
     display: 'flex', 
     alignItems: 'center', 
     justifyContent: 'space-between', 
@@ -205,8 +205,8 @@ const styles = {
     zIndex: 10 
   },
   backBtn: {
-    width: '44px',
-    height: '44px',
+    width: 'var(--button-height, 44px)',
+    height: 'var(--button-height, 44px)',
     borderRadius: '12px',
     border: '1px solid #F1F5F9',
     background: 'white',
@@ -219,14 +219,14 @@ const styles = {
   },
   title: { 
     margin: 0, 
-    fontSize: '17px', 
+    fontSize: 'var(--size-page-title, 17px)', 
     fontWeight: '900', 
     color: '#1E293B', 
     letterSpacing: '-0.02em' 
   },
   refreshBtn: {
-    width: '44px',
-    height: '44px',
+    width: 'var(--button-height, 44px)',
+    height: 'var(--button-height, 44px)',
     borderRadius: '12px',
     border: '1px solid #F1F5F9',
     background: 'white',
@@ -240,7 +240,8 @@ const styles = {
   main: { 
     flex: 1, 
     overflowY: 'auto', 
-    padding: '32px 24px' 
+    padding: 'var(--card-padding, 32px 24px)',
+    fontSize: 'var(--size-body, 14px)'
   },
   list: { 
     display: 'flex', 
@@ -256,7 +257,7 @@ const styles = {
     gap: '6px' 
   },
   actionText: { 
-    fontSize: '14px', 
+    fontSize: 'var(--size-body, 14px)', 
     color: '#475569', 
     lineHeight: '1.5' 
   },
@@ -274,18 +275,18 @@ const styles = {
     gap: '6px'
   },
   date: { 
-    fontSize: '11px', 
+    fontSize: 'var(--size-metadata, 11px)', 
     color: '#94A3B8', 
     fontWeight: '600' 
   },
   location: {
-    fontSize: '11px',
+    fontSize: 'var(--size-metadata, 11px)',
     color: '#94A3B8',
     fontWeight: '500'
   },
   mentionsList: { 
     marginTop: '8px', 
-    fontSize: '10px', 
+    fontSize: 'var(--size-chip, 10px)', 
     color: '#3B82F6', 
     fontWeight: '700', 
     backgroundColor: '#F0F9FF', 
@@ -311,13 +312,13 @@ const styles = {
   },
   emptyText: { 
     color: '#1E293B', 
-    fontSize: '18px', 
+    fontSize: 'var(--size-page-title, 18px)', 
     fontWeight: '900', 
     marginBottom: '12px' 
   },
   emptySubText: { 
     color: '#64748B', 
-    fontSize: '14px', 
+    fontSize: 'var(--size-body, 14px)', 
     maxWidth: '280px', 
     lineHeight: '1.6' 
   },
