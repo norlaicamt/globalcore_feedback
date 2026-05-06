@@ -16,7 +16,7 @@ export const getEmotion = (rating) => {
 
 export const formatLocation = (post) => {
   const { branch_name, city, province, barangay } = post;
-  
+
   // Use clean hierarchy: branch_name -> city -> province
   if (branch_name) {
     if (city) return `${branch_name} - ${city}`;
@@ -25,7 +25,7 @@ export const formatLocation = (post) => {
   if (city) return city;
   if (province) return province;
   if (barangay) return barangay;
-  
+
   return "Location not specified";
 };
 
@@ -33,7 +33,7 @@ export const formatFeedbackDate = (dateStr) => {
   if (!dateStr) return "Recently";
   const date = new Date(dateStr);
   if (isNaN(date.getTime())) return "Recently";
-  
+
   const now = new Date();
   const diffInSeconds = Math.floor((now - date) / 1000);
 
@@ -41,21 +41,21 @@ export const formatFeedbackDate = (dateStr) => {
   if (diffInSeconds < 60) return "Just now";
   if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
   if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
-  
+
   // Format: April 10 at 2:30 PM (for older posts)
-  const datePart = date.toLocaleDateString('en-US', { 
-    month: 'long', 
+  const datePart = date.toLocaleDateString('en-US', {
+    month: 'long',
     day: 'numeric',
-    year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined 
+    year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
   });
   const timePart = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-  
+
   return `${datePart} at ${timePart}`;
 };
 
 export const getDisplayName = (post, currentUser) => {
   if (post.is_anonymous) return 'Anonymous';
-  
+
   // User explicitly requested to NOT use "You", use actual name instead
   const name = post.user_name || post.sender_name;
   if (name) return name;
@@ -65,7 +65,7 @@ export const getDisplayName = (post, currentUser) => {
   if (currentUser && postUserId === currentUser.id && currentUser.name) {
     return currentUser.name;
   }
-  
+
   return 'Anonymous';
 };
 

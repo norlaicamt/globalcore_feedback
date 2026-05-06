@@ -1672,7 +1672,7 @@ const DashboardView = React.memo(({ feed, loading, hasMore, onLoadMore, onAction
 
               {trendingItems.length > 0 ? (
                 <div
-                  className="no-scrollbar"
+                  className="horizontal-scroll"
                   ref={el => {
                     if (!el) return;
                     let isDown = false, startX = 0, scrollLeft = 0;
@@ -1686,9 +1686,7 @@ const DashboardView = React.memo(({ feed, loading, hasMore, onLoadMore, onAction
                     flexDirection: 'row',
                     gap: '12px',
                     overflowX: 'auto',
-                    padding: '4px 2px',
-                    scrollbarWidth: 'none',
-                    msOverflowStyle: 'none',
+                    padding: '4px 2px 12px 2px',
                     scrollBehavior: 'smooth',
                     cursor: 'grab',
                     userSelect: 'none'
@@ -1754,79 +1752,79 @@ const DashboardView = React.memo(({ feed, loading, hasMore, onLoadMore, onAction
           <section style={{ padding: '0 8px', marginBottom: '16px' }}>
             <div style={{ borderTop: '1px solid #F1F5F9', marginBottom: '16px' }} />
             <div style={{ ...styles.feedList, border: 'none', borderRadius: 0, backgroundColor: 'transparent', minHeight: 'auto' }}>
-            {!publicFeedEnabled ? (
-              <div style={{ padding: '60px 20px', textAlign: 'center' }}>
-                <div style={{ fontSize: '48px', marginBottom: '16px' }}>🔒</div>
-                <h3 style={{ color: 'var(--primary-color)', margin: '0 0 8px 0' }}>Feed Restricted</h3>
-                <p style={{ color: '#64748B', fontSize: '13px', margin: 0, maxWidth: '250px', marginLeft: 'auto', marginRight: 'auto' }}>The community feed has been set to private by the administrator.</p>
-              </div>
-            ) : (
-              <>
-                {loading ? (
-                  <p style={styles.emptyText}>Loading feed...</p>
-                ) : filteredFeed.length > 0 ? (
-                  <>
-                    {filteredFeed.map(item => (
-                      <FeedCard key={item.id} item={item} currentUser={currentUser} onShowToast={onShowToast} onOpenComments={onOpenComments} onRefresh={onRefresh} setFullscreenImg={setFullscreenImg} />
-                    ))}
-                  </>
-                ) : (
-                  <div style={{ ...styles.emptyState, padding: '48px 20px', backgroundColor: 'white', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
-                    <div style={{ width: '64px', height: '64px', backgroundColor: '#F1F5F9', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <Icons.Message size={32} color="#94A3B8" />
+              {!publicFeedEnabled ? (
+                <div style={{ padding: '60px 20px', textAlign: 'center' }}>
+                  <div style={{ fontSize: '48px', marginBottom: '16px' }}>🔒</div>
+                  <h3 style={{ color: 'var(--primary-color)', margin: '0 0 8px 0' }}>Feed Restricted</h3>
+                  <p style={{ color: '#64748B', fontSize: '13px', margin: 0, maxWidth: '250px', marginLeft: 'auto', marginRight: 'auto' }}>The community feed has been set to private by the administrator.</p>
+                </div>
+              ) : (
+                <>
+                  {loading ? (
+                    <p style={styles.emptyText}>Loading feed...</p>
+                  ) : filteredFeed.length > 0 ? (
+                    <>
+                      {filteredFeed.map(item => (
+                        <FeedCard key={item.id} item={item} currentUser={currentUser} onShowToast={onShowToast} onOpenComments={onOpenComments} onRefresh={onRefresh} setFullscreenImg={setFullscreenImg} />
+                      ))}
+                    </>
+                  ) : (
+                    <div style={{ ...styles.emptyState, padding: '48px 20px', backgroundColor: 'white', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+                      <div style={{ width: '64px', height: '64px', backgroundColor: '#F1F5F9', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Icons.Message size={32} color="#94A3B8" />
+                      </div>
+                      <div style={{ textAlign: 'center' }}>
+                        <p style={{ ...styles.emptyText, fontWeight: '800', color: 'var(--primary-color)', margin: '0 0 4px 0', fontSize: '16px' }}>
+                          No feedback yet in this entity
+                        </p>
+                        <p style={{ fontSize: '12px', color: '#64748B', margin: 0 }}>
+                          Be the first to submit feedback
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => onAction()}
+                        style={{
+                          ...styles.primaryAction,
+                          width: 'auto',
+                          padding: '10px 24px',
+                          fontSize: '13px',
+                          background: 'var(--primary-color)',
+                          marginTop: '8px'
+                        }}
+                      >
+                        Submit Feedback
+                      </button>
                     </div>
-                    <div style={{ textAlign: 'center' }}>
-                      <p style={{ ...styles.emptyText, fontWeight: '800', color: 'var(--primary-color)', margin: '0 0 4px 0', fontSize: '16px' }}>
-                        No feedback yet in this entity
-                      </p>
-                      <p style={{ fontSize: '12px', color: '#64748B', margin: 0 }}>
-                        Be the first to submit feedback
-                      </p>
+                  )}
+                  {hasMore && feed.length >= 10 && (
+                    <div style={{ padding: '20px', textAlign: 'center' }}>
+                      <button
+                        onClick={onLoadMore}
+                        disabled={loading}
+                        style={{ ...styles.submitBtn, width: 'auto', padding: '10px 30px', backgroundColor: '#F1F5F9', color: 'var(--primary-color)', border: '1px solid #E2E8F0' }}
+                      >
+                        {loading ? 'Loading...' : 'Load More Activity'}
+                      </button>
                     </div>
-                    <button
-                      onClick={() => onAction()}
-                      style={{
-                        ...styles.primaryAction,
-                        width: 'auto',
-                        padding: '10px 24px',
-                        fontSize: '13px',
-                        background: 'var(--primary-color)',
-                        marginTop: '8px'
-                      }}
-                    >
-                      Submit Feedback
-                    </button>
-                  </div>
-                )}
-                {hasMore && feed.length >= 10 && (
-                  <div style={{ padding: '20px', textAlign: 'center' }}>
-                    <button
-                      onClick={onLoadMore}
-                      disabled={loading}
-                      style={{ ...styles.submitBtn, width: 'auto', padding: '10px 30px', backgroundColor: '#F1F5F9', color: 'var(--primary-color)', border: '1px solid #E2E8F0' }}
-                    >
-                      {loading ? 'Loading...' : 'Load More Activity'}
-                    </button>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        </section>
+                  )}
+                </>
+              )}
+            </div>
+          </section>
+        </div>
       </div>
-    </div>
 
-    {/* FLOATING ACTION BUTTON (FAB) */}
-    <button
-      className="fab-btn"
-      style={styles.fab}
-      onClick={(e) => { e.stopPropagation(); onAction(); }}
-      title={`New ${getLabel("feedback_label", "Report")}`}
-    >
-      <Icons.Plus />
-    </button>
-  </div>
-);
+      {/* FLOATING ACTION BUTTON (FAB) */}
+      <button
+        className="fab-btn"
+        style={styles.fab}
+        onClick={(e) => { e.stopPropagation(); onAction(); }}
+        title={`New ${getLabel("feedback_label", "Report")}`}
+      >
+        <Icons.Plus />
+      </button>
+    </div>
+  );
 });
 
 // CategorySelection reserved for future step-based form flow
@@ -1923,11 +1921,9 @@ const styles = {
   feedTabsRow: {
     display: 'flex',
     gap: '6px',
-    overflowX: 'scroll',
-    paddingBottom: '8px',
+    overflowX: 'auto',
+    paddingBottom: '12px',
     marginBottom: '8px',
-    scrollbarWidth: 'none',
-    msOverflowStyle: 'none',
     WebkitOverflowScrolling: 'touch',
     cursor: 'grab',
     flexShrink: 0,
