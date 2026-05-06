@@ -87,7 +87,7 @@ const hexToRgb = (hex) => {
   return `${r}, ${g}, ${b}`;
 };
 
-const GeneralFeedback = ({ currentUser, onBack, onSuccess, overrideConfig = null, isPreview = false }) => {
+const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, entities: preFetchedEntities = null, overrideConfig = null, isPreview = false }) => {
   const { getLabel, systemSettings } = useTerminology();
   const [step, setStep] = useState("");
   const [feedbackType, setFeedbackType] = useState("");
@@ -102,7 +102,7 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, overrideConfig = null
     new URLSearchParams(window.location.search).get('preview') === 'true' ||
     window.location.pathname.includes('/preview') || isPreview;
 
-  const [dbEntities, setDbEntities] = useState([]);
+  const [dbEntities, setDbEntities] = useState(preFetchedEntities || []);
   const [branches, setBranches] = useState([]);
   const [branchSearch, setBranchSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -126,7 +126,7 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, overrideConfig = null
   const primaryColor = formConfig?.theme?.primary_color || adminColor;
   const bgStyle = formConfig?.theme?.bg_style || "abstract";
 
-  const getDynamicBackground = () => {
+  const dynamicBackground = React.useMemo(() => {
     const p = primaryColor;
     const p08 = `rgba(${hexToRgb(p)}, 0.08)`;
     const p05 = `rgba(${hexToRgb(p)}, 0.05)`;
@@ -155,9 +155,18 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, overrideConfig = null
           `
         };
     }
-  };
+  }, [primaryColor, bgStyle]);
 
   useEffect(() => {
+    if (preFetchedEntities && preFetchedEntities.length > 0) {
+      if (preFetchedEntities.length === 1 && !selectedEntity) {
+        setSelectedEntity(preFetchedEntities[0]);
+        setSelectionMethod("auto");
+      }
+      setLoading(false);
+      return;
+    }
+    
     getEntities().then(data => {
       setDbEntities(data);
       if (data.length === 1 && !selectedEntity) {
@@ -165,7 +174,7 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, overrideConfig = null
         setSelectionMethod("auto");
       }
     }).catch(console.error).finally(() => setLoading(false));
-  }, []);
+  }, [preFetchedEntities]);
 
   const resetForm = () => {
     setStep("");
@@ -512,7 +521,7 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, overrideConfig = null
       className="feedback-container user-portal-container"
       style={{ 
         ...styles.container, 
-        ...getDynamicBackground(),
+        ...dynamicBackground,
         '--primary-color': primaryColor,
         '--primary-rgb': hexToRgb(primaryColor)
       }}
@@ -646,10 +655,15 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, overrideConfig = null
                     </div>
                     
                     <div style={{ 
-                      fontSize: 'var(--size-card-title, 14px)', 
+                      fontSize: 'clamp(10px, 3vw, 13px)', 
                       fontWeight: '800', 
                       color: isSel ? 'var(--primary-color)' : '#1E293B',
-                      letterSpacing: '-0.01em'
+                      letterSpacing: '-0.02em',
+                      lineHeight: '1.2',
+                      width: '100%',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis'
                     }}>
                       {ent.name}
                     </div>
@@ -796,7 +810,7 @@ const GeneralFeedback = ({ currentUser, onBack, onSuccess, overrideConfig = null
       `}</style>
     </div>
   );
-};
+});
 
 function WorkflowStepper({ steps, currentIndex, primaryColor, onStepClick }) {
   if (steps.length <= 1) return null;
@@ -856,7 +870,7 @@ const styles = {
     marginBottom: '12px',
     transition: 'all 0.3s'
   },
-  itemName: { fontWeight: '600', fontSize: 'var(--size-card-title, 14px)', color: '#0F172A', marginBottom: '2px' },
+  itemName: { fontWeight: '600', fontSize: 'clamp(10px, 3vw, 13px)', color: '#0F172A', marginBottom: '2px', lineHeight: '1.2', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%', letterSpacing: '-0.02em' },
   branchList: { display: 'flex', flexDirection: 'column', gap: '10px' },
   branchItem: { padding: 'var(--card-padding, 16px)', borderRadius: '18px', border: '1px solid rgba(255, 255, 255, 0.5)', background: 'rgba(255, 255, 255, 0.8)', backdropFilter: 'blur(10px)', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)', fontWeight: '600', fontSize: 'var(--size-body, 13px)', cursor: 'pointer', textAlign: 'left', transition: 'all 0.2s', lineHeight: '1.4' },
   formGroup: { marginBottom: '24px' },

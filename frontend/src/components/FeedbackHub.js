@@ -57,7 +57,7 @@ const Icons = {
 };
 
 
-const FeedbackHub = ({ currentUser, onLogout }) => {
+const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
   const { getLabel, systemName, systemLogo } = useTerminology();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [view, setView] = useState(localStorage.getItem("userView") || "home");
@@ -287,19 +287,39 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
     });
   };
 
-  const showToast = (message, isError = false) => {
+  const showToast = React.useCallback((message, isError = false) => {
     setToastMessage({ text: message, isError });
     setTimeout(() => {
       setToastMessage(null);
     }, 2500);
-  };
+  }, []);
 
-  const showSuccessModal = (message) => {
+  const showSuccessModal = React.useCallback((message) => {
     setIsReportModalOpen(false);
     showToast(message || "Submitted Confirmed");
     fetchFeed(0);
     fetchUserProfile();
-  };
+  }, [showToast, fetchFeed, fetchUserProfile]);
+
+  const handleCloseReportModal = React.useCallback(() => {
+    setIsReportModalOpen(false);
+    setResumeDraft(null);
+  }, []);
+
+  const handleGeneralSuccess = React.useCallback(() => {
+    showSuccessModal("Your suggestions have been submitted.");
+    setResumeDraft(null);
+    fetchUserProfile();
+  }, [showSuccessModal, fetchUserProfile]);
+
+  const handleSaveDraft = React.useCallback(() => {
+    setIsReportModalOpen(false);
+    setResumeDraft(null);
+  }, []);
+
+  const handleClearDraft = React.useCallback(() => {
+    setResumeDraft(null);
+  }, []);
 
   const menuItems = [
     { id: 'home', label: 'Dashboard', icon: <Icons.Building /> },
@@ -600,14 +620,12 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
             {reportStep === "general" && (
               <GeneralFeedback
                 currentUser={localUser}
-                initialDraft={resumeDraft}
-                onBack={() => { setIsReportModalOpen(false); setResumeDraft(null); }}
-                onSuccess={() => {
-                  showSuccessModal("Your suggestions have been submitted.");
-                  setResumeDraft(null);
-                  fetchUserProfile(); // Refresh points after post
-                }}
-                onSaveDraft={() => { setIsReportModalOpen(false); setResumeDraft(null); }}
+                entities={entities}
+                resumeDraft={resumeDraft}
+                onClearDraft={handleClearDraft}
+                onBack={handleCloseReportModal}
+                onSuccess={handleGeneralSuccess}
+                onSaveDraft={handleSaveDraft}
               />
             )}
           </div>
@@ -659,7 +677,7 @@ const FeedbackHub = ({ currentUser, onLogout }) => {
       )}
     </div>
   );
-};
+});
 
 const CommentModal = ({ item, currentUser, onClose, onShowToast, onRefreshProfile, onRefreshFeed }) => {
   const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'superadmin';
@@ -1151,7 +1169,7 @@ const getStatusColor = (status) => {
   }
 };
 
-const FeedCard = ({ item: initialItem, currentUser, onShowToast, onOpenComments, setFullscreenImg, onRefresh }) => {
+const FeedCard = React.memo(({ item: initialItem, currentUser, onShowToast, onOpenComments, setFullscreenImg, onRefresh }) => {
   const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'superadmin';
   const [dialogState, setDialogState] = useState({ isOpen: false });
   const [item, setItem] = useState(initialItem);
@@ -1484,9 +1502,9 @@ const FeedCard = ({ item: initialItem, currentUser, onShowToast, onOpenComments,
       </div>
     </div>
   );
-};
+});
 
-const DashboardView = ({ feed, loading, hasMore, onLoadMore, onAction, currentUser, onShowToast, onOpenComments, onRefresh, publicFeedEnabled, entities, setFullscreenImg, statusFilter, setStatusFilter }) => {
+const DashboardView = React.memo(({ feed, loading, hasMore, onLoadMore, onAction, currentUser, onShowToast, onOpenComments, onRefresh, publicFeedEnabled, entities, setFullscreenImg, statusFilter, setStatusFilter }) => {
   // eslint-disable-next-line no-unused-vars
   const [isHotTopicsExpanded, setIsHotTopicsExpanded] = useState(false);
   // eslint-disable-next-line no-unused-vars
@@ -1522,10 +1540,10 @@ const DashboardView = ({ feed, loading, hasMore, onLoadMore, onAction, currentUs
   };
 
   const tabs = [
-    { id: 'All', label: `All (${getEntityCount('All')})`, icon: Icons.History },
+    { id: 'All', label: 'All', icon: Icons.History },
     ...(entities || []).map(ent => ({
       id: ent.name,
-      label: `${ent.name.charAt(0).toUpperCase() + ent.name.slice(1)} (${getEntityCount(ent.name)})`,
+      label: ent.name.charAt(0).toUpperCase() + ent.name.slice(1),
       icon: getTabIcon(ent)
     }))
   ];
@@ -1809,11 +1827,11 @@ const DashboardView = ({ feed, loading, hasMore, onLoadMore, onAction, currentUs
     </button>
   </div>
 );
-};
+});
 
 // CategorySelection reserved for future step-based form flow
 // eslint-disable-next-line no-unused-vars
-const CategorySelection = ({ onBack, onSelect }) => (
+const CategorySelection = React.memo(({ onBack, onSelect }) => (
   <div style={{ ...styles.fadeIn, padding: '20px' }}>
     <button onClick={onBack} style={styles.backBtn}>← Back</button>
     <h2 style={{ ...styles.pageTitle, fontSize: 'clamp(20px, 5vw, 24px)' }}>What kind of feedback?</h2>
@@ -1837,7 +1855,7 @@ const CategorySelection = ({ onBack, onSelect }) => (
       ))}
     </div>
   </div>
-);
+));
 
 const styles = {
   hubContainer: { height: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: 'transparent', fontFamily: '"Inter", -apple-system, sans-serif', fontSize: 'var(--size-body, 14px)' },
@@ -2001,8 +2019,8 @@ const styles = {
       rgba(15, 23, 42, 0.6)
     `,
     zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center',
-    backdropFilter: 'blur(24px)', padding: '20px',
-    animation: 'fadeIn 0.6s ease-out'
+    backdropFilter: 'blur(8px)', padding: '20px',
+    animation: 'fadeIn 0.25s ease-out'
   },
   reportModalContent: {
     backgroundColor: 'rgba(248, 250, 252, 0.95)',
@@ -2013,7 +2031,7 @@ const styles = {
     display: 'flex', flexDirection: 'column',
     boxShadow: '0 40px 80px -15px rgba(0, 0, 0, 0.35), inset 0 0 0 1px rgba(255, 255, 255, 0.4)',
     border: '1px solid rgba(255, 255, 255, 0.3)',
-    animation: 'modalSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1)'
+    animation: 'modalSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1)'
   },
   feedAvatar: { width: 'var(--avatar-size, 36px)', height: 'var(--avatar-size, 36px)', borderRadius: '12px', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: 'var(--size-nav, 16px)', flexShrink: 0 },
   commentToggleBtn: { background: 'none', border: 'none', color: '#64748B', display: 'flex', alignItems: 'center', gap: '6px', fontSize: 'var(--size-body, 13px)', fontWeight: '600', cursor: 'pointer', padding: '6px 10px', borderRadius: '8px', transition: 'background-color 0.2s' },
@@ -2077,7 +2095,7 @@ const styles = {
   emptyFeedText: { textAlign: 'center', color: '#94A3B8', fontSize: '14px', width: '100%', margin: '40px 0' }
 };
 
-const BroadcastViewModal = ({ notif, currentUser, onClose, onAcknowledge }) => {
+const BroadcastViewModal = React.memo(({ notif, currentUser, onClose, onAcknowledge }) => {
   const { systemName } = useTerminology();
   const isHighPriority = notif.priority === 'high' || (notif.subject && notif.subject.toLowerCase().includes('urgent'));
   const requireAck = notif.require_ack === true;
@@ -2256,6 +2274,6 @@ const BroadcastViewModal = ({ notif, currentUser, onClose, onAcknowledge }) => {
       </div>
     </div>
   );
-};
+});
 
 export default FeedbackHub;
