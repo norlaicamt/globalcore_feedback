@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 // 1. IMPORT getDepartments
-import { getFeedbacks, getDepartments } from "../services/api"; 
+import { getFeedbacks, getDepartments, getEntities } from "../services/api";
 import { renderFeedbackAction, formatFeedbackDate } from "../utils/feedback";
 import CustomModal from './CustomModal';
 
@@ -34,8 +34,10 @@ const formatDateTime = (dateStr) => {
 const HistoryView = ({ currentUser, onBack, mode = "sent", minimalist = false }) => {
   const [history, setHistory] = useState([]);
   const [departments, setDepartments] = useState([]);
+  const [entities, setEntities] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedDept, setSelectedDept] = useState("");
   const [selectedItem, setSelectedItem] = useState(null);
   const [dialogState, setDialogState] = useState({ isOpen: false });
 
@@ -43,16 +45,18 @@ const HistoryView = ({ currentUser, onBack, mode = "sent", minimalist = false })
     const fetchData = async () => {
       try {
         const isSentMode = mode === 'sent' || mode === 'history';
-        const params = isSentMode 
-          ? { sender_id: currentUser.id } 
+        const params = isSentMode
+          ? { sender_id: currentUser.id }
           : { mentioned_user_id: currentUser.id };
-          
-        const [historyData, deptsData] = await Promise.all([
+
+        const [historyData, deptsData, entsData] = await Promise.all([
           getFeedbacks(params),
-          getDepartments().catch(() => [])
+          getDepartments().catch(() => []),
+          getEntities().catch(() => [])
         ]);
         setHistory(historyData);
         setDepartments(deptsData);
+        setEntities(entsData);
       } catch (error) {
         console.error("Failed to load history:", error);
       } finally {
@@ -80,13 +84,11 @@ const HistoryView = ({ currentUser, onBack, mode = "sent", minimalist = false })
   };
 
   const filteredHistory = history.filter(item => {
-    const title = item?.title || "";
-    const description = item?.description || item?.details || item?.message || item?.idea || "";
-    
-    const matchesSearch = title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          description.toLowerCase().includes(searchQuery.toLowerCase());
-                          
-    return matchesSearch;
+    if (selectedDept) {
+      const itemEntityId = item.entity_id;
+      if (String(itemEntityId) !== String(selectedDept)) return false;
+    }
+    return true;
   }).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
   const isSentMode = mode === 'sent' || mode === 'history';
@@ -97,22 +99,24 @@ const HistoryView = ({ currentUser, onBack, mode = "sent", minimalist = false })
     <div style={minimalist ? styles.minimalContainer : styles.container}>
       {!minimalist && (
         <header style={styles.header}>
-          <div style={{ width: 24 }}></div> 
+          <div style={{ width: 24 }}></div>
           <h1 style={styles.headerTitle}>{viewTitle}</h1>
-          <div style={{ width: 24 }}></div> 
+          <div style={{ width: 24 }}></div>
         </header>
       )}
 
       <main style={minimalist ? styles.minimalMainScroll : styles.mainContainer}>
         <div style={styles.searchContainer}>
-          <div style={styles.searchIcon}><Icons.Search /></div>
-          <input 
-            type="text" 
-            placeholder={searchPlaceholder}
-            style={styles.searchInput}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
+          <select 
+            style={{ ...styles.searchInput, background: 'transparent', cursor: 'pointer', fontWeight: 'bold', height: '100%', width: '100%' }}
+            value={selectedDept}
+            onChange={(e) => setSelectedDept(e.target.value)}
+          >
+            <option value="">All Services</option>
+            {(entities || []).map(e => (
+              <option key={e.id} value={e.id}>{e.name}</option>
+            ))}
+          </select>
         </div>
 
         <div style={styles.listContainer}>
@@ -132,7 +136,7 @@ const HistoryView = ({ currentUser, onBack, mode = "sent", minimalist = false })
                   <span style={styles.itemDate}>{formatFeedbackDate(item.created_at)}</span>
                 </div>
                 {renderFeedbackAction(item, currentUser)}
-                <div style={{...styles.cardFooter, marginTop: '12px'}}>
+                <div style={{ ...styles.cardFooter, marginTop: '12px' }}>
                   <div style={styles.timeLabel}>REF-{item.id}</div>
                 </div>
               </div>
@@ -148,14 +152,14 @@ const HistoryView = ({ currentUser, onBack, mode = "sent", minimalist = false })
             <button style={styles.closeBtn} onClick={() => setSelectedItem(null)}>
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#64748B" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
             </button>
-            
+
             <div style={styles.modalHeader}>
               <div style={styles.headerBadgeRow}>
                 <span style={styles.caseId}><Icons.Hash /> REF-{selectedItem.id}</span>
               </div>
               <h2 style={styles.modalTitle}>{selectedItem.subject || selectedItem.title}</h2>
               <div style={styles.modalMeta}>
-                <span style={{display: 'flex', alignItems: 'center', gap: '4px'}}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <Icons.User /> {selectedItem.sender_id === currentUser.id ? "By You" : (selectedItem.user_name || "Another User")}
                 </span>
                 <span style={styles.bullet}>•</span>
@@ -167,7 +171,7 @@ const HistoryView = ({ currentUser, onBack, mode = "sent", minimalist = false })
                 )}
                 <span>{formatDateTime(selectedItem.created_at).date}</span>
                 <span style={styles.bullet}>•</span>
-                <span style={{display: 'flex', alignItems: 'center', gap: '4px'}}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <Icons.Clock /> {formatDateTime(selectedItem.created_at).time}
                 </span>
               </div>
@@ -220,7 +224,7 @@ const HistoryView = ({ currentUser, onBack, mode = "sent", minimalist = false })
                         return Array.isArray(files) && files.map((f, i) => (
                           <div key={i} style={styles.attachmentItem}>
                             <Icons.Image />
-                            <span style={styles.fileName}>evidence_{i+1}.jpg</span>
+                            <span style={styles.fileName}>evidence_{i + 1}.jpg</span>
                           </div>
                         ));
                       } catch (e) { return null; }
@@ -236,7 +240,7 @@ const HistoryView = ({ currentUser, onBack, mode = "sent", minimalist = false })
       )}
 
       {/* Custom Alert Modal */}
-      <CustomModal 
+      <CustomModal
         isOpen={dialogState.isOpen}
         title={dialogState.title}
         message={dialogState.message}
@@ -260,12 +264,12 @@ const styles = {
   searchContainer: { display: 'flex', alignItems: 'center', backgroundColor: 'white', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '0 12px', marginBottom: '16px', height: 'var(--search-height, 42px)', flexShrink: 0 },
   searchIcon: { marginRight: '10px', display: 'flex' },
   searchInput: { flex: 1, border: 'none', outline: 'none', fontSize: 'var(--size-body, 13px)' },
-  tabContainer: { 
-    display: 'flex', 
-    gap: '4px', 
-    marginBottom: '16px', 
-    backgroundColor: '#F1F5F9', 
-    padding: '4px', 
+  tabContainer: {
+    display: 'flex',
+    gap: '4px',
+    marginBottom: '16px',
+    backgroundColor: '#F1F5F9',
+    padding: '4px',
     borderRadius: '10px',
     flexShrink: 0
   },
@@ -295,17 +299,17 @@ const styles = {
   modalBody: { marginBottom: '32px' },
   infoSection: { marginBottom: '20px' },
   sectionLabel: { fontSize: 'var(--size-chip, 10px)', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px', fontWeight: '800', display: 'block' },
-  
+
   headerBadgeRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' },
   caseId: { fontSize: 'var(--size-metadata, 11px)', fontWeight: '800', color: '#64748B', display: 'flex', alignItems: 'center', gap: '4px', backgroundColor: '#F1F5F9', padding: '4px 10px', borderRadius: '6px' },
   statusBadge: { fontSize: 'var(--size-chip, 10px)', fontWeight: '900', padding: '4px 12px', borderRadius: '20px', letterSpacing: '0.5px' },
-  
+
   jurisdictionPill: { display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', backgroundColor: '#F0F9FF', color: '#0369A1', borderRadius: '12px', fontSize: 'var(--size-body, 13px)', fontWeight: '700', border: '1px solid #E0F2FE' },
   messageBox: { padding: 'var(--card-padding, 16px)', background: '#F8FAFC', border: '1px solid #F1F5F9', borderRadius: '16px', fontSize: 'var(--size-body, 14px)', color: '#000000', lineHeight: '1.6', whiteSpace: 'pre-wrap', overflowWrap: 'break-word', wordBreak: 'break-word' },
-  
+
   mentionsGrid: { display: 'flex', flexWrap: 'wrap', gap: '8px' },
   mentionPill: { display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', backgroundColor: '#F1F5F9', color: '#475569', borderRadius: '8px', fontSize: 'var(--size-nav, 12px)', fontWeight: '600' },
-  
+
   attachmentGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '10px' },
   attachmentItem: { display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'white', border: '1px solid #E2E8F0', borderRadius: '10px', color: '#64748B', cursor: 'pointer' },
   fileName: { fontSize: 'var(--size-metadata, 11px)', fontWeight: '600', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },

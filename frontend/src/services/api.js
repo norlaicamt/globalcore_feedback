@@ -241,4 +241,25 @@ export const updateUserPresence = async (userId, currentModule) => {
   return response.data;
 };
 
+/* -------------------- DRAFTS -------------------- */
+export const getDrafts = async (userId) => {
+  const response = await axios.get(`${API_BASE}/drafts/${userId}`);
+  return response.data;
+};
+
+export const createDraft = async (userId, draft) => {
+  const response = await axios.post(`${API_BASE}/drafts/${userId}`, draft);
+  return response.data;
+};
+
+export const updateDraft = async (draftId, updates) => {
+  const response = await axios.put(`${API_BASE}/drafts/${draftId}`, updates);
+  return response.data;
+};
+
+export const deleteDraft = async (draftId) => {
+  const response = await axios.delete(`${API_BASE}/drafts/${draftId}`);
+  return response.data;
+};
+
 // (Update functions migrated to adminApi.js for authentication)

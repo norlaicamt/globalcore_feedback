@@ -14,7 +14,7 @@ import NotificationsView from './NotificationsView';
 import CustomModal from './CustomModal';
 import GeneralFeedback from './GeneralFeedback';
 import ActivityView from './ActivityView';
-import { getFeedbacks, getUserById, getUserNotifications, getFeedbackReplies, createFeedbackReply, updateFeedbackReply, deleteFeedbackReply, toggleReaction, toggleReplyReaction, getReactionsSummary, markNotificationAsRead, updateFeedback, deleteFeedback, getAdminSettings, getEntities, trackBroadcastView, acknowledgeBroadcast, updateUserPresence } from "../services/api";
+import { getFeedbacks, getUserById, getUserNotifications, getFeedbackReplies, createFeedbackReply, updateFeedbackReply, deleteFeedbackReply, toggleReaction, toggleReplyReaction, getReactionsSummary, markNotificationAsRead, updateFeedback, deleteFeedback, getAdminSettings, getEntities, trackBroadcastView, acknowledgeBroadcast, updateUserPresence, getDepartments } from "../services/api";
 import { useTerminology } from "../context/TerminologyContext";
 import { IconRegistry } from "./IconRegistry";
 
@@ -101,13 +101,15 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
 
   const [publicFeedEnabled, setPublicFeedEnabled] = useState(true);
   const [entities, setEntities] = useState([]);
+  const [departments, setDepartments] = useState([]);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const ents = await getEntities();
+        const [ents, depts] = await Promise.all([getEntities(), getDepartments()]);
         setEntities(ents);
-      } catch (e) { console.error("Error fetching entities", e); }
+        setDepartments(depts);
+      } catch (e) { console.error("Error fetching entities/depts", e); }
 
       try {
         const settings = await getAdminSettings();
@@ -413,15 +415,16 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
             feed={feed}
             loading={loading}
             hasMore={hasMore}
-            onLoadMore={loadMoreFeed}
+            onLoadMore={() => fetchFeed(offset + 10)}
             onAction={() => { setIsReportModalOpen(true); setReportStep('general'); }}
             currentUser={localUser}
             onShowToast={showToast}
             onOpenComments={(f) => setCommentingFeedback(f)}
-            setFullscreenImg={setFullscreenImg}
             onRefresh={() => fetchFeed(0)}
             publicFeedEnabled={publicFeedEnabled}
             entities={entities}
+            departments={departments}
+            setFullscreenImg={setFullscreenImg}
             statusFilter={statusFilter}
             setStatusFilter={setStatusFilter}
           />
@@ -693,11 +696,6 @@ const CommentModal = ({ item, currentUser, onClose, onShowToast, onRefreshProfil
   // Expanded threads management removed (unused)
   const commentInputRef = useRef(null);
 
-  useEffect(() => {
-    if (!loading && commentInputRef.current) {
-      commentInputRef.current.focus();
-    }
-  }, [loading]);
 
 
   const [fullscreenImg, setFullscreenImg] = useState(null);
@@ -1503,13 +1501,13 @@ const FeedCard = React.memo(({ item: initialItem, currentUser, onShowToast, onOp
   );
 });
 
-const DashboardView = React.memo(({ feed, loading, hasMore, onLoadMore, onAction, currentUser, onShowToast, onOpenComments, onRefresh, publicFeedEnabled, entities, setFullscreenImg, statusFilter, setStatusFilter }) => {
+const DashboardView = React.memo(({ feed, loading, hasMore, onLoadMore, onAction, currentUser, onShowToast, onOpenComments, onRefresh, publicFeedEnabled, entities, departments, setFullscreenImg, statusFilter, setStatusFilter }) => {
   // eslint-disable-next-line no-unused-vars
   const [isHotTopicsExpanded, setIsHotTopicsExpanded] = useState(false);
   // eslint-disable-next-line no-unused-vars
   const { getLabel, getModeLabel, systemMode, systemName } = useTerminology();
   const [activeTab, setActiveTab] = useState('All');
-  const [searchDash, setSearchDash] = useState("");
+  const [selectedDept, setSelectedDept] = useState("");
 
   const getTabIcon = (cat) => {
     if (!cat) return Icons.Message;
@@ -1560,12 +1558,11 @@ const DashboardView = React.memo(({ feed, loading, hasMore, onLoadMore, onAction
 
     if (!matchesTab) return false;
 
-    // Search Filter
-    if (searchDash) {
-      const q = searchDash.toLowerCase();
-      const searchableStr = `${item.title} ${item.description} ${item.product_name || ""} ${item.employee_name || ""} ${item.entity_name || ""}`.toLowerCase();
-      return searchableStr.includes(q);
+    if (selectedDept) {
+      const itemEntityId = item.entity_id;
+      if (String(itemEntityId) !== String(selectedDept)) return false;
     }
+
     return true;
   });
 
@@ -1628,22 +1625,21 @@ const DashboardView = React.memo(({ feed, loading, hasMore, onLoadMore, onAction
           {/* SEARCH BOX BELOW TABS */}
           <div style={{ padding: '0 8px', marginBottom: '12px', marginTop: '4px' }}>
             <div style={{ position: 'relative' }}>
-              <div style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', display: 'flex' }}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-              </div>
-              <input
-                type="text"
-                placeholder={`Search office, entity, or service...`}
-                value={searchDash}
-                onChange={(e) => setSearchDash(e.target.value)}
+              <select
                 style={{
-                  width: '100%', height: 'var(--search-height, 44px)', padding: '0 10px 0 36px', backgroundColor: 'white',
+                  width: '100%', height: 'var(--search-height, 44px)', padding: '0 12px', backgroundColor: 'white',
                   border: '1px solid #E2E8F0', borderRadius: '12px', fontSize: 'var(--size-body, 13px)',
-                  outline: 'none', transition: 'all 0.2s', boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
+                  outline: 'none', transition: 'all 0.2s', boxShadow: '0 2px 4px rgba(0,0,0,0.02)',
+                  fontWeight: 'bold', cursor: 'pointer', color: 'var(--primary-color)'
                 }}
-                onFocus={(e) => { e.target.style.borderColor = '#2563EB'; e.target.style.boxShadow = '0 0 0 3px rgba(37, 99, 235, 0.1)'; }}
-                onBlur={(e) => { e.target.style.borderColor = '#E2E8F0'; e.target.style.boxShadow = '0 2px 4px rgba(0,0,0,0.02)'; }}
-              />
+                value={selectedDept}
+                onChange={(e) => setSelectedDept(e.target.value)}
+              >
+                <option value="">All Services</option>
+                {(entities || []).map(e => (
+                  <option key={e.id} value={e.id}>{e.name}</option>
+                ))}
+              </select>
             </div>
           </div>
 

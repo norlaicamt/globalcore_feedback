@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { updateUser } from "../services/api";
+import { updateUser, getDrafts, createDraft, updateDraft, deleteDraft } from "../services/api";
 import { useTerminology } from "../context/TerminologyContext";
 import { STORAGE_KEYS } from "../utils/storage";
 
@@ -63,26 +63,46 @@ const UserOnboarding = ({ currentUser, onBack, onComplete }) => {
   }, [step, form]);
 
   useEffect(() => {
-    // 1. Check for draft on mount
-    const draftKey = `user.onboarding_draft_${currentUser?.id}`;
-    const rawDraft = localStorage.getItem(draftKey);
-    if (rawDraft) {
+    const loadDraft = async () => {
+      if (!currentUser?.id) return;
+      
       try {
-        const draft = JSON.parse(rawDraft);
-        const isNotExpired = Date.now() - (draft.savedAt || 0) < DRAFT_EXPIRY;
+        const cloudDrafts = await getDrafts(currentUser.id);
+        const onboardingDraft = cloudDrafts.find(d => d.feedback_type === "onboarding");
         
-        if (draft.version === DRAFT_VERSION && isNotExpired) {
-          if (draft.form) setForm(prev => ({ ...prev, ...draft.form }));
-          if (draft.step) setStep(draft.step);
+        if (onboardingDraft) {
+          if (onboardingDraft.custom_data?.form) setForm(prev => ({ ...prev, ...onboardingDraft.custom_data.form }));
+          if (onboardingDraft.step) setStep(parseInt(onboardingDraft.step) || 1);
           setRestored(true);
-          setTimeout(() => setRestored(false), 5000); // Hide after 5 sec
-        } else {
-          localStorage.removeItem(draftKey);
+          // Keep track of the draft ID for updates
+          window._onboardingDraftId = onboardingDraft.id;
+          setTimeout(() => setRestored(false), 5000);
+          return;
         }
       } catch (err) {
-        console.error("Failed to restore onboarding draft", err);
+        console.error("Failed to fetch cloud onboarding draft", err);
       }
-    }
+
+      // Fallback to local
+      const draftKey = `user.onboarding_draft_${currentUser?.id}`;
+      const rawDraft = localStorage.getItem(draftKey);
+      if (rawDraft) {
+        try {
+          const draft = JSON.parse(rawDraft);
+          const isNotExpired = Date.now() - (draft.savedAt || 0) < DRAFT_EXPIRY;
+          if (draft.version === DRAFT_VERSION && isNotExpired) {
+            if (draft.form) setForm(prev => ({ ...prev, ...draft.form }));
+            if (draft.step) setStep(draft.step);
+            setRestored(true);
+            setTimeout(() => setRestored(false), 5000);
+          }
+        } catch (err) {
+          console.error("Failed to restore onboarding draft from local", err);
+        }
+      }
+    };
+
+    loadDraft();
 
     const loadBaseLocations = async () => {
       try {
@@ -105,43 +125,36 @@ const UserOnboarding = ({ currentUser, onBack, onComplete }) => {
 
   // 2. Auto-save with debounce
   useEffect(() => {
-    if (saving || !currentUser?.id) return; // Don't save while finalizing
-    const draftKey = `user.onboarding_draft_${currentUser?.id}`;
+    if (saving || !currentUser?.id) return;
     
-    const timer = setTimeout(() => {
-      // Create a copy of the form for the draft, but EXCLUDE large base64 data URLs
-      // like avatar_url which quickly exceed localStorage quota (5MB limit)
+    const timer = setTimeout(async () => {
       const draftForm = { ...form };
       if (draftForm.avatar_url && draftForm.avatar_url.startsWith('data:')) {
         delete draftForm.avatar_url;
       }
 
-      const draft = {
-        version: DRAFT_VERSION,
-        savedAt: Date.now(),
-        step,
-        form: draftForm
+      const draftData = {
+        feedback_type: "onboarding",
+        step: step.toString(),
+        custom_data: { form: draftForm },
+        title: "Onboarding Progress",
+        description: `Step ${step} of onboarding`
       };
 
       try {
-        localStorage.setItem(draftKey, JSON.stringify(draft));
-      } catch (err) {
-        // QuotaExceededError or other storage failures
-        console.warn("Failed to save onboarding draft to localStorage (likely quota exceeded).", err);
-        
-        // If we still fail even after excluding avatar, we might need to clear old drafts
-        if (err.name === 'QuotaExceededError') {
-          try {
-            // Optional: Clear any other onboarding drafts to make room
-            Object.keys(localStorage).forEach(key => {
-              if (key.startsWith('user.onboarding_draft_') && key !== draftKey) {
-                localStorage.removeItem(key);
-              }
-            });
-          } catch (e) { /* ignore */ }
+        if (window._onboardingDraftId) {
+          await updateDraft(window._onboardingDraftId, draftData);
+        } else {
+          const newDraft = await createDraft(currentUser.id, draftData);
+          window._onboardingDraftId = newDraft.id;
         }
+      } catch (err) {
+        console.warn("Failed to sync onboarding draft to cloud", err);
+        // Local fallback
+        const draftKey = `user.onboarding_draft_${currentUser.id}`;
+        localStorage.setItem(draftKey, JSON.stringify({ version: DRAFT_VERSION, savedAt: Date.now(), step, form: draftForm }));
       }
-    }, 1000); // 1s debounce for stability
+    }, 2000);
 
     return () => clearTimeout(timer);
   }, [form, step, currentUser?.id, saving]);
@@ -219,6 +232,10 @@ const UserOnboarding = ({ currentUser, onBack, onComplete }) => {
         }
       }
       
+      if (window._onboardingDraftId) {
+        deleteDraft(window._onboardingDraftId).catch(err => console.error("Failed to delete onboarding draft", err));
+        delete window._onboardingDraftId;
+      }
       localStorage.removeItem(`user.onboarding_draft_${currentUser.id}`);
       return updated;
     } catch (err) {
@@ -268,6 +285,28 @@ const UserOnboarding = ({ currentUser, onBack, onComplete }) => {
         {!isWelcome ? (
           <>
             <div style={styles.header}>
+                <button 
+                  onClick={onBack}
+                  style={{
+                    position: 'absolute',
+                    top: '20px',
+                    right: '20px',
+                    background: 'rgba(0,0,0,0.03)',
+                    border: 'none',
+                    borderRadius: '50%',
+                    width: '32px',
+                    height: '32px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    color: '#64748B',
+                    transition: 'all 0.2s'
+                  }}
+                  title="Close"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
                 <h2 style={styles.title}>Complete Your Profile</h2>
                 <p style={styles.sub}>{step === 1 ? "Basic Info" : "Community & Location"}</p>
             </div>

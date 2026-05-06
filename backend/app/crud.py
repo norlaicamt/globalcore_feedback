@@ -1746,6 +1746,9 @@ def get_user_activity(db: Session, user_id: int):
             "mentions": f.mentions,
             "created_at": f.created_at,
             "rating": f.rating,
+            "user_id": f.sender_id,
+            "user_name": f.sender.name if f.sender else None,
+            "is_anonymous": f.is_anonymous,
             "branch_name": f.branch.name if f.branch else f.branch_name_snapshot,
             "region": f.region,
             "city": f.city,
@@ -1988,3 +1991,37 @@ def get_internal_notes(db: Session, feedback_id: int):
         r.user_role = r.user.role if r.user else "Admin"
     return results
 
+
+# Draft operations
+def get_drafts(db: Session, user_id: int):
+    return db.query(models.Draft).filter(models.Draft.user_id == user_id).order_by(models.Draft.updated_at.desc()).all()
+
+def get_draft(db: Session, draft_id: int):
+    return db.query(models.Draft).filter(models.Draft.id == draft_id).first()
+
+def create_draft(db: Session, user_id: int, draft: schemas.DraftCreate):
+    data = draft.model_dump()
+    data["user_id"] = user_id
+    db_draft = models.Draft(**data)
+    db.add(db_draft)
+    db.commit()
+    db.refresh(db_draft)
+    return db_draft
+
+def update_draft(db: Session, draft_id: int, updates: schemas.DraftUpdate):
+    db_draft = db.query(models.Draft).filter(models.Draft.id == draft_id).first()
+    if db_draft:
+        update_data = updates.model_dump(exclude_unset=True)
+        for key, value in update_data.items():
+            setattr(db_draft, key, value)
+        db_draft.updated_at = datetime.now(timezone.utc)
+        db.commit()
+        db.refresh(db_draft)
+    return db_draft
+
+def delete_draft(db: Session, draft_id: int):
+    db_draft = db.query(models.Draft).filter(models.Draft.id == draft_id).first()
+    if db_draft:
+        db.delete(db_draft)
+        db.commit()
+    return db_draft

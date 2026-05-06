@@ -483,3 +483,25 @@ class UserMergeLog(Base):
     merged_by = relationship("User", foreign_keys=[merged_by_id])
 
 
+
+class Draft(Base):
+    __tablename__ = "drafts"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("global_user.id"), index=True)
+    entity_id = Column(Integer, ForeignKey("entities.id"), nullable=True)
+    branch_id = Column(Integer, ForeignKey("branches.id"), nullable=True)
+    staff_id = Column(Integer, ForeignKey("global_user.id"), nullable=True)
+    feedback_type = Column(String, nullable=True)
+    idea = Column(Text, nullable=True)
+    rating = Column(Integer, nullable=True)
+    custom_data = Column(JSONB, nullable=True)
+    step = Column(String, nullable=True)
+    title = Column(String, nullable=True)
+    description = Column(String, nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    
+    user = relationship("User", foreign_keys=[user_id])
+    entity = relationship("Entity")
+    branch = relationship("Branch")
+    staff = relationship("User", foreign_keys=[staff_id])

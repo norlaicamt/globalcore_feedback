@@ -5,13 +5,14 @@ const CustomModal = ({
   isOpen,
   title,
   message,
-  type = 'info', 
+  type = 'info',
   onConfirm,
   onCancel,
   confirmText = "OK",
   cancelText = "Cancel",
   isDestructive = false,
-  content = null
+  content = null,
+  showDefaultActions = true
 }) => {
 
   useEffect(() => {
@@ -45,22 +46,26 @@ const CustomModal = ({
         </div>
         <p style={styles.message}>{message}</p>
         {content && <div style={{ width: '100%', textAlign: 'left', marginBottom: '24px' }}>{content}</div>}
-        <div style={styles.actions}>
-          {onCancel && (
-            <button style={styles.cancelBtn} onClick={onCancel}>{cancelText}</button>
-          )}
-          <button
-            style={{
-              ...styles.primaryBtn,
-              backgroundColor: isDestructive ? '#EF4444' : currentStyle.title
-            }}
-            onClick={onConfirm}
-            autoFocus
-            data-modal-confirm="true"
-          >
-            {confirmText}
-          </button>
-        </div>
+        {showDefaultActions && (
+          <div style={styles.actions}>
+            {onCancel && (
+              <button style={styles.cancelBtn} onClick={onCancel}>{cancelText}</button>
+            )}
+            {onConfirm && (
+              <button
+                style={{
+                  ...styles.primaryBtn,
+                  backgroundColor: isDestructive ? '#EF4444' : currentStyle.title
+                }}
+                onClick={onConfirm}
+                autoFocus
+                data-modal-confirm="true"
+              >
+                {confirmText}
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

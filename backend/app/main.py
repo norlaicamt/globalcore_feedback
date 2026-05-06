@@ -9,7 +9,7 @@ from typing import Dict
 
 from app.database import engine, get_db
 from app import models, crud, schemas
-from app.routers import users, departments, categories, entities, branches, feedback, analytics, admin
+from app.routers import users, departments, categories, entities, branches, feedback, analytics, admin, drafts
 from dotenv import load_dotenv
 import os
 
@@ -142,5 +142,6 @@ app.include_router(branches.router)
 app.include_router(feedback.router)
 app.include_router(analytics.router)
 app.include_router(admin.router)
+app.include_router(drafts.router)
 
 # trigger manual refresh

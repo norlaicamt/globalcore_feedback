@@ -705,3 +705,29 @@ class InternalNote(InternalNoteBase):
     user_role: Optional[str] = None
     
     model_config = ConfigDict(from_attributes=True)
+
+# --- DRAFT SCHEMAS ---
+class DraftBase(BaseModel):
+    entity_id: Optional[int] = None
+    branch_id: Optional[int] = None
+    staff_id: Optional[int] = None
+    feedback_type: Optional[str] = None
+    idea: Optional[str] = None
+    rating: Optional[int] = None
+    custom_data: Optional[dict] = None
+    step: Optional[str] = None
+    title: Optional[str] = None
+    description: Optional[str] = None
+
+class DraftCreate(DraftBase):
+    pass
+
+class DraftUpdate(DraftBase):
+    pass
+
+class Draft(DraftBase):
+    id: int
+    user_id: int
+    created_at: datetime
+    updated_at: datetime
+    model_config = ConfigDict(from_attributes=True)

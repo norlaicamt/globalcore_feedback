@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { createFeedback, getEntities, getBranches, getEntityFormConfig } from "../services/api";
+import { createFeedback, getEntities, getBranches, getEntityFormConfig, createDraft, updateDraft, deleteDraft } from "../services/api";
 import { useTerminology } from "../context/TerminologyContext";
 import CustomModal from "./CustomModal";
 
@@ -87,10 +87,11 @@ const hexToRgb = (hex) => {
   return `${r}, ${g}, ${b}`;
 };
 
-const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, entities: preFetchedEntities = null, overrideConfig = null, isPreview = false }) => {
+const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraft, resumeDraft, initialDraft, entities: preFetchedEntities = null, overrideConfig = null, isPreview = false }) => {
   const { getLabel, systemSettings } = useTerminology();
-  const [step, setStep] = useState("");
-  const [feedbackType, setFeedbackType] = useState("");
+  const draft = initialDraft || resumeDraft;
+  const [step, setStep] = useState(draft?.step || "");
+  const [feedbackType, setFeedbackType] = useState(draft?.feedback_type || "");
   const [selectedEntity, setSelectedEntity] = useState(null);
   const [selectedBranch, setSelectedBranch] = useState(null);
   const [selectedStaff, setSelectedStaff] = useState(null);
@@ -98,6 +99,8 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, entities: 
   const [configLoaded, setConfigLoaded] = useState(!!overrideConfig);
   const [loading, setLoading] = useState(!overrideConfig);
   const lastConfigVersion = React.useRef(0);
+  const isResuming = React.useRef(!!draft);
+  const lastSelectedEntityId = React.useRef(draft?.entity_id || null);
   const isPreviewMode =
     new URLSearchParams(window.location.search).get('preview') === 'true' ||
     window.location.pathname.includes('/preview') || isPreview;
@@ -108,18 +111,18 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, entities: 
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [isManualLocation, setIsManualLocation] = useState(false);
   const [manualLocationText, setManualLocationText] = useState("");
-  const [idea, setIdea] = useState("");
-  const [rating, setRating] = useState(0);
+  const [idea, setIdea] = useState(draft?.idea || "");
+  const [rating, setRating] = useState(draft?.rating || 0);
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [allowComments, setAllowComments] = useState(true);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
-  const [customFields, setCustomFields] = useState({});
+  const [customFields, setCustomFields] = useState(draft?.customFields || draft?.custom_data?.customFields || {});
   const [showErrors, setShowErrors] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
   const [confirmingSelection, setConfirmingSelection] = useState(null);
   const [modal, setModal] = useState({ isOpen: false, title: "", message: "", type: "info" });
-  const [matrixRatings, setMatrixRatings] = useState({});
+  const [matrixRatings, setMatrixRatings] = useState(draft?.matrixRatings || draft?.custom_data?.matrixRatings || {});
   const [selectionMethod, setSelectionMethod] = useState("manual"); // auto | manual
 
   const adminColor = systemSettings?.primary_color || "#10B981";
@@ -131,18 +134,18 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, entities: 
     const p08 = `rgba(${hexToRgb(p)}, 0.08)`;
     const p05 = `rgba(${hexToRgb(p)}, 0.05)`;
     const p12 = `rgba(${hexToRgb(p)}, 0.12)`;
-    
+
     switch (bgStyle) {
-      case 'minimal': 
+      case 'minimal':
         return { background: '#FFFFFF' };
-      case 'gradient': 
+      case 'gradient':
         return { background: `linear-gradient(135deg, ${p08} 0%, #FFFFFF 100%)` };
       case 'modern':
-        return { 
+        return {
           background: `linear-gradient(135deg, #FFFFFF 0%, #F1F5F9 100%)`,
           position: 'relative'
         };
-      case 'abstract': 
+      case 'abstract':
       default:
         return {
           background: `
@@ -166,15 +169,18 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, entities: 
       setLoading(false);
       return;
     }
-    
+
     getEntities().then(data => {
       setDbEntities(data);
-      if (data.length === 1 && !selectedEntity) {
+      if (draft?.entity_id) {
+        const ent = data.find(e => e.id === draft.entity_id);
+        if (ent) setSelectedEntity(ent);
+      } else if (data.length === 1 && !selectedEntity) {
         setSelectedEntity(data[0]);
         setSelectionMethod("auto");
       }
     }).catch(console.error).finally(() => setLoading(false));
-  }, [preFetchedEntities]);
+  }, [preFetchedEntities, draft]);
 
   const resetForm = () => {
     setStep("");
@@ -233,22 +239,33 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, entities: 
   useEffect(() => {
     if (selectedEntity) {
       setLoading(true);
-      // Reset form state to Step 1 whenever a new entity is selected
-      if (!overrideConfig) {
-        setRating(0);
-        setIdea("");
-        setFeedbackType("");
-        setCustomFields({});
-        setMatrixRatings({});
-        setSelectedBranch(null);
-        setSelectedStaff(null);
-        setShowErrors(false);
-        setStep(""); // This will trigger the enabledSteps effect to set Step 1
+
+      // Only reset form if we are explicitly switching to a different entity
+      // and we are NOT currently resuming a draft
+      const isSwitchingEntity = lastSelectedEntityId.current && lastSelectedEntityId.current !== selectedEntity.id;
+
+      if (!overrideConfig && isSwitchingEntity && !isResuming.current) {
+        resetForm();
       }
-      
+
+      // Update the tracked entity ID
+      lastSelectedEntityId.current = selectedEntity.id;
+
+      // After the first valid entity selection in a resume flow, we turn off the resume flag
+      if (isResuming.current) {
+        // We wait until after the reset check to clear this, 
+        // but we can do it now since we've already checked isSwitchingEntity
+        isResuming.current = false;
+      }
+
       Promise.all([getBranches(selectedEntity.id), getEntityFormConfig(selectedEntity.id)])
         .then(([bd, cd]) => {
-          setBranches(bd.filter(b => b.is_active));
+          const activeBranches = bd.filter(b => b.is_active);
+          setBranches(activeBranches);
+          if (draft?.branch_id) {
+            const b = activeBranches.find(x => x.id === draft.branch_id);
+            if (b) setSelectedBranch(b);
+          }
           if (!lastConfigVersion.current) {
             setFormConfig(cd);
             setConfigLoaded(true);
@@ -293,16 +310,16 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, entities: 
 
   const handleNext = (overrideKey, overrideVal, entityOverride = null) => {
     if (isNavigating) return;
-    
+
     const currentEntity = entityOverride || selectedEntity;
-    
+
     if (!currentEntity && dbEntities.length > 1 && !overrideConfig && !isPreviewMode) {
       setModal({ isOpen: true, title: "Service Required", message: `Please select a category to continue.`, type: "warning" });
       return;
     }
     const current = enabledSteps.find(s => s.id === step);
     if (!current) return;
-    
+
     const allValid = isPreviewMode ? true : current.items.every(it => isItemFilled(it));
     if (!allValid && !overrideKey) {
       setShowErrors(true);
@@ -311,7 +328,7 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, entities: 
 
     setShowErrors(false);
     const idx = enabledSteps.findIndex(s => s.id === step);
-    
+
     if (idx < enabledSteps.length - 1) {
       const nextStepId = enabledSteps[idx + 1].id;
       setStep(nextStepId);
@@ -322,14 +339,116 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, entities: 
     }
   };
 
+  const handleSaveToDrafts = async () => {
+    const draftId = draft?.id || "draft_" + Date.now();
+    const draftData = {
+      entity_id: selectedEntity?.id,
+      branch_id: selectedBranch?.id,
+      staff_id: selectedStaff?.id,
+      feedback_type: feedbackType,
+      idea,
+      rating,
+      custom_data: {
+        customFields,
+        matrixRatings,
+        entity_name: selectedEntity?.name,
+        branch_name: selectedBranch?.name
+      },
+      step: step,
+      title: selectedEntity?.name ? `Feedback for ${selectedEntity.name}` : "Untitled Draft",
+      description: idea || "No content..."
+    };
+
+    if (currentUser?.id) {
+      try {
+        if (draft?.id && typeof draft.id === 'number') {
+          await updateDraft(draft.id, draftData);
+        } else {
+          await createDraft(currentUser.id, draftData);
+        }
+      } catch (err) {
+        console.error("Failed to save draft to cloud", err);
+        // Fallback to local
+        saveToLocalStorage(draftId, draftData);
+      }
+    } else {
+      saveToLocalStorage(draftId, draftData);
+    }
+
+    if (typeof onSaveDraft === 'function') onSaveDraft();
+
+    setModal({ isOpen: false });
+    setSelectedEntity(null);
+    setStep("");
+    if (typeof onBack === 'function') onBack();
+  };
+
+  const saveToLocalStorage = (id, data) => {
+    const draftsKey = `user.drafts_${currentUser?.id || 'guest'}`;
+    const savedDrafts = JSON.parse(localStorage.getItem(draftsKey) || "[]");
+    const fullData = {
+      ...data,
+      id,
+      created_at: draft?.created_at || new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+    const existingIndex = savedDrafts.findIndex(d => d.id === id);
+    if (existingIndex >= 0) {
+      savedDrafts[existingIndex] = fullData;
+    } else {
+      savedDrafts.push(fullData);
+    }
+    localStorage.setItem(draftsKey, JSON.stringify(savedDrafts));
+  };
+
   const handleBack = () => {
+    if (isPreviewMode) return;
     const idx = enabledSteps.findIndex(s => s.id === step);
     if (idx > 0) {
       setStep(enabledSteps[idx - 1].id);
     } else if (selectedEntity) {
-      // Go back to selection screen instead of closing
-      setSelectedEntity(null);
-      setStep("");
+      // Check if user has entered any data
+      const hasData = rating > 0 || (idea && idea.trim().length > 0) || Object.keys(customFields).length > 0 || Object.keys(matrixRatings).length > 0;
+
+      if (hasData) {
+        setModal({
+          isOpen: true,
+          title: "Unsaved Feedback",
+          message: "You have unsaved changes. Choose an action to continue.",
+          type: "alert",
+          showDefaultActions: false,
+          onCancel: () => setModal({ isOpen: false }), // ESC/Overlay support
+          content: (
+            <div style={{ display: 'flex', gap: '8px', width: '100%', marginTop: '12px' }}>
+              <button 
+                onClick={() => setModal({ isOpen: false })}
+                style={{ flex: 1, padding: '12px 8px', borderRadius: '12px', border: '1.5px solid #E2E8F0', background: 'white', color: '#64748B', fontWeight: '700', fontSize: '12px', cursor: 'pointer', transition: '0.2s' }}
+              >
+                Keep Editing
+              </button>
+              <button 
+                onClick={handleSaveToDrafts}
+                style={{ flex: 1.2, padding: '12px 8px', borderRadius: '12px', border: 'none', background: 'var(--primary-color)', color: 'white', fontWeight: '800', fontSize: '12px', cursor: 'pointer', boxShadow: '0 4px 12px rgba(var(--primary-rgb), 0.2)', transition: '0.2s' }}
+              >
+                Save Draft
+              </button>
+              <button 
+                onClick={() => {
+                  setModal({ isOpen: false });
+                  setSelectedEntity(null);
+                  setStep("");
+                }}
+                style={{ flex: 1, padding: '12px 8px', borderRadius: '12px', border: 'none', background: '#FEF2F2', color: '#EF4444', fontWeight: '700', fontSize: '12px', cursor: 'pointer', transition: '0.2s' }}
+              >
+                Discard
+              </button>
+            </div>
+          )
+        });
+      } else {
+        setSelectedEntity(null);
+        setStep("");
+      }
     } else if (typeof onBack === 'function') {
       onBack();
     }
@@ -352,10 +471,34 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, entities: 
         allow_comments: allowComments,
         custom_data: { ...customFields, matrix_evaluations: matrixRatings, routing_method: selectionMethod }
       });
-      setModal({ isOpen: true, title: "Success", message: "Submitted successfully!", type: "success", onConfirm: () => { if (typeof onSuccess === 'function') onSuccess(); setModal({ isOpen: false }); } });
-    } catch (e) { 
+      setModal({
+        isOpen: true,
+        title: "Success",
+        message: "Submitted successfully!",
+        type: "success",
+        onConfirm: () => {
+          // If we were editing a draft, remove it from localStorage upon successful submission
+          if (draft?.id) {
+            if (typeof draft.id === 'number') {
+              deleteDraft(draft.id).catch(err => console.error("Failed to delete cloud draft", err));
+            } else {
+              const draftsKey = `user.drafts_${currentUser?.id || 'guest'}`;
+              try {
+                const savedDrafts = JSON.parse(localStorage.getItem(draftsKey) || "[]");
+                const filtered = savedDrafts.filter(d => d.id !== draft.id);
+                localStorage.setItem(draftsKey, JSON.stringify(filtered));
+              } catch (err) {
+                console.error("Failed to cleanup draft after submission", err);
+              }
+            }
+          }
+          if (typeof onSuccess === 'function') onSuccess();
+          setModal({ isOpen: false });
+        }
+      });
+    } catch (e) {
       const errMsg = e.response?.data?.detail || e.message || "Submission failed.";
-      setModal({ isOpen: true, title: "Error", message: errMsg, type: "error" }); 
+      setModal({ isOpen: true, title: "Error", message: errMsg, type: "error" });
     }
     finally { setIsSubmitting(false); }
   };
@@ -512,15 +655,15 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, entities: 
     );
   };
 
-  if (loading && !configLoaded) return <div style={styles.loader}>Loading...</div>;
+  if (loading) return <div style={styles.loader}>Loading...</div>;
   const currentStep = enabledSteps.find(s => s.id === step);
   const currentIndex = enabledSteps.findIndex(s => s.id === step);
 
   return (
-    <div 
+    <div
       className="feedback-container user-portal-container"
-      style={{ 
-        ...styles.container, 
+      style={{
+        ...styles.container,
         ...dynamicBackground,
         '--primary-color': primaryColor,
         '--primary-rgb': hexToRgb(primaryColor)
@@ -553,30 +696,54 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, entities: 
             position: 'relative',
             overflow: 'hidden'
           }}>
+            {/* CLOSE BUTTON */}
+            <button
+              onClick={onBack}
+              style={{
+                position: 'absolute',
+                top: '16px',
+                right: '16px',
+                background: '#F1F5F9',
+                border: 'none',
+                borderRadius: '50%',
+                width: '32px',
+                height: '32px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                color: '#64748B',
+                zIndex: 20,
+                transition: 'all 0.2s'
+              }}
+              title="Close"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
             {/* INTENTIONAL HEADER */}
             <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-              <h2 style={{ 
-                fontSize: 'var(--size-page-title, 22px)', 
-                fontWeight: '800', 
-                color: '#0F172A', 
-                margin: '0 0 8px 0', 
-                letterSpacing: '-0.03em', 
-                lineHeight: '1.2' 
+              <h2 style={{
+                fontSize: 'var(--size-page-title, 22px)',
+                fontWeight: '800',
+                color: '#0F172A',
+                margin: '0 0 8px 0',
+                letterSpacing: '-0.03em',
+                lineHeight: '1.2'
               }}>
                 How can we help?
               </h2>
-              <div style={{ 
-                width: '32px', 
-                height: '3px', 
-                background: 'var(--primary-color)', 
-                margin: '0 auto 12px', 
+              <div style={{
+                width: '32px',
+                height: '3px',
+                background: 'var(--primary-color)',
+                margin: '0 auto 12px',
                 borderRadius: '2px',
                 opacity: 0.6
               }} />
-              <p style={{ 
-                fontSize: 'var(--size-body, 13px)', 
-                color: '#64748B', 
-                fontWeight: '500', 
+              <p style={{
+                fontSize: 'var(--size-body, 13px)',
+                color: '#64748B',
+                fontWeight: '500',
                 lineHeight: '1.4',
                 maxWidth: '240px',
                 margin: '0 auto'
@@ -597,7 +764,7 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, entities: 
                 const isSel = selectedEntity?.id === ent.id;
                 const iconName = ent.icon ? (ent.icon.charAt(0).toUpperCase() + ent.icon.slice(1)) : 'Layers';
                 const IconComp = LocalIcons[iconName] || LocalIcons.Layers;
-                
+
                 const colorMap = {
                   spa: { bg: '#F0FDFA', icon: '#0D9488', border: '#CCFBF1' },
                   restaurant: { bg: '#FFF7ED', icon: '#EA580C', border: '#FFEDD5' },
@@ -608,17 +775,17 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, entities: 
                 const theme = colorMap[ent.name.toLowerCase()] || colorMap.default;
 
                 return (
-                  <button 
-                    key={ent.id} 
-                    onClick={() => { 
-                      setConfirmingSelection(ent); 
-                      setTimeout(() => { 
-                        setSelectedEntity(ent); 
-                        setConfirmingSelection(null); 
-                      }, 800); 
-                    }} 
+                  <button
+                    key={ent.id}
+                    onClick={() => {
+                      setConfirmingSelection(ent);
+                      setTimeout(() => {
+                        setSelectedEntity(ent);
+                        setConfirmingSelection(null);
+                      }, 800);
+                    }}
                     className="minimal-service-card press-effect"
-                    style={{ 
+                    style={{
                       position: 'relative',
                       display: 'flex',
                       flexDirection: 'column',
@@ -630,8 +797,8 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, entities: 
                       border: `1.5px solid ${isSel ? 'var(--primary-color)' : '#F1F5F9'}`,
                       cursor: 'pointer',
                       transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                      boxShadow: isSel 
-                        ? `0 10px 20px -5px rgba(${hexToRgb(primaryColor)}, 0.2)` 
+                      boxShadow: isSel
+                        ? `0 10px 20px -5px rgba(${hexToRgb(primaryColor)}, 0.2)`
                         : '0 4px 12px rgba(0,0,0,0.03)',
                       zIndex: isSel ? 2 : 1
                     }}
@@ -647,16 +814,16 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, entities: 
                       justifyContent: 'center',
                       marginBottom: '12px',
                       transition: 'all 0.3s ease',
-                      boxShadow: isSel 
-                        ? '0 8px 16px rgba(var(--primary-rgb), 0.3)' 
+                      boxShadow: isSel
+                        ? '0 8px 16px rgba(var(--primary-rgb), 0.3)'
                         : `inset 0 0 0 1px ${theme.border}`
                     }}>
                       <IconComp size={24} />
                     </div>
-                    
-                    <div style={{ 
-                      fontSize: 'clamp(10px, 3vw, 13px)', 
-                      fontWeight: '800', 
+
+                    <div style={{
+                      fontSize: 'clamp(10px, 3vw, 13px)',
+                      fontWeight: '800',
                       color: isSel ? 'var(--primary-color)' : '#1E293B',
                       letterSpacing: '-0.02em',
                       lineHeight: '1.2',
@@ -667,10 +834,10 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, entities: 
                     }}>
                       {ent.name}
                     </div>
-                    
-                    <div style={{ 
-                      fontSize: 'var(--size-metadata, 10px)', 
-                      fontWeight: '600', 
+
+                    <div style={{
+                      fontSize: 'var(--size-metadata, 10px)',
+                      fontWeight: '600',
                       color: isSel ? 'var(--primary-color)' : '#94A3B8',
                       marginTop: '4px',
                       opacity: isSel ? 0.8 : 0.6
@@ -679,27 +846,27 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, entities: 
                     </div>
 
                     {confirmingSelection?.id === ent.id && (
-                      <div style={{ 
-                        position: 'absolute', 
-                        inset: 0, 
-                        background: 'rgba(255, 255, 255, 0.9)', 
+                      <div style={{
+                        position: 'absolute',
+                        inset: 0,
+                        background: 'rgba(255, 255, 255, 0.9)',
                         backdropFilter: 'blur(4px)',
-                        borderRadius: '22px', 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        justifyContent: 'center', 
-                        color: 'var(--primary-color)', 
+                        borderRadius: '22px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'var(--primary-color)',
                         zIndex: 10,
                         animation: 'fadeIn 0.2s ease'
                       }}>
-                         <div className="loader-mini" style={{ width: '20px', height: '20px', border: '3px solid var(--primary-color)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }}></div>
+                        <div className="loader-mini" style={{ width: '20px', height: '20px', border: '3px solid var(--primary-color)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }}></div>
                       </div>
                     )}
                   </button>
                 );
               })}
             </div>
-            
+
             <style>{`
               .minimal-service-card:hover {
                 transform: translateY(-4px);
@@ -736,8 +903,20 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, entities: 
           )
         )}
       </main>
-      <CustomModal isOpen={modal.isOpen} title={modal.title} message={modal.message} type={modal.type} onConfirm={() => { if (modal.onConfirm) modal.onConfirm(); setModal({ ...modal, isOpen: false }); }} />
-      
+      <CustomModal
+        isOpen={modal.isOpen}
+        title={modal.title}
+        message={modal.message}
+        type={modal.type}
+        onConfirm={() => { if (modal.onConfirm) modal.onConfirm(); else setModal({ ...modal, isOpen: false }); }}
+        onCancel={modal.onCancel ? () => { modal.onCancel(); } : undefined}
+        confirmText={modal.confirmText || "OK"}
+        cancelText={modal.cancelText || "Cancel"}
+        isDestructive={modal.isDestructive || false}
+        content={modal.content}
+        showDefaultActions={modal.showDefaultActions}
+      />
+
       {showPrivacyModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(8px)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', animation: 'fadeIn 0.3s ease' }}>
           <div style={{ background: 'white', width: '100%', maxWidth: '400px', borderRadius: '32px', overflow: 'hidden', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', animation: 'slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1)' }}>
@@ -750,7 +929,7 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, entities: 
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 {/* Anonymous Toggle */}
-                <div 
+                <div
                   onClick={() => setIsAnonymous(!isAnonymous)}
                   style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', borderRadius: '18px', background: isAnonymous ? 'rgba(59, 130, 246, 0.04)' : '#F8FAFC', border: `1.5px solid ${isAnonymous ? '#3B82F6' : 'transparent'}`, cursor: 'pointer', transition: '0.2s' }}
                 >
@@ -767,7 +946,7 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, entities: 
                 </div>
 
                 {/* Comments Toggle */}
-                <div 
+                <div
                   onClick={() => setAllowComments(!allowComments)}
                   style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', borderRadius: '18px', background: allowComments ? 'rgba(16, 185, 129, 0.04)' : '#F8FAFC', border: `1.5px solid ${allowComments ? '#10B981' : 'transparent'}`, cursor: 'pointer', transition: '0.2s' }}
                 >
@@ -786,14 +965,14 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, entities: 
             </div>
 
             <div style={{ padding: '0 24px 32px 24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <button 
+              <button
                 onClick={() => { setShowPrivacyModal(false); handleSubmit(); }}
                 disabled={isSubmitting}
                 style={{ ...styles.nextBtn, width: '100%', height: '52px' }}
               >
                 {isSubmitting ? "Submitting..." : "Finish & Submit"}
               </button>
-              <button 
+              <button
                 onClick={() => setShowPrivacyModal(false)}
                 style={{ background: 'none', border: 'none', color: '#94A3B8', fontSize: '13px', fontWeight: '800', cursor: 'pointer', height: '32px' }}
               >
@@ -833,40 +1012,40 @@ function WorkflowStepper({ steps, currentIndex, primaryColor, onStepClick }) {
 }
 
 const styles = {
-  container: { 
-    height: '100%', 
-    display: 'flex', 
+  container: {
+    height: '100%',
+    display: 'flex',
     flexDirection: 'column',
-    fontFamily: "'Outfit', sans-serif" 
+    fontFamily: "'Outfit', sans-serif"
   },
   header: { padding: 'var(--card-padding, 24px 20px)', background: 'rgba(255, 255, 255, 0.7)', backdropFilter: 'blur(12px)', display: 'flex', alignItems: 'center', gap: '15px', borderBottom: '1px solid rgba(255, 255, 255, 0.3)', position: 'sticky', top: 0, zIndex: 10 },
   headerTitle: { fontSize: 'var(--size-page-title, 14px)', fontWeight: '600', color: '#0F172A', letterSpacing: '-0.02em' },
   content: { flex: 1, padding: 'var(--card-padding, 24px 20px)', overflowY: 'auto' },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' },
-  typeCard: { 
-    display: 'flex', 
-    flexDirection: 'column', 
-    alignItems: 'center', 
-    padding: 'var(--card-padding, 24px 16px)', 
-    borderRadius: '24px', 
-    background: 'rgba(255, 255, 255, 0.8)', 
+  typeCard: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    padding: 'var(--card-padding, 24px 16px)',
+    borderRadius: '24px',
+    background: 'rgba(255, 255, 255, 0.8)',
     backdropFilter: 'blur(10px)',
-    border: '1px solid rgba(255, 255, 255, 0.7)', 
-    boxShadow: '0 10px 30px -10px rgba(0, 0, 0, 0.04), inset 0 0 0 1px rgba(255, 255, 255, 0.5)', 
-    cursor: 'pointer', 
-    transition: 'all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)', 
-    textAlign: 'center' 
+    border: '1px solid rgba(255, 255, 255, 0.7)',
+    boxShadow: '0 10px 30px -10px rgba(0, 0, 0, 0.04), inset 0 0 0 1px rgba(255, 255, 255, 0.5)',
+    cursor: 'pointer',
+    transition: 'all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+    textAlign: 'center'
   },
-  itemIcon: { 
-    width: '60px', 
-    height: '60px', 
-    borderRadius: '20px', 
-    background: 'white', 
-    boxShadow: '0 8px 16px -4px rgba(0, 0, 0, 0.06)', 
-    display: 'flex', 
-    alignItems: 'center', 
-    justifyContent: 'center', 
-    color: 'var(--primary-color)', 
+  itemIcon: {
+    width: '60px',
+    height: '60px',
+    borderRadius: '20px',
+    background: 'white',
+    boxShadow: '0 8px 16px -4px rgba(0, 0, 0, 0.06)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: 'var(--primary-color)',
     marginBottom: '12px',
     transition: 'all 0.3s'
   },

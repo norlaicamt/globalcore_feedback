@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import CustomModal from "./CustomModal";
 import GeneralFeedback from "./GeneralFeedback";
+import { getDrafts, deleteDraft } from "../services/api";
 
 const Icons = {
   Back: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>,
@@ -18,14 +19,29 @@ const DraftsView = ({ currentUser, onBack }) => {
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [editingDraft, setEditingDraft] = useState(null);
 
-  const refreshDrafts = () => {
-    const savedDrafts = JSON.parse(localStorage.getItem(`user.drafts_${currentUser?.id}`) || "[]");
-    setDrafts(savedDrafts);
+  const refreshDrafts = async () => {
+    setIsLoading(true);
+    try {
+      if (currentUser?.id) {
+        const cloudDrafts = await getDrafts(currentUser.id);
+        // Combine with local if needed, or just use cloud
+        setDrafts(cloudDrafts);
+      } else {
+        const savedDrafts = JSON.parse(localStorage.getItem(`user.drafts_guest`) || "[]");
+        setDrafts(savedDrafts);
+      }
+    } catch (err) {
+      console.error("Failed to fetch drafts", err);
+      // Fallback
+      const savedDrafts = JSON.parse(localStorage.getItem(`user.drafts_${currentUser?.id || 'guest'}`) || "[]");
+      setDrafts(savedDrafts);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   useEffect(() => {
     refreshDrafts();
-    setIsLoading(false);
   }, [currentUser]);
 
   const toggleSelect = (e, id) => {
@@ -38,7 +54,7 @@ const DraftsView = ({ currentUser, onBack }) => {
     else setSelectedIds(drafts.map(d => d.id));
   };
 
-  const handleDeleteSelected = () => {
+  const handleDeleteSelected = async () => {
     if (selectedIds.length === 0) return;
     setDialogState({
       isOpen: true,
@@ -47,12 +63,30 @@ const DraftsView = ({ currentUser, onBack }) => {
       type: "alert",
       confirmText: "Delete",
       isDestructive: true,
-      onConfirm: () => {
-        setDrafts(prev => {
-          const updated = prev.filter(d => !selectedIds.includes(d.id));
-          localStorage.setItem(`user.drafts_${currentUser?.id}`, JSON.stringify(updated));
-          return updated;
-        });
+      onConfirm: async () => {
+        try {
+          if (currentUser?.id) {
+            await Promise.all(selectedIds.map(id => {
+              if (typeof id === 'number') return deleteDraft(id);
+              return Promise.resolve();
+            }));
+            
+            // Also cleanup any local ones if they were selected
+            const localIds = selectedIds.filter(id => typeof id !== 'number');
+            if (localIds.length > 0) {
+              const savedDrafts = JSON.parse(localStorage.getItem(`user.drafts_${currentUser.id}`) || "[]");
+              const updated = savedDrafts.filter(d => !localIds.includes(d.id));
+              localStorage.setItem(`user.drafts_${currentUser.id}`, JSON.stringify(updated));
+            }
+          } else {
+            const savedDrafts = JSON.parse(localStorage.getItem(`user.drafts_guest`) || "[]");
+            const updated = savedDrafts.filter(d => !selectedIds.includes(d.id));
+            localStorage.setItem(`user.drafts_guest`, JSON.stringify(updated));
+          }
+          refreshDrafts();
+        } catch (err) {
+          console.error("Failed to delete drafts", err);
+        }
         setSelectedIds([]);
         setIsSelectMode(false);
         setDialogState({ isOpen: false });
@@ -173,13 +207,13 @@ const DraftsView = ({ currentUser, onBack }) => {
                   {/* Main Content */}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={styles.cardHeader}>
-                      <span style={{ ...styles.itemDate, color: isSelected ? 'var(--primary-color)' : '#94A3B8' }}>{formatDateTime(draft.created_at).date}</span>
+                      <span style={{ ...styles.itemDate, color: isSelected ? 'var(--primary-color)' : '#94A3B8' }}>{formatDateTime(draft.created_at || draft.updated_at).date}</span>
                     </div>
                     <h3 style={{ ...styles.itemTitle, color: isSelected ? 'var(--primary-color)' : '#1E293B' }}>{draft.title || draft.subject || "Untitled Draft"}</h3>
                     <p style={styles.itemDesc}>{draft.description || draft.message || "No content..."}</p>
                     <div style={styles.cardFooter}>
                       <div style={styles.draftBadge}>DRAFT</div>
-                      <div style={styles.timeLabel}><Icons.Clock /> {formatDateTime(draft.created_at).time}</div>
+                      <div style={styles.timeLabel}><Icons.Clock /> {formatDateTime(draft.created_at || draft.updated_at).time}</div>
                     </div>
                   </div>
                 </div>
