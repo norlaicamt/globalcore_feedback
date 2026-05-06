@@ -329,7 +329,6 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
       icon: <Icons.Inbox />,
       subItems: [
         { id: 'history', label: 'Sent', icon: <Icons.User /> },
-        { id: 'mentioned', label: 'Mentions', icon: <Icons.Tag /> },
         { id: 'drafts', label: 'Drafts', icon: <Icons.Message /> },
         { id: 'activity', label: 'Interaction Activity', icon: <Icons.Activity /> }
       ]
