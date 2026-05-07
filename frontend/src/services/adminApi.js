@@ -132,25 +132,25 @@ export const adminDeleteBranch = (id) => adminApi.delete(`/branches/${id}`);
 
 // Broadcast
 export const adminBroadcast = (subject, message, broadcast_type = "announcement", target_group = "all", priority = "normal", status = "sent", require_ack = false, scheduled_at = null, broadcast_id = null) => {
-  const q = new URLSearchParams({
+  const payload = {
     subject,
     message,
     broadcast_type,
     target_group,
     priority,
     status,
-    require_ack: !!require_ack
-  });
-  if (scheduled_at) q.set("scheduled_at", scheduled_at);
-  if (broadcast_id) q.set("broadcast_id", broadcast_id);
-  return adminApi.post(`/broadcast?${q.toString()}`).then(r => r.data);
+    require_ack: !!require_ack,
+    scheduled_at,
+    broadcast_id
+  };
+  return adminApi.post("/broadcast", payload).then(r => r.data);
 };
 export const adminGetBroadcastLogs = () => adminApi.get("/broadcasts").then(r => r.data);
 export const adminGetBroadcastDrafts = () => adminApi.get("/broadcasts/drafts").then(r => r.data);
 export const adminDeleteBroadcast = (id) => adminApi.delete(`/broadcasts/${id}`).then(r => r.data);
 export const adminArchiveBroadcast = (id) => adminApi.post(`/broadcasts/${id}/archive`).then(r => r.data);
 export const adminResendBroadcast = (id) => adminApi.post(`/broadcasts/${id}/resend`).then(r => r.data);
-export const adminGetBroadcastRecipientCount = (target_group = "all") => adminApi.get(`/broadcast/recipient-count?target_group=${target_group}`).then(r => r.data);
+export const adminGetBroadcastRecipientCount = (target_group = "all") => adminApi.get(`/broadcast/recipient_count?target_group=${target_group}`).then(r => r.data);
 
 // Broadcast Templates
 export const adminGetBroadcastTemplates = () => adminApi.get("/broadcast-templates").then(r => r.data);

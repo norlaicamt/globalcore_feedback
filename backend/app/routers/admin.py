@@ -1265,7 +1265,7 @@ def update_admin_setting(key: str, payload: dict = Body(...), db: Session = Depe
 # BROADCAST NOTIFICATION
 # ---------------------------------------------
 
-@router.get("/broadcast/recipient-count")
+@router.get("/broadcast/recipient_count")
 def get_broadcast_recipient_count(
     target_group: str = "all",
     db: Session = Depends(get_db),
@@ -1276,17 +1276,25 @@ def get_broadcast_recipient_count(
     Follows the same selection logic as the broadcast dispatch.
     """
     is_global = has_global_admin_access(admin)
-    query = db.query(models.User)
     
     if not is_global:
-        # Scoped admins only see users in their own entity
-        query = query.filter(models.User.entity_id == admin.entity_id)
+        # Scoped admins: target users associated with their entity via any interaction layer
+        query = db.query(models.User).outerjoin(models.UserContext, models.UserContext.user_id == models.User.id)\
+            .outerjoin(models.Feedback, models.Feedback.sender_id == models.User.id)\
+            .filter(
+                (models.UserContext.entity_id == admin.entity_id) |
+                (models.Feedback.entity_id == admin.entity_id) |
+                (models.User.entity_id == admin.entity_id) |
+                (models.User.is_global_user == True) |
+                (models.User.entity_id == None)
+            ).distinct()
+        
         if target_group == "staff":
             query = query.filter(models.User.role.in_(["admin", "superadmin"]))
         elif target_group == "global":
             query = query.filter(models.User.role == "user")
     else:
-        # Global admins can target everyone or specific cohorts
+        query = db.query(models.User)
         if target_group == "global":
             query = query.filter(models.User.role == "user")
         elif target_group == "staff":
@@ -1295,25 +1303,26 @@ def get_broadcast_recipient_count(
     return {"count": query.count()}
 
 
+
 @router.post("/broadcast")
 def admin_broadcast(
-    subject: str, 
-    message: str, 
-    broadcast_type: str = "announcement",
-    target_group: str = "all", # all, staff, global
-    priority: str = "normal",
-    status: str = "sent", # draft, scheduled, sent
-    require_ack: bool = False,
-    scheduled_at: Optional[datetime] = None,
-    broadcast_id: Optional[int] = None,
+    request: schemas.BroadcastRequest,
     db: Session = Depends(get_db), 
     admin: models.User = Depends(get_current_admin)
 ):
     """
-    Broadcast system allows Superadmins to reach everyone,
-    and Program Admins to reach only their own staff and beneficiaries.
-    Now supports Draft/Scheduled states and Priority levels.
+    Dispatches a broadcast notification to a selected group of users.
+    Scoped admins can only broadcast to users associated with their entity.
     """
+    subject = request.subject
+    message = request.message
+    broadcast_type = request.broadcast_type
+    target_group = request.target_group
+    priority = request.priority
+    status = request.status
+    require_ack = request.require_ack
+    scheduled_at = request.scheduled_at
+    broadcast_id = request.broadcast_id
     source_tag = "SYSTEM"
     is_global = has_global_admin_access(admin)
     
@@ -1323,15 +1332,24 @@ def admin_broadcast(
     
     official_subject = f"[OFFICIAL] {source_tag} - {subject}"
     
-    # 1. Selection Logic (Still needed even for counts in Drafts)
-    query = db.query(models.User)
+    # 1. Selection Logic — users associated with this entity via any interaction layer
     if not is_global:
-        query = query.filter(models.User.entity_id == admin.entity_id)
+        query = db.query(models.User).outerjoin(models.UserContext, models.UserContext.user_id == models.User.id)\
+            .outerjoin(models.Feedback, models.Feedback.sender_id == models.User.id)\
+            .filter(
+                (models.UserContext.entity_id == admin.entity_id) |
+                (models.Feedback.entity_id == admin.entity_id) |
+                (models.User.entity_id == admin.entity_id) |
+                (models.User.is_global_user == True) |
+                (models.User.entity_id == None)
+            ).distinct()
+        
         if target_group == "staff":
             query = query.filter(models.User.role.in_(["admin", "superadmin"]))
         elif target_group == "global":
             query = query.filter(models.User.role == "user")
     else:
+        query = db.query(models.User)
         if target_group == "global":
             query = query.filter(models.User.role == "user")
         elif target_group == "staff":
@@ -1456,10 +1474,25 @@ def resend_broadcast(
     if not has_global_admin_access(admin) and log.entity_id != admin.entity_id:
         raise HTTPException(status_code=403, detail="Unauthorized")
 
-    # Get original target users (simplified for resend)
-    query = db.query(models.User)
+    # Get original target users (using the new inclusive selection logic)
     if log.entity_id:
-        query = query.filter(models.User.entity_id == log.entity_id)
+        # Scoped logic: find all users associated with this entity via any interaction layer
+        query = db.query(models.User).outerjoin(models.UserContext, models.UserContext.user_id == models.User.id)\
+            .outerjoin(models.Feedback, models.Feedback.sender_id == models.User.id)\
+            .filter(
+                (models.UserContext.entity_id == log.entity_id) |
+                (models.Feedback.entity_id == log.entity_id) |
+                (models.User.entity_id == log.entity_id) |
+                (models.User.is_global_user == True) |
+                (models.User.entity_id == None)
+            ).distinct()
+        
+        # If it's a resend, we usually want to target the same group. 
+        # For now, we assume 'all' beneficiaries of that entity.
+        query = query.filter(models.User.role == "user")
+    else:
+        # Global broadcast logic
+        query = db.query(models.User).filter(models.User.role == "user")
     
     users = query.all()
     notifications = []
@@ -1789,43 +1822,7 @@ def admin_archive_broadcast(log_id: int, db: Session = Depends(get_db), admin: m
     db.commit()
     return {"message": "Archived"}
 
-@router.post("/broadcasts/{log_id}/resend")
-def admin_resend_broadcast(log_id: int, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
-    log = db.query(models.BroadcastLog).filter(models.BroadcastLog.id == log_id).first()
-    if not log:
-        raise HTTPException(status_code=404, detail="Log not found")
-    
-    # Scoping check
-    if not has_global_admin_access(admin) and log.entity_id != admin.entity_id:
-        raise HTTPException(status_code=403, detail="Cannot resend other program's broadcast")
-
-    # Simple resend implementation: create notifications again
-    query = db.query(models.User).filter(models.User.is_active == True)
-    if not has_global_admin_access(admin):
-        query = query.filter(models.User.entity_id == admin.entity_id)
-    elif log.entity_id:
-        query = query.filter(models.User.entity_id == log.entity_id)
-    
-    target_users = query.all()
-    sent_count = 0
-    for user in target_users:
-        db_notif = models.Notification(
-            user_id=user.id, 
-            actor_id=admin.id,
-            subject=log.subject, 
-            message=log.message,
-            type=models.NotificationType.broadcast, 
-            priority=log.priority,
-            require_ack=log.require_ack, 
-            broadcast_id=log.id
-        )
-        db.add(db_notif)
-        sent_count += 1
-    
-    log.status = "sent"
-    log.created_at = datetime.now() # Update timestamp to now
-    db.commit()
-    return {"message": "Resent", "sent_to": sent_count}
+# admin_resend_broadcast consolidated with resend_broadcast at line 1461
 
 @router.get("/broadcast-templates", response_model=List[schemas.BroadcastTemplate])
 def get_broadcast_templates(db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):

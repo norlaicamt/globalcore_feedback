@@ -477,6 +477,17 @@ class BroadcastLog(BroadcastLogBase):
     created_at: datetime
     read_count: Optional[int] = 0
     model_config = ConfigDict(from_attributes=True)
+
+class BroadcastRequest(BaseModel):
+    subject: str
+    message: str
+    broadcast_type: Optional[str] = "announcement"
+    target_group: Optional[str] = "all" # all, staff, global
+    priority: Optional[str] = "normal"
+    status: Optional[str] = "sent" # draft, scheduled, sent
+    require_ack: Optional[bool] = False
+    scheduled_at: Optional[datetime] = None
+    broadcast_id: Optional[int] = None
 class BroadcastTemplateBase(BaseModel):
     name: str
     title: str
