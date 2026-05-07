@@ -332,6 +332,13 @@ const AdminDashboard = ({ onNavigate, theme, darkMode, adminUser }) => {
             light
             color="#10B981"
           />
+          <KpiCard
+            label="Deactivated"
+            value={summary?.deactivated_users ?? 0}
+            theme={theme}
+            light
+            color="#EF4444"
+          />
         </div>
       </div>
 
@@ -347,7 +354,10 @@ const AdminDashboard = ({ onNavigate, theme, darkMode, adminUser }) => {
         <Section theme={theme} title="Volume & Engagement Analysis" empty={volume.length === 0} emptyText="No activity data detected for this scope.">
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 200px', gap: '20px' }}>
             <ResponsiveContainer width="100%" height={240}>
-              <AreaChart data={volume.map((v, i) => ({ ...v, engagement: engagement[i]?.comments || 0 }))}>
+              <AreaChart data={volume.map((v) => {
+                const dayEngagement = engagement.find(e => e.day === v.day);
+                return { ...v, engagement: dayEngagement ? dayEngagement.comments : 0 };
+              })}>
                 <defs>
                   <linearGradient id="volGrad" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="var(--primary-color)" stopOpacity={darkMode ? 0.4 : 0.15} />

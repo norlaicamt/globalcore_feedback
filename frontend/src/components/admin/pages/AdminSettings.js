@@ -583,9 +583,10 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
   // Any admin can manage terminology for their own scope
   tabs.push({ id: "terminology", label: "Terminology" });
 
-  if (isGlobalCoreAdmin) {
-    tabs.push({ id: "system", label: "Global Config" });
-  }
+  // Global Config tab removed per user request
+  // if (isGlobalCoreAdmin) {
+  //   tabs.push({ id: "system", label: "Global Config" });
+  // }
 
   const handleReset = () => {
     setForm({ ...pristineForm });
@@ -1561,155 +1562,8 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
           </div>
         )}
 
-        {activeTab === "system" && isGlobalCoreAdmin && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: '32px', alignItems: 'start' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-              <SectionCard theme={theme} title="Organization Profile" subtitle="Select the primary operational mode for the platform.">
-                <div style={{ padding: '16px', background: 'rgba(var(--primary-rgb), 0.05)', borderRadius: '12px', border: `1px solid rgba(var(--primary-rgb), 0.1)` }}>
-                  <label style={labelStyle}>Operational Logic Mode</label>
-                  <select style={inputStyle} value={settings.org_type || "government"} onChange={e => setSettings(s => ({ ...s, org_type: e.target.value }))}>
-                    <option value="government">Government & Public Program (Governance focus)</option>
-                    <option value="service">Hospitality & Service Business (Guest Experience focus)</option>
-                    <option value="corporate">Internal Enterprise (SOP & Staff focus)</option>
-                  </select>
-                  <p style={{ marginTop: '12px', fontSize: '11px', color: theme.textMuted, lineHeight: '1.5' }}>
-                    💡 Switching the mode dynamically re-aligns system terminology, policy references, and operational guardrails.
-                  </p>
-                </div>
-              </SectionCard>
 
-              <AccordionCard
-                theme={theme}
-                title="Time & Regional Strategy"
-                subtitle="Standardize temporal governance across all programs and interactions."
-                status={{ label: settings.timezone.split(' ')[0], color: 'var(--primary-color)' }}
-              >
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
-                  <div style={{ padding: '16px', background: theme.bg, borderRadius: '16px', border: `1.5px solid ${theme.border}` }}>
-                    <label style={labelStyle}>Primary Timezone</label>
-                    <select style={inputStyle} value={settings.timezone} onChange={e => setSettings(s => ({ ...s, timezone: e.target.value }))}>
-                      <option>Asia/Manila (UTC+8)</option>
-                      <option>UTC (Coordinated Universal Time)</option>
-                      <option>America/New_York (UTC-5)</option>
-                    </select>
-                    <p style={{ marginTop: '8px', fontSize: '10px', color: theme.textMuted }}>Used for audit trails and scheduled broadcasts.</p>
-                  </div>
-
-                  <div style={{ padding: '16px', background: theme.bg, borderRadius: '16px', border: `1.5px solid ${theme.border}` }}>
-                    <label style={labelStyle}>Time Display Format</label>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      {['12h', '24h'].map(f => (
-                        <button
-                          key={f}
-                          onClick={() => setSettings(s => ({ ...s, time_format: f }))}
-                          style={{
-                            flex: 1, padding: '10px', borderRadius: '8px', fontSize: '11px', fontWeight: '800',
-                            background: settings.time_format === f ? 'var(--primary-color)' : theme.surface,
-                            color: settings.time_format === f ? 'white' : theme.text,
-                            border: `1.5px solid ${settings.time_format === f ? 'var(--primary-color)' : theme.border}`,
-                            cursor: 'pointer'
-                          }}
-                        >
-                          {f === '12h' ? '12-Hour (02:00 PM)' : '24-Hour (14:00)'}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div style={{ gridColumn: '1 / span 2', padding: '16px', background: theme.bg, borderRadius: '16px', border: `1.5px solid ${theme.border}` }}>
-                    <label style={labelStyle}>Date Visualization Format</label>
-                    <select style={inputStyle} value={settings.date_format} onChange={e => setSettings(s => ({ ...s, date_format: e.target.value }))}>
-                      <option>MMMM DD, YYYY (April 22, 2026)</option>
-                      <option>DD/MM/YYYY (22/04/2026)</option>
-                      <option>YYYY-MM-DD (2026-04-22)</option>
-                    </select>
-                  </div>
-                </div>
-              </AccordionCard>
-
-              <AccordionCard
-                theme={theme}
-                title="System Labeling & Visibility"
-                subtitle="Configure localized branding and form element visibility."
-                status={{ label: `${[settings.form_show_staff, settings.form_show_rating, settings.form_show_attachments, settings.form_show_voice].filter(Boolean).length} Controls Active`, color: '#10B981' }}
-              >
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-                    <div>
-                      <label style={labelStyle}>General Report Title (English)</label>
-                      <input value={settings.general_report_title || ""} onChange={e => setSettings(s => ({ ...s, general_report_title: e.target.value }))} style={inputStyle} placeholder="e.g. Department of Social Welfare..." />
-                    </div>
-                    <div>
-                      <label style={labelStyle}>General Report Title (Filipino)</label>
-                      <input value={settings.general_report_title_fil || ""} onChange={e => setSettings(s => ({ ...s, general_report_title_fil: e.target.value }))} style={inputStyle} placeholder="e.g. Kagawaran ng Kagalingan..." />
-                    </div>
-                  </div>
-
-                  <div style={{ borderTop: `1px solid ${theme.border}`, paddingTop: '12px' }}>
-                    <p style={{ margin: '0 0 16px 0', fontSize: '11px', fontWeight: '800', color: theme.textMuted, textTransform: 'uppercase' }}>Public Form Controls</p>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                      <ToggleRow title="Display Staff Names" description="Show responder identity on feedback threads." checked={settings.form_show_staff} onChange={() => setSettings(s => ({ ...s, form_show_staff: !s.form_show_staff }))} theme={theme} darkMode={darkMode} />
-                      <ToggleRow title="Enable Rating System" description="Allow users to rate service quality (1-5 stars)." checked={settings.form_show_rating} onChange={() => setSettings(s => ({ ...s, form_show_rating: !s.form_show_rating }))} theme={theme} darkMode={darkMode} />
-                      <ToggleRow title="Allow Attachments" description="Permit users to upload photo/document evidence." checked={settings.form_show_attachments} onChange={() => setSettings(s => ({ ...s, form_show_attachments: !s.form_show_attachments }))} theme={theme} darkMode={darkMode} />
-                      <ToggleRow title="Voice Feedback" description="Enable audio recording for accessible submissions." checked={settings.form_show_voice} onChange={() => setSettings(s => ({ ...s, form_show_voice: !s.form_show_voice }))} theme={theme} darkMode={darkMode} />
-                    </div>
-                  </div>
-                </div>
-              </AccordionCard>
-
-              <AccordionCard
-                theme={theme}
-                title="Operational Guardrails"
-                subtitle={`Settings anchored to ${activeProfile.policy_ref}.`}
-                status={{ label: `Rate Limit: ${settings.submission_rate_limit}`, color: '#F59E0B' }}
-              >
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                  <ToggleRow title={`${activeProfile.window_label} Validation`} description={`Restrict submissions to active ${activeProfile.window_label.toLowerCase()} periods only.`} checked={settings.public_feed} onChange={() => setSettings(s => ({ ...s, public_feed: !s.public_feed }))} theme={theme} darkMode={darkMode} />
-                  <ToggleRow title="Data Life-cycle Protocol" description="Aggressive masking of identities in public and lower-tier reports." checked={settings.email_notifications} onChange={() => setSettings(s => ({ ...s, email_notifications: !s.email_notifications }))} theme={theme} darkMode={darkMode} />
-
-                  <div style={{ borderTop: `1px solid ${theme.border}`, paddingTop: '24px' }}>
-                    <label style={labelStyle}>Submission Rate Limit (per {activeProfile.audience.split(' / ')[0]})</label>
-                    <input
-                      type="number"
-                      value={settings.submission_rate_limit || 5}
-                      onChange={e => setSettings(s => ({ ...s, submission_rate_limit: parseInt(e.target.value) }))}
-                      style={inputStyle}
-                    />
-                    <ImpactScope modules="Submission API" users={activeProfile.audience} description={`Prevents data duplication and ensures high-quality ${getLabel("feedback_label", "feedback")} records.`} theme={theme} />
-                  </div>
-
-                  <div style={{ borderTop: `1px solid ${theme.border}`, paddingTop: '24px' }}>
-                    <label style={labelStyle}>Data Sovereignty Protocol</label>
-                    <select
-                      style={inputStyle}
-                      value={settings.data_sovereignty || "on-premise"}
-                      onChange={e => setSettings(s => ({ ...s, data_sovereignty: e.target.value }))}
-                    >
-                      <option value="on-premise">On-Premise Infrastructure</option>
-                      <option value="cloud-gov">Government Cloud (Secured)</option>
-                      <option value="hybrid">Hybrid Deployment</option>
-                    </select>
-                  </div>
-                </div>
-              </AccordionCard>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-              <div style={{ background: '#1e293b', borderRadius: '24px', padding: '28px', color: 'white' }}>
-                <h4 style={{ margin: '0 0 12px 0', fontSize: '12px', fontWeight: '900', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Governance Enforcement</h4>
-                <p style={{ margin: 0, fontSize: '13px', color: 'rgba(255,255,255,0.8)', lineHeight: '1.6', fontWeight: '500' }}>
-                  These configurations represent the operational "Constitution" of the platform for the <strong>{(settings.org_type || "government").toUpperCase()}</strong> domain.
-                </p>
-                <div style={{ marginTop: '24px', paddingTop: '24px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
-                    <span style={{ color: 'rgba(255,255,255,0.5)' }}>Compliance Tier</span>
-                    <span style={{ fontWeight: '900' }}>{settings.org_type === 'government' ? 'FEDERAL-PLUS' : 'ENTERPRISE-PRO'}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Global Config Tab Content Removed */}
         <ImageCropperModal 
           isOpen={cropper.isOpen} 
           imageSrc={cropper.image} 

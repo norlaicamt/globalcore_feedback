@@ -1575,7 +1575,7 @@ const DashboardView = React.memo(({ feed, loading, hasMore, onLoadMore, onAction
       return scoreB - scoreA;
     });
 
-  const trendingItems = allTrendingItems.length > 0 
+  const trendingItems = allTrendingItems.length > 0
     ? allTrendingItems.slice(0, 3)
     : feed.slice(0, 3);
 
@@ -1727,13 +1727,13 @@ const DashboardView = React.memo(({ feed, loading, hasMore, onLoadMore, onAction
                           <span style={{ fontSize: '13px', fontWeight: '900', color: index === 0 ? '#2563EB' : '#64748B' }}>{index + 1}</span>
                         </div>
                         {/* Compact Service Chip */}
-                        <div style={{ 
-                          height: '14px', 
-                          padding: '0 4px', 
-                          backgroundColor: index === 0 ? '#DBEAFE' : '#E2E8F0', 
-                          borderRadius: '4px', 
-                          fontSize: '8px', 
-                          fontWeight: '800', 
+                        <div style={{
+                          height: '14px',
+                          padding: '0 4px',
+                          backgroundColor: index === 0 ? '#DBEAFE' : '#E2E8F0',
+                          borderRadius: '4px',
+                          fontSize: '8px',
+                          fontWeight: '800',
                           color: index === 0 ? '#1E40AF' : '#475569',
                           textTransform: 'uppercase',
                           maxWidth: '40px',

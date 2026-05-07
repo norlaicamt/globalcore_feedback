@@ -124,7 +124,7 @@ const AdminHub = ({ adminUser, onLogout }) => {
         auditlogs: "Reviewing Audit Logs",
         programs: "Configuring Programs",
         formdesigner: "Designing Forms",
-        settings: "Adjusting Global Settings"
+        settings: "Adjusting Portal Settings"
       };
       const moduleName = ACTION_MAP[view] || "Active in Portal";
       adminUpdatePresence(moduleName).catch(err => console.debug("Presence sync failed", err));

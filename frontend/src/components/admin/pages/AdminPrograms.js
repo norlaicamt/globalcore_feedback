@@ -351,7 +351,7 @@ const AdminPrograms = ({ theme, darkMode, adminUser, onNavigate, initialTab }) =
                     {selectedProgram.fields?.operational?.workspace_type ?? "WORKSPACE"}
                 </span>
                 <span style={{ color: theme.textMuted, fontSize: '11px', background: theme.bg, padding: '2px 8px', borderRadius: '12px', marginLeft: '4px' }}>
-                    {hasGlobalAdminAccess ? "GLOBAL CONFIG" : "LOCKED SCOPE"}
+                    {hasGlobalAdminAccess ? "FULL ACCESS" : "LOCKED SCOPE"}
                 </span>
 
                 <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '12px' }}>

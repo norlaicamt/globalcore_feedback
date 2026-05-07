@@ -1337,7 +1337,13 @@ def get_analytics_summary(db: Session, dept_name: Optional[str] = None, entity_i
             (models.User.id.in_(u_commented)) | 
             (models.User.id.in_(u_reacted))
         )\
-        .filter(models.User.role.notin_(["admin", "superadmin"])).scalar() or 0
+        .filter(models.User.role.notin_(["admin", "superadmin"]))\
+        .filter(models.User.is_active == True).scalar() or 0
+
+    # Deactivated Citizens
+    deactivated_count = db.query(func.count(models.User.id))\
+        .filter(models.User.id.in_(u_q.with_entities(models.User.id)))\
+        .filter(models.User.is_active == False).scalar() or 0
 
     # Cross-Program Reach: Users interacting with multiple distinct entities
     cross_program_count = db.query(models.Feedback.sender_id)\
@@ -1360,7 +1366,7 @@ def get_analytics_summary(db: Session, dept_name: Optional[str] = None, entity_i
     anon_count = fb_q.filter(models.Feedback.created_at >= cutoff, models.Feedback.is_anonymous == True).count()
     anon_rate = round((anon_count / total_feedback * 100), 1) if total_feedback else 0
 
-    inactive_7d_count = max(0, total_users - active_citizens_7d)
+    idle_7d_count = max(0, (total_users - deactivated_count) - active_citizens_7d)
     
     # Fetch Latest Dispatch (Broadcast) for KPI integration
     b_q = db.query(models.BroadcastLog).order_by(models.BroadcastLog.created_at.desc())
@@ -1382,7 +1388,8 @@ def get_analytics_summary(db: Session, dept_name: Optional[str] = None, entity_i
         "total_users": total_users,
         "global_total_users": global_total_users,
         "active_users": active_citizens_7d,
-        "inactive_users": inactive_7d_count,
+        "idle_users": idle_7d_count,
+        "deactivated_users": deactivated_count,
         "new_signups_7d": new_signups_7d,
         "total_comments": total_comments,
         "total_reactions": total_reactions,
@@ -1394,7 +1401,8 @@ def get_analytics_summary(db: Session, dept_name: Optional[str] = None, entity_i
         "latest_dispatch": latest_dispatch,
         "user_engagement_status": [
             {"name": "Active", "value": active_citizens_7d},
-            {"name": "Inactive", "value": inactive_7d_count}
+            {"name": "Idle (>7d)", "value": idle_7d_count},
+            {"name": "Deactivated", "value": deactivated_count}
         ]
     }
     print(f"DEBUG ANALYTICS: total_users={total_users}, global={global_total_users}, feedback={total_feedback}")
