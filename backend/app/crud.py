@@ -456,6 +456,7 @@ def get_feedbacks(
     status: str = None,
     entity_id: int = None
 ):
+    print(f"DEBUG: get_feedbacks called. skip={skip}, limit={limit}")
     """Unified and optimized feedback retrieval with counts and relations."""
     # Scalar subqueries for counts (single query execution for all)
     replies_count_sq = (
@@ -681,6 +682,19 @@ def create_feedback(db: Session, feedback: schemas.FeedbackCreate):
         # User Refinement: Snapshot branch name for historical consistency
         data["branch_name_snapshot"] = branch.name
     
+    # 4. Dynamic Title Generation
+    if not data.get("title") or data.get("title") == "Feedback Entry":
+        desc = data.get("description", "")
+        if desc and len(desc.strip()) > 0:
+            # Create a snippet (max 60 chars)
+            snippet = desc.strip().split('\n')[0] # Take first line
+            if len(snippet) > 60:
+                snippet = snippet[:57] + "..."
+            data["title"] = snippet
+        else:
+            # Fallback to category name
+            data["title"] = f"New {entity.name} Feedback"
+            
     db_feedback = models.Feedback(**data)
     db.add(db_feedback)
     
@@ -1072,13 +1086,15 @@ def deliver_notification(db: Session, notif: models.Notification):
     
     # Map Type to Preference Flag
     pref_map = {
-        models.NotificationType.REPLY: user.notify_replies,
-        models.NotificationType.COMMENT: user.notify_comments,
-        models.NotificationType.MENTION: user.notify_mentions,
-        models.NotificationType.LIKE: user.notify_likes,
-        models.NotificationType.ANNOUNCEMENT: user.notify_announcements,
-        models.NotificationType.NEW_FEEDBACK: user.notify_new_feedback, # New
-        models.NotificationType.ASSIGNED: user.notify_assigned       # New
+        models.NotificationType.REPLY:               user.notify_replies,
+        models.NotificationType.COMMENT:             user.notify_comments,
+        models.NotificationType.MENTION:             user.notify_mentions,
+        models.NotificationType.LIKE:                user.notify_likes,
+        models.NotificationType.ANNOUNCEMENT:        user.notify_announcements,
+        models.NotificationType.NEW_FEEDBACK:        user.notify_new_feedback,
+        models.NotificationType.ASSIGNED:            user.notify_assigned,
+        models.NotificationType.HIGH_ACTIVITY:       user.notify_high_activity,
+        models.NotificationType.SYSTEM_ANNOUNCEMENT: user.notify_system_announcements,
     }
     
     should_deliver = pref_map.get(notif.type, True)
@@ -1130,11 +1146,15 @@ def get_notifications(db: Session, user_id: int):
 
     # Apply preference filtering (Bell Visibility)
     active_filters = []
-    if not user.notify_replies: active_filters.append(models.NotificationType.REPLY)
-    if not user.notify_comments: active_filters.append(models.NotificationType.COMMENT)
-    if not user.notify_mentions: active_filters.append(models.NotificationType.MENTION)
-    if not user.notify_likes: active_filters.append(models.NotificationType.LIKE)
-    if not user.notify_announcements: active_filters.append(models.NotificationType.ANNOUNCEMENT)
+    if not user.notify_replies:              active_filters.append(models.NotificationType.REPLY)
+    if not user.notify_comments:             active_filters.append(models.NotificationType.COMMENT)
+    if not user.notify_mentions:             active_filters.append(models.NotificationType.MENTION)
+    if not user.notify_likes:                active_filters.append(models.NotificationType.LIKE)
+    if not user.notify_announcements:        active_filters.append(models.NotificationType.ANNOUNCEMENT)
+    if not user.notify_new_feedback:         active_filters.append(models.NotificationType.NEW_FEEDBACK)
+    if not user.notify_assigned:             active_filters.append(models.NotificationType.ASSIGNED)
+    if not user.notify_high_activity:        active_filters.append(models.NotificationType.HIGH_ACTIVITY)
+    if not user.notify_system_announcements: active_filters.append(models.NotificationType.SYSTEM_ANNOUNCEMENT)
     
     if active_filters:
         notifs_query = notifs_query.filter(~models.Notification.type.in_(active_filters))

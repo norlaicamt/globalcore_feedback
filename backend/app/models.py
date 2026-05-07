@@ -19,6 +19,8 @@ class NotificationType(str, enum.Enum):
     ANNOUNCEMENT = "ANNOUNCEMENT"
     NEW_FEEDBACK = "NEW_FEEDBACK"
     ASSIGNED = "ASSIGNED"
+    HIGH_ACTIVITY = "HIGH_ACTIVITY"
+    SYSTEM_ANNOUNCEMENT = "SYSTEM_ANNOUNCEMENT"
 
 class User(Base):
     __tablename__ = "global_user"

@@ -511,10 +511,7 @@ const NotificationsView = ({ currentUser, notifs, handleToggle }) => {
                             desc="Notify me when someone interacts with my feedback."
                             isOn={notifs.replies || notifs.comments}
                             icon={<Icons.MessageSquare />}
-                            onToggle={() => {
-                                handleToggle("notify_replies", "Replies");
-                                handleToggle("notify_comments", "Comments");
-                            }}
+                            onToggle={() => handleToggle(["notify_replies", "notify_comments"], "Comments & Replies")}
                         />
                         <ToggleCard
                             title="Mentions & Tags"
@@ -605,14 +602,14 @@ const NotificationsView = ({ currentUser, notifs, handleToggle }) => {
                             desc="Instant alerts on your connected devices."
                             isOn={notifs.push}
                             icon={<Icons.Zap color="#8B5CF6" />}
-                            onToggle={() => handleToggle("push_notifications", "Push")}
+                            onToggle={() => handleToggle("push_notifications", "Push Notifications")}
                         />
                         <ToggleCard
                             title="Professional Email"
                             desc="Formal notifications sent to your registered address."
                             isOn={notifs.email}
                             icon={<Icons.Mail color="var(--primary-color)" />}
-                            onToggle={() => handleToggle("email_notifications", "Email")}
+                            onToggle={() => handleToggle("email_notifications", "Email Notifications")}
                         />
                     </div>
                 </div>
@@ -1040,10 +1037,20 @@ const ProfileSettings = ({ currentUser, onUserUpdate, onLogout, initialSubView }
         setTimeout(() => setToast({ show: false, message: "" }), 3000);
     };
 
-    const handleToggleNotif = async (field, uiKey) => {
+    const handleToggleNotif = async (fieldOrFields, uiKey) => {
         try {
-            const updated = { ...currentUser, [field]: !currentUser[field] };
-            await updateUser(currentUser.id, { [field]: !currentUser[field] });
+            let updates = {};
+            if (Array.isArray(fieldOrFields)) {
+                const anyTrue = fieldOrFields.some(f => currentUser[f]);
+                fieldOrFields.forEach(f => {
+                    updates[f] = !anyTrue;
+                });
+            } else {
+                updates[fieldOrFields] = !currentUser[fieldOrFields];
+            }
+
+            const updated = { ...currentUser, ...updates };
+            await updateUser(currentUser.id, updates);
             onUserUpdate(updated);
             showToast(`Preference updated: ${uiKey}`);
         } catch (err) {
@@ -1158,6 +1165,8 @@ const styles = {
     toggleDesc: { fontSize: 'var(--size-body, 13px)', color: '#64748B', margin: 0, lineHeight: '1.5', paddingRight: '20px' },
     toggleBtn: { width: '40px', height: '22px', borderRadius: '12px', position: 'relative', cursor: 'pointer', transition: 'all 0.3s', flexShrink: 0 },
     toggleCircle: { width: '16px', height: '16px', borderRadius: '50%', position: 'absolute', top: '3px', left: '0', transition: 'all 0.3s' },
+    cardStack: { display: 'flex', flexDirection: 'column', gap: '0' },
+    formPadding: { padding: 'var(--card-padding, 24px)' },
 
     toast: { position: 'fixed', bottom: '40px', right: '40px', background: 'var(--primary-color)', color: 'white', padding: '20px 32px', borderRadius: '24px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '12px', boxShadow: '0 20px 50px rgba(0,0,0,0.3)', animation: 'slideUp 0.4s ease-out', zIndex: 99999 },
 };

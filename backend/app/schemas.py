@@ -110,7 +110,7 @@ class UserUpdate(BaseModel):
     notify_assigned: Optional[bool] = None
     notify_high_activity: Optional[bool] = None
     notify_system_announcements: Optional[bool] = None
-    biometrics_enabled: Optional[bool] = True
+    biometrics_enabled: Optional[bool] = None
     avatar_url: Optional[str] = None
     id_photo_url: Optional[str] = None
     deactivated_until: Optional[datetime] = None
@@ -317,7 +317,7 @@ class Mention(MentionBase):
 
 # --- FEEDBACK SCHEMAS ---
 class FeedbackBase(BaseModel):
-    title: Optional[str] = "Feedback Entry"
+    title: Optional[str] = None
     description: Optional[str] = ""
     entity_id: int
     recipient_dept_id: Optional[int] = None

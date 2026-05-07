@@ -140,6 +140,7 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
   };
 
   const fetchFeed = React.useCallback(async (newOffset = 0) => {
+    console.log("fetchFeed called with offset:", newOffset);
     if (newOffset === 0) setLoading(true);
     try {
       const data = await getFeedbacks({ skip: newOffset, limit: 10, status: statusFilter });
@@ -1574,7 +1575,9 @@ const DashboardView = React.memo(({ feed, loading, hasMore, onLoadMore, onAction
       return scoreB - scoreA;
     });
 
-  const trendingItems = allTrendingItems.slice(0, 3);
+  const trendingItems = allTrendingItems.length > 0 
+    ? allTrendingItems.slice(0, 3)
+    : feed.slice(0, 3);
 
 
   return (
@@ -1622,28 +1625,25 @@ const DashboardView = React.memo(({ feed, loading, hasMore, onLoadMore, onAction
             ))}
           </div>
 
-          {/* SEARCH BOX BELOW TABS */}
-          <div style={{ padding: '0 8px', marginBottom: '12px', marginTop: '4px' }}>
-            <div style={{ position: 'relative' }}>
-              <select
-                style={{
-                  width: '100%', height: 'var(--search-height, 44px)', padding: '0 12px', backgroundColor: 'white',
-                  border: '1px solid #E2E8F0', borderRadius: '12px', fontSize: 'var(--size-body, 13px)',
-                  outline: 'none', transition: 'all 0.2s', boxShadow: '0 2px 4px rgba(0,0,0,0.02)',
-                  fontWeight: 'bold', cursor: 'pointer', color: 'var(--primary-color)'
-                }}
-                value={selectedDept}
-                onChange={(e) => setSelectedDept(e.target.value)}
-              >
-                <option value="">All Services</option>
-                {(entities || []).map(e => (
-                  <option key={e.id} value={e.id}>{e.name}</option>
-                ))}
-              </select>
-            </div>
-          </div>
+
 
           {/* PREMIUM TRENDING WIDGET */}
+          <style>{`
+            .horizontal-scroll::-webkit-scrollbar {
+              height: 4px;
+            }
+            .horizontal-scroll::-webkit-scrollbar-track {
+              background: #F1F5F9;
+              border-radius: 10px;
+            }
+            .horizontal-scroll::-webkit-scrollbar-thumb {
+              background: #CBD5E1;
+              border-radius: 10px;
+            }
+            .horizontal-scroll::-webkit-scrollbar-thumb:hover {
+              background: #94A3B8;
+            }
+          `}</style>
           <section style={{ marginBottom: '16px', padding: '0 8px' }}>
             <div style={{
               background: 'linear-gradient(135deg, #FFFFFF 0%, #F8FAFC 100%)',
@@ -1679,12 +1679,14 @@ const DashboardView = React.memo(({ feed, loading, hasMore, onLoadMore, onAction
                   style={{
                     display: 'flex',
                     flexDirection: 'row',
-                    gap: '12px',
+                    gap: '14px',
                     overflowX: 'auto',
-                    padding: '4px 2px 12px 2px',
+                    padding: '8px 4px 20px 4px',
                     scrollBehavior: 'smooth',
                     cursor: 'grab',
-                    userSelect: 'none'
+                    userSelect: 'none',
+                    scrollSnapType: 'x mandatory',
+                    WebkitOverflowScrolling: 'touch'
                   }}
                 >
                   {trendingItems.map((item, index) => (
@@ -1694,17 +1696,18 @@ const DashboardView = React.memo(({ feed, loading, hasMore, onLoadMore, onAction
                       style={{
                         display: 'flex',
                         alignItems: 'center',
-                        backgroundColor: index === 0 ? '#FFFFFF' : 'transparent',
-                        padding: '12px',
+                        backgroundColor: index === 0 ? '#FFFFFF' : '#F8FAFC',
+                        padding: '10px',
                         borderRadius: '16px',
                         border: index === 0 ? '1px solid #DBEAFE' : '1px solid #F1F5F9',
                         cursor: 'pointer',
                         transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                         position: 'relative',
                         overflow: 'hidden',
-                        width: '260px',
-                        minWidth: '260px',
-                        flexShrink: 0
+                        width: '280px',
+                        minWidth: '280px',
+                        flexShrink: 0,
+                        scrollSnapAlign: 'start'
                       }}
                       onMouseEnter={(e) => {
                         e.currentTarget.style.backgroundColor = '#FFFFFF';
@@ -1719,19 +1722,45 @@ const DashboardView = React.memo(({ feed, loading, hasMore, onLoadMore, onAction
                         e.currentTarget.style.boxShadow = 'none';
                       }}
                     >
-                      <div style={{ backgroundColor: index === 0 ? '#EFF6FF' : '#F1F5F9', width: 'var(--avatar-size, 32px)', height: 'var(--avatar-size, 32px)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: '12px', flexShrink: 0 }}>
-                        <span style={{ fontSize: 'var(--size-nav, 14px)', fontWeight: '900', color: index === 0 ? '#2563EB' : '#64748B' }}>{index + 1}</span>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', alignItems: 'center', marginRight: '10px' }}>
+                        <div style={{ backgroundColor: index === 0 ? '#EFF6FF' : '#F1F5F9', width: '28px', height: '28px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          <span style={{ fontSize: '13px', fontWeight: '900', color: index === 0 ? '#2563EB' : '#64748B' }}>{index + 1}</span>
+                        </div>
+                        {/* Compact Service Chip */}
+                        <div style={{ 
+                          height: '14px', 
+                          padding: '0 4px', 
+                          backgroundColor: index === 0 ? '#DBEAFE' : '#E2E8F0', 
+                          borderRadius: '4px', 
+                          fontSize: '8px', 
+                          fontWeight: '800', 
+                          color: index === 0 ? '#1E40AF' : '#475569',
+                          textTransform: 'uppercase',
+                          maxWidth: '40px',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}>
+                          {item.entity_name || 'GEN'}
+                        </div>
                       </div>
-                      <div style={{ flex: 1, overflow: 'hidden' }}>
-                        <h4 style={{ fontSize: 'var(--size-card-title, 12px)', fontWeight: '800', color: '#1E293B', margin: '0 0 2px 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.title}</h4>
+                      <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                        <h4 style={{ fontSize: '12px', fontWeight: '800', color: '#1E293B', margin: '0 0 2px 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.title}</h4>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <div style={{ backgroundColor: '#F0FDF4', padding: '2px', borderRadius: '4px', display: 'flex' }}><Icons.ThumbUp size={8} color="#166534" /></div>
-                            <span style={{ fontSize: 'var(--size-metadata, 10px)', color: '#166534', fontWeight: 'bold' }}>{item.likes_count || 0}</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                            <Icons.ThumbUp size={8} color="#166534" />
+                            <span style={{ fontSize: '9px', color: '#166534', fontWeight: 'bold' }}>{item.likes_count || 0}</span>
                           </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <div style={{ backgroundColor: '#FEF2F2', padding: '2px', borderRadius: '4px', display: 'flex' }}><Icons.ThumbDown size={8} color="#991B1B" /></div>
-                            <span style={{ fontSize: 'var(--size-metadata, 10px)', color: '#991B1B', fontWeight: 'bold' }}>{item.dislikes_count || 0}</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                            <Icons.ThumbDown size={8} color="#991B1B" />
+                            <span style={{ fontSize: '9px', color: '#991B1B', fontWeight: 'bold' }}>{item.dislikes_count || 0}</span>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '3px', marginLeft: 'auto' }}>
+                            <Icons.Message size={8} color="#64748B" />
+                            <span style={{ fontSize: '9px', color: '#64748B', fontWeight: 'bold' }}>{item.replies_count || 0}</span>
                           </div>
                         </div>
                       </div>
