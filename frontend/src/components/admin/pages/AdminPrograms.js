@@ -490,33 +490,35 @@ const AdminPrograms = ({ theme, darkMode, adminUser, onNavigate, initialTab }) =
             {selectedProgram ? (
                 <>
                     {renderBreadcrumb()}
-                    <div style={{ display: 'flex', gap: '16px', marginBottom: '24px', borderBottom: `1px solid ${theme.border}` }}>
-                        {["locations", "settings", "analytics"]
-                            .map(t => {
-                                const isLocations = t === "locations";
-                                const isEnabled = isLocations ? (selectedProgram.fields?.operational?.enable_locations ?? true) : true;
+                    {hasGlobalAdminAccess && (
+                        <div style={{ display: 'flex', gap: '16px', marginBottom: '24px', borderBottom: `1px solid ${theme.border}` }}>
+                            {["locations", "settings", "analytics"]
+                                .map(t => {
+                                    const isLocations = t === "locations";
+                                    const isEnabled = isLocations ? (selectedProgram.fields?.operational?.enable_locations ?? true) : true;
 
-                                return (
-                                    <button
-                                        key={t}
-                                        onClick={() => isEnabled ? setActiveTab(t) : null}
-                                        style={{
-                                            background: 'none', border: 'none', padding: '12px 4px', fontSize: '13px',
-                                            fontWeight: activeTab === t ? "700" : "600",
-                                            color: activeTab === t ? "var(--primary-color)" : (isEnabled ? theme.textMuted : "rgba(148, 163, 184, 0.4)"),
-                                            borderBottom: `2.5px solid ${activeTab === t ? "var(--primary-color)" : "transparent"}`,
-                                            cursor: isEnabled ? "pointer" : "not-allowed",
-                                            textTransform: 'uppercase',
-                                            display: 'flex', alignItems: 'center', gap: '6px'
-                                        }}
-                                        title={!isEnabled ? "Enable Multiple Service Sites in Settings to configure locations" : ""}
-                                    >
-                                        {t}
-                                        {!isEnabled && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>}
-                                    </button>
-                                );
-                            })}
-                    </div>
+                                    return (
+                                        <button
+                                            key={t}
+                                            onClick={() => isEnabled ? setActiveTab(t) : null}
+                                            style={{
+                                                background: 'none', border: 'none', padding: '12px 4px', fontSize: '13px',
+                                                fontWeight: activeTab === t ? "700" : "600",
+                                                color: activeTab === t ? "var(--primary-color)" : (isEnabled ? theme.textMuted : "rgba(148, 163, 184, 0.4)"),
+                                                borderBottom: `2.5px solid ${activeTab === t ? "var(--primary-color)" : "transparent"}`,
+                                                cursor: isEnabled ? "pointer" : "not-allowed",
+                                                textTransform: 'uppercase',
+                                                display: 'flex', alignItems: 'center', gap: '6px'
+                                            }}
+                                            title={!isEnabled ? "Enable Multiple Service Sites in Settings to configure locations" : ""}
+                                        >
+                                            {t}
+                                            {!isEnabled && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>}
+                                        </button>
+                                    );
+                                })}
+                        </div>
+                    )}
                     {activeTab === "locations" && renderLocationTab()}
                     {activeTab === "settings" && (
                         <>

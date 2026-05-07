@@ -30,6 +30,7 @@ const STATUSES = {
 
 // --- COMPONENT: Side Detail Panel ---
 const FeedbackSidePanel = ({ feedback, isClosing, onClose, onUpdateStatus, theme, darkMode, getModeLabel, systemMode, onShowToast, adminUser, onRefresh }) => {
+  const isScopedAdmin = !!adminUser?.entity_id;
   const [replyMessage, setReplyMessage] = useState("");
   const [isSendingReply, setIsSendingReply] = useState(false);
   const [templates, setTemplates] = useState([]);
@@ -311,7 +312,7 @@ const FeedbackSidePanel = ({ feedback, isClosing, onClose, onUpdateStatus, theme
               value={feedback?.is_anonymous ? (revealedIdentity ? revealedIdentity.name : "Anonymous (Hidden)") : (feedback?.user_name || "User")}
               icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>}
               theme={theme}
-              extra={feedback?.is_anonymous && !revealedIdentity && (
+              extra={feedback?.is_anonymous && !revealedIdentity && !isScopedAdmin && (
                 <button
                   onClick={handleRevealIdentity}
                   disabled={isRevealing}
@@ -728,6 +729,7 @@ const ExportDropdown = ({ onExport, theme, darkMode }) => {
 };
 
 const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
+  const isScopedAdmin = !!adminUser?.entity_id;
   const { getLabel, getModeLabel, systemMode } = useTerminology();
   const [feedbacks, setFeedbacks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -835,16 +837,25 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
   };
 
   const handleExport = (format) => {
-    const headers = ["ID", "Program", "Location", "Author", "Rating", "Status", "Date"];
-    const data = filtered.map(f => [
-      f.id,
-      f.entity_name || "General",
-      f.dept_name || "—",
-      f.user_name || "Anonymous",
-      f.rating ? `${f.rating}/5` : "—",
-      STATUSES[f.status]?.label || f.status,
-      f.created_at?.split("T")[0]
-    ]);
+    const headers = isScopedAdmin 
+      ? ["ID", "User", "Location", "Rating", "Status", "Date"]
+      : ["ID", "Program", "User", "Location", "Rating", "Status", "Date"];
+
+    const data = filtered.map(f => {
+      const base = [
+        f.id,
+        f.user_name || "Anonymous",
+        f.dept_name || "—",
+        f.rating ? `${f.rating}/5` : "—",
+        STATUSES[f.status]?.label || f.status,
+        f.created_at?.split("T")[0]
+      ];
+      if (!isScopedAdmin) {
+        // Insert Program at index 1 to match headers: ["ID", "Program", "User", "Location", ...]
+        base.splice(1, 0, f.entity_name || "General");
+      }
+      return base;
+    });
 
     if (format === 'csv') {
       const csv = [headers, ...data].map(r => r.join(",")).join("\n");
@@ -935,37 +946,39 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
           <thead>
             <tr style={{ background: darkMode ? "rgba(255,255,255,0.02)" : "#F8FAFC", borderBottom: `1px solid ${theme.border}` }}>
-              <th style={{ padding: "16px 20px", textAlign: "left", fontSize: "11px", fontWeight: "800", color: theme.textMuted, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  Program / Service
-                  <div style={{ position: 'relative' }} ref={programFilterRef}>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setShowProgramFilter(!showProgramFilter); }}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', color: selectedProgram !== 'ALL' ? 'var(--primary-color)' : 'inherit' }}
-                    >
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                    </button>
-                    {showProgramFilter && (
-                      <div style={{ position: 'absolute', top: '24px', left: 0, background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: '10px', boxShadow: '0 10px 25px rgba(0,0,0,0.15)', zIndex: 100, minWidth: '150px', padding: '6px' }}>
-                        {["ALL", ...new Set(feedbacks.map(f => f.entity_name).filter(Boolean))].map(prog => (
-                          <button
-                            key={prog}
-                            onClick={(e) => { e.stopPropagation(); setSelectedProgram(prog); setShowProgramFilter(false); }}
-                            style={{
-                              display: 'block', width: '100%', padding: '8px 12px', border: 'none', background: selectedProgram === prog ? 'rgba(var(--primary-rgb), 0.1)' : 'none',
-                              textAlign: 'left', fontSize: '12px', fontWeight: '600', color: selectedProgram === prog ? 'var(--primary-color)' : theme.text, borderRadius: '6px', cursor: 'pointer'
-                            }}
-                          >
-                            {prog === "ALL" ? "All Programs" : prog}
-                          </button>
-                        ))}
-                      </div>
-                    )}
+              {!isScopedAdmin && (
+                <th style={{ padding: "16px 20px", textAlign: "left", fontSize: "11px", fontWeight: "800", color: theme.textMuted, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    Program / Service
+                    <div style={{ position: 'relative' }} ref={programFilterRef}>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setShowProgramFilter(!showProgramFilter); }}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', color: selectedProgram !== 'ALL' ? 'var(--primary-color)' : 'inherit' }}
+                      >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                      </button>
+                      {showProgramFilter && (
+                        <div style={{ position: 'absolute', top: '24px', left: 0, background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: '10px', boxShadow: '0 10px 25px rgba(0,0,0,0.15)', zIndex: 100, minWidth: '150px', padding: '6px' }}>
+                          {["ALL", ...new Set(feedbacks.map(f => f.entity_name).filter(Boolean))].map(prog => (
+                            <button
+                              key={prog}
+                              onClick={(e) => { e.stopPropagation(); setSelectedProgram(prog); setShowProgramFilter(false); }}
+                              style={{
+                                display: 'block', width: '100%', padding: '8px 12px', border: 'none', background: selectedProgram === prog ? 'rgba(var(--primary-rgb), 0.1)' : 'none',
+                                textAlign: 'left', fontSize: '12px', fontWeight: '600', color: selectedProgram === prog ? 'var(--primary-color)' : theme.text, borderRadius: '6px', cursor: 'pointer'
+                              }}
+                            >
+                              {prog === "ALL" ? "All Programs" : prog}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              </th>
-              <th style={{ padding: "16px 20px", textAlign: "left", fontSize: "11px", fontWeight: "800", color: theme.textMuted, textTransform: "uppercase", letterSpacing: "0.05em" }}>Location</th>
+                </th>
+              )}
               <th style={{ padding: "16px 20px", textAlign: "left", fontSize: "11px", fontWeight: "800", color: theme.textMuted, textTransform: "uppercase", letterSpacing: "0.05em" }}>User</th>
+              <th style={{ padding: "16px 20px", textAlign: "left", fontSize: "11px", fontWeight: "800", color: theme.textMuted, textTransform: "uppercase", letterSpacing: "0.05em" }}>Location</th>
               <th style={{ padding: "16px 20px", textAlign: "left", fontSize: "11px", fontWeight: "800", color: theme.textMuted, textTransform: "uppercase", letterSpacing: "0.05em" }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   Rating
@@ -1043,17 +1056,19 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
                 onMouseEnter={e => e.currentTarget.style.background = darkMode ? "rgba(255,255,255,0.03)" : "#FAFAFA"}
                 onMouseLeave={e => e.currentTarget.style.background = "none"}
               >
-                <td style={{ padding: "16px 20px" }}>
-                  <div style={{ fontWeight: "800", color: theme.text, fontSize: "14px", letterSpacing: "-0.01em" }}>{f.entity_name || "General"}</div>
-                  <div style={{ fontSize: "11px", color: theme.textMuted, marginTop: "2px", fontWeight: "600" }}>{f.title?.split(": ")[1] || f.title || "No Subject"}</div>
-                </td>
-                <td style={{ padding: "16px 20px", color: theme.textMuted, fontWeight: "500", fontSize: "12px" }}>{f.dept_name || "—"}</td>
+                {!isScopedAdmin && (
+                  <td style={{ padding: "16px 20px" }}>
+                    <div style={{ fontWeight: "800", color: theme.text, fontSize: "14px", letterSpacing: "-0.01em" }}>{f.entity_name || "General"}</div>
+                    <div style={{ fontSize: "11px", color: theme.textMuted, marginTop: "2px", fontWeight: "600" }}>{f.title?.split(": ")[1] || f.title || "No Subject"}</div>
+                  </td>
+                )}
                 <td style={{ padding: "16px 20px" }}>
                   <div style={{ fontWeight: "600", color: theme.text, fontSize: "14px" }}>
                     {f.is_anonymous ? `Anonymous #${f.id}` : (f.user_name || `User #${f.id}`)}
                   </div>
                   {f.is_anonymous && <span style={{ fontSize: "10px", color: "#94A3B8", fontStyle: "italic", fontWeight: "700" }}>Private Submission</span>}
                 </td>
+                <td style={{ padding: "16px 20px", color: theme.textMuted, fontWeight: "500", fontSize: "12px" }}>{f.dept_name || "—"}</td>
                 <td style={{ padding: "16px 20px" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                     <div style={{
