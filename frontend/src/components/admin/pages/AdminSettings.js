@@ -442,21 +442,21 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
         img.onload = () => {
           const canvas = document.createElement('canvas');
           const ctx = canvas.getContext('2d');
-          
+
           // Enforce 1x1 square crop (center-weighted)
           const size = Math.min(img.width, img.height);
-          const targetSize = Math.min(size, 400); 
-          
+          const targetSize = Math.min(size, 400);
+
           canvas.width = targetSize;
           canvas.height = targetSize;
-          
+
           const offsetX = (img.width - size) / 2;
           const offsetY = (img.height - size) / 2;
-          
+
           ctx.imageSmoothingEnabled = true;
           ctx.imageSmoothingQuality = 'high';
           ctx.drawImage(img, offsetX, offsetY, size, size, 0, 0, targetSize, targetSize);
-          
+
           resolve(canvas.toDataURL('image/jpeg', 0.85));
         };
       };
@@ -1564,11 +1564,11 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
 
 
         {/* Global Config Tab Content Removed */}
-        <ImageCropperModal 
-          isOpen={cropper.isOpen} 
-          imageSrc={cropper.image} 
-          onCrop={handleCropConfirm} 
-          onCancel={() => setCropper({ isOpen: false, image: null })} 
+        <ImageCropperModal
+          isOpen={cropper.isOpen}
+          imageSrc={cropper.image}
+          onCrop={handleCropConfirm}
+          onCancel={() => setCropper({ isOpen: false, image: null })}
         />
       </div>
     </div>

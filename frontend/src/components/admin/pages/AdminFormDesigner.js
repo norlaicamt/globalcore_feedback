@@ -558,6 +558,7 @@ function AdminFormDesigner({ theme, darkMode, adminUser }) {
           setModal({ isOpen: false });
           return;
         }
+        console.log("AUDIT: Final Save Payload", JSON.stringify(config, null, 2));
         setIsSaving(true);
         try {
           await updateEntityFormConfig(selectedEntId, config);
@@ -672,12 +673,14 @@ function AdminFormDesigner({ theme, darkMode, adminUser }) {
 
   const updateItem = (sIdx, iIdx, key, val) => {
     if (config.steps[sIdx]?.locked) return; // Prevent updates if locked
+    console.log(`AUDIT: Updating Item [${sIdx}, ${iIdx}] - ${key} = ${val}`);
     pushHistory(config);
     const steps = [...config.steps];
     const items = [...steps[sIdx].items];
     items[iIdx] = { ...items[iIdx], [key]: val };
     steps[sIdx].items = items;
     setConfig({ ...config, steps });
+    console.log("AUDIT: Current Config State", config);
   };
 
   const removeItem = (sIdx, iIdx) => {

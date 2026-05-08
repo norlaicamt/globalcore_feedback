@@ -131,7 +131,7 @@ export const adminUpdateBranch = (id, data) => adminApi.put(`/branches/${id}`, d
 export const adminDeleteBranch = (id) => adminApi.delete(`/branches/${id}`);
 
 // Broadcast
-export const adminBroadcast = (subject, message, broadcast_type = "announcement", target_group = "all", priority = "normal", status = "sent", require_ack = false, scheduled_at = null, broadcast_id = null) => {
+export const adminBroadcast = (subject, message, broadcast_type = "announcement", target_group = "all", priority = "normal", status = "sent", require_ack = false, scheduled_at = null, broadcast_id = null, attachments = null) => {
   const payload = {
     subject,
     message,
@@ -141,7 +141,8 @@ export const adminBroadcast = (subject, message, broadcast_type = "announcement"
     status,
     require_ack: !!require_ack,
     scheduled_at,
-    broadcast_id
+    broadcast_id,
+    attachments
   };
   return adminApi.post("/broadcast", payload).then(r => r.data);
 };

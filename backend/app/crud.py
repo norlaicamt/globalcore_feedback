@@ -1136,6 +1136,7 @@ def get_notifications(db: Session, user_id: int):
         models.Notification.meta,
         models.Notification.priority,
         models.Notification.broadcast_type,
+        models.Notification.attachments,
         models.BroadcastLog.require_ack.label("require_ack"),
         models.User.name.label("actor_name"),
         models.Feedback.title.label("feedback_title")
@@ -1549,7 +1550,7 @@ def update_system_label(db: Session, key: str, value: str, organization_id: int 
     return db_label
 
 # Broadcast History
-def create_broadcast_log(db: Session, subject: str, message: str, count: int, entity_id: Optional[int] = None, priority: str = "normal", status: str = "sent", require_ack: bool = False, scheduled_at: Optional[datetime] = None):
+def create_broadcast_log(db: Session, subject: str, message: str, count: int, entity_id: Optional[int] = None, priority: str = "normal", status: str = "sent", require_ack: bool = False, scheduled_at: Optional[datetime] = None, attachments: Optional[List[dict]] = None):
     log = models.BroadcastLog(
         subject=subject, 
         message=message, 
@@ -1558,7 +1559,8 @@ def create_broadcast_log(db: Session, subject: str, message: str, count: int, en
         priority=priority,
         status=status,
         require_ack=require_ack,
-        scheduled_at=scheduled_at
+        scheduled_at=scheduled_at,
+        attachments=attachments
     )
     db.add(log)
     db.commit()

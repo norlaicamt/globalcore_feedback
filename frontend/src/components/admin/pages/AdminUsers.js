@@ -606,7 +606,7 @@ const AdminUsers = ({ theme, darkMode, adminUser }) => {
                     {u.entity_name || u.program || (u.role === 'superadmin' ? 'Global System' : 'Standard Access')}
                   </p>
                 </td>
-                <td style={{ padding: "12px 20px" }}><p style={{ margin: 0, fontSize: "13px", fontWeight: "800", color: theme.text }}>{Math.floor(u.impact_points)}</p><p style={{ margin: 0, fontSize: "9px", color: "#94A3B8" }}>IMPACT SCORE</p></td>
+                <td style={{ padding: "12px 20px" }}><p style={{ margin: 0, fontSize: "13px", fontWeight: "800", color: theme.text }}>{(u.impact_points || 0).toFixed(0)}</p><p style={{ margin: 0, fontSize: "9px", color: "#94A3B8" }}>IMPACT SCORE</p></td>
                 <td style={{ padding: "12px 20px" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                     <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: u.is_active ? "var(--primary-color)" : theme.textMuted }} />
@@ -647,7 +647,7 @@ const AdminUsers = ({ theme, darkMode, adminUser }) => {
              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "12px" }}>
                  <div style={profileStatStyle(theme)}><p style={statLabel}>Role</p><p style={statVal}>{profileUser.role?.toUpperCase()}</p></div>
                  <div style={profileStatStyle(theme)}><p style={statLabel}>Status</p><p style={{ ...statVal, color: profileUser.is_active ? theme.text : theme.textMuted }}>{profileUser.is_active ? "ACTIVE" : "DEACTIVATED"}</p></div>
-                 <div style={profileStatStyle(theme)}><p style={statLabel}>Impact Score</p><p style={statVal}>{profileUser.impact_points}</p></div>
+                 <div style={profileStatStyle(theme)}><p style={statLabel}>Impact Score</p><p style={statVal}>{(profileUser.impact_points || 0).toFixed(0)}</p></div>
                  <div style={profileStatStyle(theme)}><p style={statLabel}>Assigned Program</p><p style={statVal}>{profileUser.program || "None"}</p></div>
                  <div style={profileStatStyle(theme)}><p style={statLabel}>Total Reports</p><p style={statVal}>{profileUser.total_posts}</p></div>
                  <div style={profileStatStyle(theme)}><p style={statLabel}>Joined Date</p><p style={statVal}>{new Date(profileUser.created_at).toLocaleDateString()}</p></div>

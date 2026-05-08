@@ -396,6 +396,7 @@ class NotificationBase(BaseModel):
     is_read: bool = False
     is_acknowledged: bool = False
     require_ack: bool = False
+    attachments: Optional[List[dict]] = None
 
 class NotificationCreate(NotificationBase):
     pass
@@ -469,6 +470,7 @@ class BroadcastLogBase(BaseModel):
     sent_to_count: int
     read_count: int = 0
     ack_count: int = 0
+    attachments: Optional[List[dict]] = None
     scheduled_at: Optional[datetime] = None
 
 class BroadcastLog(BroadcastLogBase):
@@ -486,6 +488,7 @@ class BroadcastRequest(BaseModel):
     priority: Optional[str] = "normal"
     status: Optional[str] = "sent" # draft, scheduled, sent
     require_ack: Optional[bool] = False
+    attachments: Optional[List[dict]] = None
     scheduled_at: Optional[datetime] = None
     broadcast_id: Optional[int] = None
 class BroadcastTemplateBase(BaseModel):

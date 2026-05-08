@@ -670,6 +670,7 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
           notif={selectedBroadcast}
           currentUser={localUser}
           onClose={() => setSelectedBroadcast(null)}
+          setFullscreenImg={setFullscreenImg}
         />
       )}
 
@@ -2115,16 +2116,15 @@ const styles = {
   emptyFeedText: { textAlign: 'center', color: '#94A3B8', fontSize: '14px', width: '100%', margin: '40px 0' }
 };
 
-const BroadcastViewModal = React.memo(({ notif, currentUser, onClose, onAcknowledge }) => {
+const BroadcastViewModal = React.memo(({ notif, currentUser, onClose, onAcknowledge, setFullscreenImg }) => {
   const { systemName } = useTerminology();
   const isHighPriority = notif.priority === 'high' || (notif.subject && notif.subject.toLowerCase().includes('urgent'));
-  const requireAck = notif.require_ack === true;
 
   // Cleanup subject for cleaner UI (removing [OFFICIAL] if redundant)
   const displaySubject = notif.subject ? notif.subject.replace(/\[OFFICIAL\]\s*/i, '').replace(/SYSTEM\s*-\s*/i, '') : 'Official Announcement';
 
   return (
-    <div style={{ ...styles.modalOverlay, zIndex: 1000, cursor: requireAck ? 'default' : 'pointer' }} onClick={requireAck ? null : onClose}>
+    <div style={{ ...styles.modalOverlay, zIndex: 1000, cursor: 'pointer' }} onClick={onClose}>
       <div
         style={{
           ...styles.commentModalContent,
@@ -2162,21 +2162,19 @@ const BroadcastViewModal = React.memo(({ notif, currentUser, onClose, onAcknowle
             </span>
           </div>
 
-          {!requireAck && (
-            <button
-              onClick={onClose}
-              style={{
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                color: '#94A3B8',
-                fontSize: '18px',
-                padding: '4px'
-              }}
-            >
-              ✕
-            </button>
-          )}
+          <button
+            onClick={onClose}
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              color: '#94A3B8',
+              fontSize: '18px',
+              padding: '4px'
+            }}
+          >
+            ✕
+          </button>
         </div>
 
         {/* HEADER SECTION */}
@@ -2231,6 +2229,60 @@ const BroadcastViewModal = React.memo(({ notif, currentUser, onClose, onAcknowle
           }}>
             {notif.message}
           </p>
+
+          {notif.attachments && Array.isArray(notif.attachments) && notif.attachments.length > 0 && (
+            <div style={{ marginTop: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {/* Images Grid */}
+              {notif.attachments.filter(a => a.type?.startsWith('image/')).length > 0 && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '12px' }}>
+                  {notif.attachments.filter(a => a.type?.startsWith('image/')).map((img, i) => (
+                    <img 
+                      key={i} 
+                      src={img.data} 
+                      alt="attachment" 
+                      onClick={() => setFullscreenImg(img.data)}
+                      style={{ width: '100%', borderRadius: '16px', border: '1px solid #F1F5F9', cursor: 'zoom-in', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }} 
+                    />
+                  ))}
+                </div>
+              )}
+
+              {/* Documents List */}
+              {notif.attachments.filter(a => !a.type?.startsWith('image/')).length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {notif.attachments.filter(a => !a.type?.startsWith('image/')).map((file, i) => (
+                    <a 
+                      key={i} 
+                      href={file.data} 
+                      download={file.name}
+                      style={{ 
+                        display: 'flex', alignItems: 'center', gap: '16px', padding: '16px', 
+                        background: '#F8FAFC', borderRadius: '16px', border: '1px solid #F1F5F9', 
+                        textDecoration: 'none', transition: '0.2s'
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--primary-color)'}
+                      onMouseLeave={e => e.currentTarget.style.borderColor = '#F1F5F9'}
+                    >
+                      <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary-color)" strokeWidth="2.5">
+                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" />
+                        </svg>
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ margin: 0, fontSize: '13px', fontWeight: '800', color: '#1E293B', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{file.name}</p>
+                        <p style={{ margin: 0, fontSize: '11px', color: '#64748B' }}>{(file.size / 1024).toFixed(1)} KB • {file.type?.split('/')[1]?.toUpperCase() || 'FILE'}</p>
+                      </div>
+                      <div style={{ color: 'var(--primary-color)' }}>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
+                        </svg>
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <div style={{ height: '1px', background: '#F1F5F9', margin: '0 24px' }} />
@@ -2239,15 +2291,7 @@ const BroadcastViewModal = React.memo(({ notif, currentUser, onClose, onAcknowle
         <footer style={{ padding: '24px', textAlign: 'center' }}>
           <button
             className="press-effect"
-            onClick={async () => {
-              if (currentUser && notif.broadcast_id) {
-                try {
-                  await acknowledgeBroadcast(currentUser.id, notif.broadcast_id);
-                } catch (e) { console.error("Could not acknowledge broadcast", e); }
-              }
-              if (onAcknowledge) onAcknowledge(notif);
-              else onClose();
-            }}
+            onClick={onClose}
             style={{
               width: '100%',
               padding: 'var(--card-padding, 14px)',
@@ -2267,7 +2311,7 @@ const BroadcastViewModal = React.memo(({ notif, currentUser, onClose, onAcknowle
               justifyContent: 'center'
             }}
           >
-            {requireAck ? 'Confirm Receipt' : 'Understood'}
+            Understood
           </button>
 
           <div style={{

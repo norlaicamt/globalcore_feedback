@@ -327,6 +327,7 @@ class Notification(Base):
     broadcast_type = Column(String, default="announcement")
     priority = Column(String, default="normal") # normal, high, low
     require_ack = Column(Boolean, default=False)
+    attachments = Column(JSONB, nullable=True) # List of {url, name, size, type}
     meta = Column(JSONB, nullable=True)
     is_read = Column(Boolean, default=False)
     is_acknowledged = Column(Boolean, default=False) # New: track broadcast engagement
@@ -363,6 +364,7 @@ class BroadcastLog(Base):
     read_count = Column(Integer, default=0)
     ack_count = Column(Integer, default=0)
     entity_id = Column(Integer, ForeignKey("entities.id"), nullable=True)
+    attachments = Column(JSONB, nullable=True) # List of {url, name, size, type}
     scheduled_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 

@@ -124,6 +124,8 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
   const [modal, setModal] = useState({ isOpen: false, title: "", message: "", type: "info" });
   const [matrixRatings, setMatrixRatings] = useState(draft?.matrixRatings || draft?.custom_data?.matrixRatings || {});
   const [selectionMethod, setSelectionMethod] = useState("manual"); // auto | manual
+  const [validationHint, setValidationHint] = useState(null);
+  const [stepJustValidated, setStepJustValidated] = useState(false);
 
   const adminColor = systemSettings?.primary_color || "#10B981";
   const primaryColor = formConfig?.theme?.primary_color || adminColor;
@@ -205,6 +207,61 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
     }
   }, [overrideConfig]);
 
+  const isItemFilled = (item) => {
+    if (!item) return true;
+    const { key, type, required, id } = item;
+    const itemId = id || key;
+
+    // console.log(`Validating field: ${key} (Required: ${required})`);
+
+    if (type === "module") {
+      // 1. Core System Pickers
+      if (key === 'entity_picker') return !!selectedEntity;
+      if (key === 'location_picker') return !!selectedBranch || (isManualLocation && !!manualLocationText.trim());
+      
+      // 2. Ratings (Matrix has its own state, others use 'rating')
+      if (key === 'rating_matrix') {
+        const ratings = matrixRatings[id] || {};
+        const criteria = item.config?.criteria || item.criteria || [];
+        return criteria.length > 0 && criteria.every(c => !!ratings[c]);
+      }
+      if (['star_rating', 'rating', 'emoji_rating', 'slider_rating'].includes(key)) return rating > 0;
+
+      // 3. Text/Numeric Inputs & Everything else in customFields
+      const val = customFields[itemId];
+      const hasCustomVal = val !== undefined && val !== null && val.toString().trim() !== "";
+      
+      // Fallback for legacy 'idea' bindings
+      const hasIdeaVal = !!idea.trim();
+
+      // If it's a known identity/input field
+      if (['short_text', 'long_text', 'message_input', 'full_name', 'contact_number', 'email_address', 'mailing_address', 'number_input', 'multiple_choice', 'photo_upload'].includes(key)) {
+        if (['long_text', 'message_input'].includes(key)) return hasCustomVal || hasIdeaVal;
+        return hasCustomVal;
+      }
+      
+      // Catch-all for any other required module: must have a custom field value
+      if (required) return hasCustomVal;
+
+      return true;
+    }
+
+    if (type === "section") {
+      const section = formConfig?.sections?.find(s => s.id === item.section_id);
+      if (!section) return true;
+      return (section.fields || []).every(f => {
+        if (!f.required) return true;
+        const val = customFields[f.id];
+        return val !== undefined && val !== null && val.toString().trim() !== "";
+      });
+    }
+
+    // Default for unknown types: if required, check customFields
+    if (required) return !!customFields[itemId];
+
+    return true;
+  };
+
   useEffect(() => {
     const timer = setTimeout(() => setBranchSearch(branchSearch), 300);
     return () => clearTimeout(timer);
@@ -235,6 +292,46 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
       }
     }
   }, [enabledSteps, step, loading]);
+
+  const currentStepProgress = React.useMemo(() => {
+    if (!configLoaded || !formConfig) return { required: { total: 0, filled: 0 }, optional: { total: 0, filled: 0 }, isComplete: false };
+    
+    const current = enabledSteps.find(s => s.id === step);
+    if (!current) return { required: { total: 0, filled: 0 }, optional: { total: 0, filled: 0 }, isComplete: false };
+
+    const allItems = [];
+    current.items.forEach(it => {
+      if (it.type === "section") {
+        const section = formConfig?.sections?.find(s => s.id === it.section_id);
+        if (section && section.fields) {
+          section.fields.forEach(f => allItems.push({ ...f, type: 'module' }));
+        }
+      } else {
+        allItems.push(it);
+      }
+    });
+
+    const required = allItems.filter(it => it.required === true || it.required === "true");
+    const optional = allItems.filter(it => !it.required || (it.required !== true && it.required !== "true"));
+
+    const requiredFilled = required.filter(it => isItemFilled(it)).length;
+    const optionalFilled = optional.filter(it => isItemFilled(it)).length;
+
+    return {
+      required: { total: required.length, filled: requiredFilled },
+      optional: { total: optional.length, filled: optionalFilled },
+      isComplete: required.length === 0 || requiredFilled === required.length
+    };
+  }, [enabledSteps, step, customFields, rating, matrixRatings, selectedEntity, selectedBranch, configLoaded, formConfig]);
+
+  useEffect(() => {
+    if (currentStepProgress.isComplete && !stepJustValidated) {
+      setStepJustValidated(true);
+      setTimeout(() => setStepJustValidated(false), 1000);
+    } else if (!currentStepProgress.isComplete) {
+      setStepJustValidated(false);
+    }
+  }, [currentStepProgress.isComplete]);
 
   useEffect(() => {
     if (selectedEntity) {
@@ -267,6 +364,7 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
             if (b) setSelectedBranch(b);
           }
           if (!lastConfigVersion.current) {
+            console.log("AUDIT: Backend Raw Config Received", cd);
             setFormConfig(cd);
             setConfigLoaded(true);
           }
@@ -275,41 +373,13 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
     }
   }, [selectedEntity]);
 
-  const isItemFilled = (item) => {
-    if (item.type === "module") {
-      const key = item.key;
-      if (key === 'entity_picker') return !!selectedEntity;
-      if (key === 'location_picker') return !!selectedBranch || (isManualLocation && !!manualLocationText.trim());
-      if (key === 'star_rating' || key === 'rating' || key === 'emoji_rating' || key === 'slider_rating') return rating > 0;
-      if (key === 'short_text' || key === 'long_text' || key === 'message_input') return !!idea.trim();
-      if (key === 'rating_matrix') {
-        const ratings = matrixRatings[item.id] || {};
-        const criteria = item.config?.criteria || item.criteria || [];
-        return criteria.every(c => !!ratings[c]);
-      }
-      if (key === 'multiple_choice') {
-        return !!customFields[item.id || key];
-      }
-      if (['full_name', 'contact_number', 'email_address', 'mailing_address', 'number_input'].includes(key)) {
-        const val = customFields[item.id || key];
-        return val !== undefined && val !== null && val.toString().trim() !== "";
-      }
-      return true;
-    }
-    if (item.type === "section") {
-      const section = formConfig?.sections?.find(s => s.id === item.section_id);
-      if (!section) return true;
-      return (section.fields || []).every(f => {
-        if (!f.required) return true;
-        const val = customFields[f.id];
-        return val !== undefined && val !== null && val.toString().trim() !== "";
-      });
-    }
-    return true;
-  };
 
   const handleNext = (overrideKey, overrideVal, entityOverride = null) => {
     if (isNavigating) return;
+    if (!configLoaded) {
+      setModal({ isOpen: true, title: "Please Wait", message: "Loading form validation schema...", type: "info" });
+      return;
+    }
 
     const currentEntity = entityOverride || selectedEntity;
 
@@ -320,9 +390,29 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
     const current = enabledSteps.find(s => s.id === step);
     if (!current) return;
 
-    const allValid = isPreviewMode ? true : current.items.every(it => isItemFilled(it));
-    if (!allValid && !overrideKey) {
+    const invalidFields = current.items.filter(it => {
+      const isReq = it.required === true || it.required === "true";
+      if (it.required) {
+        console.log(`AUDIT: Checking Required Field: ${it.id || it.key} (Type: ${it.key}, Value Filled: ${isItemFilled(it)})`);
+      }
+      return isReq && !isItemFilled(it);
+    });
+
+    if (invalidFields.length > 0 && !overrideKey) {
+      console.warn("Validation failed for fields:", invalidFields.map(f => f.key));
       setShowErrors(true);
+      const firstInvalid = invalidFields[0];
+      const elementId = `field-${firstInvalid.id || current.items.indexOf(firstInvalid)}`;
+      const el = document.getElementById(elementId);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.classList.add('shake-validation');
+        setTimeout(() => el.classList.remove('shake-validation'), 500);
+      }
+      
+      // Show sticky hint
+      setValidationHint(`${invalidFields.length} required field${invalidFields.length > 1 ? 's' : ''} missing`);
+      setTimeout(() => setValidationHint(null), 3000);
       return;
     }
 
@@ -420,19 +510,19 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
           onCancel: () => setModal({ isOpen: false }), // ESC/Overlay support
           content: (
             <div style={{ display: 'flex', gap: '8px', width: '100%', marginTop: '12px' }}>
-              <button 
+              <button
                 onClick={() => setModal({ isOpen: false })}
                 style={{ flex: 1, padding: '12px 8px', borderRadius: '12px', border: '1.5px solid #E2E8F0', background: 'white', color: '#64748B', fontWeight: '700', fontSize: '12px', cursor: 'pointer', transition: '0.2s' }}
               >
                 Keep Editing
               </button>
-              <button 
+              <button
                 onClick={handleSaveToDrafts}
                 style={{ flex: 1.2, padding: '12px 8px', borderRadius: '12px', border: 'none', background: 'var(--primary-color)', color: 'white', fontWeight: '800', fontSize: '12px', cursor: 'pointer', boxShadow: '0 4px 12px rgba(var(--primary-rgb), 0.2)', transition: '0.2s' }}
               >
                 Save Draft
               </button>
-              <button 
+              <button
                 onClick={() => {
                   setModal({ isOpen: false });
                   setSelectedEntity(null);
@@ -503,28 +593,6 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
     finally { setIsSubmitting(false); }
   };
 
-  const getStepIcon = (key) => {
-    switch (key) {
-      case 'feedback_type': return <LocalIcons.AlertTriangle size={14} />;
-      case 'entity_picker': return <LocalIcons.Globe size={14} />;
-      case 'location_picker': return <LocalIcons.MapPin size={14} />;
-      case 'message_input':
-      case 'short_text':
-      case 'long_text': return <LocalIcons.MessageSquare size={14} />;
-      case 'rating':
-      case 'star_rating':
-      case 'emoji_rating':
-      case 'rating_matrix': return <LocalIcons.Star size={14} />;
-      case 'staff':
-      case 'staff_mention':
-      case 'full_name': return <LocalIcons.User size={14} />;
-      case 'contact_number': return <LocalIcons.Phone size={14} />;
-      case 'email_address': return <LocalIcons.Mail size={14} />;
-      case 'mailing_address': return <LocalIcons.Home size={14} />;
-      case 'number_input': return <LocalIcons.Hash size={14} />;
-      default: return null;
-    }
-  };
 
   const renderItem = (item, idx) => {
     const { key, required, label_override, helper } = item;
@@ -594,13 +662,40 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
         </div>
       );
       if (key === 'photo_upload') return (
-        <button style={{ width: '100%', padding: '30px', borderRadius: '20px', border: '2px dashed #E2E8F0', background: '#F8FAFC', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', color: '#64748B' }}>
-          <LocalIcons.Camera size={32} />
-          <span style={{ fontWeight: '800', fontSize: '14px' }}>Snap or upload photo</span>
-        </button>
+        <div style={{ width: '100%' }}>
+          <input 
+            type="file" 
+            id={`file-input-${item.id || idx}`}
+            style={{ display: 'none' }}
+            onChange={(e) => {
+              const file = e.target.files[0];
+              if (file) {
+                setCustomFields({ ...customFields, [item.id || key]: file.name });
+              }
+            }}
+          />
+          <button 
+            onClick={() => document.getElementById(`file-input-${item.id || idx}`).click()}
+            style={{ width: '100%', padding: '30px', borderRadius: '20px', border: '2px dashed #E2E8F0', background: '#F8FAFC', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', color: '#64748B' }}
+          >
+            <LocalIcons.Camera size={32} />
+            <span style={{ fontWeight: '800', fontSize: '14px' }}>
+              {customFields[item.id || key] ? 'Photo Attached' : 'Snap or upload photo'}
+            </span>
+          </button>
+        </div>
       );
       if (key === 'long_text' || key === 'message_input') return (
-        <textarea style={styles.textarea} value={idea} onChange={e => setIdea(e.target.value)} placeholder={item.config?.placeholder || "Share your thoughts here..."} />
+        <textarea 
+          style={styles.textarea} 
+          value={customFields[item.id || key] || idea || ""} 
+          onChange={e => {
+            const val = e.target.value;
+            setCustomFields({ ...customFields, [item.id || key]: val });
+            setIdea(val); // Sync with idea for legacy support
+          }} 
+          placeholder={item.config?.placeholder || "Share your thoughts here..."} 
+        />
       );
       if (['short_text', 'full_name', 'contact_number', 'email_address', 'number_input'].includes(key)) {
         const inputType = key === 'email_address' ? 'email' : (key === 'number_input' ? 'number' : (key === 'contact_number' ? 'tel' : 'text'));
@@ -636,10 +731,45 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
     if (!content) return null;
 
     return (
-      <div key={item.id || idx} className="user-portal-card" style={{ marginBottom: '16px', background: 'white', padding: 'var(--card-padding, 30px)', borderRadius: '30px', border: `1.5px solid ${invalid ? '#EF4444' : 'rgba(0,0,0,0.03)'}`, boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.05)', animation: 'fadeIn 0.5s ease-out' }}>
-        <div style={{ marginBottom: '12px' }}>
-          <label style={{ ...styles.label, color: '#0F172A', fontSize: 'var(--size-body, 14px)', fontWeight: '600', marginBottom: '6px', textTransform: 'none', letterSpacing: '-0.01em', lineHeight: '1.4' }}>{label_override}{item.required && <span style={{ color: '#EF4444', marginLeft: '6px' }}>*</span>}</label>
-          {helper && <p style={{ fontSize: 'var(--size-metadata, 11px)', color: '#64748B', margin: '6px 0 0', fontWeight: '400', lineHeight: '1.4' }}>{helper}</p>}
+      <div 
+        key={item.id || idx} 
+        id={`field-${item.id || idx}`}
+        className={`user-portal-card ${invalid ? 'invalid-field' : ''}`} 
+        style={{ 
+          marginBottom: '16px', 
+          padding: 'var(--card-padding, 30px)', 
+          borderRadius: '30px', 
+          border: `1.5px solid ${invalid ? '#FCA5A5' : 'rgba(0,0,0,0.03)'}`, 
+          background: invalid ? '#FFF5F5' : 'white',
+          boxShadow: invalid ? '0 10px 25px -5px rgba(239, 68, 68, 0.08)' : '0 10px 25px -5px rgba(0, 0, 0, 0.05)', 
+          animation: invalid ? 'shakeStep 0.4s ease' : 'fadeIn 0.5s ease-out',
+          transition: 'all 0.3s ease'
+        }}
+      >
+        <div style={{ marginBottom: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
+          <div style={{ flex: 1 }}>
+            <label style={{ ...styles.label, color: invalid ? '#EF4444' : '#0F172A', fontSize: 'var(--size-body, 14px)', fontWeight: '700', marginBottom: '4px', textTransform: 'none', letterSpacing: '-0.01em', lineHeight: '1.4' }}>
+              {label_override}
+            </label>
+            {helper && <p style={{ fontSize: 'var(--size-metadata, 11px)', color: '#64748B', margin: '2px 0 0', fontWeight: '400', lineHeight: '1.4' }}>{helper}</p>}
+          </div>
+          {item.required && (
+            <div style={{ 
+              padding: '4px 8px', 
+              borderRadius: '8px', 
+              background: invalid ? '#FEE2E2' : '#F1F5F9', 
+              color: invalid ? '#EF4444' : '#64748B', 
+              fontSize: '9px', 
+              fontWeight: '900', 
+              textTransform: 'uppercase', 
+              letterSpacing: '0.05em',
+              border: `1px solid ${invalid ? '#FECACA' : '#E2E8F0'}`,
+              flexShrink: 0,
+              marginTop: '2px'
+            }}>
+              Required
+            </div>
+          )}
         </div>
         <div style={{ position: 'relative', marginTop: '12px' }}>
           {content}
@@ -650,7 +780,12 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
             </div>
           )}
         </div>
-        {invalid && <div style={{ marginTop: '15px', color: '#EF4444', fontSize: 'var(--size-metadata, 12px)', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '6px' }}><LocalIcons.AlertCircle size={14} />Required to continue</div>}
+        {invalid && (
+          <div style={{ marginTop: '15px', color: '#EF4444', fontSize: 'clamp(9px, 2.5vw, 10px)', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '6px', animation: 'fadeIn 0.3s ease' }}>
+            <LocalIcons.AlertCircle size={12} />
+            Please complete this field before continuing.
+          </div>
+        )}
       </div>
     );
   };
@@ -674,7 +809,20 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
           <div style={{ width: 40 }} />
           <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
             {selectedEntity && (
-              <WorkflowStepper steps={enabledSteps} currentIndex={currentIndex} primaryColor="var(--primary-color)" onStepClick={setStep} />
+              <WorkflowStepper 
+                steps={enabledSteps} 
+                currentIndex={currentIndex} 
+                primaryColor="var(--primary-color)" 
+                onStepClick={setStep} 
+                validationState={enabledSteps.map(s => {
+                  const isStepComplete = s.items.every(it => !it.required || isItemFilled(it));
+                  return {
+                    id: s.id,
+                    isComplete: isStepComplete,
+                    hasError: showErrors && !isStepComplete
+                  };
+                })}
+              />
             )}
           </div>
           <div style={{ width: 40 }} />
@@ -884,6 +1032,53 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
         ) : (
           currentStep && (
             <div className="step-transition">
+              <div style={{ 
+                marginBottom: '20px', 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center',
+                padding: '0 8px',
+                animation: stepJustValidated ? 'pulseSuccess 0.5s ease' : 'none'
+              }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                  <span style={{ fontSize: '10px', fontWeight: '900', color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    {currentStep?.label || 'Step Progress'}
+                  </span>
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                    {!configLoaded ? (
+                      <div style={{ fontSize: '11px', fontWeight: '700', color: '#94A3B8', fontStyle: 'italic' }}>
+                        Loading validation...
+                      </div>
+                    ) : (
+                      <>
+                        <div style={{ fontSize: '11px', fontWeight: '700', color: currentStepProgress.required.filled === currentStepProgress.required.total ? 'var(--primary-color)' : '#94A3B8' }}>
+                          Required: {currentStepProgress.required.filled}/{currentStepProgress.required.total}
+                        </div>
+                        {currentStepProgress.optional.total > 0 && (
+                          <div style={{ fontSize: '11px', fontWeight: '700', color: '#94A3B8' }}>
+                            Optional: {currentStepProgress.optional.filled}/{currentStepProgress.optional.total}
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
+                {currentStepProgress.isComplete && (
+                  <div style={{ 
+                    width: '24px', 
+                    height: '24px', 
+                    borderRadius: '50%', 
+                    background: 'rgba(var(--primary-rgb), 0.1)', 
+                    color: 'var(--primary-color)', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center',
+                    animation: 'fadeIn 0.3s ease'
+                  }}>
+                    <LocalIcons.Check size={14} strokeWidth={4} />
+                  </div>
+                )}
+              </div>
               {currentStep.items.length === 0 ? (
                 <div style={{ padding: '40px 20px', textAlign: 'center', background: 'white', borderRadius: '16px', border: '2px dashed #E2E8F0' }}>
                   <div style={{ color: '#94A3B8', marginBottom: '12px' }}><LocalIcons.Layers size={32} /></div>
@@ -896,7 +1091,9 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
               <div style={{ display: 'flex', gap: '12px', marginTop: '10px' }}>
                 <button onClick={handleBack} style={{ ...styles.nextBtn, background: 'white', color: '#64748B', border: '1.5px solid #E2E8F0', boxShadow: 'none', flex: 1, height: 'var(--button-height, 48px)' }}>Back</button>
                 {(!['entity_picker'].includes(currentStep.items[0]?.key) || isPreview) && (
-                  <button onClick={() => handleNext()} style={{ ...styles.nextBtn, flex: 2, height: 'var(--button-height, 48px)' }}>{currentIndex === enabledSteps.length - 1 ? "Submit Feedback" : "Continue"}</button>
+                  <button onClick={() => handleNext()} style={{ ...styles.nextBtn, flex: 2, height: 'var(--button-height, 48px)' }}>
+                    {currentIndex === enabledSteps.length - 1 ? "Review Submission" : "Continue"}
+                  </button>
                 )}
               </div>
             </div>
@@ -982,28 +1179,105 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
           </div>
         </div>
       )}
+      {validationHint && (
+        <div style={{
+          position: 'fixed',
+          bottom: '100px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          background: '#1E293B',
+          color: 'white',
+          padding: '12px 20px',
+          borderRadius: '20px',
+          fontSize: '12px',
+          fontWeight: '700',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+          boxShadow: '0 20px 40px rgba(0,0,0,0.2)',
+          zIndex: 3000,
+          animation: 'slideUpFade 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+          pointerEvents: 'none'
+        }}>
+          <div style={{ color: '#F87171' }}><LocalIcons.AlertCircle size={16} /></div>
+          {validationHint}
+        </div>
+      )}
+
       <style>{`
         @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } } 
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes slideUpFade {
+          from { opacity: 0; transform: translate(-50%, 20px); }
+          to { opacity: 1; transform: translate(-50%, 0); }
+        }
+        @keyframes shakeValidation {
+          0%, 100% { transform: translateX(0); }
+          25% { transform: translateX(-4px); }
+          75% { transform: translateX(4px); }
+        }
+        @keyframes shakeStep {
+          0%, 100% { transform: translateX(0); }
+          20% { transform: translateX(-3px); }
+          40% { transform: translateX(3px); }
+          60% { transform: translateX(-2px); }
+          80% { transform: translateX(2px); }
+        }
+        @keyframes pulseSuccess {
+          0% { transform: scale(1); }
+          50% { transform: scale(1.02); background: rgba(var(--primary-rgb), 0.05); }
+          100% { transform: scale(1); }
+        }
+        .shake-validation { animation: shakeValidation 0.4s ease-in-out; }
         .step-transition { animation: fadeIn 0.4s ease-out; }
       `}</style>
     </div>
   );
 });
 
-function WorkflowStepper({ steps, currentIndex, primaryColor, onStepClick }) {
+function WorkflowStepper({ steps, currentIndex, primaryColor, onStepClick, validationState = [] }) {
   if (steps.length <= 1) return null;
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
       {steps.map((s, i) => {
-        const isCompleted = i < currentIndex;
+        const isCompletedStep = i < currentIndex;
         const isActive = i === currentIndex;
+        const stepStatus = validationState.find(vs => vs.id === s.id);
+        const hasError = stepStatus?.hasError;
+        const isComplete = stepStatus?.isComplete;
+
         return (
           <React.Fragment key={s.id}>
-            <div onClick={() => isCompleted && onStepClick(s.id)} style={{ width: '28px', height: '28px', borderRadius: '50%', background: isActive ? primaryColor : (isCompleted ? primaryColor : '#F1F5F9'), color: (isActive || isCompleted) ? 'white' : '#94A3B8', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.3s', boxShadow: isActive ? `0 0 0 4px var(--primary-soft)` : 'none', cursor: isCompleted ? 'pointer' : 'default', fontSize: '12px', fontWeight: '900' }}>
-              {isCompleted ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> : (i + 1)}
+            <div 
+              onClick={() => isCompletedStep && onStepClick(s.id)} 
+              style={{ 
+                width: '28px', 
+                height: '28px', 
+                borderRadius: '50%', 
+                background: hasError ? '#EF4444' : (isActive ? primaryColor : (isComplete ? primaryColor : '#F1F5F9')), 
+                color: (isActive || isComplete || hasError) ? 'white' : '#94A3B8', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                transition: 'all 0.3s', 
+                boxShadow: hasError ? '0 0 0 4px rgba(239, 68, 68, 0.2)' : (isActive ? `0 0 0 4px var(--primary-soft)` : 'none'), 
+                cursor: (isCompletedStep || isComplete) ? 'pointer' : 'default', 
+                fontSize: '12px', 
+                fontWeight: '900',
+                position: 'relative'
+              }}
+            >
+              {hasError ? (
+                <LocalIcons.AlertCircle size={14} />
+              ) : (isComplete ? <LocalIcons.Check size={14} strokeWidth={4} /> : (i + 1))}
+              
+              {hasError && isActive && (
+                <div style={{ position: 'absolute', top: '-24px', whiteSpace: 'nowrap', background: '#EF4444', color: 'white', padding: '4px 8px', borderRadius: '6px', fontSize: '9px', fontWeight: '900', boxShadow: '0 4px 12px rgba(239, 68, 68, 0.2)', animation: 'fadeIn 0.2s ease' }}>
+                  INCOMPLETE
+                </div>
+              )}
             </div>
-            {i < steps.length - 1 && <div style={{ width: '20px', height: '2px', background: i < currentIndex ? primaryColor : '#F1F5F9', transition: '0.3s' }} />}
+            {i < steps.length - 1 && <div style={{ width: '20px', height: '2px', background: isComplete ? primaryColor : '#F1F5F9', transition: '0.3s' }} />}
           </React.Fragment>
         );
       })}

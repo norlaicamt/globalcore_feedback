@@ -308,7 +308,7 @@ const ProfileView = ({ currentUser, onUserUpdate, showToast }) => {
 
                 <div style={styles.statsBar}>
                     <div style={styles.statBox}>
-                        <span style={styles.statVal}>{currentUser.impact_points || 0}</span>
+                        <span style={styles.statVal}>{(currentUser.impact_points || 0).toFixed(0)}</span>
                         <span style={styles.statLab}>Impact Points</span>
                     </div>
                     <div style={styles.statDivider} />

@@ -47,6 +47,31 @@ const LocalIcons = {
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="10" /><line x1="2" y1="12" x2="22" y2="12" /><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
     </svg>
+  ),
+  Paperclip: ({ size = 16, color = "currentColor" }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+    </svg>
+  ),
+  Image: ({ size = 16, color = "currentColor" }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" />
+    </svg>
+  ),
+  FileText: ({ size = 16, color = "currentColor" }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /><polyline points="10 9 9 9 8 9" />
+    </svg>
+  ),
+  Trash2: ({ size = 16, color = "currentColor" }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" />
+    </svg>
+  ),
+  X: ({ size = 16, color = "currentColor" }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+    </svg>
   )
 };
 
@@ -64,8 +89,8 @@ const AdminBroadcast = ({ theme, darkMode, adminUser }) => {
   const [broadcastType, setBroadcastType] = useState("announcement");
   const [targetGroup, setTargetGroup] = useState("global"); 
   const [priority, setPriority] = useState("normal");
-  const [requireAck, setRequireAck] = useState(false);
   const [scheduledAt, setScheduledAt] = useState("");
+  const [attachments, setAttachments] = useState([]); // {name, size, type, data}
   const [appliedTemplateId, setAppliedTemplateId] = useState(null);
   
   // History & Custom Templates
@@ -109,10 +134,10 @@ const AdminBroadcast = ({ theme, darkMode, adminUser }) => {
     setBroadcastType("announcement");
     setPriority("normal");
     setScheduledAt("");
-    setRequireAck(false);
     setAppliedTemplateId(null);
     setCurrentDraftId(null);
     setLastSaved(null);
+    setAttachments([]);
   };
 
   const fetchData = useCallback(async () => {
@@ -193,9 +218,9 @@ const AdminBroadcast = ({ theme, darkMode, adminUser }) => {
         targetGroup, 
         priority, 
         status, 
-        requireAck,
         scheduledAt || null,
-        currentDraftId
+        currentDraftId,
+        attachments.length > 0 ? attachments : null
       );
       if (status === 'draft') {
         setLastSaved(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
@@ -388,27 +413,89 @@ const AdminBroadcast = ({ theme, darkMode, adminUser }) => {
                 </div>
               </div>
             </Section>
+            
+            {/* SECTION: ATTACHMENTS */}
+            <Section title="Attachments (Optional)" theme={theme}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                  {attachments.map((file, idx) => (
+                    <div 
+                      key={idx} 
+                      style={{ 
+                        position: 'relative', width: file.type.startsWith('image/') ? '100px' : '160px', 
+                        height: '100px', borderRadius: '16px', background: theme.bg, 
+                        border: `1.5px solid ${theme.border}`, overflow: 'hidden', 
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                        padding: '8px'
+                      }}
+                    >
+                      {file.type.startsWith('image/') ? (
+                        <img src={file.data} alt={file.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', textAlign: 'center' }}>
+                          <LocalIcons.FileText size={24} color="var(--primary-color)" />
+                          <span style={{ fontSize: '10px', fontWeight: '800', color: theme.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%' }}>{file.name}</span>
+                          <span style={{ fontSize: '9px', color: theme.textMuted }}>{(file.size / 1024).toFixed(1)} KB</span>
+                        </div>
+                      )}
+                      <button 
+                        onClick={() => setAttachments(prev => prev.filter((_, i) => i !== idx))}
+                        style={{ 
+                          position: 'absolute', top: '4px', right: '4px', width: '24px', height: '24px', 
+                          borderRadius: '50%', background: 'rgba(239, 68, 68, 0.9)', color: 'white', 
+                          border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                        }}
+                      >
+                        <LocalIcons.X size={12} />
+                      </button>
+                    </div>
+                  ))}
+                  
+                  {attachments.length < 5 && (
+                    <label 
+                      style={{ 
+                        width: '100px', height: '100px', borderRadius: '16px', border: `1.5px dashed ${theme.border}`, 
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', 
+                        gap: '8px', cursor: 'pointer', transition: '0.2s', background: 'transparent'
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--primary-color)'}
+                      onMouseLeave={e => e.currentTarget.style.borderColor = theme.border}
+                    >
+                      <input 
+                        type="file" multiple hidden 
+                        accept="image/*,.pdf,.docx,.xlsx,.pptx"
+                        onChange={(e) => {
+                          const files = Array.from(e.target.files);
+                          files.forEach(file => {
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                              setAttachments(prev => [...prev, {
+                                name: file.name,
+                                size: file.size,
+                                type: file.type,
+                                data: reader.result
+                              }]);
+                            };
+                            reader.readAsDataURL(file);
+                          });
+                          e.target.value = null;
+                        }} 
+                      />
+                      <LocalIcons.Paperclip size={20} color={theme.textMuted} />
+                      <span style={{ fontSize: '10px', fontWeight: '800', color: theme.textMuted }}>Add File</span>
+                    </label>
+                  )}
+                </div>
+                <p style={{ margin: 0, fontSize: '11px', color: theme.textMuted }}>Support images (JPG, PNG, WEBP) and docs (PDF, DOCX, XLSX, PPTX). Max 5 files.</p>
+              </div>
+            </Section>
 
             {/* SECTION 3: DELIVERY SETTINGS */}
             <Section title="Delivery Settings" theme={theme}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '24px' }}>
                 <div>
                   <label style={labelStyle}>Schedule Release (Optional)</label>
                   <input type="datetime-local" value={scheduledAt} onChange={e => setScheduledAt(e.target.value)} style={inputStyle(theme)} />
                 </div>
-                <div style={{ display: 'flex', alignItems: 'flex-end' }}>
-                  <div style={{ flex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', background: theme.bg, borderRadius: '16px', border: `1px solid ${theme.border}` }}>
-                    <div>
-                      <p style={{ margin: 0, fontSize: '12px', fontWeight: '800', color: theme.text }}>Require Acknowledgment</p>
-                      <p style={{ margin: 0, fontSize: '10px', color: theme.textMuted }}>Force users to confirm receipt.</p>
-                    </div>
-                    <label className="switch">
-                      <input type="checkbox" checked={requireAck} onChange={e => setRequireAck(e.target.checked)} />
-                      <span className="slider round"></span>
-                    </label>
-                  </div>
-                </div>
-              </div>
             </Section>
           </div>
 
@@ -502,6 +589,32 @@ const AdminBroadcast = ({ theme, darkMode, adminUser }) => {
                     </div>
                     <h3 style={{ margin: '0 0 8px 0', fontSize: '16px', fontWeight: '900', color: theme.text }}>{title || "Announcement Title"}</h3>
                     <p style={{ margin: 0, fontSize: '14px', color: theme.text, lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>{message || "Enter content to see preview..."}</p>
+                    
+                    {attachments.length > 0 && (
+                      <div style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        {attachments.filter(a => a.type.startsWith('image/')).length > 0 && (
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '8px' }}>
+                            {attachments.filter(a => a.type.startsWith('image/')).map((img, i) => (
+                              <img key={i} src={img.data} alt="preview" style={{ width: '100%', borderRadius: '12px', border: `1px solid ${theme.border}` }} />
+                            ))}
+                          </div>
+                        )}
+                        {attachments.filter(a => !a.type.startsWith('image/')).length > 0 && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            {attachments.filter(a => !a.type.startsWith('image/')).map((file, i) => (
+                              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', background: theme.surface, borderRadius: '12px', border: `1px solid ${theme.border}` }}>
+                                <LocalIcons.FileText size={20} color="var(--primary-color)" />
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <p style={{ margin: 0, fontSize: '12px', fontWeight: '800', color: theme.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{file.name}</p>
+                                  <p style={{ margin: 0, fontSize: '10px', color: theme.textMuted }}>{(file.size / 1024).toFixed(1)} KB</p>
+                                </div>
+                                <div style={{ color: 'var(--primary-color)' }}><LocalIcons.Globe size={14} /></div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div style={{ padding: '40px 20px', textAlign: 'center', color: theme.textMuted }}>
@@ -541,7 +654,6 @@ const AdminBroadcast = ({ theme, darkMode, adminUser }) => {
                             setTitle(draft.subject.replace(/\[OFFICIAL\] .* - /, ''));
                             setMessage(draft.message);
                             setPriority(draft.priority);
-                            setRequireAck(draft.require_ack);
                             setScheduledAt(draft.scheduled_at || "");
                             setCurrentDraftId(draft.id);
                             setActiveTab("preview");
@@ -628,7 +740,16 @@ const AdminBroadcast = ({ theme, darkMode, adminUser }) => {
           }} 
         />
       )}
-      {showPreview && <PreviewModal theme={theme} title={title} message={message} priority={priority} targetGroup={targetGroup} recipientCount={recipientCount} scheduledAt={scheduledAt} requireAck={requireAck} onCancel={() => setShowPreview(false)} onConfirm={() => handleSend("sent")} adminUser={adminUser} />}
+      {showPreview && (
+        <PreviewModal 
+          theme={theme} title={title} message={message} priority={priority} 
+          targetGroup={targetGroup} recipientCount={recipientCount} 
+          scheduledAt={scheduledAt} 
+          attachments={attachments}
+          onCancel={() => setShowPreview(false)} onConfirm={() => handleSend("sent")} 
+          adminUser={adminUser} 
+        />
+      )}
       <CustomModal isOpen={dialog.isOpen} title={dialog.title} message={dialog.message} type={dialog.type} onConfirm={dialog.onConfirm} />
 
       <style>{`
@@ -776,9 +897,9 @@ const CreateTemplateModal = ({ theme, isSaving, editingId, values, errors, onCan
   </div>
 );
 
-const PreviewModal = ({ theme, title, message, priority, targetGroup, recipientCount, scheduledAt, requireAck, onCancel, onConfirm, adminUser }) => (
+const PreviewModal = ({ theme, title, message, priority, targetGroup, recipientCount, scheduledAt, attachments = [], onCancel, onConfirm, adminUser }) => (
   <div style={overlayStyle}>
-    <div style={{ ...modalStyle(theme), maxWidth: '580px', padding: '40px' }}>
+    <div style={{ ...modalStyle(theme), maxWidth: '650px', padding: '40px', maxHeight: '90vh', overflowY: 'auto' }}>
       <h2 style={{ margin: '0 0 8px 0', fontSize: '22px', fontWeight: '900', color: theme.text }}>Final Review</h2>
       <p style={{ margin: '0 0 24px 0', fontSize: '14px', color: theme.textMuted }}>Verify the announcement details before sending.</p>
 
@@ -789,18 +910,34 @@ const PreviewModal = ({ theme, title, message, priority, targetGroup, recipientC
         </div>
         <h3 style={{ margin: '0 0 12px 0', fontSize: '18px', fontWeight: '900', color: theme.text }}>{title}</h3>
         <p style={{ margin: 0, fontSize: '15px', color: theme.text, lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>{message}</p>
+        
+        {attachments.length > 0 && (
+          <div style={{ marginTop: '24px', paddingTop: '20px', borderTop: `1px solid ${theme.border}` }}>
+             <p style={{ margin: '0 0 12px 0', fontSize: '11px', fontWeight: '900', color: theme.textMuted, textTransform: 'uppercase' }}>Attached Assets ({attachments.length})</p>
+             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {attachments.map((file, idx) => (
+                  <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', background: theme.surface, borderRadius: '12px', border: `1px solid ${theme.border}` }}>
+                    {file.type.startsWith('image/') ? <LocalIcons.Image size={18} color="var(--primary-color)" /> : <LocalIcons.FileText size={18} color="var(--primary-color)" />}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ margin: 0, fontSize: '12px', fontWeight: '800', color: theme.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{file.name}</p>
+                      <p style={{ margin: 0, fontSize: '10px', color: theme.textMuted }}>{(file.size / 1024).toFixed(1)} KB • {file.type.split('/')[1]?.toUpperCase()}</p>
+                    </div>
+                  </div>
+                ))}
+             </div>
+          </div>
+        )}
       </div>
 
       <div style={{ padding: '16px', background: 'rgba(245, 158, 11, 0.05)', borderRadius: '16px', border: '1px solid rgba(245, 158, 11, 0.2)', marginBottom: '32px' }}>
         <p style={{ margin: 0, fontSize: '12px', color: '#D97706', fontWeight: '700' }}>
           {scheduledAt ? `🕒 Scheduled for ${new Date(scheduledAt).toLocaleString()}` : "⚡ Instant Dispatch"}
-          {requireAck && " • ⚠️ Acknowledgment Required"}
         </p>
       </div>
 
-      <div style={{ display: 'flex', gap: '12px' }}>
-        <button onClick={onCancel} style={{ ...secondaryButtonStyle(theme), flex: 1 }}>Back to Editor</button>
-        <button onClick={onConfirm} style={{ ...primaryButtonStyle, flex: 2, background: 'var(--primary-color)' }}>Send</button>
+      <div style={{ display: 'flex', gap: '16px' }}>
+        <button onClick={onCancel} style={{ ...secondaryButtonStyle(theme), flex: 1, padding: '14px' }}>Cancel</button>
+        <button onClick={onConfirm} style={{ ...primaryButtonStyle, flex: 1.5, background: 'var(--primary-color)', padding: '14px' }}>Confirm & Dispatch</button>
       </div>
     </div>
   </div>

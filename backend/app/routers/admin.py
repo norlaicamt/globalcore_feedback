@@ -1323,6 +1323,7 @@ def admin_broadcast(
     require_ack = request.require_ack
     scheduled_at = request.scheduled_at
     broadcast_id = request.broadcast_id
+    attachments = request.attachments
     source_tag = "SYSTEM"
     is_global = has_global_admin_access(admin)
     
@@ -1374,6 +1375,7 @@ def admin_broadcast(
         broadcast_log.status = status
         broadcast_log.require_ack = require_ack
         broadcast_log.scheduled_at = scheduled_at
+        broadcast_log.attachments = attachments
         db.commit()
         db.refresh(broadcast_log)
     else:
@@ -1386,7 +1388,8 @@ def admin_broadcast(
             priority=priority,
             status=status,
             require_ack=require_ack,
-            scheduled_at=scheduled_at
+            scheduled_at=scheduled_at,
+            attachments=attachments
         )
     
     # 3. Deliver Notifications (ONLY if status is 'sent')
@@ -1404,7 +1407,8 @@ def admin_broadcast(
                 message=message,
                 broadcast_id=broadcast_log.id,
                 broadcast_type=broadcast_type,
-                priority=priority # Pass priority to notification for quick feed rendering
+                priority=priority,
+                attachments=attachments
             ))
         
         if notifications:
@@ -1505,7 +1509,8 @@ def resend_broadcast(
             subject=log.subject,
             message=log.message,
             broadcast_id=log.id,
-            priority=log.priority
+            priority=log.priority,
+            attachments=log.attachments
         ))
     
     if notifications:
