@@ -1778,6 +1778,11 @@ def update_entity_form_config(ent_id: int, config: schemas.FormConfig, db: Sessi
     # Store the configuration in the JSONB fields column
     entity.fields = config.model_dump()
     
+    # Audit for Mandatory Fields in Backend
+    for step in config.steps:
+        for item in step.items:
+            print(f"[Backend Received] STEP: {step.label} | FIELD: {item.label_override or item.key} | ID: {item.id} | REQUIRED: {item.required}")
+    
     # Audit Log
     crud.create_audit_log(
         db,

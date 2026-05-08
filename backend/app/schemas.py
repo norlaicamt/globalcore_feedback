@@ -597,14 +597,20 @@ class FormSectionDesigner(BaseModel):
     fields: List[FormFieldDesigner] = []
 
 class FormItemDesigner(BaseModel):
+    id: Optional[str] = None
     type: str # "module", "section"
     key: Optional[str] = None # module key
     section_id: Optional[str] = None
+    label_override: Optional[str] = None
+    required: bool = False
+    include_in_post: bool = True
+    config: Optional[dict] = Field(default_factory=dict)
 
 class FormStepDesigner(BaseModel):
     id: str
     label: str
     enabled: bool = True
+    locked: bool = False
     order: int = 0
     items: List[FormItemDesigner] = Field(default_factory=list)
 

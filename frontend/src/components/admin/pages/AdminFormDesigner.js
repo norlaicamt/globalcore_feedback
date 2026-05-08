@@ -559,6 +559,13 @@ function AdminFormDesigner({ theme, darkMode, adminUser }) {
           return;
         }
         console.log("AUDIT: Final Save Payload", JSON.stringify(config, null, 2));
+        
+        // Granular Audit for Mandatory Fields
+        config.steps.forEach(step => {
+          step.items?.forEach(item => {
+            console.log(`[Admin Save] STEP: ${step.label} | FIELD: ${item.label_override || item.key} | ID: ${item.id} | REQUIRED: ${item.required}`);
+          });
+        });
         setIsSaving(true);
         try {
           await updateEntityFormConfig(selectedEntId, config);

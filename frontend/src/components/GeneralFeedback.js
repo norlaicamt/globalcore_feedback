@@ -365,6 +365,12 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
           }
           if (!lastConfigVersion.current) {
             console.log("AUDIT: Backend Raw Config Received", cd);
+            // Granular Audit for User Rendering
+            cd.steps?.forEach(step => {
+              step.items?.forEach(item => {
+                console.log(`[User Render] STEP: ${step.label} | FIELD: ${item.label_override || item.key} | ID: ${item.id} | REQUIRED: ${item.required}`);
+              });
+            });
             setFormConfig(cd);
             setConfigLoaded(true);
           }
