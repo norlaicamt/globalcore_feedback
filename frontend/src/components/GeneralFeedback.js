@@ -126,6 +126,9 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
   const [selectionMethod, setSelectionMethod] = useState("manual"); // auto | manual
   const [validationHint, setValidationHint] = useState(null);
   const [stepJustValidated, setStepJustValidated] = useState(false);
+  const [showAutofillSuccess, setShowAutofillSuccess] = useState(false);
+  const [autofillStatus, setAutofillStatus] = useState({}); // { fieldId: 'filled' | 'kept' | 'missing' }
+  const [bulkSummary, setBulkSummary] = useState("");
 
   const adminColor = systemSettings?.primary_color || "#10B981";
   const primaryColor = formConfig?.theme?.primary_color || adminColor;
@@ -266,6 +269,40 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
     const timer = setTimeout(() => setBranchSearch(branchSearch), 300);
     return () => clearTimeout(timer);
   }, [branchSearch]);
+
+  // --- SILENT AUTO-PREFILL LOGIC ---
+  useEffect(() => {
+    // privacyMode architecture: if enabled, skip silent prefill
+    const privacyMode = false; 
+    if (!configLoaded || !formConfig || !currentUser || privacyMode) return;
+
+    const profileMap = {
+      full_name: currentUser.name,
+      contact_number: currentUser.phone,
+      email_address: currentUser.email,
+      mailing_address: currentUser.exact_address
+    };
+
+    let hasUpdates = false;
+    const newCustomFields = { ...customFields };
+
+    enabledSteps.forEach(s => {
+      s.items.forEach(it => {
+        const val = profileMap[it.key];
+        const isReq = it.required === true || it.required === "true";
+        const currentVal = newCustomFields[it.id || it.key];
+
+        if (isReq && val && !currentVal) {
+          newCustomFields[it.id || it.key] = val;
+          hasUpdates = true;
+        }
+      });
+    });
+
+    if (hasUpdates) {
+      setCustomFields(newCustomFields);
+    }
+  }, [configLoaded, formConfig, currentUser]);
 
   const enabledSteps = React.useMemo(() => {
     if (!formConfig || !formConfig.steps) return [];
@@ -703,10 +740,102 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
           placeholder={item.config?.placeholder || "Share your thoughts here..."} 
         />
       );
-      if (['short_text', 'full_name', 'contact_number', 'email_address', 'number_input'].includes(key)) {
+      if (['short_text', 'full_name', 'contact_number', 'email_address', 'mailing_address', 'number_input'].includes(key)) {
         const inputType = key === 'email_address' ? 'email' : (key === 'number_input' ? 'number' : (key === 'contact_number' ? 'tel' : 'text'));
+        
+        // --- SMART PROFILE AUTOFILL LOGIC (PHASE 2: PRIVACY AWARE) ---
+        const profileMap = {
+          full_name: { val: currentUser?.name, icon: "👤", label: "saved name", aria: "Use saved name" },
+          contact_number: { val: currentUser?.phone, icon: "📱", label: "saved number", aria: "Use saved contact number" },
+          email_address: { val: currentUser?.email, icon: "✉", label: "saved email", aria: "Use saved email" },
+          mailing_address: { val: currentUser?.exact_address, icon: "🏠", label: "saved address", aria: "Use saved address" }
+        };
+
+        const maskValue = (type, val) => {
+          if (!val) return "";
+          if (type === 'full_name') return val;
+          if (type === 'contact_number') {
+            if (val.includes(' ')) {
+              const parts = val.split(' ');
+              return `${parts[0]} ••• ••• ${val.slice(-4)}`;
+            }
+            // Handle continuous numbers like 09090909123
+            if (val.length > 4) {
+              const prefix = val.length > 7 ? val.slice(0, 2) : "";
+              return `${prefix}•• •••• ${val.slice(-4)}`;
+            }
+            return `•••• ${val.slice(-2)}`;
+          }
+          if (type === 'email_address') {
+            const [user, domain] = val.split('@');
+            if (!domain) return val;
+            return `${user.charAt(0)}••••@${domain}`;
+          }
+          if (type === 'mailing_address') return "Saved home address";
+          return val;
+        };
+
+        const suggestion = profileMap[key];
+        const currentVal = customFields[item.id || key] || "";
+        const showAutofill = suggestion?.val && !currentVal;
+
         return (
-          <input type={inputType} style={styles.input} value={customFields[item.id || key] || ""} onChange={e => setCustomFields({ ...customFields, [item.id || key]: e.target.value })} placeholder={item.config?.placeholder || "Type here..."} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <input 
+              type={inputType} 
+              style={styles.input} 
+              value={currentVal} 
+              onChange={e => setCustomFields({ ...customFields, [item.id || key]: e.target.value })} 
+              placeholder={item.config?.placeholder || "Type here..."} 
+            />
+            
+            {showAutofill && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '4px', animation: 'fadeIn 0.3s ease' }}>
+                <span style={{ fontSize: '9px', fontWeight: '800', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Use {suggestion.label}:
+                </span>
+                <button
+                  onClick={() => {
+                    setCustomFields(prev => ({ ...prev, [item.id || key]: suggestion.val }));
+                    const el = document.getElementById(`field-${item.id || idx}`);
+                    if (el) el.classList.remove('shake-validation');
+                  }}
+                  className="press-effect"
+                  title="Use your saved profile information"
+                  aria-label={suggestion.aria}
+                  style={{
+                    alignSelf: 'flex-start',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '6px 12px',
+                    background: 'rgba(var(--primary-rgb), 0.08)',
+                    border: '1.5px solid rgba(var(--primary-rgb), 0.12)',
+                    borderRadius: '12px',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                  }}
+                >
+                  <span style={{ fontSize: '14px' }}>{suggestion.icon}</span>
+                  <span style={{ fontSize: '10px', fontWeight: '800', color: 'var(--primary-color)' }}>
+                    {maskValue(key, suggestion.val)}
+                  </span>
+                </button>
+              </div>
+            )}
+            
+            {/* SILENT PREFILL INDICATOR (REFINED) */}
+            {required && suggestion?.val && currentVal === suggestion.val && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px', opacity: 1, animation: 'fadeIn 0.3s ease' }}>
+                <div style={{ color: 'var(--primary-color)', display: 'flex', alignItems: 'center' }}>
+                  <LocalIcons.Check size={12} strokeWidth={4} />
+                </div>
+                <span style={{ fontSize: '10px', fontWeight: '700', color: '#64748B' }}>
+                  From your profile • Edit anytime
+                </span>
+              </div>
+            )}
+          </div>
         );
       }
       if (key === 'rating_matrix') return (
@@ -754,8 +883,34 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
       >
         <div style={{ marginBottom: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
           <div style={{ flex: 1 }}>
-            <label style={{ ...styles.label, color: invalid ? '#EF4444' : '#0F172A', fontSize: 'var(--size-body, 14px)', fontWeight: '700', marginBottom: '4px', textTransform: 'none', letterSpacing: '-0.01em', lineHeight: '1.4' }}>
+            <label style={{ ...styles.label, color: invalid ? '#EF4444' : '#0F172A', fontSize: 'var(--size-body, 14px)', fontWeight: '700', marginBottom: '4px', textTransform: 'none', letterSpacing: '-0.01em', lineHeight: '1.4', display: 'flex', alignItems: 'center', gap: '8px' }}>
               {label_override}
+              
+              {/* --- PHASE 4: FIELD-LEVEL FEEDBACK LABELS --- */}
+              {(() => {
+                const status = autofillStatus[item.id || item.key];
+                if (!status) return null;
+
+                const config = {
+                  filled: { text: "✓ From profile", color: "var(--primary-color)" },
+                  kept: { text: "✓ Kept your entry", color: "#3B82F6" },
+                  missing: { text: "⚠ Not found in profile", color: "#F59E0B" }
+                }[status];
+
+                return (
+                  <span style={{ 
+                    fontSize: '9px', 
+                    fontWeight: '800', 
+                    color: config.color, 
+                    background: `${config.color}10`,
+                    padding: '2px 6px',
+                    borderRadius: '6px',
+                    animation: 'fadeIn 0.3s ease'
+                  }}>
+                    {config.text}
+                  </span>
+                );
+              })()}
             </label>
             {helper && <p style={{ fontSize: 'var(--size-metadata, 11px)', color: '#64748B', margin: '2px 0 0', fontWeight: '400', lineHeight: '1.4' }}>{helper}</p>}
           </div>
@@ -820,13 +975,39 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
                 currentIndex={currentIndex} 
                 primaryColor="var(--primary-color)" 
                 onStepClick={setStep} 
-                validationState={enabledSteps.map(s => {
-                  const isStepComplete = s.items.every(it => !it.required || isItemFilled(it));
-                  return {
+                validationState={enabledSteps.map((s, i) => {
+                  const requiredItems = s.items.filter(it => it.required === true || it.required === "true");
+                  const optionalItems = s.items.filter(it => !it.required || (it.required !== true && it.required !== "true"));
+                  
+                  const requiredCount = requiredItems.length;
+                  const requiredFilled = requiredItems.filter(it => isItemFilled(it)).length;
+                  const anyOptionalFilled = optionalItems.some(it => isItemFilled(it));
+                  
+                  const isStrictlyComplete = requiredCount > 0 
+                    ? requiredFilled === requiredCount 
+                    : anyOptionalFilled;
+
+                  const stepStatus = {
                     id: s.id,
-                    isComplete: isStepComplete,
-                    hasError: showErrors && !isStepComplete
+                    isComplete: isStrictlyComplete,
+                    hasError: showErrors && !isStrictlyComplete && i <= currentIndex,
+                    requiredCount,
+                    requiredFilled,
+                    anyOptionalFilled,
+                    visited: i <= currentIndex
                   };
+
+                  // DEBUG LOG
+                  console.log(`STEP AUDIT [${s.label}]:`, {
+                    id: s.id,
+                    required: `${requiredFilled}/${requiredCount}`,
+                    anyOptionalFilled,
+                    visited: i <= currentIndex,
+                    valid: isStrictlyComplete,
+                    status: i < currentIndex ? (isStrictlyComplete ? 'COMPLETE' : 'INCOMPLETE') : (i === currentIndex ? 'ACTIVE' : 'LOCKED')
+                  });
+
+                  return stepStatus;
                 })}
               />
             )}
@@ -1085,6 +1266,112 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
                   </div>
                 )}
               </div>
+
+              {/* --- PHASE 3: BULK AUTOFILL ACTION --- */}
+              {(() => {
+                const identityFieldsInStep = currentStep?.items?.filter(it => 
+                  ['full_name', 'contact_number', 'email_address', 'mailing_address'].includes(it.key)
+                ) || [];
+                
+                const profileMap = {
+                  full_name: currentUser?.name,
+                  contact_number: currentUser?.phone,
+                  email_address: currentUser?.email,
+                  mailing_address: currentUser?.exact_address
+                };
+
+                const fillableFields = identityFieldsInStep.filter(it => {
+                  const val = profileMap[it.key];
+                  const currentVal = customFields[it.id || it.key];
+                  return val && !currentVal;
+                });
+
+                const allResolved = identityFieldsInStep.every(it => !!(customFields[it.id || it.key]));
+
+                if (identityFieldsInStep.length < 2) return null;
+
+                if (allResolved && !showAutofillSuccess) {
+                  return (
+                    <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', color: '#64748B', fontSize: '10px', fontWeight: '800', animation: 'fadeIn 0.3s ease', opacity: 0.8 }}>
+                      <LocalIcons.CheckCircle size={12} color="var(--primary-color)" strokeWidth={3} />
+                      <span style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>Profile details complete</span>
+                    </div>
+                  );
+                }
+
+                if (fillableFields.length === 0 && !showAutofillSuccess) return null;
+
+                return (
+                  <div style={{ marginBottom: '16px', animation: 'fadeIn 0.3s ease' }}>
+                    <button
+                      onClick={() => {
+                        const newCustomFields = { ...customFields };
+                        const status = {};
+                        let filled = 0;
+                        let kept = 0;
+                        let missing = 0;
+
+                        identityFieldsInStep.forEach(it => {
+                          const val = profileMap[it.key];
+                          const currentVal = customFields[it.id || it.key];
+                          const fieldId = it.id || it.key;
+
+                          if (val && !currentVal) {
+                            newCustomFields[fieldId] = val;
+                            status[fieldId] = 'filled';
+                            filled++;
+                          } else if (val && currentVal) {
+                            status[fieldId] = 'kept';
+                            kept++;
+                          } else if (!val) {
+                            status[fieldId] = 'missing';
+                            missing++;
+                          }
+                        });
+
+                        setCustomFields(newCustomFields);
+                        setAutofillStatus(status);
+                        setBulkSummary(`✓ ${filled} filled • ${kept} kept • ${missing} missing`);
+                        setShowAutofillSuccess(true);
+
+                        // Fade field-level status after 3s
+                        setTimeout(() => setAutofillStatus({}), 3500);
+                        // Hide success button state after 2s
+                        setTimeout(() => {
+                          setShowAutofillSuccess(false);
+                          setBulkSummary("");
+                        }, 2500);
+                      }}
+                      className="press-effect"
+                      style={{
+                        width: '100%',
+                        padding: '10px 16px',
+                        background: 'white',
+                        border: '1.5px solid var(--primary-color)',
+                        borderRadius: '16px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '10px',
+                        cursor: 'pointer',
+                        boxShadow: '0 4px 12px rgba(var(--primary-rgb), 0.08)',
+                        height: 'var(--button-height, 32px)',
+                        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
+                      }}
+                    >
+                      <div style={{ display: 'flex', gap: '4px', color: 'var(--primary-color)' }}>
+                        <LocalIcons.User size={14} />
+                        <LocalIcons.Phone size={14} />
+                        <LocalIcons.Mail size={14} />
+                      </div>
+                      <span style={{ fontSize: '11px', fontWeight: '800', color: 'var(--primary-color)' }}>
+                        {bulkSummary || "Use my saved details"}
+                      </span>
+                    </button>
+                  </div>
+                );
+              })()}
+
               {currentStep.items.length === 0 ? (
                 <div style={{ padding: '40px 20px', textAlign: 'center', background: 'white', borderRadius: '16px', border: '2px dashed #E2E8F0' }}>
                   <div style={{ color: '#94A3B8', marginBottom: '12px' }}><LocalIcons.Layers size={32} /></div>
@@ -1246,36 +1533,65 @@ function WorkflowStepper({ steps, currentIndex, primaryColor, onStepClick, valid
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
       {steps.map((s, i) => {
-        const isCompletedStep = i < currentIndex;
         const isActive = i === currentIndex;
+        const isPast = i < currentIndex;
         const stepStatus = validationState.find(vs => vs.id === s.id);
+        
+        const isComplete = stepStatus?.isComplete && isPast; // Only show check if complete AND left
         const hasError = stepStatus?.hasError;
-        const isComplete = stepStatus?.isComplete;
+        
+        // Logic for 4 states
+        let bgColor = '#F1F5F9';
+        let textColor = '#94A3B8';
+        let borderStyle = 'none';
+        let content = i + 1;
+
+        if (hasError) {
+          bgColor = '#FEF2F2';
+          textColor = '#EF4444';
+          borderStyle = '1.5px solid #FCA5A5';
+          content = <LocalIcons.AlertCircle size={14} />;
+        } else if (isActive) {
+          bgColor = primaryColor;
+          textColor = 'white';
+          borderStyle = `0 0 0 4px var(--primary-soft)`;
+        } else if (isComplete) {
+          bgColor = primaryColor;
+          textColor = 'white';
+          content = <LocalIcons.Check size={14} strokeWidth={4} />;
+        } else if (stepStatus?.isComplete && !isPast) {
+          // Valid but currently active or future (future is rare but possible if pre-filled)
+          // For active step that is complete, we stay in "Active" visual state (no check)
+          if (isActive) {
+             bgColor = primaryColor;
+             textColor = 'white';
+          }
+        }
 
         return (
           <React.Fragment key={s.id}>
             <div 
-              onClick={() => isCompletedStep && onStepClick(s.id)} 
+              onClick={() => isPast && onStepClick(s.id)} 
               style={{ 
                 width: '28px', 
                 height: '28px', 
                 borderRadius: '50%', 
-                background: hasError ? '#EF4444' : (isActive ? primaryColor : (isComplete ? primaryColor : '#F1F5F9')), 
-                color: (isActive || isComplete || hasError) ? 'white' : '#94A3B8', 
+                background: bgColor, 
+                color: textColor, 
                 display: 'flex', 
                 alignItems: 'center', 
                 justifyContent: 'center', 
-                transition: 'all 0.3s', 
-                boxShadow: hasError ? '0 0 0 4px rgba(239, 68, 68, 0.2)' : (isActive ? `0 0 0 4px var(--primary-soft)` : 'none'), 
-                cursor: (isCompletedStep || isComplete) ? 'pointer' : 'default', 
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)', 
+                boxShadow: isActive ? borderStyle : (hasError ? 'none' : 'none'),
+                border: hasError ? borderStyle : 'none',
+                cursor: isPast ? 'pointer' : 'default', 
                 fontSize: '12px', 
                 fontWeight: '900',
-                position: 'relative'
+                position: 'relative',
+                transform: isActive ? 'scale(1.1)' : 'scale(1)'
               }}
             >
-              {hasError ? (
-                <LocalIcons.AlertCircle size={14} />
-              ) : (isComplete ? <LocalIcons.Check size={14} strokeWidth={4} /> : (i + 1))}
+              {content}
               
               {hasError && isActive && (
                 <div style={{ position: 'absolute', top: '-24px', whiteSpace: 'nowrap', background: '#EF4444', color: 'white', padding: '4px 8px', borderRadius: '6px', fontSize: '9px', fontWeight: '900', boxShadow: '0 4px 12px rgba(239, 68, 68, 0.2)', animation: 'fadeIn 0.2s ease' }}>
@@ -1283,7 +1599,15 @@ function WorkflowStepper({ steps, currentIndex, primaryColor, onStepClick, valid
                 </div>
               )}
             </div>
-            {i < steps.length - 1 && <div style={{ width: '20px', height: '2px', background: isComplete ? primaryColor : '#F1F5F9', transition: '0.3s' }} />}
+            {i < steps.length - 1 && (
+              <div style={{ 
+                width: '20px', 
+                height: '2px', 
+                background: isComplete ? primaryColor : (isPast ? primaryColor : '#F1F5F9'), 
+                opacity: isPast ? 1 : 0.5,
+                transition: '0.3s' 
+              }} />
+            )}
           </React.Fragment>
         );
       })}
