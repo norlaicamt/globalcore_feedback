@@ -284,15 +284,62 @@ function normalizeConfig(config) {
   });
 
   normalized.steps = (normalized.steps || []).map((s, idx) => {
+    // --- ID NORMALIZATION: STEP ---
+    const oldStepId = s.id;
+    const newStepId = String(oldStepId || `step_${Date.now()}_${idx}`);
+    if (typeof oldStepId === "number") {
+      console.log(`[AUDIT:ID_NORMALIZATION] Step ID: ${oldStepId} (number) -> ${newStepId} (string)`);
+    }
+
     const norm = {
       ...s,
+      id: newStepId,
       enabled: s.enabled !== undefined ? !!s.enabled : true,
       locked: !!s.locked,
-      items: (s.items || []).map(it => ({
-        ...it,
-        label_override: it.label_override || defaultLabels[it.key] || "New Interaction",
-        required: !!it.required
-      }))
+      items: (s.items || []).map((it, iIdx) => {
+        // --- ID NORMALIZATION: ITEM ---
+        const oldItemId = it.id;
+        const newItemId = String(oldItemId || `it_${Date.now()}_${iIdx}`);
+        if (typeof oldItemId === "number") {
+          console.log(`[AUDIT:ID_NORMALIZATION] Item ID: ${oldItemId} (number) -> ${newItemId} (string)`);
+        }
+
+        const key = it.key || "";
+        const type = it.type || "module";
+        
+        let label_override = it.label_override;
+        if (label_override === null || label_override === undefined) {
+          if (key === 'long_text') label_override = "Long Answer";
+          else if (key === 'photo_upload') label_override = "Photo Upload";
+          else label_override = defaultLabels[key] || "New Interaction";
+        }
+        
+        let config = it.config || {};
+        
+        if (key === 'long_text') {
+          if (config.placeholder === null || config.placeholder === undefined) config.placeholder = "Share your thoughts...";
+        }
+        if (key === 'photo_upload') {
+          if (config.storage_type === null || config.storage_type === undefined) config.storage_type = "internal";
+          if (config.render_type === null || config.render_type === undefined) config.render_type = "gallery";
+        }
+
+        Object.keys(config).forEach(k => {
+           if (config[k] === null) {
+              delete config[k];
+           }
+        });
+
+        return {
+          ...it,
+          id: newItemId,
+          type,
+          key,
+          label_override,
+          required: !!it.required,
+          config
+        };
+      })
     };
     return norm;
   });
@@ -340,6 +387,7 @@ function AdminFormDesigner({ theme, darkMode, adminUser }) {
   const [previewMode, setPreviewMode] = useState("app"); // 'app' or 'post'
   const [galleryFilter, setGalleryFilter] = useState('ALL');
   const [history, setHistory] = useState([]);
+  const [deploymentErrors, setDeploymentErrors] = useState([]);
   const previewChannel = React.useRef(null);
 
   // Synchronous deep comparison for dirtiness to prevent race conditions
@@ -505,9 +553,34 @@ function AdminFormDesigner({ theme, darkMode, adminUser }) {
     });
   };
 
-  const handleSave = async () => {
+  const runDeploymentPreFlight = () => {
+    console.log("[AUDIT:DEPLOY_PREFLIGHT] Running pre-flight checks...");
     const errors = validateConfig(config);
-    const hasErrors = errors.length > 0;
+    const isValid = errors.length === 0;
+    console.log(`[AUDIT:DEPLOY_PREFLIGHT] isValid: ${isValid}`);
+    return { isValid, errors };
+  };
+
+  const getWorkflowAudit = () => {
+    // Structural integrity audit
+    const isValid = config?.steps && config.steps.length > 0;
+    console.log(`[AUDIT:DEPLOY_PREFLIGHT] getWorkflowAudit isValid: ${isValid}`);
+    return { isValid };
+  };
+
+  const handleSave = async () => {
+    console.log("[AUDIT:DEPLOY_START] Initiating deployment sequence...");
+    setDeploymentErrors([]);
+
+    const preFlight = runDeploymentPreFlight();
+    const workflowAudit = getWorkflowAudit();
+    
+    // Check normalizeConfig implicit validity
+    const normConfig = normalizeConfig(config);
+    const isNormalizedValid = !!normConfig;
+
+    const hasErrors = !preFlight.isValid || !workflowAudit.isValid || !isNormalizedValid;
+    const errors = preFlight.errors || [];
 
     // Validation Checklist for Modal
     const totalModules = config.steps.reduce((acc, s) => acc + (s.items?.length || 0), 0);
@@ -558,17 +631,42 @@ function AdminFormDesigner({ theme, darkMode, adminUser }) {
           setModal({ isOpen: false });
           return;
         }
-        console.log("AUDIT: Final Save Payload", JSON.stringify(config, null, 2));
+        
+        const activeProgram = entities.find(e => e.id === selectedEntId)?.name;
+        console.log("[AUDIT:DEPLOY_PAYLOAD]", JSON.stringify({
+          step_count: config.steps.length,
+          module_count: totalModules,
+          entity_id: selectedEntId,
+          active_program: activeProgram,
+          required_flags: config.steps.flatMap(s => s.items?.map(i => !!i.required) || []),
+          module_types: config.steps.flatMap(s => s.items?.map(i => i.key) || [])
+        }, null, 2));
+
+        console.log("AUDIT: Final Save Payload", JSON.stringify(normConfig, null, 2));
         
         // Granular Audit for Mandatory Fields
-        config.steps.forEach(step => {
-          step.items?.forEach(item => {
+        // Granular Audit for Mandatory Fields and Payload
+        normConfig.steps.forEach((step, sIdx) => {
+          step.items?.forEach((item, iIdx) => {
             console.log(`[Admin Save] STEP: ${step.label} | FIELD: ${item.label_override || item.key} | ID: ${item.id} | REQUIRED: ${item.required}`);
+            
+            console.log(`[AUDIT:MODULE_PAYLOAD]`, JSON.stringify({
+              step_index: sIdx,
+              item_index: iIdx,
+              label: item.label_override || item.label || `Module ${iIdx + 1}`,
+              type: item.type,
+              key: item.key,
+              placeholder: item.config?.placeholder,
+              description: item.config?.description,
+              config: item.config,
+              full_payload: item
+            }, null, 2));
           });
         });
         setIsSaving(true);
         try {
-          await updateEntityFormConfig(selectedEntId, config);
+          await updateEntityFormConfig(selectedEntId, normConfig);
+          console.log("[AUDIT:DEPLOY_RESPONSE] Success");
           localStorage.removeItem(`form_draft_${selectedEntId}`);
           setInitialConfig(JSON.parse(JSON.stringify(config)));
           setModal({ isOpen: false });
@@ -576,7 +674,190 @@ function AdminFormDesigner({ theme, darkMode, adminUser }) {
             setModal({ isOpen: true, title: "Success", message: "Workflow is now live!", type: "success" });
           }, 300);
         } catch (e) {
-          setModal({ isOpen: true, title: "Error", message: "Failed to deploy configuration.", type: "warning" });
+          console.log("[AUDIT:DEPLOY_RESPONSE] Error:", e.response?.data || e.message);
+          let translatedErrors = [];
+
+          if (e.response?.data?.detail && Array.isArray(e.response.data.detail)) {
+            translatedErrors = e.response.data.detail.map(err => {
+              let sIdx = -1;
+              let iIdx = -1;
+              let stepName = "Unknown Step";
+              let itemName = "Unknown Module";
+              let humanMsg = err.msg || "Configuration error";
+              
+              let exactField = null;
+              let currentValue = undefined;
+              let autoFixValue = undefined;
+
+              if (err.loc) {
+                const stepIdxLoc = err.loc.findIndex(l => l === 'steps');
+                if (stepIdxLoc !== -1 && err.loc.length > stepIdxLoc + 1) {
+                  sIdx = parseInt(err.loc[stepIdxLoc + 1], 10);
+                  stepName = config.steps[sIdx]?.label || `Step ${sIdx + 1}`;
+                }
+                const itemIdxLoc = err.loc.findIndex(l => l === 'items');
+                if (itemIdxLoc !== -1 && err.loc.length > itemIdxLoc + 1) {
+                  iIdx = parseInt(err.loc[itemIdxLoc + 1], 10);
+                  const item = config.steps[sIdx]?.items[iIdx] || {};
+                  itemName = item.label_override || item.label || item.type || item.key || `Module ${iIdx + 1}`;
+                }
+                
+                // Determine exact failing field from loc (e.g. ["body", "steps", 1, "items", 0, "placeholder"])
+                const lastLoc = err.loc[err.loc.length - 1];
+                if (lastLoc !== 'items' && lastLoc !== 'steps' && lastLoc !== 'body' && typeof lastLoc === 'string') {
+                  exactField = lastLoc;
+                }
+                
+                if (exactField) {
+                  // Traverse config to find current value
+                  let ptr = config;
+                  const path = err.loc[0] === 'body' ? err.loc.slice(1) : err.loc;
+                  for (let key of path) {
+                    if (ptr && typeof ptr === 'object' && key in ptr) {
+                      ptr = ptr[key];
+                    } else {
+                      ptr = undefined;
+                      break;
+                    }
+                  }
+                  currentValue = ptr;
+                  
+                  // Set auto-fix suggestions if safe defaults exist
+                  if (exactField === 'placeholder' && itemName === 'Long Answer') autoFixValue = "Share your thoughts...";
+                  else if (exactField === 'allowed_types' && itemName === 'Photo Upload') autoFixValue = "image/jpeg,image/png,image/webp";
+                  else if (exactField === 'title') autoFixValue = "Section";
+                  else if (exactField === 'label') autoFixValue = "Untitled";
+                  else if (exactField === 'type' && iIdx >= 0) autoFixValue = "module";
+                  else if (exactField === 'id') autoFixValue = `auto_id_${Date.now()}`;
+                  
+                  // Audit Logging
+                  console.error(`[AUDIT:FIELD_VALIDATION_FAILURE]`, JSON.stringify({
+                    step: stepName,
+                    module: itemName,
+                    field: exactField,
+                    value: currentValue === null ? "null" : typeof currentValue === 'undefined' ? "undefined" : currentValue,
+                    type: currentValue === null ? "object" : typeof currentValue,
+                    expected: humanMsg.includes("string") ? "string" : "required"
+                  }, null, 2));
+                }
+
+                // Humanize messages based on common FastAPI/Pydantic errors
+                if (humanMsg.includes("field required") || humanMsg.includes("missing")) humanMsg = "Missing required configuration.";
+                else if (humanMsg.includes("none is not an allowed value") || humanMsg.includes("empty")) humanMsg = "Value cannot be empty.";
+                else if (humanMsg.includes("value is not a valid dict")) humanMsg = "Configuration format is invalid.";
+                else if (humanMsg.includes("string")) humanMsg = "Expected: string";
+              }
+
+              return { sIdx, iIdx, stepName, itemName, msg: humanMsg, originalLoc: err.loc?.join('.'), exactField, currentValue, autoFixValue, rawLoc: err.loc };
+            });
+          } else if (e.response?.data?.detail && typeof e.response.data.detail === 'string') {
+             translatedErrors.push({ sIdx: -1, iIdx: -1, stepName: "System", itemName: "Deployment", msg: e.response.data.detail });
+          } else {
+             translatedErrors.push({ sIdx: -1, iIdx: -1, stepName: "System", itemName: "Deployment", msg: e.message || "Failed to deploy configuration." });
+          }
+
+          console.log("[AUDIT:DEPLOY_TRANSLATED_ERRORS]", JSON.stringify(translatedErrors, null, 2));
+          setDeploymentErrors(translatedErrors);
+          
+          const handleAutoFix = () => {
+             const newConfig = JSON.parse(JSON.stringify(config));
+             let fixedCount = 0;
+             translatedErrors.forEach(err => {
+                if (err.autoFixValue !== undefined && err.rawLoc) {
+                   let ptr = newConfig;
+                   const path = err.rawLoc[0] === 'body' ? err.rawLoc.slice(1) : err.rawLoc;
+                   for (let i = 0; i < path.length - 1; i++) {
+                      const key = path[i];
+                      if (!ptr[key]) ptr[key] = {};
+                      ptr = ptr[key];
+                   }
+                   const lastKey = path[path.length - 1];
+                   ptr[lastKey] = err.autoFixValue;
+                   fixedCount++;
+                }
+             });
+             if (fixedCount > 0) {
+                 setConfig(newConfig);
+                 setModal({ isOpen: false });
+                 setTimeout(() => handleSave(), 100);
+             }
+          };
+
+          const fixableErrors = translatedErrors.filter(e => e.autoFixValue !== undefined).length;
+
+          const errorListContent = (
+            <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ fontSize: '13px', color: theme.textMuted }}>
+                We found {translatedErrors.length} validation issue{translatedErrors.length !== 1 ? 's' : ''}.
+              </div>
+              {translatedErrors.map((err, idx) => (
+                <div key={idx} style={{ padding: '12px', background: '#FEF2F2', border: '1px solid #F87171', borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ fontSize: '12px', fontWeight: '900', color: '#B91C1C', textTransform: 'uppercase' }}>
+                    {err.stepName} → {err.itemName}
+                  </div>
+                  {err.exactField ? (
+                     <div style={{ background: 'rgba(255,255,255,0.7)', padding: '8px', borderRadius: '6px', fontSize: '12px', fontFamily: 'monospace' }}>
+                        <div><span style={{ color: '#7F1D1D', fontWeight: 'bold' }}>Field:</span> {err.exactField}</div>
+                        <div><span style={{ color: '#7F1D1D', fontWeight: 'bold' }}>Value received:</span> {err.currentValue === null ? "null" : typeof err.currentValue === 'undefined' ? "undefined" : JSON.stringify(err.currentValue)} <span style={{ color: theme.textMuted }}>(type: {err.currentValue === null ? "object" : typeof err.currentValue})</span></div>
+                        <div style={{ color: '#B91C1C', marginTop: '4px' }}>Expected: {err.msg === "Expected: string" ? "string" : err.msg}</div>
+                     </div>
+                  ) : (
+                    <div style={{ fontSize: '13px', color: '#7F1D1D' }}>{err.msg}</div>
+                  )}
+                  {err.autoFixValue !== undefined && (
+                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: '#059669', background: '#ECFDF5', padding: '6px 8px', borderRadius: '4px' }}>
+                        {Ico.Check} Fix available: <strong>{err.exactField}</strong> &rarr; "{err.autoFixValue}"
+                     </div>
+                  )}
+                </div>
+              ))}
+              {fixableErrors > 0 && (
+                 <button 
+                   onClick={handleAutoFix}
+                   style={{
+                      ...st.btnPrimary(false),
+                      marginTop: '8px',
+                      display: 'flex', justifyContent: 'center', gap: '8px',
+                      background: '#10B981'
+                   }}>
+                   {Ico.Check} Fix Automatically
+                 </button>
+              )}
+            </div>
+          );
+
+          setModal({ 
+            isOpen: true, 
+            title: "Deployment Blocked", 
+            message: "", 
+            content: errorListContent, 
+            type: "warning" 
+          });
+
+          // Expand all affected steps and scroll to the first one
+          const stepsToExpand = {};
+          translatedErrors.forEach(err => {
+            if (err.sIdx >= 0) {
+              const stepId = config.steps[err.sIdx]?.id;
+              if (stepId) stepsToExpand[stepId] = true;
+            }
+          });
+          
+          if (Object.keys(stepsToExpand).length > 0) {
+            setExpandedSteps(prev => ({ ...prev, ...stepsToExpand }));
+            setTimeout(() => {
+              const firstErr = translatedErrors.find(e => e.sIdx >= 0);
+              if (firstErr) {
+                 const stepId = config.steps[firstErr.sIdx]?.id;
+                 if (stepId) {
+                   const item = config.steps[firstErr.sIdx]?.items?.[firstErr.iIdx];
+                   const elId = item ? item.id : stepId;
+                   const el = document.getElementById(elId) || document.getElementById(stepId);
+                   if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                 }
+              }
+            }, 300);
+          }
         } finally {
           setIsSaving(false);
         }
@@ -696,6 +977,17 @@ function AdminFormDesigner({ theme, darkMode, adminUser }) {
     const steps = [...config.steps];
     steps[sIdx].items = steps[sIdx].items.filter((_, i) => i !== iIdx);
     setConfig({ ...config, steps });
+  };
+
+  const duplicateItem = (sIdx, iIdx) => {
+    if (config.steps[sIdx]?.locked) return;
+    pushHistory(config);
+    const steps = [...config.steps];
+    const itemToCopy = JSON.parse(JSON.stringify(steps[sIdx].items[iIdx]));
+    itemToCopy.id = `it_${Date.now()}`; // Ensure new string ID
+    steps[sIdx].items.splice(iIdx + 1, 0, itemToCopy);
+    setConfig({ ...config, steps });
+    setSelectedItem({ sIdx, itIdx: iIdx + 1 });
   };
 
   const updateTerminology = (key, val) => {
@@ -1499,6 +1791,15 @@ function AdminFormDesigner({ theme, darkMode, adminUser }) {
 
           {/* CENTER COLUMN: Workflow Steps */}
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {deploymentErrors.length > 0 && (
+              <div style={{ padding: '12px 16px', background: '#FEF2F2', border: '1px solid #F87171', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '10px', color: '#B91C1C', animation: 'fadeIn 0.3s ease' }}>
+                <div style={{ color: '#EF4444' }}>{Ico.AlertTriangle}</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: '800', fontSize: '13px' }}>Deployment Validation Failed</div>
+                  <div style={{ fontSize: '12px', marginTop: '2px' }}>We found {deploymentErrors.length} issue{deploymentErrors.length !== 1 ? 's' : ''} that require attention.</div>
+                </div>
+              </div>
+            )}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <h2 style={{ fontSize: '16px', fontWeight: '800', color: theme.text, margin: 0 }}>Workflow Steps</h2>
@@ -1544,6 +1845,7 @@ function AdminFormDesigner({ theme, darkMode, adminUser }) {
               return (
                 <div
                   key={step.id}
+                  id={step.id}
                   data-is-step={true}
                   onDragOver={onDragOver}
                   onDragLeave={onDragLeave}
@@ -1620,27 +1922,33 @@ function AdminFormDesigner({ theme, darkMode, adminUser }) {
                         return (
                           <div
                             key={item.id}
+                            id={item.id}
                             draggable={!step.locked}
                             onDragStart={(e) => !step.locked && onDragStart(e, sIdx, iIdx)}
                             onDragEnd={onDragEnd}
                             onDrop={(e) => { e.stopPropagation(); !step.locked && onDrop(e, sIdx, iIdx); }}
                             onClick={(e) => { e.stopPropagation(); setSelectedItem({ sIdx, itIdx: iIdx }); }}
                             style={{
-                              display: 'flex', flexDirection: 'column', gap: '10px', padding: '12px',
-                              background: theme.bg, borderRadius: '12px',
-                              border: `1.5px solid ${selectedItem?.sIdx === sIdx && selectedItem?.itIdx === iIdx ? 'var(--primary-color)' : theme.border}`,
-                              boxShadow: selectedItem?.sIdx === sIdx && selectedItem?.itIdx === iIdx ? '0 0 0 3px var(--primary-soft)' : 'none',
-                              cursor: step.locked ? 'default' : 'pointer', transition: 'all 0.2s',
-                              opacity: step.locked ? 0.8 : 1,
-                              transform: selectedItem?.sIdx === sIdx && selectedItem?.itIdx === iIdx ? 'scale(1.02)' : 'scale(1)'
-                            }}
-                          >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                              {!step.locked && (
-                                <div style={{ cursor: 'grab', color: theme.textMuted, opacity: 0.5 }}>
-                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M8 6h2v2H8V6zm0 4h2v2H8v-2zm0 4h2v2H8v-2zm6-8h2v2h-2V6zm0 4h2v2h-2v-2zm0 4h2v2h-2v-2z" /></svg>
+                                display: 'flex', flexDirection: 'column', gap: '10px', padding: '12px',
+                                background: theme.bg, borderRadius: '12px',
+                                border: `1.5px solid ${deploymentErrors.some(e => e.sIdx === sIdx && e.iIdx === iIdx) ? '#EF4444' : selectedItem?.sIdx === sIdx && selectedItem?.itIdx === iIdx ? 'var(--primary-color)' : theme.border}`,
+                                boxShadow: deploymentErrors.some(e => e.sIdx === sIdx && e.iIdx === iIdx) ? '0 0 0 3px rgba(239, 68, 68, 0.2)' : selectedItem?.sIdx === sIdx && selectedItem?.itIdx === iIdx ? '0 0 0 3px var(--primary-soft)' : 'none',
+                                cursor: step.locked ? 'default' : 'pointer', transition: 'all 0.2s',
+                                opacity: step.locked ? 0.8 : 1,
+                                transform: selectedItem?.sIdx === sIdx && selectedItem?.itIdx === iIdx ? 'scale(1.02)' : 'scale(1)'
+                              }}
+                            >
+                              {deploymentErrors.some(e => e.sIdx === sIdx && e.iIdx === iIdx) && (
+                                <div style={{ fontSize: '11px', fontWeight: '800', color: '#EF4444', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px', background: '#FEF2F2', padding: '6px 10px', borderRadius: '6px' }}>
+                                  {Ico.AlertTriangle} Needs attention
                                 </div>
                               )}
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                {!step.locked && (
+                                  <div style={{ cursor: 'grab', color: theme.textMuted, opacity: 0.5 }}>
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M8 6h2v2H8V6zm0 4h2v2H8v-2zm0 4h2v2H8v-2zm6-8h2v2h-2V6zm0 4h2v2h-2v-2zm0 4h2v2h-2v-2z" /></svg>
+                                  </div>
+                                )}
                               <div style={{ color: 'var(--primary-color)', display: 'flex', alignItems: 'center', opacity: step.locked ? 0.6 : 1 }}>
                                 {mod?.icon || Ico.Box}
                               </div>
@@ -1662,6 +1970,15 @@ function AdminFormDesigner({ theme, darkMode, adminUser }) {
                                     <div style={st.toggleKnob(item.required)}></div>
                                   </div>
                                 </div>
+
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); duplicateItem(sIdx, iIdx); }}
+                                  disabled={step.locked}
+                                  title="Duplicate Module"
+                                  style={{ background: 'none', border: 'none', color: 'var(--primary-color)', cursor: step.locked ? 'not-allowed' : 'pointer', opacity: step.locked ? 0.3 : 0.8, display: 'flex', alignItems: 'center' }}
+                                >
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                                </button>
 
                                 <button
                                   onClick={(e) => { e.stopPropagation(); removeItem(sIdx, iIdx); }}

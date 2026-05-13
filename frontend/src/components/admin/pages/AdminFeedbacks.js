@@ -1,11 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
-import {
-  adminGetFeedbacks, adminDeleteFeedback, adminUpdateFeedbackStatus,
-  adminGetResponseTemplates, adminUnifiedReply,
-  adminRevealIdentity,
-  adminGetInternalNotes, adminAddInternalNote,
-  adminGetStaffList, adminAssignFeedback
-} from "../../../services/adminApi";
+import { adminGetFeedbacks, adminDeleteFeedback, adminUpdateFeedbackStatus, adminGetResponseTemplates, adminUnifiedReply, adminRevealIdentity, adminGetInternalNotes, adminAddInternalNote, adminGetStaffList, adminAssignFeedback } from "../../../services/adminApi";
+import { renderFeedbackResponses } from "../../../utils/feedback";
 import { useTerminology } from "../../../context/TerminologyContext";
 import CustomModal from "../../CustomModal";
 import jsPDF from "jspdf";
@@ -252,56 +247,7 @@ const FeedbackSidePanel = ({ feedback, isClosing, onClose, onUpdateStatus, theme
           <section>
             <h4 style={{ fontSize: "11px", color: "var(--primary-color)", fontWeight: "900", marginBottom: "16px", textTransform: "uppercase", letterSpacing: "0.1em" }}>Voice of User</h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              {(() => {
-                const config = feedback?.entity?.fields;
-                const responses = feedback?.custom_data || {};
-
-                // If no structured data or config, show legacy description
-                if (!config || !config.steps || Object.keys(responses).length === 0) {
-                  return (
-                    <div style={{ fontSize: "15px", lineHeight: "1.7", color: theme.text, background: theme.bg, padding: "24px", borderRadius: "20px", border: `1px solid ${theme.border}`, boxShadow: "inset 0 2px 4px rgba(0,0,0,0.02)" }}>
-                      {feedback?.description || "No message provided."}
-                    </div>
-                  );
-                }
-
-                // Render all fields for admin
-                return config.steps.flatMap(s => s.items || []).map((it, idx) => {
-                  const val = responses[it.id] || responses[it.key];
-                  if (val === undefined || val === null || val === "" || (Array.isArray(val) && val.length === 0)) return null;
-
-                  // --- SMART VISIBILITY CHECK (for labeling) ---
-                  const key = it.key || "";
-                  let isPublic = true;
-                  if (['contact_number', 'email_address', 'mailing_address'].includes(key)) isPublic = false;
-                  if (key === 'full_name' && feedback.is_anonymous) isPublic = false;
-
-                  let displayVal = val;
-                  if (typeof val === 'object' && !Array.isArray(val)) {
-                    displayVal = Object.entries(val).map(([k, v]) => `${k}: ${v}/5`).join(', ');
-                  } else if (Array.isArray(val)) {
-                    displayVal = val.join(', ');
-                  }
-
-                  return (
-                    <div key={idx} style={{ padding: '16px', background: theme.bg, borderRadius: '16px', border: `1px solid ${theme.border}`, position: 'relative' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                        <div style={{ fontSize: '10px', fontWeight: '900', color: 'var(--primary-color)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                          {it.label_override}
-                        </div>
-                        {isPublic ? (
-                          <span style={{ fontSize: '9px', fontWeight: '800', background: '#DCFCE7', color: '#15803D', padding: '2px 6px', borderRadius: '4px' }}>PUBLIC</span>
-                        ) : (
-                          <span style={{ fontSize: '9px', fontWeight: '800', background: '#F1F5F9', color: '#64748B', padding: '2px 6px', borderRadius: '4px' }}>PRIVATE</span>
-                        )}
-                      </div>
-                      <div style={{ fontSize: '14px', color: theme.text, fontWeight: '600', lineHeight: '1.5' }}>
-                        {displayVal}
-                      </div>
-                    </div>
-                  );
-                });
-              })()}
+              {renderFeedbackResponses(feedback, { compact: false, viewerMode: 'admin' })}
             </div>
           </section>
 

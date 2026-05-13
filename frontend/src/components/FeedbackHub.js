@@ -5,8 +5,10 @@ import {
   formatLocation,
   formatFeedbackDate,
   renderFeedbackAction,
+  renderFeedbackResponses,
   formatMentions
 } from "../utils/feedback";
+import { useLightbox } from "../context/LightboxContext";
 import ProfileSettings from './ProfileSettings';
 import HistoryView from './HistoryView';
 import DraftsView from './DraftsView';
@@ -56,6 +58,16 @@ const Icons = {
   Activity: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>,
 };
 
+const getRelativeTime = (date) => {
+  if (!date) return "";
+  const now = new Date();
+  const diff = Math.floor((now - new Date(date)) / 1000);
+  if (diff < 60) return "just now";
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  return `${Math.floor(diff / 86400)}d ago`;
+};
+
 
 const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
   const { getLabel, systemName, systemLogo } = useTerminology();
@@ -77,7 +89,7 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
   const [commentingFeedback, setCommentingFeedback] = useState(null);
   const [selectedBroadcast, setSelectedBroadcast] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
-  const [fullscreenImg, setFullscreenImg] = useState(null);
+  const { openLightbox } = useLightbox();
   const [statusFilter, setStatusFilter] = useState('ONGOING');
   const [resumeDraft, setResumeDraft] = useState(null);
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -99,6 +111,17 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
     }
   }, [currentUser]);
 
+  // --- PHASE 11: MODAL AUDIT LOG ---
+  useEffect(() => {
+    if (dialogState.isOpen && dialogState.title === 'Resume Progress?') {
+      const buttons = [];
+      if (dialogState.primaryAction || dialogState.onConfirm) buttons.push('resume');
+      if (dialogState.secondaryAction || dialogState.onCancel) buttons.push('dismiss');
+      if (dialogState.tertiaryAction || dialogState.onThirdAction) buttons.push('discard');
+      console.log(`[AUDIT:DRAFT_MODAL] buttons: ${JSON.stringify(buttons)}`);
+    }
+  }, [dialogState.isOpen, dialogState.title, dialogState.primaryAction, dialogState.secondaryAction, dialogState.tertiaryAction, dialogState.onConfirm, dialogState.onCancel, dialogState.onThirdAction]);
+
   const [publicFeedEnabled, setPublicFeedEnabled] = useState(true);
   const [entities, setEntities] = useState([]);
   const [departments, setDepartments] = useState([]);
@@ -109,6 +132,145 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
         const [ents, depts] = await Promise.all([getEntities(), getDepartments()]);
         setEntities(ents);
         setDepartments(depts);
+        
+        // --- PHASE 11: DRAFT RECOVERY, IDENTITY & EXPIRATION CHECK ---
+        if (localUser?.id) {
+          // Use a robust key (ID + CreatedAt) to prevent ID recycling issues
+          const userFingerprint = `${localUser.id}_${localUser.created_at || 'legacy'}`;
+          const draftsKey = `user.drafts_${userFingerprint}`;
+          
+          // Legacy migration check: if old key exists, move it to the new fingerprinted key
+          const oldKey = `user.drafts_${localUser.id}`;
+          const oldData = localStorage.getItem(oldKey);
+          if (oldData && !localStorage.getItem(draftsKey)) {
+             localStorage.setItem(draftsKey, oldData);
+             localStorage.removeItem(oldKey);
+          }
+
+          const currentDrafts = JSON.parse(localStorage.getItem(draftsKey) || "[]");
+
+          // Account Status Check
+          if (localUser.status === 'deactivated' || localUser.status === 'suspended') {
+            if (currentDrafts.length > 0) {
+              if (window.DEBUG_MODE) console.warn("[AUDIT:IDENTITY] Blocking recovery for invalid account status");
+              // We don't purge here yet, just block. 
+            }
+            return;
+          }
+          if (currentDrafts.length > 0) {
+            const latest = currentDrafts.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0];
+            
+            // Session Dismissal Check: If user clicked "Not Now", don't show again this session
+            const dismissalKey = `dismissedDraft_${userFingerprint}_${latest.entity_id}`;
+            if (sessionStorage.getItem(dismissalKey)) {
+              if (window.DEBUG_MODE) console.log("[DRAFT:RECOVERY] Suppression: Draft prompt already dismissed for this session.");
+              return;
+            }
+            
+            // Expiration Check (30 Days)
+            const draftDate = new Date(latest.timestamp);
+            const now = new Date();
+            const ageInDays = (now - draftDate) / (1000 * 60 * 60 * 24);
+            
+            if (ageInDays > 30) {
+              if (window.DEBUG_MODE) console.log("[AUDIT:CLEANUP] Purging expired draft (>30d)");
+              setDialogState({
+                isOpen: true,
+                type: 'confirm',
+                title: 'Draft Expired',
+                message: `You have a draft from ${draftDate.toLocaleDateString()} that is over 30 days old. Would you like to clear it or try to resume?`,
+                confirmText: 'Resume anyway',
+                onConfirm: () => {
+                  setDialogState({ isOpen: false });
+                  setResumeDraft({ ...latest, entity: ents.find(e => e.id === latest.entity_id) });
+                  setIsReportModalOpen(true);
+                  setReportStep('general');
+                },
+                onCancel: () => {
+                  const filtered = currentDrafts.filter(d => d.id !== latest.id);
+                  localStorage.setItem(draftsKey, JSON.stringify(filtered));
+                  setDialogState({ isOpen: false });
+                }
+              });
+              return;
+            }
+
+            const entity = ents.find(e => e.id === latest.entity_id);
+            if (entity) {
+              // Identity Validation: Ensure this draft belongs to this user's current identity
+              if (latest.userEmail && latest.userEmail !== localUser.email) {
+                if (window.DEBUG_MODE) console.error("[AUDIT:ORPHAN_DRAFT] Email mismatch. Purging.");
+                const filtered = currentDrafts.filter(d => d.id !== latest.id);
+                localStorage.setItem(draftsKey, JSON.stringify(filtered));
+                return;
+              }
+
+              setResumeDraft({ ...latest, entity });
+              
+              // --- PHASE 11: DRAFT PREVIEW SUMMARY ---
+              const photoCount = latest.customFields?.photo_upload?.length || (latest.customFields?.photo_upload ? 1 : 0);
+              const previewContent = (
+                <div style={{ marginTop: '16px', padding: '12px', backgroundColor: '#F8FAFC', borderRadius: '12px', border: '1px solid #E2E8F0', textAlign: 'left' }}>
+                  <p style={{ margin: '0 0 8px 0', fontSize: '11px', fontWeight: '800', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    {entity.name} Draft • {getRelativeTime(latest.timestamp)}
+                  </p>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
+                    {latest.rating > 0 && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '700', color: '#1E293B' }}>
+                        <Icons.Star filled size={14} /> {latest.rating}/5
+                      </div>
+                    )}
+                    {photoCount > 0 && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '700', color: '#1E293B' }}>
+                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+                         {photoCount} Photo{photoCount > 1 ? 's' : ''}
+                      </div>
+                    )}
+                    {latest.idea && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '700', color: '#1E293B', width: '100%', borderTop: '1px solid #F1F5F9', paddingTop: '8px' }}>
+                        <Icons.Message /> <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{latest.idea}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+
+              setDialogState({
+                isOpen: true,
+                type: 'draft',
+                title: 'Resume Progress?',
+                message: `Your ${entity.name} feedback is safely saved. Continue where you left off?`,
+                content: previewContent,
+                primaryAction: {
+                  label: 'Resume Progress',
+                  onClick: () => {
+                    setDialogState({ isOpen: false });
+                    setIsReportModalOpen(true);
+                    setReportStep('general');
+                  }
+                },
+                secondaryAction: {
+                  label: 'Not Now',
+                  onClick: () => {
+                    sessionStorage.setItem(dismissalKey, 'true');
+                    setDialogState({ isOpen: false });
+                    setResumeDraft(null);
+                  }
+                },
+                tertiaryAction: {
+                  label: 'Discard',
+                  isDestructive: true,
+                  onClick: () => {
+                    const filtered = currentDrafts.filter(d => d.id !== latest.id);
+                    localStorage.setItem(draftsKey, JSON.stringify(filtered));
+                    setDialogState({ isOpen: false });
+                    setResumeDraft(null);
+                  }
+                }
+              });
+            }
+          }
+        }
       } catch (e) { console.error("Error fetching entities/depts", e); }
 
       try {
@@ -118,7 +280,7 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
       } catch (e) { console.error("Error fetching initial data", e); }
     };
     fetchData();
-  }, []);
+  }, [localUser?.id]);
 
   const handleUserUpdate = (updatedUser) => {
     setLocalUser((prev) => {
@@ -140,7 +302,7 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
   };
 
   const fetchFeed = React.useCallback(async (newOffset = 0) => {
-    console.log("fetchFeed called with offset:", newOffset);
+    if (window.DEBUG_MODE) console.log("fetchFeed called with offset:", newOffset);
     if (newOffset === 0) setLoading(true);
     try {
       const data = await getFeedbacks({ skip: newOffset, limit: 10, status: statusFilter });
@@ -321,8 +483,14 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
   }, []);
 
   const handleClearDraft = React.useCallback(() => {
+    if (localUser?.id && resumeDraft?.entity_id) {
+      const draftsKey = `user.drafts_${localUser.id}`;
+      const currentDrafts = JSON.parse(localStorage.getItem(draftsKey) || "[]");
+      const filtered = currentDrafts.filter(d => d.entity_id !== resumeDraft.entity_id);
+      localStorage.setItem(draftsKey, JSON.stringify(filtered));
+    }
     setResumeDraft(null);
-  }, []);
+  }, [localUser?.id, resumeDraft]);
 
   const menuItems = [
     { id: 'home', label: 'Dashboard', icon: <Icons.Building /> },
@@ -367,7 +535,7 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
         </button>
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flex: 1, justifyContent: 'center' }}>
           {systemLogo && (
-            <img src={systemLogo} alt="Logo" style={{ height: '40px', maxWidth: '120px', objectFit: 'contain' }} />
+              <img src={systemLogo} alt="Logo" loading="lazy" style={{ height: '36px', maxWidth: '100px', objectFit: 'contain' }} />
           )}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
             <span style={{ ...styles.headerTitle, color: 'var(--primary-color)', fontSize: '16px', fontWeight: '800', lineHeight: 1.2 }}>{systemName}</span>
@@ -425,7 +593,6 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
             publicFeedEnabled={publicFeedEnabled}
             entities={entities}
             departments={departments}
-            setFullscreenImg={setFullscreenImg}
             statusFilter={statusFilter}
             setStatusFilter={setStatusFilter}
           />
@@ -511,7 +678,7 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
             <div style={{ ...styles.menuHeader, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', cursor: 'pointer' }} onClick={() => navigateTo('profile')}>
               <div style={{ position: 'relative', display: 'inline-block' }}>
                 {localUser?.avatar_url ? (
-                  <img src={localUser.avatar_url} alt="avatar" style={{ ...styles.avatarLarge, objectFit: 'cover', display: 'flex' }} />
+                  <img src={localUser.avatar_url} alt="avatar" loading="lazy" style={{ ...styles.avatarLarge, objectFit: 'cover', display: 'flex' }} />
                 ) : (
                   <div style={styles.avatarLarge}>{localUser?.name?.charAt(0) || "U"}</div>
                 )}
@@ -645,6 +812,11 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
         isDestructive={dialogState.isDestructive}
         onConfirm={dialogState.onConfirm}
         onCancel={dialogState.onCancel}
+        primaryAction={dialogState.primaryAction}
+        secondaryAction={dialogState.secondaryAction}
+        tertiaryAction={dialogState.tertiaryAction}
+        onThirdAction={dialogState.onThirdAction}
+        thirdActionText={dialogState.thirdActionText}
       />
 
       {/* Center Toast Message */}
@@ -670,15 +842,9 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
           notif={selectedBroadcast}
           currentUser={localUser}
           onClose={() => setSelectedBroadcast(null)}
-          setFullscreenImg={setFullscreenImg}
         />
       )}
 
-      {fullscreenImg && (
-        <div style={styles.imageModal} onClick={() => setFullscreenImg(null)}>
-          <img src={fullscreenImg} style={styles.modalImg} alt="Fullscreen View" />
-        </div>
-      )}
     </div>
   );
 });
@@ -700,7 +866,6 @@ const CommentModal = ({ item, currentUser, onClose, onShowToast, onRefreshProfil
 
 
 
-  const [fullscreenImg, setFullscreenImg] = useState(null);
 
 
   useEffect(() => {
@@ -850,7 +1015,7 @@ const CommentModal = ({ item, currentUser, onClose, onShowToast, onRefreshProfil
             overflow: 'hidden'
           }}>
             {node.user?.avatar_url ? (
-              <img src={node.user.avatar_url} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <img src={node.user.avatar_url} alt="avatar" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             ) : (node.user?.name || node.user_name || 'U').charAt(0)}
           </div>
           <div style={{ flex: 1 }}>
@@ -942,7 +1107,7 @@ const CommentModal = ({ item, currentUser, onClose, onShowToast, onRefreshProfil
                 {itemMeta.is_anonymous || !itemMeta.sender_avatar_url ? (
                   (itemMeta.user_name || 'U').charAt(0)
                 ) : (
-                  <img src={itemMeta.sender_avatar_url} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <img src={itemMeta.sender_avatar_url} alt="avatar" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 )}
               </div>
               <div style={{ flex: 1 }}>
@@ -969,64 +1134,8 @@ const CommentModal = ({ item, currentUser, onClose, onShowToast, onRefreshProfil
               </div>
             )}
 
-            {itemMeta.title && itemMeta.title.toLowerCase() !== 'feedback entry' && (
-              <h2 style={{ fontSize: 'var(--size-card-title, 12px)', fontWeight: '800', color: 'var(--primary-color)', margin: '0 0 8px 0', lineHeight: 1.3, overflowWrap: 'break-word', wordBreak: 'break-word' }}>{itemMeta.title}</h2>
-            )}
-            <p style={{ ...styles.snippetTextFull, color: '#334155', lineHeight: 1.6, fontSize: 'var(--size-body, 11px)', marginBottom: '16px', overflowWrap: 'break-word', wordBreak: 'break-word' }}>{itemMeta.description || itemMeta.comment}</p>
-
-            {/* CLOSURE CONTEXT (Lighter version) */}
-            {itemMeta.status?.toUpperCase() === 'CLOSED' && (
-              <div style={{ backgroundColor: '#F8FAFC', borderLeft: '3px solid #64748B', padding: '10px 14px', borderRadius: '6px', marginBottom: '20px', animation: 'fadeIn 0.3s ease' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
-                  <Icons.Lock size={12} color="#64748B" />
-                  <span style={{ fontWeight: '800', fontSize: '10px', color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                    {getModeLabel("closed", "Closed")} Details
-                  </span>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                  <div style={{ fontSize: '12px', color: '#1E293B' }}>
-                    <strong>{getModeLabel("closed", "Closed")} on:</strong> {formatDate(itemMeta.closed_at)}
-                  </div>
-                  {itemMeta.closure_note && (
-                    <div style={{ fontSize: '12px', color: '#475569', marginTop: '2px', fontStyle: 'italic' }}>
-                      "{itemMeta.closure_note}"
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* ATTACHMENTS */}
-            {itemMeta.attachments && (
-              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '20px' }}>
-                {(() => {
-                  try {
-                    const files = JSON.parse(itemMeta.attachments);
-                    return files.map((src, idx) => (
-                      <img
-                        key={idx}
-                        src={src}
-                        alt={`Post media ${idx}`}
-                        style={{ width: '100px', height: '100px', borderRadius: '12px', objectFit: 'cover', cursor: 'pointer', border: '1px solid #E2E8F0' }}
-                        onClick={() => setFullscreenImg(src)}
-                      />
-                    ));
-                  } catch (e) { return null; }
-                })()}
-              </div>
-            )}
-
-            {/* MENTIONS */}
-            {(itemMeta.mentions && itemMeta.mentions.length > 0) && (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '20px' }}>
-                {itemMeta.mentions.map((m, idx) => (
-                  <div key={idx} style={{ backgroundColor: '#F0F9FF', border: '1px solid #B9E6FE', padding: '4px 10px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Icons.User size={12} color="#026AA2" />
-                    <span style={{ fontSize: '11px', color: '#026AA2', fontWeight: 'bold' }}>{m.employee_prefix} {m.employee_name}</span>
-                  </div>
-                ))}
-              </div>
-            )}
+            {/* STRUCTURED RESPONSES */}
+            {renderFeedbackResponses(itemMeta, { compact: false, viewerMode: 'public' })}
 
             {/* Post-level Actions */}
             <div style={{ display: 'flex', gap: '10px', paddingTop: '16px', borderTop: '1px solid #F1F5F9' }}>
@@ -1136,11 +1245,6 @@ const CommentModal = ({ item, currentUser, onClose, onShowToast, onRefreshProfil
           )}
         </div>
       </div>
-      {fullscreenImg && (
-        <div style={styles.imageModal} onClick={() => setFullscreenImg(null)}>
-          <img src={fullscreenImg} style={styles.modalImg} alt="Fullscreen View" />
-        </div>
-      )}
 
       <CustomModal
         isOpen={dialogState.isOpen}
@@ -1168,7 +1272,8 @@ const getStatusColor = (status) => {
   }
 };
 
-const FeedCard = React.memo(({ item: initialItem, currentUser, onShowToast, onOpenComments, setFullscreenImg, onRefresh }) => {
+const FeedCard = React.memo(({ item: initialItem, currentUser, onShowToast, onOpenComments, onRefresh }) => {
+  const { openLightbox } = useLightbox();
   const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'superadmin';
   const [dialogState, setDialogState] = useState({ isOpen: false });
   const [item, setItem] = useState(initialItem);
@@ -1399,55 +1504,7 @@ const FeedCard = React.memo(({ item: initialItem, currentUser, onShowToast, onOp
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginBottom: '16px' }}>
-          {/* Structured Feedback Content */}
-          {(() => {
-            const config = item.entity?.fields;
-            const responses = item.custom_data || {};
-
-            // If no structured data, fallback to legacy description
-            if (!config || !config.steps || Object.keys(responses).length === 0) {
-              return <p style={{ ...styles.cardText, color: '#000000', margin: 0 }}>
-                {(item.description || '').substring(0, 400) + ((item.description || '').length > 400 ? '...' : '')}
-              </p>;
-            }
-
-            // Render based on Form Design
-            return config.steps.flatMap(s => s.items || []).map((it, idx) => {
-              // --- SMART VISIBILITY RULES ---
-              const key = it.key || "";
-              let isPublic = true;
-
-              // Always Hidden Identity Fields
-              if (['contact_number', 'email_address', 'mailing_address'].includes(key)) isPublic = false;
-              // Conditional Identity Fields
-              if (key === 'full_name' && item.is_anonymous) isPublic = false;
-
-              if (!isPublic) return null;
-
-              const val = responses[it.id] || responses[it.key];
-              if (val === undefined || val === null || val === "" || (Array.isArray(val) && val.length === 0)) return null;
-
-              // Formatting the value
-              let displayVal = val;
-              if (typeof val === 'object' && !Array.isArray(val)) {
-                // Handle Matrix Ratings
-                displayVal = Object.entries(val).map(([k, v]) => `${k}: ${v}/5`).join(', ');
-              } else if (Array.isArray(val)) {
-                displayVal = val.join(', ');
-              }
-
-              return (
-                <div key={idx} style={{ borderLeft: '3px solid var(--primary-soft)', paddingLeft: '12px', marginBottom: '4px' }}>
-                  <div style={{ fontSize: '10px', fontWeight: '900', color: 'var(--primary-color)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
-                    {it.label_override}
-                  </div>
-                  <div style={{ fontSize: '14px', color: '#1E293B', lineHeight: '1.5', fontWeight: '500', overflowWrap: 'break-word', wordBreak: 'break-word' }}>
-                    {displayVal}
-                  </div>
-                </div>
-              );
-            });
-          })()}
+          {renderFeedbackResponses(item, { compact: true, viewerMode: 'public' })}
         </div>
       )}
 
@@ -1463,7 +1520,7 @@ const FeedCard = React.memo(({ item: initialItem, currentUser, onShowToast, onOp
                   src={src}
                   alt={`Attachment ${idx}`}
                   style={styles.feedImg}
-                  onClick={(e) => { e.stopPropagation(); setFullscreenImg(src); }}
+                  onClick={(e) => { e.stopPropagation(); openLightbox(files, idx, { feedback_id: item.id }); }}
                 />
               ));
             } catch (e) { return null; }
@@ -1503,7 +1560,7 @@ const FeedCard = React.memo(({ item: initialItem, currentUser, onShowToast, onOp
   );
 });
 
-const DashboardView = React.memo(({ feed, loading, hasMore, onLoadMore, onAction, currentUser, onShowToast, onOpenComments, onRefresh, publicFeedEnabled, entities, departments, setFullscreenImg, statusFilter, setStatusFilter }) => {
+const DashboardView = React.memo(({ feed, loading, hasMore, onLoadMore, onAction, currentUser, onShowToast, onOpenComments, onRefresh, publicFeedEnabled, entities, departments, statusFilter, setStatusFilter }) => {
   // eslint-disable-next-line no-unused-vars
   const [isHotTopicsExpanded, setIsHotTopicsExpanded] = useState(false);
   // eslint-disable-next-line no-unused-vars
@@ -1790,7 +1847,7 @@ const DashboardView = React.memo(({ feed, loading, hasMore, onLoadMore, onAction
                   ) : filteredFeed.length > 0 ? (
                     <>
                       {filteredFeed.map(item => (
-                        <FeedCard key={item.id} item={item} currentUser={currentUser} onShowToast={onShowToast} onOpenComments={onOpenComments} onRefresh={onRefresh} setFullscreenImg={setFullscreenImg} />
+                        <FeedCard key={item.id} item={item} currentUser={currentUser} onShowToast={onShowToast} onOpenComments={onOpenComments} onRefresh={onRefresh} />
                       ))}
                     </>
                   ) : (
@@ -2116,7 +2173,8 @@ const styles = {
   emptyFeedText: { textAlign: 'center', color: '#94A3B8', fontSize: '14px', width: '100%', margin: '40px 0' }
 };
 
-const BroadcastViewModal = React.memo(({ notif, currentUser, onClose, onAcknowledge, setFullscreenImg }) => {
+const BroadcastViewModal = React.memo(({ notif, currentUser, onClose, onAcknowledge }) => {
+  const { openLightbox } = useLightbox();
   const { systemName } = useTerminology();
   const isHighPriority = notif.priority === 'high' || (notif.subject && notif.subject.toLowerCase().includes('urgent'));
 
@@ -2240,7 +2298,11 @@ const BroadcastViewModal = React.memo(({ notif, currentUser, onClose, onAcknowle
                       key={i} 
                       src={img.data} 
                       alt="attachment" 
-                      onClick={() => setFullscreenImg(img.data)}
+                      onClick={() => openLightbox(
+                        notif.attachments.filter(a => a.type?.startsWith('image/')).map(a => a.data), 
+                        i, 
+                        { feedback_id: `broadcast_${notif.broadcast_id || notif.id}`, viewer_mode: 'public' }
+                      )}
                       style={{ width: '100%', borderRadius: '16px', border: '1px solid #F1F5F9', cursor: 'zoom-in', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }} 
                     />
                   ))}

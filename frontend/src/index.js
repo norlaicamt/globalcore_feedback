@@ -5,6 +5,8 @@ import App from './App';
 import reportWebVitals from './reportWebVitals';
 import * as serviceWorkerRegistration from './serviceWorkerRegistration';
 
+window.DEBUG_MODE = process.env.NODE_ENV === 'development';
+
 // Suppress transient Axios "Network Error" from triggering the React dev error overlay.
 // These occur during backend hot-reload cycles (uvicorn --reload) and are safely caught
 // by individual component try/catch blocks. Without this handler, the CRA overlay

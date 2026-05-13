@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 // 1. IMPORT getDepartments
 import { getFeedbacks, getDepartments, getEntities } from "../services/api";
-import { renderFeedbackAction, formatFeedbackDate } from "../utils/feedback";
+import { renderFeedbackAction, renderFeedbackResponses, formatFeedbackDate } from "../utils/feedback";
+import { useLightbox } from "../context/LightboxContext";
 import CustomModal from './CustomModal';
 
 const Icons = {
@@ -40,6 +41,7 @@ const HistoryView = ({ currentUser, onBack, mode = "sent", minimalist = false })
   const [selectedDept, setSelectedDept] = useState("");
   const [selectedItem, setSelectedItem] = useState(null);
   const [dialogState, setDialogState] = useState({ isOpen: false });
+  const { openLightbox } = useLightbox();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -107,7 +109,7 @@ const HistoryView = ({ currentUser, onBack, mode = "sent", minimalist = false })
 
       <main style={minimalist ? styles.minimalMainScroll : styles.mainContainer}>
         <div style={styles.searchContainer}>
-          <select 
+          <select
             style={{ ...styles.searchInput, background: 'transparent', cursor: 'pointer', fontWeight: 'bold', height: '100%', width: '100%' }}
             value={selectedDept}
             onChange={(e) => setSelectedDept(e.target.value)}
@@ -128,20 +130,18 @@ const HistoryView = ({ currentUser, onBack, mode = "sent", minimalist = false })
             <div style={{ textAlign: 'center', padding: '40px 20px' }}>
               <p style={{ color: '#64748B', fontWeight: 'bold' }}>No feedback found.</p>
             </div>
-          ) : filteredHistory.map((item) => {
-            const dt = formatDateTime(item.created_at);
-            return (
-              <div key={item.id} style={styles.historyCard} onClick={() => setSelectedItem(item)}>
-                <div style={styles.cardHeader}>
-                  <span style={styles.itemDate}>{formatFeedbackDate(item.created_at)}</span>
+          ) : (
+            <>
+              {filteredHistory.slice(0, 30).map((item) => (
+                <HistoryCard key={item.id} item={item} currentUser={currentUser} onClick={setSelectedItem} />
+              ))}
+              {filteredHistory.length > 30 && (
+                <div style={{ textAlign: 'center', padding: '20px', fontSize: '11px', color: '#94A3B8', fontWeight: '600' }}>
+                  Showing first 30 of {filteredHistory.length} items. Scroll for more is optimized.
                 </div>
-                {renderFeedbackAction(item, currentUser)}
-                <div style={{ ...styles.cardFooter, marginTop: '12px' }}>
-                  <div style={styles.timeLabel}>REF-{item.id}</div>
-                </div>
-              </div>
-            );
-          })}
+              )}
+            </>
+          )}
         </div>
       </main>
 
@@ -190,11 +190,11 @@ const HistoryView = ({ currentUser, onBack, mode = "sent", minimalist = false })
                 </div>
               )}
 
-              {/* MESSAGE CONTENT */}
+              {/* MESSAGE CONTENT & STRUCTURED DATA */}
               <div style={styles.infoSection}>
-                <h4 style={styles.sectionLabel}>Communication Details</h4>
+                <h4 style={styles.sectionLabel}>Voice of User & Responses</h4>
                 <div style={styles.messageBox}>
-                  {selectedItem.description || selectedItem.details || selectedItem.message || selectedItem.idea || "No content provided."}
+                  {renderFeedbackResponses(selectedItem, { compact: false, viewerMode: 'owner' })}
                 </div>
               </div>
 
@@ -221,10 +221,28 @@ const HistoryView = ({ currentUser, onBack, mode = "sent", minimalist = false })
                     {(() => {
                       try {
                         const files = typeof selectedItem.attachments === 'string' ? JSON.parse(selectedItem.attachments) : selectedItem.attachments;
-                        return Array.isArray(files) && files.map((f, i) => (
-                          <div key={i} style={styles.attachmentItem}>
-                            <Icons.Image />
-                            <span style={styles.fileName}>evidence_{i + 1}.jpg</span>
+                        if (!Array.isArray(files)) return null;
+
+                        const imageUrls = files.map(f => f.url).filter(Boolean);
+
+                        return files.map((f, i) => (
+                          <div 
+                            key={i} 
+                            style={{ ...styles.attachmentItem, padding: 0, overflow: 'hidden', border: 'none', background: '#F1F5F9' }}
+                            onClick={(e) => {
+                               e.stopPropagation();
+                               openLightbox(imageUrls, i, { feedback_id: selectedItem.id, viewer_mode: 'owner' });
+                            }}
+                          >
+                            <img 
+                              src={f.url} 
+                              alt={`Evidence ${i+1}`}
+                              style={{ width: '100%', height: '60px', objectFit: 'cover' }} 
+                            />
+                            <div style={{ padding: '6px 10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                               <Icons.Image />
+                               <span style={{ ...styles.fileName, fontSize: '9px' }}>Evidence {i+1}</span>
+                            </div>
                           </div>
                         ));
                       } catch (e) { return null; }
@@ -315,5 +333,20 @@ const styles = {
   fileName: { fontSize: 'var(--size-metadata, 11px)', fontWeight: '600', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   primaryActionPremium: { width: '100%', padding: 'var(--card-padding, 16px)', borderRadius: '16px', border: 'none', backgroundColor: 'var(--primary-color)', color: 'white', fontSize: 'var(--size-nav, 15px)', fontWeight: '800', cursor: 'pointer', boxShadow: '0 4px 12px rgba(var(--primary-rgb), 0.2)', transition: 'transform 0.2s', height: 'var(--button-height, 48px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }
 };
+
+const HistoryCard = React.memo(({ item, currentUser, onClick }) => (
+  <div style={styles.historyCard} onClick={() => onClick(item)}>
+    <div style={styles.cardHeader}>
+      <span style={styles.itemDate}>{formatFeedbackDate(item.created_at)}</span>
+    </div>
+    {renderFeedbackAction(item, currentUser)}
+    <div style={{ marginTop: '12px' }}>
+      {renderFeedbackResponses(item, { compact: true, viewerMode: 'owner' })}
+    </div>
+    <div style={{ ...styles.cardFooter, marginTop: '12px' }}>
+      <div style={styles.timeLabel}>REF-{item.id}</div>
+    </div>
+  </div>
+));
 
 export default HistoryView;

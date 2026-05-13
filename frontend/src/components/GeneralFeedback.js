@@ -129,6 +129,287 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
   const [showAutofillSuccess, setShowAutofillSuccess] = useState(false);
   const [autofillStatus, setAutofillStatus] = useState({}); // { fieldId: 'filled' | 'kept' | 'missing' }
   const [bulkSummary, setBulkSummary] = useState("");
+  const [mediaStatus, setMediaStatus] = useState({}); // { fieldId: { status: 'idle'|'validating'|'compressing'|'uploading'|'scanning'|'safe'|'failed', progress: 0, preview: null, error: null } }
+
+  // --- MEDIA GOVERNANCE HELPERS ---
+  const generateThumbnail = async (file) => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (e) => {
+        const img = new Image();
+        img.src = e.target.result;
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          const MAX_SIZE = 400; // Small but sharp
+          let width = img.width;
+          let height = img.height;
+          if (width > height) {
+            if (width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; }
+          } else {
+            if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; }
+          }
+          canvas.width = width; canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0, width, height);
+          canvas.toBlob((blob) => {
+            resolve(new File([blob], `thumb_${file.name}`, { type: "image/jpeg", lastModified: Date.now() }));
+          }, "image/jpeg", 0.7); // Highly compressed for feed
+        };
+      };
+    });
+  };
+
+  const compressImage = async (file) => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (e) => {
+        const img = new Image();
+        img.src = e.target.result;
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          let width = img.width;
+          let height = img.height;
+          const MAX_WIDTH = 1600;
+          const MAX_HEIGHT = 1600;
+
+          if (width > height) {
+            if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; }
+          } else {
+            if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0, width, height);
+          canvas.toBlob((blob) => {
+            resolve(new File([blob], file.name, { type: "image/jpeg", lastModified: Date.now() }));
+          }, "image/jpeg", 0.85);
+        };
+      };
+    });
+  };
+
+  const handleMediaAction = async (item, fileOrFiles) => {
+    const fieldId = item.id || item.key;
+    const config = item.config || {};
+    const isMultiple = config.multiple || item.key === 'photo_upload';
+    const files = isMultiple ? (fileOrFiles instanceof FileList ? Array.from(fileOrFiles) : [fileOrFiles]) : [fileOrFiles];
+    
+    const batchId = Math.random().toString(36).substring(7);
+    const isDev = process.env.NODE_ENV === 'development';
+    
+    if (isDev) console.log(`[AUDIT:BATCH_SELECTION] selected_count=${files.length} filenames=${JSON.stringify(files.map(f => f.name))} batch_id=${batchId}`);
+
+    const uploadPromises = files.map(async (file, index) => {
+      const fileUid = `${fieldId}_${file.name}_${Date.now()}_${index}`;
+      if (isDev) console.log(`[AUDIT:BATCH_UPLOAD] file_index=${index} original_name=${file.name} upload_started=${new Date().toISOString()} batch_id=${batchId}`);
+
+      setMediaStatus(prev => ({ 
+        ...prev, 
+        [fieldId]: { 
+          ...(prev[fieldId] || {}), 
+          [fileUid]: { status: 'validating', progress: 0, preview: null, error: null, name: file.name, batchId, index } 
+        } 
+      }));
+      
+      try {
+        const allowedTypes = config.allowed_types || ['image/jpeg', 'image/png', 'image/heic', 'image/webp'];
+        const maxSize = config.max_file_size || 10485760;
+        
+        if (!allowedTypes.some(t => file.type.includes(t.split('/')[1]) || file.type === t)) throw new Error("Invalid type.");
+        if (file.size > maxSize) throw new Error("Too large.");
+
+        const preview = file.type.startsWith('image/') ? URL.createObjectURL(file) : null;
+        setMediaStatus(prev => ({ 
+          ...prev, 
+          [fieldId]: { ...prev[fieldId], [fileUid]: { ...prev[fieldId][fileUid], preview } } 
+        }));
+
+        let finalFile = file;
+        let thumbFile = null;
+
+        if (file.type.startsWith('image/')) {
+          setMediaStatus(prev => ({ 
+            ...prev, 
+            [fieldId]: { ...prev[fieldId], [fileUid]: { ...prev[fieldId][fileUid], status: 'compressing' } } 
+          }));
+          
+          // Original/Full-Res for Lightbox
+          if (file.size > 1 * 1024 * 1024) {
+             finalFile = await compressImage(file);
+          }
+          // Lightweight Thumbnail for Feed (Target ≤ 300 KB)
+          thumbFile = await generateThumbnail(file);
+        }
+
+        const uploadFile = async (f, isThumb = false) => {
+          const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+          const formData = new FormData();
+          formData.append('file', f);
+          const response = await fetch(`${API_BASE}/feedbacks/upload`, {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-Batch-ID': batchId, 'X-File-Index': index.toString() }
+          });
+          if (!response.ok) throw new Error(`Upload failed (${response.status})`);
+          return (await response.json()).url;
+        };
+
+        setMediaStatus(prev => ({ 
+          ...prev, 
+          [fieldId]: { ...prev[fieldId], [fileUid]: { ...prev[fieldId][fileUid], status: 'uploading', progress: 50 } } 
+        }));
+        
+        const startTime = Date.now();
+        const originalUrl = await uploadFile(finalFile);
+        let thumbUrl = originalUrl; // Fallback to original
+        if (thumbFile) {
+          try { thumbUrl = await uploadFile(thumbFile, true); } catch (e) { console.warn("Thumb upload failed, using original."); }
+        }
+        const endTime = Date.now();
+
+        // [PROD:UPLOAD] Monitoring
+        if (!isDev) {
+          console.info(`[PROD:UPLOAD] status=SUCCESS duration=${endTime - startTime}ms original_name=${file.name} batch_id=${batchId}`);
+        }
+
+        if (isDev) console.log(`[AUDIT:BATCH_UPLOAD] file_index=${index} original_name=${file.name} upload_completed=${new Date().toISOString()} returned_url=${originalUrl} batch_id=${batchId}`);
+
+        setMediaStatus(prev => ({ 
+          ...prev, 
+          [fieldId]: { ...prev[fieldId], [fileUid]: { ...prev[fieldId][fileUid], status: 'safe', progress: 100 } } 
+        }));
+
+        const fileData = { 
+          uid: fileUid, name: file.name, size: file.size, type: file.type,
+          url: originalUrl, 
+          thumb_url: thumbUrl,
+          batchId, index
+        };
+
+        setCustomFields(prev => {
+          const current = prev[fieldId];
+          if (isMultiple) {
+            const arr = Array.isArray(current) ? current : [];
+            return { ...prev, [fieldId]: [...arr, fileData] };
+          }
+          return { ...prev, [fieldId]: fileData };
+        });
+
+        return { success: true, url: originalUrl };
+      } catch (err) {
+        if (isDev) console.error(`[AUDIT:BATCH_UPLOAD] FAILED file_index=${index} name=${file.name} error=${err.message}`);
+        setMediaStatus(prev => ({ 
+          ...prev, 
+          [fieldId]: { ...prev[fieldId], [fileUid]: { ...prev[fieldId][fileUid], status: 'failed', error: err.message } } 
+        }));
+        return { success: false, error: err.message };
+      }
+    });
+
+    await Promise.all(uploadPromises);
+  };
+
+  // --- PHASE 7: MOBILE LAYOUT AUDIT ---
+  useEffect(() => {
+    const auditLayout = () => {
+      if (window.DEBUG_MODE) {
+        console.log("[AUDIT:LAYOUT]", {
+          width: window.innerWidth,
+          height: window.innerHeight,
+          pixelRatio: window.devicePixelRatio,
+          isMobile: window.innerWidth < 768,
+          orientation: window.innerWidth > window.innerHeight ? 'landscape' : 'portrait'
+        });
+      }
+    };
+    auditLayout();
+    window.addEventListener('resize', auditLayout);
+    
+    // --- PHASE 11: MULTI-TAB CONFLICT DETECTION ---
+    const handleStorageChange = (e) => {
+      if (!currentUser?.id) return;
+      const userFingerprint = `${currentUser.id}_${currentUser.created_at || 'legacy'}`;
+      const draftsKey = `user.drafts_${userFingerprint}`;
+      if (e.key === draftsKey) {
+        if (window.DEBUG_MODE) console.warn("[AUDIT:CONFLICT] Draft updated in another tab.");
+        setModal({
+          isOpen: true,
+          title: "Multi-Tab Conflict",
+          message: "Your draft was updated in another window. Please refresh to synchronize your progress.",
+          type: "warning",
+          confirmText: "Refresh Now",
+          onConfirm: () => window.location.reload()
+        });
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      window.removeEventListener('resize', auditLayout);
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, [currentUser?.id]);
+
+  // --- PHASE 10: DEBOUNCED DRAFT SAVE ---
+  useEffect(() => {
+    if (!currentUser?.id || !selectedEntity?.id || isPreviewMode) return;
+    
+    const timer = setTimeout(() => {
+      const userFingerprint = `${currentUser.id}_${currentUser.created_at || 'legacy'}`;
+      const draftsKey = `user.drafts_${userFingerprint}`;
+      const currentDrafts = JSON.parse(localStorage.getItem(draftsKey) || "[]");
+      const existingIdx = currentDrafts.findIndex(d => d.entity_id === selectedEntity.id);
+      
+      const draftData = {
+        id: draft?.id || `local_${Date.now()}`,
+        entity_id: selectedEntity.id,
+        branch_id: selectedBranch?.id,
+        idea,
+        rating,
+        customFields,
+        matrixRatings,
+        schemaVersion: formConfig?.updated_at || 1, 
+        userEmail: currentUser.email,
+        profileUpdatedAt: currentUser.updated_at,
+        timestamp: new Date().toISOString()
+      };
+      
+      if (existingIdx > -1) currentDrafts[existingIdx] = draftData;
+      else currentDrafts.push(draftData);
+      
+      localStorage.setItem(draftsKey, JSON.stringify(currentDrafts));
+      if (window.DEBUG_MODE) console.log("[AUDIT:DRAFT_SAVED] Progress persisted");
+
+      // --- PHASE 11: RE-ELIGIBILITY RULE ---
+      // If user makes new progress, clear the session dismissal flag
+      const dismissalKey = `dismissedDraft_${userFingerprint}_${selectedEntity.id}`;
+      if (sessionStorage.getItem(dismissalKey)) {
+        sessionStorage.removeItem(dismissalKey);
+        if (window.DEBUG_MODE) console.log("[AUDIT:DRAFT_DISMISSAL] Session dismissal cleared due to new progress.");
+      }
+    }, 800);
+    
+    return () => clearTimeout(timer);
+  }, [idea, rating, customFields, matrixRatings, selectedEntity, selectedBranch, currentUser, isPreviewMode]);
+
+  // --- PHASE 10: API DEDUPLICATION ---
+  const entityFetchRef = React.useRef(false);
+  useEffect(() => {
+    if (dbEntities.length === 0 && !entityFetchRef.current) {
+      entityFetchRef.current = true;
+      getEntities().then(data => {
+        setDbEntities(data);
+        if (window.DEBUG_MODE) console.log("[AUDIT:API] Entities deduplicated");
+      }).catch(err => {
+        console.error("Failed to fetch entities", err);
+        entityFetchRef.current = false;
+      });
+    }
+  }, []);
 
   const adminColor = systemSettings?.primary_color || "#10B981";
   const primaryColor = formConfig?.theme?.primary_color || adminColor;
@@ -401,11 +682,40 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
             if (b) setSelectedBranch(b);
           }
           if (!lastConfigVersion.current) {
-            console.log("AUDIT: Backend Raw Config Received", cd);
+            if (window.DEBUG_MODE) console.log("AUDIT: Backend Raw Config Received", cd);
+
+            // --- PHASE 11: SCHEMA VERSION MISMATCH CHECK ---
+            if (draft && cd.updated_at && draft.schemaVersion && draft.schemaVersion !== cd.updated_at) {
+              if (window.DEBUG_MODE) console.warn("[AUDIT:VERSION] Schema mismatch detected", { draft: draft.schemaVersion, live: cd.updated_at });
+              setModal({
+                isOpen: true,
+                title: "Form Updated",
+                message: "This form has been updated since your last visit. We'll safely restore what still matches.",
+                type: "info"
+              });
+            }
+
+            // --- PHASE 11: IDENTITY CONSISTENCY CHECK ---
+            if (draft && currentUser.updated_at && draft.profileUpdatedAt && draft.profileUpdatedAt !== currentUser.updated_at) {
+              if (window.DEBUG_MODE) console.warn("[AUDIT:IDENTITY] Profile update detected");
+              setModal({
+                isOpen: true,
+                title: "Profile Updated",
+                message: "Your profile has been updated since this draft was saved. Would you like to use your latest details?",
+                type: "confirm",
+                confirmText: "Use latest profile",
+                cancelText: "Keep draft values",
+                onConfirm: () => setModal({ isOpen: false }),
+                onCancel: () => setModal({ isOpen: false })
+              });
+            }
+
             // Granular Audit for User Rendering
             cd.steps?.forEach(step => {
               step.items?.forEach(item => {
-                console.log(`[User Render] STEP: ${step.label} | FIELD: ${item.label_override || item.key} | ID: ${item.id} | REQUIRED: ${item.required}`);
+                if (window.DEBUG_MODE) {
+                    console.log(`[User Render] STEP: ${step.label} | FIELD: ${item.label_override || item.key} | ID: ${item.id} | REQUIRED: ${item.required}`);
+                }
               });
             });
             setFormConfig(cd);
@@ -435,14 +745,27 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
 
     const invalidFields = current.items.filter(it => {
       const isReq = it.required === true || it.required === "true";
-      if (it.required) {
-        console.log(`AUDIT: Checking Required Field: ${it.id || it.key} (Type: ${it.key}, Value Filled: ${isItemFilled(it)})`);
+      
+      // --- PHASE 7: REQUIRED FIELD AUDIT ---
+      if (window.DEBUG_MODE) {
+        console.log(`[AUDIT:FIELD]`, {
+          id: it.id || it.key,
+          label: it.label_override || it.key,
+          type: it.key,
+          step: current.label,
+          required: isReq,
+          value: customFields[it.id || it.key] || rating || "EMPTY",
+          valid: isItemFilled(it)
+        });
       }
+
       return isReq && !isItemFilled(it);
     });
 
     if (invalidFields.length > 0 && !overrideKey) {
-      console.warn("Validation failed for fields:", invalidFields.map(f => f.key));
+      if (window.DEBUG_MODE) {
+        console.warn(`[AUDIT:VALIDATION_FAIL] Step: ${current.label} | Missing: ${invalidFields.length}`);
+      }
       setShowErrors(true);
       const firstInvalid = invalidFields[0];
       const elementId = `field-${firstInvalid.id || current.items.indexOf(firstInvalid)}`;
@@ -592,8 +915,44 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
       setModal({ isOpen: true, title: "Preview Mode", message: "Flow verified. Deployment ready.", type: "success", onConfirm: () => { if (typeof onSuccess === 'function') onSuccess(); setModal({ isOpen: false }); } });
       return;
     }
+    // --- PHASE 7: SUBMISSION AUDIT ---
+    if (window.DEBUG_MODE) {
+      console.log("[AUDIT:SUBMIT_START]", {
+        form_id: formConfig?.id,
+        user_id: currentUser?.id,
+        steps_total: enabledSteps.length,
+        draft: !!draft?.id,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // --- RECOVERY RULE: ATOMIC MEDIA GUARD ---
+    const allMediaStatus = Object.values(mediaStatus).flatMap(field => Object.values(field));
+    const pendingCount = allMediaStatus.filter(m => !['safe', 'failed', 'idle'].includes(m.status)).length;
+    const failedCount = allMediaStatus.filter(m => m.status === 'failed').length;
+
+    if (pendingCount > 0) {
+      setModal({
+        isOpen: true,
+        title: "Uploads in Progress",
+        message: `Please wait while ${pendingCount} photo(s) finish uploading.`,
+        type: "warning"
+      });
+      return;
+    }
+
+    if (failedCount > 0) {
+      setModal({
+        isOpen: true,
+        title: "Upload Failed",
+        message: `${failedCount} photo(s) failed to upload. Please retry or remove them before submitting.`,
+        type: "error"
+      });
+      return;
+    }
+
     try {
-      await createFeedback({
+      const payload = {
         sender_id: currentUser?.id,
         feedback_type: feedbackType,
         entity_id: selectedEntity.id,
@@ -603,35 +962,133 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
         is_anonymous: isAnonymous,
         allow_comments: allowComments,
         custom_data: { ...customFields, matrix_evaluations: matrixRatings, routing_method: selectionMethod }
+      };
+      
+      // [AUDIT:PHOTO_SUBMIT] & Submission Guard
+      const photoKeys = enabledSteps.flatMap(s => s.items).filter(it => it.key === 'photo_upload').map(it => it.id || it.key);
+      let hasBlobUrl = false;
+      
+      photoKeys.forEach(photoKey => {
+         const val = payload.custom_data[photoKey];
+         if (val) {
+            const arr = Array.isArray(val) ? val : [val];
+            // Validate & Clean
+            const cleanedArr = arr.map(a => {
+              const cleaned = { ...a };
+              const finalUrl = cleaned.url || cleaned.preview;
+              if (finalUrl && finalUrl.startsWith('blob:')) {
+                 hasBlobUrl = true;
+              }
+              console.log(`[AUDIT:PHOTO_PERSISTENCE]`, {
+                original_preview: cleaned.preview,
+                persisted_url: cleaned.url,
+                url_type: cleaned.url?.startsWith('http') ? 'http' : (cleaned.url?.startsWith('/uploads') ? 'path' : 'unknown')
+              });
+              delete cleaned.preview; // NEVER save preview to backend
+              return cleaned;
+            });
+            payload.custom_data[photoKey] = cleanedArr;
+
+            console.log(`[AUDIT:PHOTO_SUBMIT]`, {
+               module_id: photoKey,
+               module_type: 'photo_upload',
+               original_filename: cleanedArr.map(a => a.name).join(', '),
+               mime_type: cleanedArr.map(a => a.type).join(', '),
+               file_size: cleanedArr.map(a => a.size).join(', '),
+               upload_url: cleanedArr.map(a => a.url || a.storage).join(', '),
+               saved_value: {
+                 type: "photo_upload",
+                 value: cleanedArr.map(a => ({
+                   url: a.url || a.storage,
+                   name: a.name
+                 }))
+               }
+            });
+         }
       });
+
+      if (hasBlobUrl) {
+         setModal({
+            isOpen: true,
+            title: "Photo Processing",
+            message: "A photo is still uploading or processing. Please wait a moment and try again.",
+            type: "warning"
+         });
+         setIsSubmitting(false);
+         return;
+      }
+
+      // [AUDIT:PHOTO_PAYLOAD]
+      photoKeys.forEach(photoKey => {
+          const val = payload.custom_data[photoKey];
+          if (val) {
+              const arr = Array.isArray(val) ? val : [val];
+              arr.forEach(a => {
+                  console.log(`[AUDIT:PHOTO_PAYLOAD]`, {
+                      feedback_id: 'pending',
+                      module_id: photoKey,
+                      persisted_url: a.url,
+                      starts_with_blob: a.url?.startsWith('blob:'),
+                      starts_with_http: a.url?.startsWith('http')
+                  });
+              });
+          }
+      });
+
+      const response = await createFeedback(payload);
+      
+      if (window.DEBUG_MODE) {
+        console.log("[AUDIT:SUBMIT_SUCCESS]", { payload_size: JSON.stringify(payload).length });
+        console.log("[AUDIT:SUBMISSION_RESPONSE]", {
+           customFields: response?.custom_data || response?.customFields,
+           media: response?.media,
+           attachments: response?.attachments
+        });
+      }
       setModal({
         isOpen: true,
         title: "Success",
         message: "Submitted successfully!",
         type: "success",
         onConfirm: () => {
-          // If we were editing a draft, remove it from localStorage upon successful submission
-          if (draft?.id) {
-            if (typeof draft.id === 'number') {
-              deleteDraft(draft.id).catch(err => console.error("Failed to delete cloud draft", err));
-            } else {
-              const draftsKey = `user.drafts_${currentUser?.id || 'guest'}`;
-              try {
-                const savedDrafts = JSON.parse(localStorage.getItem(draftsKey) || "[]");
-                const filtered = savedDrafts.filter(d => d.id !== draft.id);
-                localStorage.setItem(draftsKey, JSON.stringify(filtered));
-              } catch (err) {
-                console.error("Failed to cleanup draft after submission", err);
-              }
+          // --- PHASE 11: SECURE DRAFT CLEANUP ---
+          if (currentUser?.id && selectedEntity?.id) {
+            const draftsKey = `user.drafts_${currentUser.id}`;
+            try {
+              const savedDrafts = JSON.parse(localStorage.getItem(draftsKey) || "[]");
+              // Remove both by explicit ID (if editing existing) and by entity_id (if auto-saved)
+              const filtered = savedDrafts.filter(d => d.id !== draft?.id && d.entity_id !== selectedEntity.id);
+              localStorage.setItem(draftsKey, JSON.stringify(filtered));
+              if (window.DEBUG_MODE) console.log("[AUDIT:CLEANUP] Local drafts purged.");
+            } catch (err) {
+              console.error("Failed to cleanup draft after submission", err);
             }
           }
+
+          // Cloud cleanup
+          if (draft?.id && typeof draft.id === 'number') {
+            deleteDraft(draft.id).catch(err => console.error("Failed to delete cloud draft", err));
+          }
+          
           if (typeof onSuccess === 'function') onSuccess();
           setModal({ isOpen: false });
         }
       });
     } catch (e) {
-      const errMsg = e.response?.data?.detail || e.message || "Submission failed.";
-      setModal({ isOpen: true, title: "Error", message: errMsg, type: "error" });
+      if (window.DEBUG_MODE) {
+        console.error("[AUDIT:SUBMISSION] NETWORK FAILED", e);
+      }
+      const isNetworkError = !e.response && (e.message === 'Network Error' || e.code === 'ECONNABORTED' || !window.navigator.onLine);
+      const errMsg = isNetworkError 
+        ? "You're offline. Your progress is safe." 
+        : (e.response?.data?.detail || e.message || "Submission failed.");
+      
+      setModal({ 
+        isOpen: true, 
+        title: isNetworkError ? "Connection lost" : "Error", 
+        message: errMsg, 
+        type: "error" 
+      });
     }
     finally { setIsSubmitting(false); }
   };
@@ -686,7 +1143,7 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
       );
       if (key === 'emoji_rating') return (
         <div style={{ display: 'flex', gap: '20px', justifyContent: 'center', background: '#F8FAFC', padding: '24px', borderRadius: '20px' }}>
-          {['ðŸ˜ž', 'ðŸ˜', 'ðŸ™‚', 'ðŸ˜ƒ', 'ðŸ¤©'].map((e, i) => (
+          {['😟', '😐', '🙂', '😃', '🤩'].map((e, i) => (
             <button key={i} onClick={() => setRating(i + 1)} style={{ fontSize: '40px', border: 'none', background: 'none', cursor: 'pointer', transition: '0.2s', transform: rating === (i + 1) ? 'scale(1.2)' : 'scale(1)', filter: rating === (i + 1) ? 'none' : 'grayscale(1) opacity(0.5)' }}>{e}</button>
           ))}
         </div>
@@ -704,36 +1161,143 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
           })}
         </div>
       );
-      if (key === 'photo_upload') return (
-        <div style={{ width: '100%' }}>
-          <input 
-            type="file" 
-            id={`file-input-${item.id || idx}`}
-            style={{ display: 'none' }}
-            onChange={(e) => {
-              const file = e.target.files[0];
-              if (file) {
-                setCustomFields({ ...customFields, [item.id || key]: file.name });
-              }
-            }}
-          />
-          <button 
-            onClick={() => document.getElementById(`file-input-${item.id || idx}`).click()}
-            style={{ width: '100%', padding: '30px', borderRadius: '20px', border: '2px dashed #E2E8F0', background: '#F8FAFC', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', color: '#64748B' }}
-          >
-            <LocalIcons.Camera size={32} />
-            <span style={{ fontWeight: '800', fontSize: '14px' }}>
-              {customFields[item.id || key] ? 'Photo Attached' : 'Snap or upload photo'}
-            </span>
-          </button>
-        </div>
-      );
+      if (key === 'photo_upload' || key === 'file_upload' || key === 'video_upload' || key === 'voice_record') {
+        const fieldId = item.id || key;
+        const currentMediaMap = mediaStatus[fieldId] || {};
+        const processingUids = Object.keys(currentMediaMap).filter(uid => !['safe', 'idle', 'failed'].includes(currentMediaMap[uid].status));
+        const failedUids = Object.keys(currentMediaMap).filter(uid => currentMediaMap[uid].status === 'failed');
+        
+        const value = customFields[fieldId];
+        const isPhoto = key === 'photo_upload';
+        const config = item.config || {};
+        const isMultiple = config.multiple || isPhoto;
+        
+        const mediaItems = isMultiple ? (Array.isArray(value) ? value : []) : (value ? [value] : []);
+
+        return (
+          <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <input 
+              type="file" 
+              id={`file-input-${fieldId}`}
+              style={{ display: 'none' }}
+              multiple={isMultiple}
+              accept={config.allowed_types?.join(',')}
+              onChange={(e) => {
+                if (e.target.files.length > 0) handleMediaAction(item, e.target.files);
+              }}
+            />
+            
+            {/* SOCIAL PHOTO GALLERY UI */}
+            {isPhoto && (
+              <div style={{ 
+                display: 'flex', 
+                gap: '12px', 
+                overflowX: 'auto', 
+                padding: '4px 0 12px 0',
+                msOverflowStyle: 'none',
+                scrollbarWidth: 'none',
+                WebkitOverflowScrolling: 'touch'
+              }}>
+                {mediaItems.map((m, mIdx) => (
+                  <div key={m.uid} style={{ 
+                    position: 'relative', 
+                    flexShrink: 0, 
+                    width: '100px', 
+                    height: '100px', 
+                    borderRadius: '16px', 
+                    overflow: 'hidden',
+                    border: '1.5px solid #F1F5F9',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
+                  }}>
+                    <img src={m.preview} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <button 
+                      onClick={() => {
+                        const next = [...mediaItems];
+                        next.splice(mIdx, 1);
+                        setCustomFields({ ...customFields, [fieldId]: next });
+                      }}
+                      style={{ position: 'absolute', top: '4px', right: '4px', width: '20px', height: '20px', borderRadius: '50%', background: 'rgba(0,0,0,0.5)', border: 'none', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    </button>
+                    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'rgba(16,185,129,0.8)', color: 'white', fontSize: '8px', fontWeight: '900', textAlign: 'center', padding: '2px 0' }}>SAFE</div>
+                  </div>
+                ))}
+                
+                {/* PROCESSING STATES AS THUMBNAILS */}
+                {processingUids.map(uid => (
+                  <div key={uid} style={{ flexShrink: 0, width: '100px', height: '100px', borderRadius: '16px', border: '1.5px dashed var(--primary-color)', background: 'rgba(var(--primary-rgb), 0.03)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                    {currentMediaMap[uid].preview ? (
+                       <img src={currentMediaMap[uid].preview} style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.3 }} />
+                    ) : (
+                      <div className="loader-mini" style={{ width: '16px', height: '16px', border: '2px solid var(--primary-color)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }}></div>
+                    )}
+                    <div style={{ position: 'absolute', fontSize: '8px', fontWeight: '900', color: 'var(--primary-color)', textTransform: 'uppercase' }}>{currentMediaMap[uid].status}</div>
+                  </div>
+                ))}
+
+                {/* ADD BUTTON */}
+                <button 
+                  onClick={() => document.getElementById(`file-input-${fieldId}`).click()}
+                  style={{ flexShrink: 0, width: '100px', height: '100px', borderRadius: '16px', border: '2px dashed #E2E8F0', background: '#F8FAFC', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '4px', cursor: 'pointer', transition: '0.2s' }}
+                >
+                  <LocalIcons.Camera size={20} color="#94A3B8" />
+                  <span style={{ fontSize: '10px', fontWeight: '800', color: '#94A3B8' }}>{mediaItems.length > 0 ? "Add More" : "Add Photos"}</span>
+                </button>
+              </div>
+            )}
+
+            {/* GOVERNED MEDIA UI (FILE/VOICE/VIDEO) OR FAILED STATES */}
+            {(!isPhoto || failedUids.length > 0) && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {!isPhoto && mediaItems.length === 0 && processingUids.length === 0 && (
+                   <button 
+                    onClick={() => document.getElementById(`file-input-${fieldId}`).click()}
+                    style={{ width: '100%', padding: '30px 20px', borderRadius: '24px', border: '2.5px dashed #E2E8F0', background: '#F8FAFC', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}
+                  >
+                    <LocalIcons.Layers size={24} color="#64748B" />
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontWeight: '800', fontSize: '14px', color: '#1E293B' }}>{label_override}</div>
+                      <div style={{ fontSize: '10px', color: '#94A3B8' }}>{config.allowed_types?.join(', ')} • Max {Math.round((config.max_file_size || 10485760)/1024/1024)}MB</div>
+                    </div>
+                  </button>
+                )}
+
+                {/* List of files (Governed mode) */}
+                {!isPhoto && mediaItems.map((m, mIdx) => (
+                  <div key={m.uid} style={{ padding: '12px 16px', borderRadius: '16px', background: 'white', border: '1.5px solid #E2E8F0', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <LocalIcons.FileText size={20} color="var(--primary-color)" />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: '12px', fontWeight: '800', color: '#1E293B', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.name}</div>
+                      <div style={{ fontSize: '10px', color: '#64748B' }}>{(m.size/1024/1024).toFixed(2)} MB • {config.retention_days}d Retention</div>
+                    </div>
+                    <button onClick={() => setCustomFields({...customFields, [fieldId]: isMultiple ? mediaItems.filter(x => x.uid !== m.uid) : undefined})} style={{ background: 'none', border: 'none', color: '#94A3B8', cursor: 'pointer' }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    </button>
+                  </div>
+                ))}
+
+                {/* Failed states list */}
+                {failedUids.map(uid => (
+                  <div key={uid} style={{ padding: '12px 16px', borderRadius: '16px', background: '#FEF2F2', border: '1.5px solid #FCA5A5', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <LocalIcons.AlertCircle size={18} color="#EF4444" />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: '11px', fontWeight: '800', color: '#991B1B' }}>{currentMediaMap[uid].name}</div>
+                      <div style={{ fontSize: '10px', color: '#EF4444' }}>{currentMediaMap[uid].error}</div>
+                    </div>
+                    <button onClick={() => document.getElementById(`file-input-${fieldId}`).click()} style={{ padding: '6px 12px', borderRadius: '8px', background: 'white', border: '1px solid #FCA5A5', color: '#EF4444', fontSize: '10px', fontWeight: '800' }}>Retry</button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      }
       if (key === 'long_text' || key === 'message_input') return (
-        <textarea 
+        <MemoizedTextArea 
           style={styles.textarea} 
           value={customFields[item.id || key] || idea || ""} 
-          onChange={e => {
-            const val = e.target.value;
+          onChange={val => {
             setCustomFields({ ...customFields, [item.id || key]: val });
             setIdea(val); // Sync with idea for legacy support
           }} 
@@ -781,11 +1345,12 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
 
         return (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <input 
+            <MemoizedInput 
+              id={`field-${item.id || idx}`}
               type={inputType} 
               style={styles.input} 
               value={currentVal} 
-              onChange={e => setCustomFields({ ...customFields, [item.id || key]: e.target.value })} 
+              onChange={val => setCustomFields({ ...customFields, [item.id || key]: val })} 
               placeholder={item.config?.placeholder || "Type here..."} 
             />
             
@@ -797,6 +1362,12 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
                 <button
                   onClick={() => {
                     setCustomFields(prev => ({ ...prev, [item.id || key]: suggestion.val }));
+                    
+                    // --- PHASE 7: AUTOFILL AUDIT ---
+                    if (window.DEBUG_MODE) {
+                      console.log("[AUDIT:AUTOFILL_CHIP]", { field: key, source: 'profile' });
+                    }
+
                     const el = document.getElementById(`field-${item.id || idx}`);
                     if (el) el.classList.remove('shake-validation');
                   }}
@@ -944,7 +1515,7 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
         {invalid && (
           <div style={{ marginTop: '15px', color: '#EF4444', fontSize: 'clamp(9px, 2.5vw, 10px)', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '6px', animation: 'fadeIn 0.3s ease' }}>
             <LocalIcons.AlertCircle size={12} />
-            Please complete this field before continuing.
+            Please answer before moving on.
           </div>
         )}
       </div>
@@ -998,14 +1569,16 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
                   };
 
                   // DEBUG LOG
-                  console.log(`STEP AUDIT [${s.label}]:`, {
-                    id: s.id,
-                    required: `${requiredFilled}/${requiredCount}`,
-                    anyOptionalFilled,
-                    visited: i <= currentIndex,
-                    valid: isStrictlyComplete,
-                    status: i < currentIndex ? (isStrictlyComplete ? 'COMPLETE' : 'INCOMPLETE') : (i === currentIndex ? 'ACTIVE' : 'LOCKED')
-                  });
+                  if (window.DEBUG_MODE) {
+                    console.log(`STEP AUDIT [${s.label}]:`, {
+                      id: s.id,
+                      required: `${requiredFilled}/${requiredCount}`,
+                      anyOptionalFilled,
+                      visited: i <= currentIndex,
+                      valid: isStrictlyComplete,
+                      status: i < currentIndex ? (isStrictlyComplete ? 'COMPLETE' : 'INCOMPLETE') : (i === currentIndex ? 'ACTIVE' : 'LOCKED')
+                    });
+                  }
 
                   return stepStatus;
                 })}
@@ -1015,7 +1588,8 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
           <div style={{ width: 40 }} />
         </header>
       )}
-      <main style={styles.content}>
+      <ErrorBoundary>
+        <main style={styles.content}>
         {!selectedEntity && !overrideConfig ? (
           <div style={{
             display: 'flex',
@@ -1229,7 +1803,9 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
               }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                   <span style={{ fontSize: '10px', fontWeight: '900', color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                    {currentStep?.label || 'Step Progress'}
+                    {currentStep?.items?.some(it => ['full_name', 'contact_number', 'email_address', 'mailing_address'].includes(it.key)) 
+                      ? "Your details" 
+                      : currentStep?.label || 'Step Progress'}
                   </span>
                   <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                     {!configLoaded ? (
@@ -1238,12 +1814,31 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
                       </div>
                     ) : (
                       <>
-                        <div style={{ fontSize: '11px', fontWeight: '700', color: currentStepProgress.required.filled === currentStepProgress.required.total ? 'var(--primary-color)' : '#94A3B8' }}>
-                          Required: {currentStepProgress.required.filled}/{currentStepProgress.required.total}
+                        <div style={{ 
+                          fontSize: '11px', 
+                          fontWeight: '800', 
+                          color: currentStepProgress.required.filled === currentStepProgress.required.total && currentStepProgress.required.total > 0
+                            ? '#10B981' 
+                            : currentStepProgress.required.filled > 0 ? 'var(--primary-color)' : '#94A3B8',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}>
+                          {(() => {
+                            const { filled, total } = currentStepProgress.required;
+                            if (total === 0) return "";
+                            if (filled === 0) return `Complete 0 of ${total} required questions`;
+                            if (filled < total) return `${filled} of ${total} required questions completed`;
+                            return `All required questions completed ✓`;
+                          })()}
                         </div>
                         {currentStepProgress.optional.total > 0 && (
-                          <div style={{ fontSize: '11px', fontWeight: '700', color: '#94A3B8' }}>
-                            Optional: {currentStepProgress.optional.filled}/{currentStepProgress.optional.total}
+                          <div style={{ 
+                            fontSize: '11px', 
+                            fontWeight: '700', 
+                            color: currentStepProgress.optional.filled > 0 ? 'var(--primary-color)' : '#94A3B8' 
+                          }}>
+                            {currentStepProgress.optional.filled} of {currentStepProgress.optional.total} optional completed
                           </div>
                         )}
                       </>
@@ -1294,7 +1889,7 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
                   return (
                     <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', color: '#64748B', fontSize: '10px', fontWeight: '800', animation: 'fadeIn 0.3s ease', opacity: 0.8 }}>
                       <LocalIcons.CheckCircle size={12} color="var(--primary-color)" strokeWidth={3} />
-                      <span style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>Profile details complete</span>
+                      <span style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>Your details are all set ✓</span>
                     </div>
                   );
                 }
@@ -1331,8 +1926,17 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
 
                         setCustomFields(newCustomFields);
                         setAutofillStatus(status);
-                        setBulkSummary(`✓ ${filled} filled • ${kept} kept • ${missing} missing`);
+                        if (filled > 0) {
+                          setBulkSummary("Your saved details have been added ✓");
+                        } else {
+                          setBulkSummary("No saved detail found");
+                        }
                         setShowAutofillSuccess(true);
+
+                        // --- PHASE 7: AUTOFILL AUDIT ---
+                        if (window.DEBUG_MODE) {
+                          console.log("[AUDIT:AUTOFILL_BULK]", { filled, kept, missing, total: identityFieldsInStep.length });
+                        }
 
                         // Fade field-level status after 3s
                         setTimeout(() => setAutofillStatus({}), 3500);
@@ -1496,6 +2100,14 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
           {validationHint}
         </div>
       )}
+      </ErrorBoundary>
+
+      <DebugOverlay 
+        stepProgress={currentStepProgress} 
+        currentIndex={currentIndex} 
+        configLoaded={configLoaded}
+        isMobile={window.innerWidth < 768}
+      />
 
       <style>{`
         @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } } 
@@ -1528,7 +2140,90 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
   );
 });
 
-function WorkflowStepper({ steps, currentIndex, primaryColor, onStepClick, validationState = [] }) {
+const MemoizedInput = React.memo(({ value, onChange, placeholder, type, style, id }) => (
+  <input 
+    id={id}
+    type={type} 
+    style={style} 
+    value={value || ""} 
+    onChange={e => onChange(e.target.value)} 
+    placeholder={placeholder} 
+  />
+));
+
+const MemoizedTextArea = React.memo(({ value, onChange, placeholder, style }) => (
+  <textarea 
+    style={style} 
+    value={value || ""} 
+    onChange={e => onChange(e.target.value)} 
+    placeholder={placeholder} 
+  />
+));
+
+function ErrorBoundary({ children }) {
+  const [hasError, setHasError] = React.useState(false);
+  
+  React.useEffect(() => {
+    const handleError = (error) => {
+      if (window.DEBUG_MODE) console.error("[CRITICAL:UI]", error);
+      setHasError(true);
+    };
+    window.addEventListener('error', handleError);
+    return () => window.removeEventListener('error', handleError);
+  }, []);
+
+  if (hasError) {
+    return (
+      <div style={{ padding: '40px', textAlign: 'center', background: '#FEF2F2', borderRadius: '24px', border: '1.5px solid #FCA5A5', margin: '20px' }}>
+        <div style={{ color: '#EF4444', marginBottom: '16px', display: 'flex', justifyContent: 'center' }}>
+          <LocalIcons.AlertTriangle size={48} />
+        </div>
+        <h2 style={{ fontSize: '18px', fontWeight: '800', color: '#991B1B' }}>Something went wrong</h2>
+        <p style={{ fontSize: '14px', color: '#B91C1C', marginBottom: '24px' }}>The interface encountered an unexpected error.</p>
+        <button 
+          onClick={() => window.location.reload()}
+          style={{ padding: '12px 24px', background: '#EF4444', color: 'white', border: 'none', borderRadius: '12px', fontWeight: '800', cursor: 'pointer' }}
+        >
+          Reload and Continue
+        </button>
+      </div>
+    );
+  }
+  return children;
+}
+
+const DebugOverlay = ({ stepProgress, currentIndex, configLoaded, isMobile }) => {
+  if (process.env.NODE_ENV !== 'development' && !window.DEBUG_MODE) return null;
+  if (isMobile) return null; 
+
+  return (
+    <div style={{
+      position: 'fixed',
+      bottom: '20px',
+      right: '20px',
+      background: 'rgba(15, 23, 42, 0.9)',
+      backdropFilter: 'blur(8px)',
+      color: 'white',
+      padding: '12px',
+      borderRadius: '12px',
+      fontSize: '10px',
+      fontFamily: 'monospace',
+      zIndex: 9999,
+      border: '1px solid rgba(255, 255, 255, 0.1)',
+      boxShadow: '0 10px 25px -5px rgba(0,0,0,0.3)',
+      pointerEvents: 'none'
+    }}>
+      <div style={{ fontWeight: '800', marginBottom: '8px', color: '#10B981', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '4px' }}>PLATFORM DEBUG</div>
+      <div>Step: {currentIndex + 1}</div>
+      <div>Required: {stepProgress.required.filled}/{stepProgress.required.total}</div>
+      <div>Schema: {configLoaded ? 'LOADED' : 'WAITING'}</div>
+      <div>Mode: {isMobile ? 'MOBILE' : 'DESKTOP'}</div>
+      <div>W: {window.innerWidth}px | H: {window.innerHeight}px</div>
+    </div>
+  );
+};
+
+const WorkflowStepper = React.memo(({ steps, currentIndex, primaryColor, onStepClick, validationState = [] }) => {
   if (steps.length <= 1) return null;
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
@@ -1613,7 +2308,7 @@ function WorkflowStepper({ steps, currentIndex, primaryColor, onStepClick, valid
       })}
     </div>
   );
-}
+});
 
 const styles = {
   container: {

@@ -334,6 +334,7 @@ class FeedbackBase(BaseModel):
     employee_name: Optional[str] = None
     product_name: Optional[str] = None
     attachments: Optional[str] = None
+    media: Optional[list] = None
     custom_data: Optional[dict] = None # Stores key-value pairs of dynamic fields
     branch_id: Optional[int] = None
     branch_name_snapshot: Optional[str] = None
@@ -367,7 +368,9 @@ class Feedback(FeedbackBase):
     employee_name: Optional[str] = None
     product_name: Optional[str] = None
     attachments: Optional[str] = None
+    media: Optional[list] = None
     custom_data: Optional[dict] = None
+    entity: Optional[Entity] = None
     
     # UI Helper fields populated via Joins
     user_name: Optional[str] = None 
@@ -622,12 +625,20 @@ class FormTerminologyDesigner(BaseModel):
     entity_label: Optional[str] = "Program"
     location_label: Optional[str] = "Office"
 
+class FormThemeDesigner(BaseModel):
+    primary_color: str = "#10B981"
+    bg_style: str = "abstract"
+    secondary_color: Optional[str] = None
+    border_radius: Optional[str] = "12px"
+
 class FormConfig(BaseModel):
     version: int = 1
     steps: List[FormStepDesigner] = []
     toggles: dict[str, FormTogglesDesigner] = {}
     sections: List[FormSectionDesigner] = []
     terminology: FormTerminologyDesigner = FormTerminologyDesigner()
+    theme: FormThemeDesigner = FormThemeDesigner()
+    layout_mode: str = "custom"
 
 # --- WORKFLOW TEMPLATE SCHEMAS ---
 class WorkflowTemplateBase(BaseModel):

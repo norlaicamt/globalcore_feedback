@@ -1,8 +1,10 @@
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.exceptions import RequestValidationError
 from sqlalchemy.orm import Session
 from fastapi.security import OAuth2PasswordBearer
 from fastapi.responses import StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from datetime import datetime, timezone
 import asyncio
 from typing import Dict
@@ -27,9 +29,34 @@ models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Global Core - Feedback Module")
 
+# Mount static files for media uploads
+import os
+os.makedirs("uploads", exist_ok=True)
+
+# Custom Middleware for Static File Caching
+@app.middleware("http")
+async def add_cache_control_header(request: Request, call_next):
+    response = await call_next(request)
+    if request.url.path.startswith("/uploads"):
+        # Cache for 1 year (immutable as filenames are unique UUIDs)
+        response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        # ETag is handled by StaticFiles but we ensure it persists if needed
+    return response
+
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+
 @app.get("/")
 def home():
     return {"status": "online", "message": "Global Core Backend is Running Successfully"}
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    import json
+    print("VALIDATION ERROR:", exc.errors())
+    print("BODY:", exc.body)
+    from fastapi.responses import JSONResponse
+    return JSONResponse(status_code=422, content={"detail": exc.errors()})
+
 
 @app.get("/api/system/info")
 def get_system_info(db: Session = Depends(get_db)):

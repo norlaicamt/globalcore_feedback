@@ -1,6 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, File, UploadFile, Request
 from sqlalchemy.orm import Session
 from typing import List, Optional
+import os
+import shutil
+import uuid
 
 from app import crud
 from app import schemas
@@ -9,10 +12,97 @@ from app.database import get_db
 
 router = APIRouter(prefix="/feedbacks", tags=["feedbacks"])
 
+import re
+
+def normalize_filename(filename):
+    # remove special chars except alphanumeric, dots, underscores and hyphens
+    # replace spaces with underscores
+    name = os.path.basename(filename)
+    base, ext = os.path.splitext(name)
+    base = re.sub(r'[^\w\s.-]', '', base)
+    base = re.sub(r'[-\s]+', '_', base).strip('_')
+    return f"{base}{ext}"
+
+ALLOWED_IMAGE_TYPES = {'image/jpeg', 'image/png', 'image/heic', 'image/webp', 'image/gif'}
+FORBIDDEN_EXTENSIONS = {'.exe', '.bat', '.sh', '.py', '.js', '.vbs', '.msi', '.com'}
+MAX_FILE_SIZE = 10 * 1024 * 1024 # 10MB
+
+@router.post("/upload")
+async def upload_feedback_file(request: Request, file: UploadFile = File(...)):
+    # Security: File Extension check
+    filename = file.filename.lower()
+    ext = os.path.splitext(filename)[1]
+    if ext in FORBIDDEN_EXTENSIONS:
+        raise HTTPException(status_code=400, detail="Forbidden file type.")
+    
+    # Security: Mime Type check
+    if file.content_type not in ALLOWED_IMAGE_TYPES:
+         # Double check extension if content_type is generic
+         if ext not in {'.jpg', '.jpeg', '.png', '.webp', '.heic', '.gif'}:
+            raise HTTPException(status_code=400, detail="Invalid image format.")
+
+    os.makedirs(os.path.join("uploads", "feedback"), exist_ok=True)
+    
+    # Filename Hardening
+    safe_name = normalize_filename(file.filename)
+    unique_name = f"{uuid.uuid4().hex}_{safe_name}"
+    file_path = os.path.join("uploads", "feedback", unique_name)
+    
+    # Security: Size check before read
+    # FastAPI reads into memory if < 1MB, or spool to disk if > 1MB.
+    # We can check size by seeking if needed, but shutil copy is fine if we trust the OS/Webserver limits.
+    # For extra safety, we'll check it after write or during copy.
+    
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+    
+    exists_after_write = os.path.exists(file_path)
+    bytes_written = os.path.getsize(file_path) if exists_after_write else 0
+    
+    if bytes_written > MAX_FILE_SIZE:
+        if exists_after_write: os.remove(file_path)
+        raise HTTPException(status_code=413, detail="File too large.")
+
+    batch_id = request.headers.get("X-Batch-ID", "unknown")
+    file_index = request.headers.get("X-File-Index", "0")
+    base_url = str(request.base_url).rstrip('/')
+    returned_url = f"{base_url}/uploads/feedback/{unique_name}"
+    
+    # Production Hardening: Disable audits in prod (check ENV)
+    if os.getenv("ENV") == "development":
+        # [AUDIT:BATCH_WRITE]
+        print(f"[AUDIT:BATCH_WRITE] batch_id={batch_id} file_index={file_index} original_name={file.filename} hardened_name={safe_name} bytes_written={bytes_written} exists_after_write={exists_after_write} returned_url={returned_url}")
+
+    return {"url": returned_url}
+
 @router.post("/", response_model=schemas.Feedback)
 def create_feedback(feedback: schemas.FeedbackCreate, db: Session = Depends(get_db)):
+    # [AUDIT:PHOTO_PAYLOAD]
+    custom_data = feedback.custom_data or {}
+    photo_upload = custom_data.get("photo_upload", [])
+    persisted_url = photo_upload[0].get("url") if isinstance(photo_upload, list) and len(photo_upload) > 0 else "NONE"
+    print(f"[AUDIT:PHOTO_PAYLOAD] feedback_id=NEW module_id=photo_upload persisted_url={persisted_url} starts_with_blob={str(persisted_url).startswith('blob:')} starts_with_http={str(persisted_url).startswith('http')}")
+
     try:
-        return crud.create_feedback(db=db, feedback=feedback)
+        db_feedback = crud.create_feedback(db=db, feedback=feedback)
+        
+        # [AUDIT:BATCH_DB]
+        custom_data = db_feedback.custom_data or {}
+        stored_media = custom_data.get("photo_upload", [])
+        stored_urls = [m.get("url") for m in stored_media] if isinstance(stored_media, list) else []
+        print(f"[AUDIT:BATCH_DB] feedback_id={db_feedback.id} expected_media_count={len(photo_upload)} stored_media_count={len(stored_urls)} stored_urls={stored_urls}")
+
+        # [AUDIT:BATCH_FETCH] Verification
+        import requests
+        for idx, url in enumerate(stored_urls):
+            if url and url.startswith("http"):
+                try:
+                    r = requests.get(url, timeout=2)
+                    print(f"[AUDIT:BATCH_FETCH] file_index={idx} url={url} status_code={r.status_code} content_type={r.headers.get('Content-Type')}")
+                except Exception as e:
+                    print(f"[AUDIT:BATCH_FETCH] file_index={idx} url={url} status=ERROR error={str(e)}")
+
+        return db_feedback
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 

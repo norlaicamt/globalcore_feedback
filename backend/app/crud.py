@@ -574,7 +574,47 @@ def get_feedbacks(
         # Append Inactive status if applicable
         if fb.branch and not fb.branch.is_active:
             fb.branch_name += " (Inactive)"
+            
+        # [AUDIT:FEED_MEDIA]
+        media_count = 0
+        media_urls = []
+        if fb.custom_data:
+            for k, v in fb.custom_data.items():
+                if isinstance(v, list):
+                    for item in v:
+                        if isinstance(item, dict) and ('preview' in item or 'url' in item):
+                            media_count += 1
+                            media_urls.append(item.get('preview') or item.get('url'))
+                elif isinstance(v, dict) and ('preview' in v or 'url' in v):
+                    media_count += 1
+                    media_urls.append(v.get('preview') or v.get('url'))
         
+        keys = list(fb.custom_data.keys()) if fb.custom_data else []
+        print(f"[AUDIT:PHOTO_FEED_SERIALIZER] feedback_id={fb.id} custom_data_keys={keys} photo_count={media_count} serialized_payload={media_urls}")
+        fb.media = media_urls
+        
+        absolute_generated = any(u.startswith('http') for u in media_urls if isinstance(u, str))
+        print(f"[AUDIT:MEDIA_URL] Backend Response - feedback_id: {fb.id}, media_urls: {media_urls}, absolute_url_generated: {absolute_generated}")
+        
+        import os
+        import urllib.request
+        for u in media_urls:
+            if isinstance(u, str):
+                if '/uploads/feedback/' in u:
+                    filename = u.split('/uploads/feedback/')[-1]
+                    actual_file_path = os.path.join('uploads', 'feedback', filename)
+                    exists = os.path.exists(actual_file_path)
+                    fsize = os.path.getsize(actual_file_path) if exists else 0
+                    print(f"[AUDIT:FILE_EXISTS] feedback_id={fb.id} raw_db_url={u} resolved_disk_path={actual_file_path} exists={exists} file_size={fsize}")
+                    
+                    test_url = f"http://localhost:8000/uploads/feedback/{filename}"
+                    try:
+                        req = urllib.request.Request(test_url, method='HEAD')
+                        with urllib.request.urlopen(req, timeout=2) as res:
+                            print(f"[AUDIT:STATIC_ROUTE] url={test_url} status_code={res.status} content_type={res.headers.get('Content-Type')}")
+                    except Exception as e:
+                        print(f"[AUDIT:STATIC_ROUTE] url={test_url} status_code=ERROR error={str(e)}")
+
         results.append(fb)
 
     return results
@@ -695,6 +735,7 @@ def create_feedback(db: Session, feedback: schemas.FeedbackCreate):
             # Fallback to category name
             data["title"] = f"New {entity.name} Feedback"
             
+    data.pop("media", None)
     db_feedback = models.Feedback(**data)
     db.add(db_feedback)
     
@@ -718,6 +759,12 @@ def create_feedback(db: Session, feedback: schemas.FeedbackCreate):
     db.commit()
     db.refresh(db_feedback)
     
+    # [AUDIT:DB_MEDIA]
+    cd = db_feedback.custom_data or {}
+    pu = cd.get("photo_upload", [])
+    stored_url = pu[0].get("url") if isinstance(pu, list) and len(pu) > 0 else "NONE"
+    print(f"[AUDIT:DB_MEDIA] feedback_id={db_feedback.id} custom_data.photo_upload={pu} exact_stored_url={stored_url}")
+
     # Process mentions
     for m in mentions_data:
         db_mention = models.FeedbackMention(
@@ -767,6 +814,14 @@ def create_feedback(db: Session, feedback: schemas.FeedbackCreate):
             notif_type=models.NotificationType.ASSIGNED,
             feedback_id=db_feedback.id
         )
+
+    import json
+    print(f"[AUDIT:PHOTO_DATABASE_SAVE] feedback_id={db_feedback.id}")
+    if db_feedback.custom_data:
+        print("raw custom_data:", json.dumps(db_feedback.custom_data))
+        for k, v in db_feedback.custom_data.items():
+            if isinstance(v, list) and len(v) > 0 and isinstance(v[0], dict) and 'url' in v[0]:
+                print(f"photo_upload ({k}):", json.dumps(v))
 
     return db_feedback
 

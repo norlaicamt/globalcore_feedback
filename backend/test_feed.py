@@ -1,14 +1,23 @@
-from app.database import SessionLocal
-from app import crud
+import sys
+import os
+from fastapi.testclient import TestClient
 
-db = SessionLocal()
-try:
-    print("Attempting to fetch public feed...")
-    feed = crud.get_public_feed(db)
-    print(f"Success! Fetched {len(feed)} items.")
-except Exception as e:
-    print("Error fetching public feed:")
-    import traceback
-    traceback.print_exc()
-finally:
-    db.close()
+# Add backend directory to path
+sys.path.insert(0, os.path.abspath('c:\\GlobalCore-Feedback\\backend'))
+
+from main import app
+
+client = TestClient(app)
+
+response = client.get("/feedbacks/")
+print(response.status_code)
+if response.status_code == 200:
+    data = response.json()
+    if data:
+        print("First feedback keys:", list(data[0].keys()))
+        print("First feedback entity keys:", list(data[0].get('entity', {}).keys()) if data[0].get('entity') else "None")
+        print("First feedback media:", data[0].get('media'))
+    else:
+        print("No feedbacks found")
+else:
+    print(response.text)

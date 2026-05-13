@@ -5,9 +5,11 @@ import { userStorage, adminStorage } from "./storage";
  * This does NOT affect the admin session.
  */
 export const logoutUser = () => {
-  // 1. Clear namespaced storage
-  userStorage.clear();
-
+  // 1. Clear session-specific keys only
+  userStorage.removeItem("current");
+  userStorage.removeItem("view");
+  userStorage.removeItem("token");
+  
   // 2. Aggressively clear legacy keys to prevent re-migration on reload
   localStorage.removeItem("currentUser");
   localStorage.removeItem("token");

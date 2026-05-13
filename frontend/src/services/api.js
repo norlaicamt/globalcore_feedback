@@ -5,6 +5,39 @@ import axios from "axios";
 const API_BASE = process.env.REACT_APP_API_URL || `http://${window.location.hostname}:8000`;
 console.log("Connecting to backend at:", API_BASE);
 
+// Global API Auditing
+axios.interceptors.request.use(config => {
+  config.metadata = { startTime: new Date() };
+  if (window.DEBUG_MODE) {
+    console.log(`[API:START] ${config.method.toUpperCase()} ${config.url}`);
+  }
+  return config;
+}, error => Promise.reject(error));
+
+axios.interceptors.response.use(response => {
+  const duration = new Date() - response.config.metadata.startTime;
+  if (window.DEBUG_MODE) {
+    console.log(`[API:END] ${response.config.method.toUpperCase()} ${response.config.url} | STATUS: ${response.status} | TIME: ${duration}ms | SIZE: ${JSON.stringify(response.data).length}B`);
+  }
+  return response;
+}, error => {
+  if (window.DEBUG_MODE) {
+    console.error(`[API:ERROR] ${error.config?.method.toUpperCase()} ${error.config?.url} | MSG: ${error.message}`);
+  }
+  return Promise.reject(error);
+});
+
+/* -------------------- CACHE -------------------- */
+const apiCache = {
+  entities: null,
+  departments: null,
+  lastFetch: {
+    entities: 0,
+    departments: 0
+  }
+};
+const CACHE_TTL = 30000; // 30s cache TTL
+
 /* -------------------- AUTH -------------------- */
 export const login = async (email, password) => {
   const response = await axios.post(`${API_BASE}/login?email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`);
@@ -113,6 +146,30 @@ export const searchUsers = async (query, roles = "") => {
 /* -------------------- FEEDBACK -------------------- */
 export const getFeedbacks = async (params = { skip: 0, limit: 10 }) => {
   const response = await axios.get(`${API_BASE}/feedbacks/`, { params }); // must match FastAPI router
+  if (window.DEBUG_MODE) {
+    const items = Array.isArray(response.data) ? response.data : (response.data.items || []);
+    items.forEach(post => {
+      // Find photo upload keys (they could be uuids depending on form config)
+      const cData = post.custom_data || {};
+      const photoData = {};
+      for (const [k, v] of Object.entries(cData)) {
+         if (Array.isArray(v) && v.length > 0 && typeof v[0] === 'object' && 'url' in v[0]) {
+             photoData[k] = v;
+         }
+      }
+      
+      console.log(`[AUDIT:PHOTO_FEED_RECEIVE] post_id=${post.id}`, {
+        custom_data: cData,
+        photo_upload: photoData
+      });
+      
+      const pUpload = post.custom_data?.photo_upload || [];
+      const arr = Array.isArray(pUpload) ? pUpload : [pUpload];
+      const count = arr.length > 0 && arr[0] ? arr.length : 0;
+      const urls = count > 0 ? arr.map(p => typeof p === 'string' ? p : p?.url || p?.preview) : [];
+      console.log(`[AUDIT:FEED_MEDIA] post_id=${post.id} module_type=photo_upload media_count=${count} media_urls=${JSON.stringify(urls)}`);
+    });
+  }
   return response.data;
 };
 
@@ -182,7 +239,13 @@ export const getReactionsSummary = async (feedbackId, userId) => {
 
 /* -------------------- ENTITIES -------------------- */
 export const getEntities = async () => {
+  const now = Date.now();
+  if (apiCache.entities && (now - apiCache.lastFetch.entities < CACHE_TTL)) {
+    return apiCache.entities;
+  }
   const response = await axios.get(`${API_BASE}/entities/`);
+  apiCache.entities = response.data;
+  apiCache.lastFetch.entities = now;
   return response.data;
 };
 
@@ -209,7 +272,13 @@ export const createEntity = async (entity) => {
 
 /* -------------------- DEPARTMENTS -------------------- */
 export const getDepartments = async () => {
-  const response = await axios.get(`${API_BASE}/departments/`); // fixed typo: "departmens" → "departments"
+  const now = Date.now();
+  if (apiCache.departments && (now - apiCache.lastFetch.departments < CACHE_TTL)) {
+    return apiCache.departments;
+  }
+  const response = await axios.get(`${API_BASE}/departments/`);
+  apiCache.departments = response.data;
+  apiCache.lastFetch.departments = now;
   return response.data;
 };
 

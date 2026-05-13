@@ -10,3 +10,12 @@ backend/scratch/
 backend/scripts/
 .gemini/
 *.db
+uploads/
+scratch/
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.gif
+*.log
+*.txt
