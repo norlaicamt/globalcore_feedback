@@ -2,11 +2,11 @@ import React, { useState, useEffect } from "react";
 import { createFeedback, getEntities, getBranches, getEntityFormConfig, createDraft, updateDraft, deleteDraft } from "../services/api";
 import { useTerminology } from "../context/TerminologyContext";
 import CustomModal from "./CustomModal";
+import VoiceRecorder from "./VoiceRecorder";
 
 
 const SMART_DEFAULTS = {
   star_rating: "How would you rate your overall experience?",
-  emoji_rating: "How do you feel about our service today?",
   rating_matrix: "Please evaluate the following categories:",
   rating: "Overall satisfaction",
   short_text: "In a few words, how was your visit?",
@@ -20,14 +20,12 @@ const SMART_DEFAULTS = {
   email_address: "Email address",
   mailing_address: "Home or mailing address",
   number_input: "Reference or Ticket number",
-  staff_mention: "Tag a specific staff member",
   entity_picker: "Select the service category",
   location_picker: "Select your branch or location"
 };
 
 const SMART_HELPERS = {
   star_rating: "Tap a star to give your rating",
-  emoji_rating: "Select the icon that matches your feeling",
   rating_matrix: "1 is low, 5 is high",
   photo_upload: "Images help us understand better",
   voice_record: "Hold the mic to start recording",
@@ -509,7 +507,7 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
         const criteria = item.config?.criteria || item.criteria || [];
         return criteria.length > 0 && criteria.every(c => !!ratings[c]);
       }
-      if (['star_rating', 'rating', 'emoji_rating', 'slider_rating'].includes(key)) return rating > 0;
+      if (['star_rating', 'rating', 'slider_rating'].includes(key)) return rating > 0;
 
       // 3. Text/Numeric Inputs & Everything else in customFields
       const val = customFields[itemId];
@@ -1098,7 +1096,7 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
     const { key, required, label_override, helper } = item;
     const invalid = showErrors && required && !isItemFilled(item);
     let itemValue = null;
-    if (key === 'star_rating' || key === 'rating' || key === 'emoji_rating') itemValue = rating;
+    if (key === 'star_rating' || key === 'rating') itemValue = rating;
     else if (key === 'location_picker') itemValue = selectedBranch;
     else if (key === 'multiple_choice') itemValue = customFields[item.id || key];
     else if (key === 'rating_matrix') {
@@ -1141,13 +1139,6 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
           ))}
         </div>
       );
-      if (key === 'emoji_rating') return (
-        <div style={{ display: 'flex', gap: '20px', justifyContent: 'center', background: '#F8FAFC', padding: '24px', borderRadius: '20px' }}>
-          {['😟', '😐', '🙂', '😃', '🤩'].map((e, i) => (
-            <button key={i} onClick={() => setRating(i + 1)} style={{ fontSize: '40px', border: 'none', background: 'none', cursor: 'pointer', transition: '0.2s', transform: rating === (i + 1) ? 'scale(1.2)' : 'scale(1)', filter: rating === (i + 1) ? 'none' : 'grayscale(1) opacity(0.5)' }}>{e}</button>
-          ))}
-        </div>
-      );
       if (key === 'multiple_choice') return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           {(item.config?.options || []).map((opt, i) => {
@@ -1161,7 +1152,10 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
           })}
         </div>
       );
-      if (key === 'photo_upload' || key === 'file_upload' || key === 'video_upload' || key === 'voice_record') {
+      // Voice recording module removed due to hardware incompatibility
+      if (key === 'voice_record') return null;
+
+      if (key === 'photo_upload' || key === 'file_upload' || key === 'video_upload') {
         const fieldId = item.id || key;
         const currentMediaMap = mediaStatus[fieldId] || {};
         const processingUids = Object.keys(currentMediaMap).filter(uid => !['safe', 'idle', 'failed'].includes(currentMediaMap[uid].status));

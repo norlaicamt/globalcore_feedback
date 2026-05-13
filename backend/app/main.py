@@ -40,7 +40,10 @@ async def add_cache_control_header(request: Request, call_next):
     if request.url.path.startswith("/uploads"):
         # Cache for 1 year (immutable as filenames are unique UUIDs)
         response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
-        # ETag is handled by StaticFiles but we ensure it persists if needed
+        
+        # [AUDIT:VOICE_STATIC] for audio debugging
+        if any(ext in request.url.path for ext in ['.webm', '.mp4', '.wav', '.aac']):
+             print(f"[AUDIT:VOICE_STATIC] url={request.url.path} status_code={response.status_code} content_type={response.headers.get('content-type')}")
     return response
 
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")

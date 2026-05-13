@@ -10,11 +10,11 @@ import { useLightbox } from '../context/LightboxContext';
 export const IDENTITY_KEYS = ['full_name', 'contact_number', 'email_address', 'mailing_address'];
 
 export const SUPPORTED_RENDER_TYPES = [
-  'star_rating', 'emoji_rating', 'slider_scale', 'rating_matrix',
+  'star_rating', 'rating_matrix',
   'multiple_choice', 'dropdown', 'short_text', 'long_text', 'number_input',
   'full_name', 'email_address', 'contact_number', 'mailing_address',
   'photo_upload', 'voice_record', 'file_upload',
-  'entity_picker', 'location_picker', 'staff_mention',
+  'entity_picker', 'location_picker',
 ];
 
 export const getEmotion = (rating) => {
@@ -66,7 +66,21 @@ const truncate = (text, max) => (!text || text.length <= max ? text : text.subst
 
 export const renderFeedbackAction = (post, currentUser) => {
   const name = getDisplayName(post, currentUser);
-  const emotion = getEmotion(post.rating);
+  const data = typeof post.custom_data === 'string' ? JSON.parse(post.custom_data || '{}') : (post.custom_data || {});
+  const formSteps = post.entity?.fields?.steps || post.entity?.form_config?.steps || [];
+  const schema = formSteps.flatMap(s => s.items || []);
+  
+  const EVALUATION_KEYS = ['star_rating', 'rating_matrix'];
+  const hasEvaluationModule = schema.some(i => EVALUATION_KEYS.includes(i.key));
+
+  // If no evaluation module in schema, we don't show any "feeling X" status
+  let emotion = null;
+  if (hasEvaluationModule) {
+    if (post.rating > 0 && schema.some(i => i.key === 'star_rating')) {
+      emotion = getEmotion(post.rating);
+    }
+  }
+
   const entityLabel = post.entity_name || 'Program';
   const s = {
     name: { fontWeight: '800', color: '#0F172A' },
@@ -79,7 +93,7 @@ export const renderFeedbackAction = (post, currentUser) => {
       <span style={{ lineHeight: '1.4' }}>
         <span style={s.name}>{name}</span>
         <span style={s.conn}> feeling </span>
-        <span title={`Rated ${post.rating}/5`} style={s.sent}>{emotion.emoji} {emotion.label}</span>
+        <span style={s.sent}>{emotion.emoji} {emotion.label}</span>
         <span style={s.conn}> at </span>
         <span style={s.ent}>{truncate(entityLabel, 35)}</span>
       </span>
@@ -204,19 +218,7 @@ const renderCompactModule = (item, val, feedbackId, viewerMode = 'public') => {
     const stars = '★'.repeat(Math.min(5, parseInt(val) || 0)) + '☆'.repeat(5 - Math.min(5, parseInt(val) || 0));
     return <span style={{ color: '#FFB800', fontSize: '13px', letterSpacing: '1px' }}>{stars}</span>;
   }
-  if (key === 'emoji_rating') {
-    const emojis = ['😟', '😐', '🙂', '😃', '🤩'];
-    const labels = ['Frustrated', 'Neutral', 'Good', 'Happy', 'Excellent'];
-    const idx = parseInt(val) - 1;
-    return <span style={{ fontSize: '13px' }}>{idx >= 0 ? `${emojis[idx]} ${labels[idx]}` : val}</span>;
-  }
-  if (key === 'slider_scale') {
-    return (
-      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: '700' }}>
-        📈 {val}%
-      </span>
-    );
-  }
+  if (['emoji_rating', 'slider_scale', 'staff_mention', 'voice_record'].includes(key)) return null;
   if (key === 'rating_matrix') {
     const obj = typeof val === 'object' && !Array.isArray(val) ? val : {};
     const count = Object.keys(obj).length;
@@ -234,18 +236,6 @@ const renderCompactModule = (item, val, feedbackId, viewerMode = 'public') => {
   }
   if (key === 'location_picker') {
     return <span style={{ fontSize: '12px' }}>📍 {val?.name || val?.branch_name || val}</span>;
-  }
-  if (key === 'staff_mention') {
-    const names = Array.isArray(val) ? val.map(s => s.name || s.employee_name || s).join(', ') : (val?.name || val?.employee_name || val);
-    return <span style={{ fontSize: '12px' }}>👤 {names}</span>;
-  }
-  if (key === 'voice_record') {
-    const arr = Array.isArray(val) ? val : [val];
-    return (
-      <span style={{ fontSize: '12px', color: 'var(--primary-color)', fontWeight: '700' }}>
-        ▶ Voice Feedback • {arr.length} clip{arr.length > 1 ? 's' : ''}
-      </span>
-    );
   }
   if (key === 'long_text' || key === 'short_text') {
     return (
@@ -304,29 +294,7 @@ const renderFullModule = (item, val, feedbackId, viewerMode = 'public') => {
     );
   }
 
-  if (key === 'emoji_rating') {
-    const emojis = ['😟', '😐', '🙂', '😃', '🤩'];
-    const labels = ['Frustrated', 'Neutral', 'Good', 'Happy', 'Excellent'];
-    const idx = parseInt(val) - 1;
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-        <span style={{ fontSize: '32px' }}>{idx >= 0 ? emojis[idx] : '❓'}</span>
-        <span style={{ fontSize: '16px', fontWeight: '700', color: '#1E293B' }}>{idx >= 0 ? labels[idx] : val}</span>
-      </div>
-    );
-  }
-
-  if (key === 'slider_scale') {
-    const pct = Math.min(100, Math.max(0, parseInt(val) || 0));
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-        <div style={{ flex: 1, height: '8px', background: '#E2E8F0', borderRadius: '4px', overflow: 'hidden' }}>
-          <div style={{ width: `${pct}%`, height: '100%', background: 'var(--primary-color)', borderRadius: '4px', transition: 'width 0.5s' }} />
-        </div>
-        <span style={{ fontSize: '15px', fontWeight: '800', color: 'var(--primary-color)', minWidth: '40px' }}>{pct}%</span>
-      </div>
-    );
-  }
+  if (['emoji_rating', 'slider_scale', 'staff_mention', 'voice_record'].includes(key)) return null;
 
   if (key === 'rating_matrix') {
     const obj = typeof val === 'object' && !Array.isArray(val) ? val : {};
@@ -383,26 +351,6 @@ const renderFullModule = (item, val, feedbackId, viewerMode = 'public') => {
     );
   }
 
-  if (key === 'voice_record') {
-    const arr = Array.isArray(val) ? val : [val];
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        {arr.map((clip, i) => {
-          const src = typeof clip === 'string' ? clip : clip?.url || clip?.preview;
-          return src ? (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', background: '#F0F9FF', borderRadius: '12px', border: '1px solid #BAE6FD' }}>
-              <span style={{ fontSize: '18px' }}>🎤</span>
-              <audio controls src={src} style={{ flex: 1, height: '32px' }} />
-            </div>
-          ) : (
-            <div key={i} style={{ padding: '10px 14px', background: '#F0F9FF', borderRadius: '12px', fontSize: '13px', color: '#0369A1', fontWeight: '700' }}>
-              ▶ Voice Feedback • Clip {i + 1}
-            </div>
-          );
-        })}
-      </div>
-    );
-  }
 
   if (key === 'multiple_choice' || key === 'dropdown') {
     const choices = Array.isArray(val) ? val : [val];
@@ -427,21 +375,6 @@ const renderFullModule = (item, val, feedbackId, viewerMode = 'public') => {
     return <span style={{ fontSize: '14px', fontWeight: '700' }}>📍 {name}</span>;
   }
 
-  if (key === 'staff_mention') {
-    const arr = Array.isArray(val) ? val : [val];
-    return (
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-        {arr.map((s, i) => {
-          const name = s?.name || s?.employee_name || s;
-          return (
-            <span key={i} style={{ background: '#F1F5F9', borderRadius: '8px', padding: '6px 12px', fontSize: '13px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              👤 {name}
-            </span>
-          );
-        })}
-      </div>
-    );
-  }
 
   if (key === 'long_text' || key === 'short_text' || key === 'number_input') {
     return <p style={{ margin: 0, fontSize: '14px', color: '#334155', lineHeight: '1.7', whiteSpace: 'pre-wrap' }}>{String(val)}</p>;
@@ -505,13 +438,6 @@ export const renderFeedbackResponses = (post, options = { compact: true, viewerM
        console.log(`[AUDIT:BATCH_RENDER] feedback_id=${post.id} rendered_count=${photos.length} failed_count=0 visibility=compact`);
     }
 
-    // Fallback: star rating from top-level field
-    if (!schema.some(i => i.key === 'star_rating') && post.rating > 0) {
-      const n = post.rating;
-      compactModules.unshift(
-        <span key="star-fb" style={{ color: '#FFB800', fontSize: '13px' }}>{'★'.repeat(n)}{'☆'.repeat(5-n)}</span>
-      );
-    }
 
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -572,9 +498,6 @@ export const renderFeedbackResponses = (post, options = { compact: true, viewerM
     // No schema: render core fields only
     if (coreMessage) {
       publicModules.push({ label: 'Feedback', val: coreMessage, key: 'long_text', item: { key: 'long_text' } });
-    }
-    if (post.rating > 0) {
-      publicModules.unshift({ label: 'Rating', val: post.rating, key: 'star_rating', item: { key: 'star_rating' } });
     }
   } else {
     schema.forEach(item => {

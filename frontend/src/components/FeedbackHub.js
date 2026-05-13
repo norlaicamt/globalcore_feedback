@@ -126,12 +126,19 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
   const [entities, setEntities] = useState([]);
   const [departments, setDepartments] = useState([]);
 
+  const fetchEntitiesAndDepts = React.useCallback(async () => {
+    try {
+      const [ents, depts] = await Promise.all([getEntities(), getDepartments()]);
+      setEntities(ents);
+      setDepartments(depts);
+      return [ents, depts];
+    } catch (e) { console.error("Error fetching entities/depts", e); return [[], []]; }
+  }, []);
+
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [ents, depts] = await Promise.all([getEntities(), getDepartments()]);
-        setEntities(ents);
-        setDepartments(depts);
+        const [ents, depts] = await fetchEntitiesAndDepts();
         
         // --- PHASE 11: DRAFT RECOVERY, IDENTITY & EXPIRATION CHECK ---
         if (localUser?.id) {
@@ -301,9 +308,9 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
     });
   };
 
-  const fetchFeed = React.useCallback(async (newOffset = 0) => {
+  const fetchFeed = React.useCallback(async (newOffset = 0, silent = false) => {
     if (window.DEBUG_MODE) console.log("fetchFeed called with offset:", newOffset);
-    if (newOffset === 0) setLoading(true);
+    if (newOffset === 0 && !silent) setLoading(true);
     try {
       const data = await getFeedbacks({ skip: newOffset, limit: 10, status: statusFilter });
       if (newOffset === 0) {
@@ -316,15 +323,9 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
     } catch (err) {
       setDialogState({ isOpen: true, title: "Feed Error", message: "Failed to load activity feed.", type: "alert" });
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [statusFilter]);
-
-  const loadMoreFeed = () => {
-    if (!loading && hasMore) {
-      fetchFeed(offset + 10);
-    }
-  };
 
   const [unreadNotifCount, setUnreadNotifCount] = useState(0);
 
@@ -337,6 +338,76 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
       setUnreadNotifCount(unread);
     } catch (e) { console.error("Could not fetch notifications", e); }
   }, [localUser?.id]);
+
+  const fetchUserProfile = React.useCallback(async () => {
+    if (!localUser?.id) return;
+    try {
+      const updated = await getUserById(localUser.id);
+      handleUserUpdate(updated);
+    } catch (e) { console.error("Could not refresh user profile", e); }
+  }, [localUser?.id]);
+
+  const showToast = React.useCallback((message, isError = false) => {
+    setToastMessage({ text: message, isError });
+    setTimeout(() => {
+      setToastMessage(null);
+    }, 2500);
+  }, []);
+
+  const showSuccessModal = React.useCallback((message) => {
+    setIsReportModalOpen(false);
+    showToast(message || "Submitted Confirmed");
+    if (typeof fetchFeed === 'function') fetchFeed(0);
+    if (typeof fetchUserProfile === 'function') fetchUserProfile();
+  }, [showToast]);
+
+  const refreshHomeData = React.useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
+    try {
+      await Promise.allSettled([
+        fetchFeed(0, true),
+        fetchNotifications(),
+        fetchUserProfile(),
+        fetchEntitiesAndDepts()
+      ]);
+    } catch (e) {
+      console.error('[AUDIT:REFRESH_HOME_FAILED]', e);
+    } finally {
+      if (!silent) setLoading(false);
+    }
+  }, [fetchFeed, fetchNotifications, fetchUserProfile, fetchEntitiesAndDepts]);
+
+  const handleDeleteFeedback = React.useCallback(async (id) => {
+    console.log('[AUDIT:DELETE_START]', id);
+    // Note: We don't call setLoading(true) here because we want an optimistic 
+    // "silent" update to prevent spinner flicker, as per requirements.
+    try {
+      // Optimistic UI removal
+      setFeed(prev => prev.filter(post => post.id !== id));
+      console.log('[AUDIT:DELETE_STATE_SYNC]', id);
+      
+      await deleteFeedback(id);
+      console.log('[AUDIT:DELETE_SUCCESS]', id);
+      
+      // Silent background sync
+      await refreshHomeData(true);
+    } catch (error) {
+      console.error('[AUDIT:DELETE_REFRESH]', error);
+      showToast("Failed to delete post", true);
+      // If error occurs, do a full non-silent refresh to ensure state consistency
+      await refreshHomeData(false);
+    } finally {
+      setLoading(false); // Always ensure loading is released if it was somehow stuck
+      console.log('[AUDIT:DELETE_LOADING_RELEASED]');
+    }
+  }, [refreshHomeData, showToast]);
+
+  const loadMoreFeed = () => {
+    if (!loading && hasMore) {
+      fetchFeed(offset + 10);
+    }
+  };
+
 
   useEffect(() => {
     if (!localUser?.id) return;
@@ -371,24 +442,15 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
     setIsMenuOpen(false);
   };
 
-  const fetchUserProfile = React.useCallback(async () => {
-    if (!localUser?.id) return;
-    try {
-      const updated = await getUserById(localUser.id);
-      handleUserUpdate(updated);
-    } catch (e) { console.error("Could not refresh user profile", e); }
-  }, [localUser?.id]); // handleUserUpdate is stable if defined correctly, but here it's a regular function
 
   useEffect(() => {
     try {
       localStorage.setItem("userView", view);
     } catch (e) { console.warn("Could not save userView", e); }
     if (view === "home") {
-      fetchFeed(0);
-      fetchNotifications();
-      fetchUserProfile();
+      refreshHomeData();
     }
-  }, [view, fetchFeed, fetchNotifications, fetchUserProfile]);
+  }, [view, refreshHomeData]);
 
   // Real-time Presence Heartbeat
   useEffect(() => {
@@ -452,19 +514,6 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
     });
   };
 
-  const showToast = React.useCallback((message, isError = false) => {
-    setToastMessage({ text: message, isError });
-    setTimeout(() => {
-      setToastMessage(null);
-    }, 2500);
-  }, []);
-
-  const showSuccessModal = React.useCallback((message) => {
-    setIsReportModalOpen(false);
-    showToast(message || "Submitted Confirmed");
-    fetchFeed(0);
-    fetchUserProfile();
-  }, [showToast, fetchFeed, fetchUserProfile]);
 
   const handleCloseReportModal = React.useCallback(() => {
     setIsReportModalOpen(false);
@@ -589,7 +638,8 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
             currentUser={localUser}
             onShowToast={showToast}
             onOpenComments={(f) => setCommentingFeedback(f)}
-            onRefresh={() => fetchFeed(0)}
+            onRefresh={refreshHomeData}
+            onDelete={handleDeleteFeedback}
             publicFeedEnabled={publicFeedEnabled}
             entities={entities}
             departments={departments}
@@ -1272,7 +1322,7 @@ const getStatusColor = (status) => {
   }
 };
 
-const FeedCard = React.memo(({ item: initialItem, currentUser, onShowToast, onOpenComments, onRefresh }) => {
+const FeedCard = React.memo(({ item: initialItem, currentUser, onShowToast, onOpenComments, onRefresh, onDelete }) => {
   const { openLightbox } = useLightbox();
   const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'superadmin';
   const [dialogState, setDialogState] = useState({ isOpen: false });
@@ -1365,12 +1415,11 @@ const FeedCard = React.memo(({ item: initialItem, currentUser, onShowToast, onOp
       confirmText: 'Delete',
       isDestructive: true,
       onConfirm: async () => {
-        try {
-          await deleteFeedback(item.id);
-          if (onRefresh) onRefresh();
-          onShowToast("Post deleted successfully");
-        } catch (e) { console.error(e); }
         setDialogState({ isOpen: false });
+        if (onDelete) {
+          await onDelete(item.id);
+          onShowToast("Post deleted successfully");
+        }
       },
       onCancel: () => setDialogState({ isOpen: false })
     });
@@ -1560,7 +1609,7 @@ const FeedCard = React.memo(({ item: initialItem, currentUser, onShowToast, onOp
   );
 });
 
-const DashboardView = React.memo(({ feed, loading, hasMore, onLoadMore, onAction, currentUser, onShowToast, onOpenComments, onRefresh, publicFeedEnabled, entities, departments, statusFilter, setStatusFilter }) => {
+const DashboardView = React.memo(({ feed, loading, hasMore, onLoadMore, onAction, currentUser, onShowToast, onOpenComments, onRefresh, onDelete, publicFeedEnabled, entities, departments, statusFilter, setStatusFilter }) => {
   // eslint-disable-next-line no-unused-vars
   const [isHotTopicsExpanded, setIsHotTopicsExpanded] = useState(false);
   // eslint-disable-next-line no-unused-vars
@@ -1842,12 +1891,12 @@ const DashboardView = React.memo(({ feed, loading, hasMore, onLoadMore, onAction
                 </div>
               ) : (
                 <>
-                  {loading ? (
+                  {(loading && feed.length === 0) ? (
                     <p style={styles.emptyText}>Loading feed...</p>
                   ) : filteredFeed.length > 0 ? (
                     <>
                       {filteredFeed.map(item => (
-                        <FeedCard key={item.id} item={item} currentUser={currentUser} onShowToast={onShowToast} onOpenComments={onOpenComments} onRefresh={onRefresh} />
+                        <FeedCard key={item.id} item={item} currentUser={currentUser} onShowToast={onShowToast} onOpenComments={onOpenComments} onRefresh={onRefresh} onDelete={onDelete} />
                       ))}
                     </>
                   ) : (

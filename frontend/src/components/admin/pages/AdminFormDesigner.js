@@ -200,8 +200,6 @@ const MODULE_OPTIONS = [
   {
     group: 'RATINGS', items: [
       { key: 'star_rating', label: 'Star Rating', desc: '1-5 Star feedback', icon: Ico.Star },
-      { key: 'emoji_rating', label: 'Emoji Rating', desc: 'Feeling based feedback', icon: Ico.Smile },
-      { key: 'slider_scale', label: 'Slider Scale', desc: 'Percentage or 1-100', icon: Ico.Sliders },
       { key: 'rating_matrix', label: 'Rating Matrix', desc: 'TER-style 1-5 evaluation', icon: Ico.Grid },
     ]
   },
@@ -224,14 +222,12 @@ const MODULE_OPTIONS = [
   {
     group: 'MEDIA', items: [
       { key: 'photo_upload', label: 'Photo Upload', desc: 'Snap or upload image', icon: Ico.Camera },
-      { key: 'voice_record', label: 'Voice Recording', desc: 'Speak your feedback', icon: Ico.Mic },
     ]
   },
   {
     group: 'SYSTEM', items: [
       { key: 'entity_picker', label: 'Service Selection', desc: 'Select Service (Required)', icon: Ico.Globe },
       { key: 'location_picker', label: 'Location Picker', desc: 'Select Branch/Office', icon: Ico.MapPin },
-      { key: 'staff_mention', label: 'Staff Mention', desc: 'Tag specific staff', icon: Ico.Users },
     ]
   }
 ];
