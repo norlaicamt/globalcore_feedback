@@ -11,6 +11,7 @@ import AdminSettings from "./pages/AdminSettings";
 import AdminAuditLogs from "./pages/AdminAuditLogs";
 import AdminPrograms from "./pages/AdminPrograms";
 import AdminFormDesigner from "./pages/AdminFormDesigner";
+import AdminProducts from "./pages/AdminProducts";
 import AdminTeam from "./pages/AdminTeam";
 import CustomModal from "../CustomModal";
 import { adminUpdatePresence, adminGetEntities } from "../../services/adminApi";
@@ -24,7 +25,8 @@ const NAV_ITEMS = [
   { type: "label", label: "ORGANIZATION" },
   { id: "broadcast", label: "Announcements", icon: <BellIcon /> },
   { id: "broadcast_analytics", label: "Reach Analytics", icon: <ChartIcon />, isSub: true },
-  { id: "programs", label: "Workspaces", icon: <OrgIcon /> },
+  { id: "programs", label: "Workspaces Hub", icon: <OrgIcon /> },
+  { id: "products", label: "Product Catalog", icon: <ProductIcon /> },
   { id: "formdesigner", label: "Form Layout", icon: <OrgIcon /> },
   { type: "label", label: "PREFERENCES" },
   { id: "settings", label: "Portal Settings", icon: <SettingsIcon /> },
@@ -123,6 +125,7 @@ const AdminHub = ({ adminUser, onLogout }) => {
         broadcast_analytics: "Analyzing Reach Metrics",
         auditlogs: "Reviewing Audit Logs",
         programs: "Configuring Programs",
+        products: "Operationalizing Catalog",
         formdesigner: "Designing Forms",
         settings: "Adjusting Portal Settings"
       };
@@ -205,6 +208,9 @@ const AdminHub = ({ adminUser, onLogout }) => {
       case "formdesigner": return <AdminFormDesigner {...props} />;
       case "broadcast": return <AdminBroadcast {...props} />;
       case "broadcast_analytics": return <AdminBroadcastAnalytics {...props} />;
+      case "products":
+      case "workspace_products":
+        return <AdminProducts {...props} isScoped={view === "workspace_products"} />;
       case "settings": return <AdminSettings {...props} />;
       case "auditlogs": return <AdminAuditLogs {...props} />;
       case "feedbacktypes": // Redirect legacy
@@ -307,6 +313,7 @@ const AdminHub = ({ adminUser, onLogout }) => {
                   },
                   { id: "workspace_settings", label: "Operational Rules", icon: <SettingsIcon />, isSub: true },
                   { id: "workspace_analytics", label: "Performance Hub", icon: <ChartIcon />, isSub: true },
+                  { id: "workspace_products", label: "Product Catalog", icon: <ProductIcon />, isSub: true },
                   { id: "auditlogs", label: "Operational Audit", icon: <ClockIcon />, isSub: true },
                   item // Keep Form Layout
                 ];
@@ -429,6 +436,7 @@ function SettingsIcon() { return <svg width="15" height="15" viewBox="0 0 24 24"
 function SunIcon() { return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="5" /><line x1="12" y1="1" x2="12" y2="3" /><line x1="12" y1="21" x2="12" y2="23" /><line x1="4.22" y1="4.22" x2="5.64" y2="5.64" /><line x1="18.36" y1="18.36" x2="19.78" y2="19.78" /><line x1="1" y1="12" x2="3" y2="12" /><line x1="21" y1="12" x2="23" y2="12" /><line x1="4.22" y1="19.78" x2="5.64" y2="18.36" /><line x1="18.36" y1="5.64" x2="19.78" y2="4.22" /></svg>; }
 function MoonIcon() { return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>; }
 function OrgIcon() { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 00-3-3.87" /><path d="M16 3.13a4 4 0 010 7.75" /></svg>; }
+function ProductIcon() { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>; }
 function ClockIcon() { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>; }
 
 

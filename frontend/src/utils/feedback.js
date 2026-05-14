@@ -87,10 +87,19 @@ export const renderFeedbackAction = (post, currentUser) => {
   };
 
   const entityLabel = post.entity?.name || 'General Feedback';
+  const productName = post.product_name;
+
   const baseHeader = (
     <span style={{ lineHeight: '1.4', display: 'inline-flex', flexWrap: 'wrap', alignItems: 'center', gap: '3px' }}>
+      {post.product_id && (post.product_image_url || post.custom_data?.product_metadata?.image_url) && (
+        <img
+          src={post.product_image_url || post.custom_data?.product_metadata?.image_url}
+          alt=""
+          style={{ width: '20px', height: '20px', borderRadius: '4px', objectFit: 'cover', marginRight: '4px' }}
+        />
+      )}
       <span style={s.name}>{name}</span>
-      <span style={s.conn}> shared feedback at </span>
+      <span style={s.conn}> {productName ? `reviewed ${productName} at` : 'shared feedback at'} </span>
       <span style={s.ent}>{truncate(entityLabel, 35)}</span>
     </span>
   );
@@ -172,8 +181,15 @@ export const renderFeedbackAction = (post, currentUser) => {
   if (emotion && emotionLabel) {
     return (
       <span style={{ lineHeight: '1.4', display: 'inline-flex', flexWrap: 'wrap', alignItems: 'center', gap: '3px' }}>
+        {post.product_id && (post.product_image_url || post.custom_data?.product_metadata?.image_url) && (
+          <img
+            src={post.product_image_url || post.custom_data?.product_metadata?.image_url}
+            alt=""
+            style={{ width: '20px', height: '20px', borderRadius: '4px', objectFit: 'cover', marginRight: '4px' }}
+          />
+        )}
         <span style={s.name}>{name}</span>
-        <span style={s.conn}> feeling </span>
+        <span style={s.conn}> {productName ? `reviewed ${productName} and is feeling` : 'feeling'} </span>
         <span style={s.sent}>{emotion} {emotionLabel}</span>
         <span style={s.conn}> at </span>
         <span style={s.ent}>{truncate(entityLabel, 35)}</span>
@@ -254,7 +270,13 @@ const resolveVal = (data, item) => {
     });
   }
 
-  if (val === null || val === '' || (Array.isArray(val) && val.length === 0)) return undefined;
+  if (val === null || val === '' || (Array.isArray(val) && val.length === 0)) {
+    if (item.key === 'product_picker') {
+      // Fallback for product_picker from core fields
+      return undefined; // We'll handle this in renderFeedbackResponses
+    }
+    return undefined;
+  }
   return val;
 };
 
@@ -323,6 +345,10 @@ const renderCompactModule = (item, val, feedbackId, viewerMode = 'public') => {
         )}
       </div>
     );
+  }
+  if (key === 'product_picker') {
+    const name = typeof val === 'object' ? val.name : val;
+    return <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--primary-color)' }}>🛍 {name}</span>;
   }
   return null;
 };
@@ -464,6 +490,26 @@ const renderFullModule = (item, val, feedbackId, viewerMode = 'public') => {
     return <p style={{ margin: 0, fontSize: '14px', color: '#334155', lineHeight: '1.7', whiteSpace: 'pre-wrap' }}>{String(val)}</p>;
   }
 
+  if (key === 'product_picker') {
+    const p = typeof val === 'object' ? val : { name: val };
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', background: '#F8FAFC', borderRadius: '14px', border: '1px solid #E2E8F0', marginTop: '4px' }}>
+        <div style={{ width: '48px', height: '48px', borderRadius: '10px', background: 'white', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #F1F5F9', flexShrink: 0 }}>
+          {p.image_url ? (
+            <img src={p.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          ) : (
+            <span style={{ fontSize: '20px' }}>📦</span>
+          )}
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: '13px', fontWeight: '800', color: '#1E293B', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</div>
+          <div style={{ fontSize: '11px', color: '#64748B', fontWeight: '600' }}>{p.category || 'Product'}</div>
+          {p.price && <div style={{ fontSize: '12px', fontWeight: '900', color: 'var(--primary-color)', marginTop: '2px' }}>₱{p.price.toLocaleString()}</div>}
+        </div>
+      </div>
+    );
+  }
+
   if (typeof val === 'object' && !Array.isArray(val)) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '12px', background: 'white', borderRadius: '12px', border: '1px solid #F1F5F9' }}>
@@ -516,6 +562,17 @@ export const renderFeedbackResponses = (post, options = { compact: true, viewerM
 
       if ((val === undefined || val === null || val === '') && (key === 'star_rating' || item.type === 'star_rating')) {
         val = post.rating;
+      }
+
+      if ((val === undefined || val === null || val === '') && key === 'product_picker') {
+        if (post.product_name) {
+          val = {
+            id: post.product_id,
+            name: post.product_name,
+            sku: post.product_sku,
+            ...(data.product_metadata || {})
+          };
+        }
       }
 
       if (val === undefined || val === null || val === '') return;
@@ -585,7 +642,24 @@ export const renderFeedbackResponses = (post, options = { compact: true, viewerM
         </div>
       )}
 
-
+      {data.product_evaluations && Object.keys(data.product_evaluations).length > 0 && (
+        <div style={{ marginTop: '8px', padding: '16px', background: 'rgba(var(--primary-rgb), 0.03)', borderRadius: '20px', border: '1.5px solid rgba(var(--primary-rgb), 0.1)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+            <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'var(--primary-color)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' }}>★</div>
+            <span style={{ fontSize: '11px', fontWeight: '900', color: '#1E293B', textTransform: 'uppercase' }}>Product Evaluation</span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {Object.values(data.product_evaluations).map((ev, idx) => (
+              <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '13px', fontWeight: '700', color: '#475569' }}>{ev.label}</span>
+                <div style={{ display: 'flex', gap: '2px', color: '#F59E0B' }}>
+                  {'★'.repeat(ev.value)}{'☆'.repeat(5 - ev.value)}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

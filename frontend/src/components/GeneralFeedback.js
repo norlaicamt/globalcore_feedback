@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { createFeedback, getEntities, getBranches, getEntityFormConfig, createDraft, updateDraft, deleteDraft } from "../services/api";
+import { createFeedback, getEntities, getBranches, getProducts, getEntityFormConfig, createDraft, updateDraft, deleteDraft } from "../services/api";
 import { useTerminology } from "../context/TerminologyContext";
 import CustomModal from "./CustomModal";
 import VoiceRecorder from "./VoiceRecorder";
@@ -21,7 +21,8 @@ const SMART_DEFAULTS = {
   mailing_address: "Home or mailing address",
   number_input: "Reference or Ticket number",
   entity_picker: "Select the service category",
-  location_picker: "Select your branch or location"
+  location_picker: "Select your branch or location",
+  product_picker: "What did you purchase or review?"
 };
 
 const SMART_HELPERS = {
@@ -30,7 +31,8 @@ const SMART_HELPERS = {
   photo_upload: "Images help us understand better",
   voice_record: "Hold the mic to start recording",
   full_name: "We use this for internal verification",
-  email_address: "We will only contact you if necessary"
+  email_address: "We will only contact you if necessary",
+  product_picker: "Search or select from the list below"
 };
 
 const LocalIcons = {
@@ -68,6 +70,7 @@ const LocalIcons = {
   AlertCircle: ({ size = 24 }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>,
   Camera: ({ size = 24 }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" /><circle cx="12" cy="13" r="4" /></svg>,
   Shield: ({ size = 24 }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>,
+  Package: ({ size = 24 }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16.5 9.4L7.5 4.21M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" /><polyline points="3.27 6.96 12 12.01 20.73 6.96" /><line x1="12" y1="22.08" x2="12" y2="12" /></svg>,
 };
 
 const FEEDBACK_TYPES = [
@@ -128,6 +131,11 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
   const [autofillStatus, setAutofillStatus] = useState({}); // { fieldId: 'filled' | 'kept' | 'missing' }
   const [bulkSummary, setBulkSummary] = useState("");
   const [mediaStatus, setMediaStatus] = useState({}); // { fieldId: { status: 'idle'|'validating'|'compressing'|'uploading'|'scanning'|'safe'|'failed', progress: 0, preview: null, error: null } }
+  const [products, setProducts] = useState([]);
+  const [productLoading, setProductLoading] = useState(false);
+  const [productSearch, setProductSearch] = useState("");
+  const [selectedProduct, setSelectedProduct] = useState(draft?.selectedProduct || null);
+  const [productEvaluations, setProductEvaluations] = useState(draft?.productEvaluations || []);
 
   // --- MEDIA GOVERNANCE HELPERS ---
   const generateThumbnail = async (file) => {
@@ -394,6 +402,22 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
     return () => clearTimeout(timer);
   }, [idea, rating, customFields, matrixRatings, selectedEntity, selectedBranch, currentUser, isPreviewMode]);
 
+  // Fetch products when entity/branch changes
+  useEffect(() => {
+    if (selectedEntity) {
+      setProductLoading(true);
+      getProducts(selectedEntity.id, selectedBranch?.id)
+        .then(data => setProducts(data))
+        .catch(err => {
+          console.error("Failed to fetch products:", err);
+          setProducts([]);
+        })
+        .finally(() => setProductLoading(false));
+    } else {
+      setProducts([]);
+    }
+  }, [selectedEntity?.id, selectedBranch?.id]);
+
   // --- PHASE 10: API DEDUPLICATION ---
   const entityFetchRef = React.useRef(false);
   useEffect(() => {
@@ -500,6 +524,7 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
       // 1. Core System Pickers
       if (key === 'entity_picker') return !!selectedEntity;
       if (key === 'location_picker') return !!selectedBranch || (isManualLocation && !!manualLocationText.trim());
+      if (key === 'product_picker') return !!selectedProduct;
       
       // 2. Ratings (Matrix has its own state, others use 'rating')
       if (key === 'rating_matrix') {
@@ -965,7 +990,19 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
          sliderModules.forEach(id => { evalData[id] = rating; });
       }
 
-      const mergedCustomData = { ...customFields, ...evalData, ...matrixRatings, routing_method: selectionMethod };
+      const mergedCustomData = { 
+        ...customFields, 
+        ...evalData, 
+        ...matrixRatings, 
+        product_evaluations: productEvaluations,
+        routing_method: selectionMethod,
+        product_metadata: selectedProduct ? {
+          category: selectedProduct.category,
+          price: selectedProduct.price,
+          image_url: selectedProduct.image_url,
+          evaluation_template_id: selectedProduct.evaluation_template_id
+        } : null
+      };
 
       console.log('[AUDIT:EVALUATION_SUBMIT]', {
         feedback_id: 'pending',
@@ -979,6 +1016,9 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
         feedback_type: feedbackType,
         entity_id: selectedEntity.id,
         branch_id: selectedBranch?.id,
+        product_id: selectedProduct?.id || null,
+        product_name: selectedProduct?.name || null,
+        product_sku: selectedProduct?.sku || null,
         description: idea,
         rating,
         is_anonymous: isAnonymous,
@@ -1139,6 +1179,7 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
     else if (['full_name', 'contact_number', 'email_address', 'mailing_address', 'number_input'].includes(key)) {
       itemValue = customFields[item.id || key];
     }
+    else if (key === 'product_picker') itemValue = selectedProduct;
 
     const renderContent = () => {
       if (key === 'entity_picker') {
@@ -1320,6 +1361,139 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
           </div>
         );
       }
+
+      if (key === "product_picker") {
+        const filteredProducts = products.filter(p => 
+          p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
+          p.category?.toLowerCase().includes(productSearch.toLowerCase()) ||
+          p.sku?.toLowerCase().includes(productSearch.toLowerCase())
+        );
+
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div style={{ position: 'relative' }}>
+              <input
+                style={{
+                  width: '100%', padding: '12px 16px 12px 40px', borderRadius: '14px',
+                  border: '1.5px solid #E2E8F0', background: '#F8FAFC',
+                  fontSize: '14px', outline: 'none', transition: '0.2s'
+                }}
+                placeholder="Search products or categories..."
+                value={productSearch}
+                onChange={(e) => setProductSearch(e.target.value)}
+              />
+              <div style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }}>
+                <LocalIcons.Search />
+              </div>
+            </div>
+
+            {productLoading ? (
+              <div style={{ padding: '20px', textAlign: 'center', color: '#64748B', fontSize: '13px' }}>Loading catalog...</div>
+            ) : filteredProducts.length === 0 ? (
+              <div style={{ padding: '30px 20px', textAlign: 'center', color: '#64748B', background: '#F8FAFC', borderRadius: '16px', border: '1px dashed #E2E8F0' }}>
+                <LocalIcons.Package size={32} style={{ marginBottom: '8px', opacity: 0.5 }} />
+                <p style={{ margin: 0, fontSize: '13px', fontWeight: '600' }}>No products found</p>
+              </div>
+            ) : (
+              <div style={{ 
+                display: 'grid', 
+                gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', 
+                gap: '12px',
+                maxHeight: '400px',
+                overflowY: 'auto',
+                padding: '4px'
+              }}>
+                {filteredProducts.map(p => {
+                  const isSel = selectedProduct?.id === p.id;
+                  return (
+                    <button
+                      key={p.id}
+                      onClick={() => {
+                        setSelectedProduct(p);
+                        setProductEvaluations([]); // Reset evaluations when product changes
+                      }}
+                      style={{
+                        display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
+                        padding: '12px', borderRadius: '16px', border: `2px solid ${isSel ? 'var(--primary-color)' : '#F1F5F9'}`,
+                        background: isSel ? 'rgba(var(--primary-rgb), 0.04)' : '#FFFFFF',
+                        cursor: 'pointer', transition: 'all 0.2s', textAlign: 'left',
+                        boxShadow: isSel ? '0 4px 12px rgba(var(--primary-rgb), 0.1)' : 'none',
+                        position: 'relative'
+                      }}
+                    >
+                      <div style={{ 
+                        width: '100%', aspectRatio: '1', borderRadius: '10px', 
+                        background: '#F8FAFC', marginBottom: '8px', overflow: 'hidden',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center'
+                      }}>
+                        {p.image_url ? (
+                          <img src={p.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        ) : (
+                          <LocalIcons.Package size={24} style={{ color: '#CBD5E1' }} />
+                        )}
+                      </div>
+                      <div style={{ width: '100%' }}>
+                        <div style={{ fontSize: '12px', fontWeight: '800', color: isSel ? 'var(--primary-color)' : '#1E293B', marginBottom: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
+                        <div style={{ fontSize: '10px', fontWeight: '600', color: '#64748B' }}>{p.category || 'Product'}</div>
+                        {p.price && <div style={{ fontSize: '11px', fontWeight: '900', color: 'var(--primary-color)', marginTop: '4px' }}>₱{p.price.toLocaleString()}</div>}
+                      </div>
+                      {isSel && (
+                        <div style={{ position: 'absolute', top: '8px', right: '8px', background: 'var(--primary-color)', color: 'white', borderRadius: '50%', width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', zIndex: 2 }}>
+                          <LocalIcons.Check />
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            
+            {/* DYNAMIC PRODUCT EVALUATION INJECTION (Progressive Reveal) */}
+            <div style={{ 
+              maxHeight: selectedProduct?.evaluation_template ? '800px' : '0px',
+              overflow: 'hidden',
+              transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
+              opacity: selectedProduct?.evaluation_template ? 1 : 0,
+              marginTop: selectedProduct?.evaluation_template ? '12px' : '0px'
+            }}>
+              <div style={{ 
+                padding: '20px', borderRadius: '24px', 
+                background: 'rgba(var(--primary-rgb), 0.03)', border: '1.5px solid rgba(var(--primary-rgb), 0.1)',
+                display: 'flex', flexDirection: 'column', gap: '16px'
+              }}>
+                {selectedProduct?.evaluation_template?.criteria.map(c => (
+                  <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '13px', fontWeight: '800', color: '#475569' }}>{c.label}</span>
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                        {[1, 2, 3, 4, 5].map(s => (
+                          <button 
+                            key={s} 
+                            onClick={() => {
+                              const next = [...(productEvaluations || [])];
+                              const idx = next.findIndex(x => x.id === c.id);
+                              if (idx > -1) next[idx] = { id: c.id, label: c.label, score: s };
+                              else next.push({ id: c.id, label: c.label, score: s });
+                              setProductEvaluations(next);
+                            }}
+                            type="button"
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', transition: '0.2s', transform: (productEvaluations?.find(x => x.id === c.id)?.score || 0) >= s ? 'scale(1.1)' : 'scale(1)' }}
+                          >
+                            <LocalIcons.Star 
+                              size={20} 
+                              filled={(productEvaluations?.find(x => x.id === c.id)?.score || 0) >= s} 
+                              color={(productEvaluations?.find(x => x.id === c.id)?.score || 0) >= s ? '#F59E0B' : '#E2E8F0'} 
+                            />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+          </div>
+        );
+      }
+
       if (key === 'long_text' || key === 'message_input') return (
         <MemoizedTextArea 
           style={styles.textarea} 

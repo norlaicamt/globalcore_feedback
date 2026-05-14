@@ -325,54 +325,54 @@ const AdminPrograms = ({ theme, darkMode, adminUser, onNavigate, initialTab }) =
     // --- RENDER HELPERS ---
     const renderBreadcrumb = () => {
         if (!hasGlobalAdminAccess) return null; // Scoped admins don't need to go back to list
-        
+
         return (
             <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '20px' }}>
-            <button
-                onClick={() => setSelectedProgram(null)}
-                style={{
-                    display: 'flex', alignItems: 'center', gap: '6px', background: theme.bg, color: theme.text,
-                    border: `1.5px solid ${theme.border}`, padding: '6px 12px', borderRadius: '8px',
-                    fontSize: '12px', fontWeight: '700', cursor: 'pointer', transition: 'all 0.2s'
-                }}
-                onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--primary-color)'}
-                onMouseLeave={e => e.currentTarget.style.borderColor = theme.border}
-            >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" /></svg>
-                Back
-            </button>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: '600' }}>
-                <span onClick={() => setSelectedProgram(null)} style={{ color: 'var(--primary-color)', cursor: 'pointer', textDecoration: 'none' }}>
-                    {getLabel('category_label_plural', 'Programs')}
-                </span>
-                <span style={{ color: theme.textMuted }}>/</span>
-                <span style={{ color: theme.text }}>{selectedProgram.name}</span>
-                <span style={{ color: 'var(--primary-color)', fontSize: '10px', fontWeight: '900', background: 'var(--primary-soft)', padding: '2px 8px', borderRadius: '6px', marginLeft: '8px', textTransform: 'uppercase' }}>
-                    {selectedProgram.fields?.operational?.workspace_type ?? "WORKSPACE"}
-                </span>
-                <span style={{ color: theme.textMuted, fontSize: '11px', background: theme.bg, padding: '2px 8px', borderRadius: '12px', marginLeft: '4px' }}>
-                    {hasGlobalAdminAccess ? "FULL ACCESS" : "LOCKED SCOPE"}
-                </span>
+                <button
+                    onClick={() => setSelectedProgram(null)}
+                    style={{
+                        display: 'flex', alignItems: 'center', gap: '6px', background: theme.bg, color: theme.text,
+                        border: `1.5px solid ${theme.border}`, padding: '6px 12px', borderRadius: '8px',
+                        fontSize: '12px', fontWeight: '700', cursor: 'pointer', transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--primary-color)'}
+                    onMouseLeave={e => e.currentTarget.style.borderColor = theme.border}
+                >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" /></svg>
+                    Back
+                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: '600' }}>
+                    <span onClick={() => setSelectedProgram(null)} style={{ color: 'var(--primary-color)', cursor: 'pointer', textDecoration: 'none' }}>
+                        {getLabel('category_label_plural', 'Programs')}
+                    </span>
+                    <span style={{ color: theme.textMuted }}>/</span>
+                    <span style={{ color: theme.text }}>{selectedProgram.name}</span>
+                    <span style={{ color: 'var(--primary-color)', fontSize: '10px', fontWeight: '900', background: 'var(--primary-soft)', padding: '2px 8px', borderRadius: '6px', marginLeft: '8px', textTransform: 'uppercase' }}>
+                        {selectedProgram.fields?.operational?.workspace_type ?? "WORKSPACE"}
+                    </span>
+                    <span style={{ color: theme.textMuted, fontSize: '11px', background: theme.bg, padding: '2px 8px', borderRadius: '12px', marginLeft: '4px' }}>
+                        {hasGlobalAdminAccess ? "FULL ACCESS" : "LOCKED SCOPE"}
+                    </span>
 
-                <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <button
-                        onClick={() => { /* Navigate to feedbacks filtered by this program */ }}
-                        style={{ background: 'none', border: `1px solid ${theme.border}`, color: 'var(--primary-color)', padding: '6px 12px', borderRadius: '8px', fontSize: '11px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
-                    >
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>
-                        VIEW SUBMISSIONS
-                    </button>
-                    {isDirty && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#EAB30815', color: '#EAB308', padding: '6px 16px', borderRadius: '12px', fontSize: '11px', fontWeight: '900', border: '1px solid #EAB30830', animation: 'fadeIn 0.2s ease-out' }}>
-                            <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#EAB308', animation: 'pulse 1.5s infinite' }} />
-                            PENDING SYSTEM UPDATES
-                        </div>
-                    )}
+                    <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <button
+                            onClick={() => { /* Navigate to feedbacks filtered by this program */ }}
+                            style={{ background: 'none', border: `1px solid ${theme.border}`, color: 'var(--primary-color)', padding: '6px 12px', borderRadius: '8px', fontSize: '11px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+                        >
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>
+                            VIEW SUBMISSIONS
+                        </button>
+                        {isDirty && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#EAB30815', color: '#EAB308', padding: '6px 16px', borderRadius: '12px', fontSize: '11px', fontWeight: '900', border: '1px solid #EAB30830', animation: 'fadeIn 0.2s ease-out' }}>
+                                <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#EAB308', animation: 'pulse 1.5s infinite' }} />
+                                PENDING SYSTEM UPDATES
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
-        </div>
-    );
-};
+        );
+    };
 
     const renderProgramList = () => (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }}>

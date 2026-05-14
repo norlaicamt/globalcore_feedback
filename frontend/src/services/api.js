@@ -265,6 +265,15 @@ export const getSystemInfo = async () => {
   return response.data;
 };
 
+/* -------------------- PRODUCTS -------------------- */
+export const getProducts = async (entity_id = null, branch_id = null, only_active = true) => {
+  const params = { only_active };
+  if (entity_id) params.entity_id = entity_id;
+  if (branch_id) params.branch_id = branch_id;
+  const response = await axios.get(`${API_BASE}/products/`, { params });
+  return response.data;
+};
+
 export const createEntity = async (entity) => {
   const response = await axios.post(`${API_BASE}/entities/`, entity);
   return response.data;

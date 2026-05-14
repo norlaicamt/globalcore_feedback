@@ -431,6 +431,136 @@ def delete_branch(db: Session, branch_id: int):
         db.commit()
     return db_branch
 
+# Product operations
+def get_products(db: Session, skip: int = 0, limit: int = 100, entity_id: int = None, branch_id: int = None, only_active: bool = True):
+    query = db.query(models.Product)
+    if entity_id:
+        query = query.filter(models.Product.entity_id == entity_id)
+    if branch_id:
+        query = query.filter(models.Product.branch_id == branch_id)
+    if only_active:
+        query = query.filter(models.Product.is_active == True)
+    return query.offset(skip).limit(limit).all()
+
+def get_product(db: Session, product_id: int):
+    return db.query(models.Product).filter(models.Product.id == product_id).first()
+
+def get_product_evaluation_templates(db: Session):
+    return db.query(models.ProductEvaluationTemplate).all()
+
+def get_product_evaluation_template(db: Session, template_id: int):
+    return db.query(models.ProductEvaluationTemplate).filter(models.ProductEvaluationTemplate.id == template_id).first()
+
+def create_product_evaluation_template(db: Session, template: schemas.ProductEvaluationTemplateCreate):
+    db_template = models.ProductEvaluationTemplate(**template.model_dump())
+    db.add(db_template)
+    db.commit()
+    db.refresh(db_template)
+    return db_template
+
+def update_product_evaluation_template(db: Session, template_id: int, template: schemas.ProductEvaluationTemplateBase):
+    db_template = get_product_evaluation_template(db, template_id)
+    if db_template:
+        for key, value in template.model_dump().items():
+            setattr(db_template, key, value)
+        db.commit()
+        db.refresh(db_template)
+    return db_template
+
+def delete_product_evaluation_template(db: Session, template_id: int):
+    db_template = get_product_evaluation_template(db, template_id)
+    if db_template:
+        db.delete(db_template)
+        db.commit()
+        return True
+    return False
+
+def create_product(db: Session, product: schemas.ProductCreate):
+    db_product = models.Product(**product.model_dump())
+    db.add(db_product)
+    db.commit()
+    db.refresh(db_product)
+    return db_product
+
+def update_product(db: Session, product_id: int, updates: schemas.ProductUpdate):
+    db_product = db.query(models.Product).filter(models.Product.id == product_id).first()
+    if db_product:
+        update_data = updates.model_dump(exclude_unset=True)
+        for key, value in update_data.items():
+            setattr(db_product, key, value)
+        db.commit()
+        db.refresh(db_product)
+    return db_product
+
+def delete_product(db: Session, product_id: int):
+    db_product = db.query(models.Product).filter(models.Product.id == product_id).first()
+    if db_product:
+        db_product.is_active = False
+        db.commit()
+    return db_product
+
+def duplicate_product(db: Session, product_id: int):
+    orig = db.query(models.Product).filter(models.Product.id == product_id).first()
+    if not orig: return None
+    new_p = models.Product(
+        name=f"{orig.name} (Copy)",
+        category=orig.category,
+        sku=f"{orig.sku}-COPY" if orig.sku else None,
+        price=orig.price,
+        image_url=orig.image_url,
+        is_active=orig.is_active,
+        entity_id=orig.entity_id,
+        branch_id=orig.branch_id
+    )
+    db.add(new_p)
+    db.commit()
+    db.refresh(new_p)
+    return new_p
+
+def bulk_import_products(db: Session, products: List[dict]):
+    db_products = [models.Product(**p) for p in products]
+    db.add_all(db_products)
+    db.commit()
+    return len(db_products)
+
+def get_product_analytics(db: Session, product_id: int):
+    base_query = db.query(models.Feedback).filter(models.Feedback.product_id == product_id)
+    total = base_query.count()
+    if total == 0:
+        return {
+            "total_reviews": 0, "average_rating": 0, "photo_count": 0, "voice_count": 0,
+            "sentiment": {"positive": 0, "neutral": 0, "negative": 0},
+            "trend": []
+        }
+    
+    avg_rating = db.query(func.avg(models.Feedback.rating)).filter(models.Feedback.product_id == product_id).scalar() or 0
+    pos = base_query.filter(models.Feedback.rating >= 4).count()
+    neu = base_query.filter(models.Feedback.rating == 3).count()
+    neg = base_query.filter(models.Feedback.rating <= 2).count()
+    
+    # Media counts (using JSONB checks)
+    photo_count = base_query.filter(models.Feedback.custom_data.has_key('photo_upload')).count()
+    voice_count = base_query.filter(models.Feedback.custom_data.has_key('voice_record')).count()
+    
+    # Trend (Last 30 days)
+    trend_data = db.query(
+        func.cast(models.Feedback.created_at, Date).label('date'),
+        func.count(models.Feedback.id).label('count')
+    ).filter(models.Feedback.product_id == product_id).group_by('date').order_by('date').all()
+    
+    return {
+        "total_reviews": total,
+        "average_rating": round(float(avg_rating), 1),
+        "photo_count": photo_count,
+        "voice_count": voice_count,
+        "sentiment": {
+            "positive": round((pos / total) * 100),
+            "neutral": round((neu / total) * 100),
+            "negative": round((neg / total) * 100)
+        },
+        "trend": [{"date": str(t.date), "count": t.count} for t in trend_data]
+    }
+
 # Organization operations
 def get_organizations(db: Session, skip: int = 0, limit: int = 100):
     return db.query(models.Organization).offset(skip).limit(limit).all()
@@ -454,7 +584,12 @@ def get_feedbacks(
     current_user_id: int = None,
     only_approved: bool = True,
     status: str = None,
-    entity_id: int = None
+    entity_id: int = None,
+    product_id: int = None,
+    has_photo: bool = False,
+    has_voice: bool = False,
+    has_mentions: bool = False,
+    search: str = None
 ):
     print(f"DEBUG: get_feedbacks called. skip={skip}, limit={limit}")
     """Unified and optimized feedback retrieval with counts and relations."""
@@ -533,6 +668,25 @@ def get_feedbacks(
 
     if entity_id:
         query = query.filter(models.Feedback.entity_id == entity_id)
+
+    if product_id:
+        query = query.filter(models.Feedback.product_id == product_id)
+
+    if has_photo:
+        query = query.filter(models.Feedback.custom_data.has_key('photo_upload'))
+
+    if has_voice:
+        query = query.filter(models.Feedback.custom_data.has_key('voice_record'))
+
+    if has_mentions:
+        query = query.filter(models.Feedback.mentions.any())
+
+    if search:
+        query = query.filter(
+            (models.Feedback.description.ilike(f"%{search}%")) |
+            (models.Feedback.product_name.ilike(f"%{search}%")) |
+            (models.Feedback.title.ilike(f"%{search}%"))
+        )
 
     if status:
         try:

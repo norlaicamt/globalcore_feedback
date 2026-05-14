@@ -249,6 +249,52 @@ class Branch(BranchBase):
     updated_at: datetime
     model_config = ConfigDict(from_attributes=True)
 
+# --- PRODUCT EVALUATION TEMPLATE SCHEMAS ---
+class ProductEvaluationTemplateBase(BaseModel):
+    name: str
+    criteria: List[dict] # [{"id": "taste", "label": "Taste"}]
+
+class ProductEvaluationTemplateCreate(ProductEvaluationTemplateBase):
+    pass
+
+class ProductEvaluationTemplate(ProductEvaluationTemplateBase):
+    id: int
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+# --- PRODUCT SCHEMAS ---
+class ProductBase(BaseModel):
+    name: str
+    category: Optional[str] = None
+    evaluation_template_id: Optional[int] = None
+    sku: Optional[str] = None
+    price: Optional[float] = None
+    image_url: Optional[str] = None
+    is_active: bool = True
+    entity_id: int
+    branch_id: Optional[int] = None
+
+class ProductCreate(ProductBase):
+    pass
+
+class ProductUpdate(BaseModel):
+    name: Optional[str] = None
+    category: Optional[str] = None
+    evaluation_template_id: Optional[int] = None
+    sku: Optional[str] = None
+    price: Optional[float] = None
+    image_url: Optional[str] = None
+    is_active: Optional[bool] = None
+    entity_id: Optional[int] = None
+    branch_id: Optional[int] = None
+
+class Product(ProductBase):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+    evaluation_template: Optional[ProductEvaluationTemplate] = None
+    model_config = ConfigDict(from_attributes=True)
+
 # --- REPLY SCHEMAS ---
 class ReplyBase(BaseModel):
     message: str
@@ -332,7 +378,9 @@ class FeedbackBase(BaseModel):
     city: Optional[str] = None
     barangay: Optional[str] = None
     employee_name: Optional[str] = None
+    product_id: Optional[int] = None
     product_name: Optional[str] = None
+    product_sku: Optional[str] = None
     attachments: Optional[str] = None
     media: Optional[list] = None
     custom_data: Optional[dict] = None # Stores key-value pairs of dynamic fields
@@ -366,7 +414,9 @@ class Feedback(FeedbackBase):
     city: Optional[str] = None
     barangay: Optional[str] = None
     employee_name: Optional[str] = None
+    product_id: Optional[int] = None
     product_name: Optional[str] = None
+    product_sku: Optional[str] = None
     attachments: Optional[str] = None
     media: Optional[list] = None
     custom_data: Optional[dict] = None

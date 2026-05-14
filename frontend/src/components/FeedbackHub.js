@@ -1600,6 +1600,8 @@ const DashboardView = React.memo(({ feed, loading, hasMore, onLoadMore, onAction
   const { getLabel, getModeLabel, systemMode, systemName } = useTerminology();
   const [activeTab, setActiveTab] = useState('All');
   const [activeStarFilter, setActiveStarFilter] = useState('All');
+  const [feedFilter, setFeedFilter] = useState('All');
+  const [searchQuery, setSearchQuery] = useState('');
   const [selectedDept, setSelectedDept] = useState("");
 
   const getTabIcon = (cat) => {
@@ -1660,26 +1662,33 @@ const DashboardView = React.memo(({ feed, loading, hasMore, onLoadMore, onAction
   };
 
   const filteredFeed = feed.filter(item => {
-    // Tab Filter
+    // Entity Tab Filter
     const entName = (item.entity_name || "").toLowerCase();
-    const deptName = (item.recipient_dept_name || "").toLowerCase();
     const activeLower = activeTab.toLowerCase();
-
-    let matchesTab = false;
-    if (activeTab === 'All') matchesTab = true;
-    else if (entName === activeLower) matchesTab = true;
-    else if (activeLower === 'dept' && (entName.includes('dept') || entName.includes('department') || deptName)) matchesTab = true;
-
+    let matchesTab = (activeTab === 'All' || entName === activeLower);
     if (!matchesTab) return false;
 
-    if (selectedDept) {
-      const itemEntityId = item.entity_id;
-      if (String(itemEntityId) !== String(selectedDept)) return false;
-    }
+    // Advanced Type Filter
+    if (feedFilter === 'Products' && !item.product_id) return false;
+    if (feedFilter === 'Staff' && !(item.employee_name || (item.mentions && item.mentions.length > 0))) return false;
+    if (feedFilter === 'Media' && !item.custom_data?.photo_upload) return false;
+    if (feedFilter === 'Voice' && !item.custom_data?.voice_record) return false;
 
+    // Star Filter
     if (activeStarFilter !== 'All') {
       const postRating = getPostRating(item);
       if (postRating !== parseInt(activeStarFilter)) return false;
+    }
+
+    // Search Query
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      const matchesSearch =
+        (item.title || "").toLowerCase().includes(q) ||
+        (item.description || "").toLowerCase().includes(q) ||
+        (item.product_name || "").toLowerCase().includes(q) ||
+        (item.user_name || item.sender_name || "").toLowerCase().includes(q);
+      if (!matchesSearch) return false;
     }
 
     return true;
@@ -1741,6 +1750,65 @@ const DashboardView = React.memo(({ feed, loading, hasMore, onLoadMore, onAction
                 <span>{tab.label}</span>
               </button>
             ))}
+          </div>
+
+          {/* ADVANCED FILTERS & SEARCH */}
+          <div style={{ padding: '0 12px 12px 12px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+              <div style={{ position: 'absolute', left: '12px', color: '#94A3B8' }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
+              </div>
+              <input
+                type="text"
+                placeholder="Search products, keywords, or people..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '10px 12px 10px 38px',
+                  borderRadius: '12px',
+                  border: '1px solid #E2E8F0',
+                  fontSize: '13px',
+                  backgroundColor: '#FFFFFF',
+                  outline: 'none',
+                  transition: 'all 0.2s'
+                }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }} className="no-scrollbar">
+              {[
+                { id: 'All', label: 'All Feed', icon: '🌍' },
+                { id: 'Products', label: 'Products', icon: '🛍️' },
+                { id: 'Staff', label: 'Staff', icon: '👔' },
+                { id: 'Media', label: 'Photos', icon: '📸' },
+                { id: 'Voice', label: 'Voice', icon: '🎙️' },
+              ].map(f => (
+                <button
+                  key={f.id}
+                  onClick={() => setFeedFilter(f.id)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '6px 12px',
+                    borderRadius: '20px',
+                    border: '1px solid',
+                    borderColor: feedFilter === f.id ? 'var(--primary-color)' : '#E2E8F0',
+                    backgroundColor: feedFilter === f.id ? '#EFF6FF' : '#FFFFFF',
+                    color: feedFilter === f.id ? 'var(--primary-color)' : '#64748B',
+                    fontSize: '11px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  <span>{f.icon}</span>
+                  <span>{f.label}</span>
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* STAR FILTER */}

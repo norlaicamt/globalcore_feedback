@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime, Boolean, Enum, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime, Boolean, Enum, UniqueConstraint, Float
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
@@ -179,6 +179,7 @@ class Entity(Base):
     departments = relationship("Department", back_populates="entity", cascade="all, delete-orphan")
     feedbacks = relationship("Feedback", back_populates="entity")
     branches = relationship("Branch", back_populates="entity", cascade="all, delete-orphan")
+    products = relationship("Product", back_populates="entity", cascade="all, delete-orphan")
 
 class Branch(Base):
     __tablename__ = "branches"
@@ -195,6 +196,34 @@ class Branch(Base):
     
     entity = relationship("Entity", back_populates="branches")
     feedbacks = relationship("Feedback", back_populates="branch")
+    products = relationship("Product", back_populates="branch")
+
+class ProductEvaluationTemplate(Base):
+    __tablename__ = "product_evaluation_templates"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, index=True)
+    criteria = Column(JSONB, nullable=False) # List of dicts: [{"id": "taste", "label": "Taste"}]
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+class Product(Base):
+    __tablename__ = "products"
+    id = Column(Integer, primary_key=True, index=True)
+    entity_id = Column(Integer, ForeignKey("entities.id"), index=True)
+    branch_id = Column(Integer, ForeignKey("branches.id"), nullable=True, index=True)
+    name = Column(String, index=True)
+    category = Column(String, nullable=True, index=True)
+    evaluation_template_id = Column(Integer, ForeignKey("product_evaluation_templates.id"), nullable=True)
+    sku = Column(String, nullable=True, index=True)
+    price = Column(Float, nullable=True)
+    image_url = Column(Text, nullable=True)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    entity = relationship("Entity", back_populates="products")
+    branch = relationship("Branch", back_populates="products")
+    evaluation_template = relationship("ProductEvaluationTemplate")
+    feedbacks = relationship("Feedback", back_populates="product")
 
 class Feedback(Base):
     __tablename__ = "feedbacks"
@@ -214,7 +243,9 @@ class Feedback(Base):
     city = Column(String, nullable=True)
     barangay = Column(String, nullable=True)
     employee_name = Column(String, nullable=True)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=True)
     product_name = Column(String, nullable=True)
+    product_sku = Column(String, nullable=True)
     attachments = Column(Text, nullable=True) # JSON-encoded list of Base64 strings or URLs
     custom_data = Column(JSONB, nullable=True) # stores dict of field values
     
@@ -243,6 +274,7 @@ class Feedback(Base):
     recipient_user = relationship("User", foreign_keys=[recipient_user_id])
     recipient_dept = relationship("Department")
     closed_by = relationship("User", foreign_keys=[closed_by_id])
+    product = relationship("Product", back_populates="feedbacks")
     replies = relationship("Reply", back_populates="feedback", cascade="all, delete-orphan")
     reactions = relationship("Reaction", back_populates="feedback", cascade="all, delete-orphan")
     mentions = relationship("FeedbackMention", back_populates="feedback", cascade="all, delete-orphan")
