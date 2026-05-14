@@ -250,7 +250,7 @@ const VoiceRecorder = ({ onComplete, onDelete, initialValue, primaryColor = '#3B
                 });
             }
 
-            const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+            const API_BASE = process.env.REACT_APP_API_URL || `http://${window.location.hostname}:8000`;
             const formData = new FormData();
             formData.append('file', blob, filename);
             

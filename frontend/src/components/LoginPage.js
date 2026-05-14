@@ -59,7 +59,7 @@ const LoginPage = ({ onLoginSuccess }) => {
           email, 
           password 
         };
-        await axios.post(`${process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000'}/users/`, newUser);
+        await axios.post(`${process.env.REACT_APP_API_URL || `http://${window.location.hostname}:8000`}/users/`, newUser);
         setDialog({
           isOpen: true,
           type: "alert",

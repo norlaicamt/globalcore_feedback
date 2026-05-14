@@ -615,6 +615,12 @@ def get_feedbacks(
                     except Exception as e:
                         print(f"[AUDIT:STATIC_ROUTE] url={test_url} status_code=ERROR error={str(e)}")
 
+        # [AUDIT:MATRIX_FEED]
+        if fb.custom_data:
+            matrix_keys = [k for k in fb.custom_data.keys() if isinstance(fb.custom_data[k], dict) and not any(subkey in ['url', 'preview', 'name'] for subkey in fb.custom_data[k].keys())]
+            if matrix_keys:
+                print(f"[AUDIT:MATRIX_FEED] feedback_id={fb.id} matrix_keys={matrix_keys} data={ {k: fb.custom_data[k] for k in matrix_keys} }")
+
         results.append(fb)
 
     return results
@@ -788,6 +794,12 @@ def create_feedback(db: Session, feedback: schemas.FeedbackCreate):
     db.commit()
     db.refresh(db_feedback)
     
+    # [AUDIT:MATRIX_DB]
+    if db_feedback.custom_data:
+        matrix_data = {k: v for k, v in db_feedback.custom_data.items() if isinstance(v, dict) and not any(subkey in ['url', 'preview', 'name'] for subkey in v.keys())}
+        if matrix_data:
+            print(f"[AUDIT:MATRIX_DB] feedback_id={db_feedback.id} matrix_persisted={matrix_data}")
+
     # Notify Entity Admins about New Feedback
     entity_admins = db.query(models.User).filter(
         models.User.entity_id == db_feedback.entity_id,

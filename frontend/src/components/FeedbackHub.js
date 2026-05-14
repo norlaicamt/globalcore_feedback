@@ -222,11 +222,6 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
                     {entity.name} Draft • {getRelativeTime(latest.timestamp)}
                   </p>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
-                    {latest.rating > 0 && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '700', color: '#1E293B' }}>
-                        <Icons.Star filled size={14} /> {latest.rating}/5
-                      </div>
-                    )}
                     {photoCount > 0 && (
                       <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '700', color: '#1E293B' }}>
                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
@@ -415,7 +410,7 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
     fetchNotifications();
     fetchFeed(0);
 
-    const sseUrl = `${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/notifications/stream/${localUser.id}`;
+    const sseUrl = `${process.env.REACT_APP_API_URL || `http://${window.location.hostname}:8000`}/api/notifications/stream/${localUser.id}`;
     const eventSource = new EventSource(sseUrl);
 
     eventSource.onmessage = (event) => {
@@ -489,7 +484,7 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
       const userObj = saved ? JSON.parse(saved) : null;
       const token = userObj?.token;
       if (token) {
-        await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/logout`, {
+        await fetch(`${process.env.REACT_APP_API_URL || `http://${window.location.hostname}:8000`}/api/logout`, {
           method: "POST",
           headers: { "Authorization": `Bearer ${token}` }
         });
@@ -665,7 +660,7 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
               let post = feed.find(f => f.id === feedbackId);
               if (!post) {
                 try {
-                  const res = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/feedbacks/${feedbackId}`);
+                  const res = await fetch(`${process.env.REACT_APP_API_URL || `http://${window.location.hostname}:8000`}/feedbacks/${feedbackId}`);
                   if (res.ok) post = await res.json();
                 } catch (e) { console.error(e); }
               }
@@ -703,7 +698,7 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
               let post = feed.find(f => f.id === n.feedback_id);
               if (!post) {
                 try {
-                  const res = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/feedbacks/${n.feedback_id}`);
+                  const res = await fetch(`${process.env.REACT_APP_API_URL || `http://${window.location.hostname}:8000`}/feedbacks/${n.feedback_id}`);
                   if (res.ok) post = await res.json();
                 } catch (e) { console.error(e); }
               }
@@ -1166,12 +1161,6 @@ const CommentModal = ({ item, currentUser, onClose, onShowToast, onRefreshProfil
                 </div>
                 <div style={{ fontSize: 'var(--size-chip, 9px)', color: '#94A3B8', marginTop: '2px' }}>{formatDate(itemMeta.created_at)}</div>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
-                <div style={{ ...styles.ratingBadge, backgroundColor: '#FFF7ED', color: '#C2410C', padding: '2px 8px' }}>
-                  <Icons.Star filled={true} size={10} />
-                  <span>{itemMeta.rating || 0}/5</span>
-                </div>
-              </div>
             </div>
 
             {/* LOCATION CHIP */}
@@ -1524,13 +1513,6 @@ const FeedCard = React.memo(({ item: initialItem, currentUser, onShowToast, onOp
         </div>
       </div>
 
-      {/* RATING ROW */}
-      <div style={styles.cardRatingRow}>
-        {[1, 2, 3, 4, 5].map(s => (
-          <Icons.Star key={s} filled={s <= (item.rating || 0)} size={12} />
-        ))}
-        <span style={{ fontSize: '11px', color: '#64748B', marginLeft: '4px' }}>{item.rating || 0}/5</span>
-      </div>
 
       {/* DETAIL METADATA — product/staff only (address shown in header) */}
       <div style={styles.metaGrid}>
@@ -1615,6 +1597,7 @@ const DashboardView = React.memo(({ feed, loading, hasMore, onLoadMore, onAction
   // eslint-disable-next-line no-unused-vars
   const { getLabel, getModeLabel, systemMode, systemName } = useTerminology();
   const [activeTab, setActiveTab] = useState('All');
+  const [activeStarFilter, setActiveStarFilter] = useState('All');
   const [selectedDept, setSelectedDept] = useState("");
 
   const getTabIcon = (cat) => {
@@ -1653,6 +1636,27 @@ const DashboardView = React.memo(({ feed, loading, hasMore, onLoadMore, onAction
     }))
   ];
 
+  const getPostRating = (item) => {
+    try {
+      const data = typeof item.custom_data === 'string' ? JSON.parse(item.custom_data || '{}') : (item.custom_data || {});
+      const steps = item.entity?.fields?.steps || item.entity?.form_config?.steps || [];
+      const schema = steps.flatMap(s => s.items || []);
+      let rating = null;
+      for (const schemaItem of schema) {
+        if (schemaItem.key === 'star_rating' || schemaItem.type === 'star_rating') {
+          const val = data[schemaItem.id] !== undefined ? data[schemaItem.id] : data[schemaItem.key];
+          if (val !== undefined && val !== null && val !== '') {
+            rating = val;
+          }
+        }
+      }
+      if (!rating && item.rating) rating = item.rating;
+      return parseInt(rating) || 0;
+    } catch (e) {
+      return parseInt(item.rating) || 0;
+    }
+  };
+
   const filteredFeed = feed.filter(item => {
     // Tab Filter
     const entName = (item.entity_name || "").toLowerCase();
@@ -1669,6 +1673,11 @@ const DashboardView = React.memo(({ feed, loading, hasMore, onLoadMore, onAction
     if (selectedDept) {
       const itemEntityId = item.entity_id;
       if (String(itemEntityId) !== String(selectedDept)) return false;
+    }
+
+    if (activeStarFilter !== 'All') {
+      const postRating = getPostRating(item);
+      if (postRating !== parseInt(activeStarFilter)) return false;
     }
 
     return true;
@@ -1732,10 +1741,46 @@ const DashboardView = React.memo(({ feed, loading, hasMore, onLoadMore, onAction
             ))}
           </div>
 
-
-
-          {/* PREMIUM TRENDING WIDGET */}
-          <style>{`
+          {/* STAR FILTER */}
+          <div
+            ref={el => {
+              if (!el) return;
+              let isDown = false, startX = 0, scrollLeft = 0;
+              el.onmousedown = (e) => { isDown = true; el.style.cursor = 'grabbing'; startX = e.pageX - el.offsetLeft; scrollLeft = el.scrollLeft; };
+              el.onmouseleave = () => { isDown = false; el.style.cursor = 'grab'; };
+              el.onmouseup = () => { isDown = false; el.style.cursor = 'grab'; };
+              el.onmousemove = (e) => { if (!isDown) return; e.preventDefault(); const x = e.pageX - el.offsetLeft; el.scrollLeft = scrollLeft - (x - startX) * 1.5; };
+            }}
+            style={{ ...styles.feedTabsRow, flexShrink: 0, padding: '0px 8px 12px 8px' }}
+          >
+            {[
+              { id: '5', label: '★★★★★ 5' },
+              { id: '4', label: '★★★★☆ 4' },
+              { id: '3', label: '★★★☆☆ 3' },
+              { id: '2', label: '★★☆☆☆ 2' },
+              { id: '1', label: '★☆☆☆☆ 1' },
+            ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveStarFilter(prev => prev === tab.id ? 'All' : tab.id)}
+                style={{
+                  ...styles.feedTabBtn,
+                  backgroundColor: activeStarFilter === tab.id ? '#FEF3C7' : '#FFFFFF',
+                  color: activeStarFilter === tab.id ? '#D97706' : '#64748B',
+                  fontWeight: activeStarFilter === tab.id ? '700' : '600',
+                  border: activeStarFilter === tab.id ? '1px solid #FCD34D' : '1px solid #E2E8F0',
+                  padding: '6px 12px',
+                  fontSize: '11px',
+                  boxShadow: 'none'
+                }}
+              >
+                <span>{tab.label}</span>
+              </button>
+            ))}
+          </div>          {/* PREMIUM TRENDING WIDGET */}
+          {activeTab === 'All' && (
+            <>
+              <style>{`
             .horizontal-scroll::-webkit-scrollbar {
               height: 4px;
             }
@@ -1879,6 +1924,8 @@ const DashboardView = React.memo(({ feed, loading, hasMore, onLoadMore, onAction
               )}
             </div>
           </section>
+          </>
+          )}
 
           <section style={{ padding: '0 8px', marginBottom: '16px' }}>
             <div style={{ borderTop: '1px solid #F1F5F9', marginBottom: '16px' }} />

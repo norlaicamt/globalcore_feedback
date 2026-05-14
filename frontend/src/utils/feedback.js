@@ -17,15 +17,12 @@ export const SUPPORTED_RENDER_TYPES = [
   'entity_picker', 'location_picker',
 ];
 
-export const getEmotion = (rating) => {
-  const map = {
-    5: { emoji: '😊', label: 'Satisfied' },
-    4: { emoji: '🙂', label: 'Good' },
-    3: { emoji: '😐', label: 'Neutral' },
-    2: { emoji: '😕', label: 'Dissatisfied' },
-    1: { emoji: '😠', label: 'Frustrated' },
-  };
-  return map[rating] || null;
+export const EmotionSvg = {
+  ecstatic: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#EAB308" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M8 14s1.5 2 4 2 4-2 4-2" /><line x1="9" y1="9" x2="9.01" y2="9" /><line x1="15" y1="9" x2="15.01" y2="9" /></svg>,
+  happy: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#22C55E" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M8 14s1.5 2 4 2 4-2 4-2" /><line x1="9" y1="9" x2="9.01" y2="9" /><line x1="15" y1="9" x2="15.01" y2="9" /></svg>,
+  neutral: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="8" y1="15" x2="16" y2="15" /><line x1="9" y1="9" x2="9.01" y2="9" /><line x1="15" y1="9" x2="15.01" y2="9" /></svg>,
+  disappointed: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#F97316" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M16 16s-1.5-2-4-2-4 2-4 2" /><line x1="9" y1="9" x2="9.01" y2="9" /><line x1="15" y1="9" x2="15.01" y2="9" /></svg>,
+  frustrated: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M16 16s-1.5-2-4-2-4 2-4 2" /><path d="M7 8l2 2" /><path d="M17 8l-2 2" /></svg>
 };
 
 export const formatLocation = (post) => {
@@ -65,52 +62,139 @@ export const getDisplayName = (post, currentUser) => {
 const truncate = (text, max) => (!text || text.length <= max ? text : text.substring(0, max) + '…');
 
 export const renderFeedbackAction = (post, currentUser) => {
+  console.log('LIVE_HEADER_RENDER', post.id);
+
+  console.log('[HEADER_TRUTH]', {
+    feedback_id: post.id,
+    custom_data: post.custom_data,
+    schema_steps: post?.entity?.fields?.steps,
+    schema_item_ids: post?.entity?.fields?.steps?.flatMap(s => (s.items || []).map(i => ({
+      id: i.id,
+      key: i.key,
+      type: i.type
+    }))),
+  });
+
   const name = getDisplayName(post, currentUser);
-  const data = typeof post.custom_data === 'string' ? JSON.parse(post.custom_data || '{}') : (post.custom_data || {});
-  const formSteps = post.entity?.fields?.steps || post.entity?.form_config?.steps || [];
-  const schema = formSteps.flatMap(s => s.items || []);
-  
-  const EVALUATION_KEYS = ['star_rating', 'rating_matrix'];
-  const hasEvaluationModule = schema.some(i => EVALUATION_KEYS.includes(i.key));
+  const values = typeof post.custom_data === 'string' ? JSON.parse(post.custom_data || '{}') : (post.custom_data || {});
+  const modules = post.entity?.fields?.steps || post.entity?.form_config?.steps || [];
 
-  // If no evaluation module in schema, we don't show any "feeling X" status
-  let emotion = null;
-  if (hasEvaluationModule) {
-    if (post.rating > 0 && schema.some(i => i.key === 'star_rating')) {
-      emotion = getEmotion(post.rating);
-    }
-  }
-
-  const entityLabel = post.entity_name || 'Program';
   const s = {
     name: { fontWeight: '800', color: '#0F172A' },
-    conn: { color: '#64748B', fontWeight: '400' },
-    sent: { color: '#1E293B', fontWeight: '600', cursor: 'help' },
-    ent: { fontWeight: '700', color: '#334155' },
+    conn: { color: '#64748B', fontWeight: '500' },
+    sent: { color: '#1E293B', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '4px' },
+    ent: { fontWeight: '700', color: '#334155' }
   };
-  if (emotion) {
-    return (
-      <span style={{ lineHeight: '1.4' }}>
-        <span style={s.name}>{name}</span>
-        <span style={s.conn}> feeling </span>
-        <span style={s.sent}>{emotion.emoji} {emotion.label}</span>
-        <span style={s.conn}> at </span>
-        <span style={s.ent}>{truncate(entityLabel, 35)}</span>
-      </span>
-    );
-  }
-  return (
-    <span style={{ lineHeight: '1.4' }}>
+
+  const entityLabel = post.entity?.name || 'General Feedback';
+  const baseHeader = (
+    <span style={{ lineHeight: '1.4', display: 'inline-flex', flexWrap: 'wrap', alignItems: 'center', gap: '3px' }}>
       <span style={s.name}>{name}</span>
       <span style={s.conn}> shared feedback at </span>
       <span style={s.ent}>{truncate(entityLabel, 35)}</span>
     </span>
   );
+
+  let emotion = null;
+  let emotionLabel = null;
+  let emotion_source = null;
+  let raw_value = null;
+  let modules_found = 0;
+
+  for (const step of modules) {
+    for (const item of step.items || []) {
+      modules_found++;
+      if (emotion) continue; // Priority already met
+
+      let value = values[String(item.id)] !== undefined ? values[String(item.id)] : values[String(item.key)];
+      const key = item.type || item.key;
+
+      if ((value === undefined || value === null || value === '') && key === 'star_rating') {
+        value = post.rating;
+      }
+
+      if (value === undefined || value === null || value === '') continue;
+
+      if (key === 'emoji_rating') {
+        emotion_source = 'emoji_rating';
+        raw_value = value;
+        const v = String(value).toLowerCase();
+        if (v.includes('very satisf') || v.includes('ecstatic') || v.includes('love')) { emotion = EmotionSvg.ecstatic; emotionLabel = value; }
+        else if (v.includes('satisf') || v.includes('happy') || v.includes('good')) { emotion = EmotionSvg.happy; emotionLabel = value; }
+        else if (v.includes('neutral') || v.includes('ok')) { emotion = EmotionSvg.neutral; emotionLabel = value; }
+        else if (v.includes('very diss') || v.includes('frustrat') || v.includes('angry')) { emotion = EmotionSvg.frustrated; emotionLabel = value; }
+        else if (v.includes('diss') || v.includes('bad') || v.includes('poor')) { emotion = EmotionSvg.disappointed; emotionLabel = value; }
+        else { emotion = EmotionSvg.neutral; emotionLabel = value; }
+      } else if (key === 'star_rating') {
+        emotion_source = 'star_rating';
+        raw_value = value;
+        const r = parseInt(value) || 0;
+        if (r === 5) { emotion = EmotionSvg.ecstatic; emotionLabel = 'Ecstatic'; }
+        else if (r === 4) { emotion = EmotionSvg.happy; emotionLabel = 'Happy'; }
+        else if (r === 3) { emotion = EmotionSvg.neutral; emotionLabel = 'Neutral'; }
+        else if (r === 2) { emotion = EmotionSvg.disappointed; emotionLabel = 'Disappointed'; }
+        else if (r === 1) { emotion = EmotionSvg.frustrated; emotionLabel = 'Frustrated'; }
+        else if (r === 0) { emotion = EmotionSvg.neutral; emotionLabel = 'Neutral'; }
+      } else if (key === 'slider_scale') {
+        emotion_source = 'slider_scale';
+        raw_value = value;
+        const r = parseFloat(value);
+        if (!isNaN(r)) {
+          if (r >= 9) { emotion = EmotionSvg.ecstatic; emotionLabel = 'Ecstatic'; }
+          else if (r >= 7) { emotion = EmotionSvg.happy; emotionLabel = 'Happy'; }
+          else if (r >= 5) { emotion = EmotionSvg.neutral; emotionLabel = 'Neutral'; }
+          else if (r >= 3) { emotion = EmotionSvg.disappointed; emotionLabel = 'Disappointed'; }
+          else { emotion = EmotionSvg.frustrated; emotionLabel = 'Frustrated'; }
+        }
+      }
+    }
+  }
+
+  // Final fallback for older posts or forms without a schema
+  if (!emotion && post.rating) {
+    const r = parseInt(post.rating) || 0;
+    if (r === 5) { emotion = EmotionSvg.ecstatic; emotionLabel = 'Ecstatic'; emotion_source = 'legacy_post_rating'; }
+    else if (r === 4) { emotion = EmotionSvg.happy; emotionLabel = 'Happy'; emotion_source = 'legacy_post_rating'; }
+    else if (r === 3) { emotion = EmotionSvg.neutral; emotionLabel = 'Neutral'; emotion_source = 'legacy_post_rating'; }
+    else if (r === 2) { emotion = EmotionSvg.disappointed; emotionLabel = 'Disappointed'; emotion_source = 'legacy_post_rating'; }
+    else if (r === 1) { emotion = EmotionSvg.frustrated; emotionLabel = 'Frustrated'; emotion_source = 'legacy_post_rating'; }
+    else if (r === 0) { emotion = EmotionSvg.neutral; emotionLabel = 'Neutral'; emotion_source = 'legacy_post_rating'; }
+  }
+
+  console.log('[AUDIT:SOCIAL_HEADER]', {
+    feedback_id: post.id,
+    modules_found,
+    emotion_source,
+    raw_value,
+    resolved_emotion: emotionLabel ? emotionLabel.toLowerCase() : null,
+  });
+
+  if (emotion && emotionLabel) {
+    return (
+      <span style={{ lineHeight: '1.4', display: 'inline-flex', flexWrap: 'wrap', alignItems: 'center', gap: '3px' }}>
+        <span style={s.name}>{name}</span>
+        <span style={s.conn}> feeling </span>
+        <span style={s.sent}>{emotion} {emotionLabel}</span>
+        <span style={s.conn}> at </span>
+        <span style={s.ent}>{truncate(entityLabel, 35)}</span>
+      </span>
+    );
+  }
+
+  const schema_items = modules.flatMap(s => s.items || []).map(i => i.id || i.key);
+  const custom_keys = Object.keys(values);
+  const missing_module_ids = schema_items.filter(id => !custom_keys.includes(id));
+
+  console.log('[AUDIT:SOCIAL_HEADER_MISS]', {
+    schema_items,
+    custom_keys,
+    missing_module_ids,
+  });
+
+  return baseHeader;
 };
 
 // ─── Component: AuditImage ───────────────────────────────────────────────────
-
-
 
 export const AuditImage = ({ src, alt, style, images = [], index = 0, feedback_id = 'unknown', viewer_mode = 'public', lightboxSrc = null }) => {
   const [imgStatus, setImgStatus] = useState('loading');
@@ -120,51 +204,11 @@ export const AuditImage = ({ src, alt, style, images = [], index = 0, feedback_i
   useEffect(() => {
     let url = src;
     if (typeof url === 'string' && url.startsWith('/uploads')) {
-      const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+      const API_BASE = process.env.REACT_APP_API_URL || `http://${window.location.hostname}:8000`;
       url = `${API_BASE}${url}`;
     }
     setResolvedSrc(url);
-
-    const testImage = async () => {
-      const isDev = process.env.NODE_ENV === 'development';
-      try {
-        if (isDev) console.log(`[AUDIT:MEDIA_URL] Frontend Renderer - raw_url: ${src}, resolved_url: ${url}`);
-        const startTime = Date.now();
-        const response = await fetch(url, { method: 'HEAD' });
-        const endTime = Date.now();
-        if (isDev) console.log(`[AUDIT:IMAGE_FETCH] URL: ${url}, status: ${response.status}, content-type: ${response.headers.get('content-type')}`);
-        
-        if (response.ok) {
-          setImgStatus('loaded');
-          if (isDev) {
-            console.log(`[AUDIT:BATCH_RENDER] status=SUCCESS url=${url} feedback_id=${feedback_id} index=${index}`);
-          } else {
-            console.info(`[PROD:MEDIA_RENDER] status=SUCCESS duration=${endTime - startTime}ms feedback_id=${feedback_id} index=${index}`);
-          }
-        } else {
-          setImgStatus('error');
-          if (isDev) {
-            console.log(`[AUDIT:BATCH_RENDER] status=FAILED url=${url} feedback_id=${feedback_id} index=${index} error_code=${response.status}`);
-          } else {
-            console.warn(`[PROD:MEDIA_FAILURE] feedback_id=${feedback_id} url=${url} status=${response.status} viewer_mode=${viewer_mode}`);
-          }
-        }
-      } catch (error) {
-        if (isDev) {
-          console.error(`[AUDIT:IMAGE_FETCH] URL: ${url}, error:`, error);
-          console.log(`[AUDIT:BATCH_RENDER] status=FAILED url=${url} feedback_id=${feedback_id} index=${index} error_msg=${error.message}`);
-        } else {
-          console.warn(`[PROD:MEDIA_FAILURE] feedback_id=${feedback_id} url=${url} status=NETWORK_ERROR viewer_mode=${viewer_mode}`);
-        }
-        setImgStatus('error');
-      }
-    };
-
-    if (url && !url.startsWith('blob:')) {
-      testImage();
-    } else {
-      setImgStatus('loaded');
-    }
+    setImgStatus('loaded'); // Rely on native onError event
   }, [src]);
 
   if (imgStatus === 'error') {
@@ -176,21 +220,15 @@ export const AuditImage = ({ src, alt, style, images = [], index = 0, feedback_i
   }
 
   return (
-    <img 
-      src={resolvedSrc} 
-      alt={alt} 
-      style={{ ...style, cursor: 'zoom-in' }} 
-      onError={() => {
-        setImgStatus('error');
-        if (process.env.NODE_ENV !== 'development') {
-           console.warn(`[PROD:MEDIA_FAILURE] feedback_id=${feedback_id} url=${resolvedSrc} status=RENDER_ERROR viewer_mode=${viewer_mode}`);
-        }
-      }} 
+    <img
+      src={resolvedSrc}
+      alt={alt}
+      style={{ ...style, cursor: 'zoom-in' }}
       loading="lazy"
+      onError={() => setImgStatus('error')}
       onClick={(e) => {
         e.stopPropagation();
         if (imgStatus === 'loaded') {
-          // Use full resolution for lightbox if available
           const lightboxImages = images.length > 0 ? images : [lightboxSrc || resolvedSrc];
           openLightbox(lightboxImages, index, { feedback_id, viewer_mode });
         }
@@ -203,9 +241,19 @@ export const AuditImage = ({ src, alt, style, images = [], index = 0, feedback_i
 
 const resolveVal = (data, item) => {
   if (!item) return undefined;
-  const byId = item.id ? data[item.id] : undefined;
-  const byKey = item.key ? data[item.key] : undefined;
-  const val = byId !== undefined ? byId : byKey;
+
+  // Strict resolution hierarchy: prefer exact ID, fallback to general key (legacy)
+  const val = (item.id && data[item.id] !== undefined) ? data[item.id] : data[item.key];
+
+  if (item.key === 'rating_matrix') {
+    console.log('[AUDIT:MATRIX_KEY_RESOLUTION]', {
+      resolved_via: (item.id && data[item.id] !== undefined) ? 'id' : 'key',
+      item_id: item.id,
+      item_key: item.key,
+      value_found: !!val
+    });
+  }
+
   if (val === null || val === '' || (Array.isArray(val) && val.length === 0)) return undefined;
   return val;
 };
@@ -215,14 +263,16 @@ const resolveVal = (data, item) => {
 const renderCompactModule = (item, val, feedbackId, viewerMode = 'public') => {
   const key = item.key || '';
   if (key === 'star_rating') {
-    const stars = '★'.repeat(Math.min(5, parseInt(val) || 0)) + '☆'.repeat(5 - Math.min(5, parseInt(val) || 0));
+    const ratingVal = parseInt(val) || 0;
+    if (ratingVal === 0) return null;
+    const stars = '★'.repeat(Math.min(5, ratingVal)) + '☆'.repeat(5 - Math.min(5, ratingVal));
     return <span style={{ color: '#FFB800', fontSize: '13px', letterSpacing: '1px' }}>{stars}</span>;
   }
   if (['emoji_rating', 'slider_scale', 'staff_mention', 'voice_record'].includes(key)) return null;
   if (key === 'rating_matrix') {
     const obj = typeof val === 'object' && !Array.isArray(val) ? val : {};
     const count = Object.keys(obj).length;
-    return <span style={{ fontSize: '12px' }}>📊 {count} area{count !== 1 ? 's' : ''} rated</span>;
+    return <span style={{ fontSize: '12px', color: '#475569', fontWeight: '700' }}>📊 {count} area{count !== 1 ? 's' : ''} rated</span>;
   }
   if (key === 'multiple_choice' || key === 'dropdown') {
     return (
@@ -248,23 +298,23 @@ const renderCompactModule = (item, val, feedbackId, viewerMode = 'public') => {
     const arr = Array.isArray(val) ? val : [val];
     const photos = [];
     arr.forEach(p => {
-       const src = typeof p === 'string' ? p : p?.url || p?.preview;
-       if (src && !src.startsWith('blob:')) photos.push(src);
+      const src = typeof p === 'string' ? p : p?.url || p?.preview;
+      if (src && !src.startsWith('blob:')) photos.push(src);
     });
     if (photos.length === 0) return null;
     return (
       <div style={{ display: 'flex', gap: '4px', overflow: 'hidden', height: '40px', marginTop: '4px' }}>
         {photos.slice(0, 4).map((src, i) => (
-           <AuditImage 
-             key={i} 
-             src={src} 
-             alt="Preview" 
-             style={{ width: '40px', height: '40px', borderRadius: '6px', objectFit: 'cover' }} 
-             images={photos}
-             index={i}
-             feedback_id={feedbackId}
-             viewer_mode={viewerMode}
-           />
+          <AuditImage
+            key={i}
+            src={src}
+            alt="Preview"
+            style={{ width: '40px', height: '40px', borderRadius: '6px', objectFit: 'cover' }}
+            images={photos}
+            index={i}
+            feedback_id={feedbackId}
+            viewer_mode={viewerMode}
+          />
         ))}
         {photos.length > 4 && (
           <div style={{ width: '40px', height: '40px', borderRadius: '6px', background: '#F1F5F9', color: '#94A3B8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 'bold' }}>
@@ -284,34 +334,68 @@ const renderFullModule = (item, val, feedbackId, viewerMode = 'public') => {
 
   if (key === 'star_rating') {
     const n = parseInt(val) || 0;
+    if (n === 0) return null;
     return (
-      <div style={{ display: 'flex', gap: '2px' }}>
-        {[1,2,3,4,5].map(i => (
-          <span key={i} style={{ fontSize: '22px', color: i <= n ? '#FFB800' : '#E2E8F0' }}>★</span>
-        ))}
-        <span style={{ fontSize: '13px', fontWeight: '700', marginLeft: '6px', alignSelf: 'center', color: '#64748B' }}>{n}/5</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px' }}>
+        <span style={{ color: '#F59E0B', letterSpacing: '2px' }}>
+          {'★'.repeat(n)}{'☆'.repeat(5 - n)}
+        </span>
+        <span style={{ fontWeight: '700', color: '#475569' }}>{n}/5</span>
       </div>
     );
   }
 
-  if (['emoji_rating', 'slider_scale', 'staff_mention', 'voice_record'].includes(key)) return null;
+  if (key === 'emoji_rating') {
+    const e = String(val).toLowerCase().includes('satisf') ? '😊' : '😐';
+    return <span style={{ fontSize: '14px', fontWeight: '700', color: '#334155' }}>{e} {val}</span>;
+  }
+
+  if (key === 'slider_scale') {
+    return <span style={{ fontSize: '14px', fontWeight: '700', color: '#334155' }}>{val}/10</span>;
+  }
+
+  if (key === 'staff_mention') {
+    const mentions = Array.isArray(val) ? val : [val];
+    return (
+      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+        {mentions.map((m, i) => {
+          if (!m) return null;
+          const name = typeof m === 'string' ? m : (m.employee_name || m.name);
+          return (
+            <div key={i} style={{ padding: '6px 12px', background: '#F1F5F9', borderRadius: '8px', fontSize: '12px', color: '#334155', fontWeight: '600' }}>
+              👤 {name}
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  if (key === 'voice_record') {
+    const duration = val.duration || '0:12';
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', background: '#F8FAFC', borderRadius: '12px', border: '1px solid #E2E8F0', width: 'fit-content' }}>
+        <span style={{ fontSize: '14px', color: 'var(--primary-color)' }}>▶</span>
+        <span style={{ fontSize: '13px', fontWeight: '700', color: '#334155' }}>Voice message</span>
+        <span style={{ fontSize: '11px', color: '#94A3B8' }}>• {duration}</span>
+      </div>
+    );
+  }
 
   if (key === 'rating_matrix') {
     const obj = typeof val === 'object' && !Array.isArray(val) ? val : {};
     const entries = Object.entries(obj);
-    if (entries.length === 0) return <span style={{ color: '#94A3B8', fontSize: '13px' }}>No matrix data</span>;
+    if (entries.length === 0) return null;
+
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px', background: 'white', borderRadius: '12px', border: '1px solid #F1F5F9' }}>
-        {entries.map(([criterion, score]) => (
-          <div key={criterion} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '13px', color: '#475569', flex: 1 }}>{criterion}</span>
-            <div style={{ display: 'flex', gap: '2px' }}>
-              {[1,2,3,4,5].map(i => (
-                <span key={i} style={{ fontSize: '14px', color: i <= parseInt(score) ? '#FFB800' : '#E2E8F0' }}>★</span>
-              ))}
+      <div style={{ marginTop: '8px', background: '#F8FAFC', borderRadius: '12px', border: '1px solid #E2E8F0', overflow: 'hidden' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
+          {entries.map(([criterion, score], i) => (
+            <div key={i} style={{ padding: '8px 12px', fontSize: '13px', color: '#334155', borderBottom: i === entries.length - 1 ? 'none' : '1px solid #F1F5F9' }}>
+              {criterion} • {score}/5
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     );
   }
@@ -320,21 +404,21 @@ const renderFullModule = (item, val, feedbackId, viewerMode = 'public') => {
     const arr = Array.isArray(val) ? val : [val];
     const photos = [];
     arr.forEach(p => {
-       const original = typeof p === 'string' ? p : p?.url || p?.preview;
-       const thumb = typeof p === 'string' ? p : p?.thumb_url || p?.url || p?.preview;
-       if (original && !original.startsWith('blob:')) photos.push({ original, thumb });
+      const original = typeof p === 'string' ? p : p?.url || p?.preview;
+      const thumb = typeof p === 'string' ? p : p?.thumb_url || p?.url || p?.preview;
+      if (original && !original.startsWith('blob:')) photos.push({ original, thumb });
     });
     if (photos.length === 0) return null;
-    const cols = photos.length === 1 ? '1fr' : photos.length <= 4 ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)';
+    const cols = photos.length === 1 ? '120px' : photos.length <= 4 ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)';
     return (
-      <div style={{ display: 'grid', gridTemplateColumns: cols, gap: '4px', borderRadius: '16px', overflow: 'hidden' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: cols, gap: '4px', borderRadius: '16px', overflow: 'hidden', maxWidth: photos.length === 1 ? '120px' : '100%' }}>
         {photos.slice(0, 5).map((p, i) => (
-          <div key={i} style={{ position: 'relative', aspectRatio: photos.length === 1 ? '16/9' : '1/1' }}>
-            <AuditImage 
-              src={p.thumb} 
+          <div key={i} style={{ position: 'relative', aspectRatio: photos.length === 1 ? '4/3' : '1/1' }}>
+            <AuditImage
+              src={p.thumb}
               lightboxSrc={p.original}
-              alt={`Submission ${i+1}`} 
-              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} 
+              alt={`Submission ${i + 1}`}
+              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', borderRadius: photos.length === 1 ? '12px' : '0' }}
               images={photos.map(x => x.original)}
               index={i}
               feedback_id={feedbackId}
@@ -405,90 +489,7 @@ export const renderFeedbackResponses = (post, options = { compact: true, viewerM
 
   const coreMessage = post.description || post.comment || post.message || post.details || post.idea;
 
-  // ── COMPACT VIEW (feed cards) ──────────────────────────────────────────────
-  if (options.compact) {
-    const photos = [];
-    const compactModules = [];
 
-    schema.forEach(item => {
-      const key = item.key || '';
-      if (IDENTITY_KEYS.includes(key)) return;
-
-      const val = resolveVal(data, item);
-      if (val === undefined) return;
-
-      if (key === 'photo_upload') {
-        const arr = Array.isArray(val) ? val : [val];
-        arr.forEach(p => {
-          const original = typeof p === 'string' ? p : p?.url || p?.preview;
-          const thumb = typeof p === 'string' ? p : p?.thumb_url || p?.url || p?.preview;
-          if (original && !original.startsWith('blob:')) {
-             photos.push({ original, thumb });
-          }
-        });
-      }
-
-      const chip = renderCompactModule(item, val, post.id, options.viewerMode);
-      if (chip && !['photo_upload', 'long_text', 'short_text'].includes(key)) {
-        compactModules.push(chip);
-      }
-    });
-
-    if (photos.length > 0) {
-       console.log(`[AUDIT:BATCH_RENDER] feedback_id=${post.id} rendered_count=${photos.length} failed_count=0 visibility=compact`);
-    }
-
-
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        {coreMessage && (
-          <p style={{ margin: 0, fontSize: '14px', color: '#1E293B', lineHeight: '1.5', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-            {coreMessage}
-          </p>
-        )}
-
-        {photos.length > 0 && (
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: photos.length === 1 ? '1fr' : 'repeat(2, 1fr)',
-            gap: '4px', borderRadius: '16px', overflow: 'hidden', marginTop: '4px',
-            aspectRatio: photos.length === 1 ? '16/9' : '1/1',
-            maxHeight: '260px',
-          }}>
-            {photos.slice(0, 4).map((p, i) => (
-              <div key={i} style={{ position: 'relative', overflow: 'hidden' }}>
-                <AuditImage 
-                  src={p.thumb} 
-                  lightboxSrc={p.original}
-                  alt="Feedback" 
-                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} 
-                  images={photos.map(x => x.original)}
-                  index={i}
-                  feedback_id={post.id}
-                  viewer_mode={options.viewerMode}
-                />
-                {i === 3 && photos.length > 4 && (
-                  <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '20px', fontWeight: '900', pointerEvents: 'none' }}>
-                    +{photos.length - 3}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-
-        {compactModules.length > 0 && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '2px' }}>
-            {compactModules.map((chip, i) => (
-              <div key={i} style={{ fontSize: '11px', fontWeight: '700', background: '#F1F5F9', color: '#475569', padding: '3px 9px', borderRadius: '6px', border: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                {chip}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  }
 
   // ── FULL DETAIL VIEW ───────────────────────────────────────────────────────
   const publicModules = [];
@@ -496,14 +497,28 @@ export const renderFeedbackResponses = (post, options = { compact: true, viewerM
 
   if (schema.length === 0) {
     // No schema: render core fields only
+    if (post.rating) {
+      publicModules.push({ label: 'Rating', val: post.rating, key: 'star_rating', item: { key: 'star_rating', type: 'star_rating' } });
+    }
     if (coreMessage) {
       publicModules.push({ label: 'Feedback', val: coreMessage, key: 'long_text', item: { key: 'long_text' } });
     }
   } else {
+    const hasStarRatingInSchema = schema.some(i => i.key === 'star_rating' || i.type === 'star_rating');
+    
+    if (post.rating && !hasStarRatingInSchema) {
+      publicModules.push({ label: 'Rating', val: post.rating, key: 'star_rating', item: { key: 'star_rating', type: 'star_rating' } });
+    }
+
     schema.forEach(item => {
       const key = item.key || '';
-      const val = resolveVal(data, item);
-      if (val === undefined) return;
+      let val = resolveVal(data, item);
+      
+      if ((val === undefined || val === null || val === '') && (key === 'star_rating' || item.type === 'star_rating')) {
+        val = post.rating;
+      }
+
+      if (val === undefined || val === null || val === '') return;
 
       const label = item.label_override || item.label || key;
 
@@ -518,32 +533,39 @@ export const renderFeedbackResponses = (post, options = { compact: true, viewerM
       }
     });
 
-    // Fallback: core message if no long_text in schema
     if (!schema.some(i => ['long_text', 'short_text'].includes(i.key)) && coreMessage) {
       publicModules.unshift({ label: 'Comments', val: coreMessage, key: 'long_text', item: { key: 'long_text' } });
     }
   }
 
+  // Force strict display order: Rating -> Message -> Other -> Photos
+  publicModules.sort((a, b) => {
+    const getRank = (key) => {
+      if (key === 'star_rating') return 1;
+      if (key === 'long_text' || key === 'short_text') return 2;
+      if (key === 'photo_upload') return 4;
+      return 3; // Everything else in between
+    };
+    return getRank(a.key) - getRank(b.key);
+  });
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      {publicModules.map((mod, i) => (
-        <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          <span style={{ fontSize: '11px', fontWeight: '800', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
-            {mod.label}
-          </span>
-          <div>{renderFullModule(mod.item, mod.val, post.id, options.viewerMode)}</div>
-        </div>
-      ))}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      {publicModules.map((mod, i) => {
+        const content = renderFullModule(mod.item, mod.val, post.id, options.viewerMode);
+        if (!content) return null;
+        return <div key={i}>{content}</div>;
+      })}
       {(() => {
-         const allPhotos = publicModules.filter(m => m.key === 'photo_upload').flatMap(m => {
-            const val = m.val;
-            const arr = Array.isArray(val) ? val : [val];
-            return arr.map(p => typeof p === 'string' ? p : p?.url || p?.preview).filter(s => s && !s.startsWith('blob:'));
-         });
-         if (allPhotos.length > 0) {
-            console.log(`[AUDIT:BATCH_RENDER] feedback_id=${post.id} rendered_count=${allPhotos.length} failed_count=0 visibility=full`);
-         }
-         return null;
+        const allPhotos = publicModules.filter(m => m.key === 'photo_upload').flatMap(m => {
+          const val = m.val;
+          const arr = Array.isArray(val) ? val : [val];
+          return arr.map(p => typeof p === 'string' ? p : p?.url || p?.preview).filter(s => s && !s.startsWith('blob:'));
+        });
+        if (allPhotos.length > 0) {
+          console.log(`[AUDIT:BATCH_RENDER] feedback_id=${post.id} rendered_count=${allPhotos.length} failed_count=0 visibility=full`);
+        }
+        return null;
       })()}
 
       {identityModules.length > 0 && (
@@ -563,12 +585,7 @@ export const renderFeedbackResponses = (post, options = { compact: true, viewerM
         </div>
       )}
 
-      {options.viewerMode === 'public' && schema.some(i => IDENTITY_KEYS.includes(i.key)) && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', background: '#F0F9FF', border: '1px solid #BAE6FD', borderRadius: '12px', color: '#0369A1' }}>
-          <span style={{ fontSize: '16px' }}>🔒</span>
-          <span style={{ fontSize: '13px', fontWeight: '700' }}>Private details protected for community privacy</span>
-        </div>
-      )}
+
     </div>
   );
 };

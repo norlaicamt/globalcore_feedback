@@ -244,7 +244,7 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
         }
 
         const uploadFile = async (f, isThumb = false) => {
-          const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+          const API_BASE = process.env.REACT_APP_API_URL || `http://${window.location.hostname}:8000`;
           const formData = new FormData();
           formData.append('file', f);
           const response = await fetch(`${API_BASE}/feedbacks/upload`, {
@@ -503,7 +503,7 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
       
       // 2. Ratings (Matrix has its own state, others use 'rating')
       if (key === 'rating_matrix') {
-        const ratings = matrixRatings[id] || {};
+        const ratings = matrixRatings[id || key] || {};
         const criteria = item.config?.criteria || item.criteria || [];
         return criteria.length > 0 && criteria.every(c => !!ratings[c]);
       }
@@ -950,6 +950,30 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
     }
 
     try {
+      const schemaItems = enabledSteps.flatMap(s => s.items || []);
+      const starModules = schemaItems.filter(i => (i.type || i.key) === 'star_rating').map(i => i.id || i.key);
+      const emojiModules = schemaItems.filter(i => (i.type || i.key) === 'emoji_rating').map(i => i.id || i.key);
+      const sliderModules = schemaItems.filter(i => (i.type || i.key) === 'slider_scale').map(i => i.id || i.key);
+
+      const evalData = {};
+      const starValues = [];
+
+      // Force evaluation modules to save into custom_data using their real module id
+      if (rating !== null && rating !== undefined) {
+         starModules.forEach(id => { evalData[id] = rating; starValues.push(rating); });
+         emojiModules.forEach(id => { evalData[id] = rating; });
+         sliderModules.forEach(id => { evalData[id] = rating; });
+      }
+
+      const mergedCustomData = { ...customFields, ...evalData, ...matrixRatings, routing_method: selectionMethod };
+
+      console.log('[AUDIT:EVALUATION_SUBMIT]', {
+        feedback_id: 'pending',
+        custom_data: mergedCustomData,
+        star_modules: starModules,
+        star_values: starValues,
+      });
+
       const payload = {
         sender_id: currentUser?.id,
         feedback_type: feedbackType,
@@ -959,8 +983,17 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
         rating,
         is_anonymous: isAnonymous,
         allow_comments: allowComments,
-        custom_data: { ...customFields, matrix_evaluations: matrixRatings, routing_method: selectionMethod }
+        custom_data: mergedCustomData
       };
+
+      // [AUDIT:MATRIX_SUBMIT]
+      enabledSteps.flatMap(s => s.items).filter(it => it.key === 'rating_matrix').forEach(it => {
+        const val = matrixRatings[it.id || it.key];
+        console.log(`[AUDIT:MATRIX_SUBMIT]`, {
+          module_type: 'rating_matrix',
+          value: val
+        });
+      });
       
       // [AUDIT:PHOTO_SUBMIT] & Submission Guard
       const photoKeys = enabledSteps.flatMap(s => s.items).filter(it => it.key === 'photo_upload').map(it => it.id || it.key);
@@ -1100,7 +1133,7 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
     else if (key === 'location_picker') itemValue = selectedBranch;
     else if (key === 'multiple_choice') itemValue = customFields[item.id || key];
     else if (key === 'rating_matrix') {
-      const m = matrixRatings[item.id] || {};
+      const m = matrixRatings[item.id || key] || {};
       itemValue = Object.keys(m).length > 0 ? m : null;
     }
     else if (['full_name', 'contact_number', 'email_address', 'mailing_address', 'number_input'].includes(key)) {
@@ -1403,27 +1436,30 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
           </div>
         );
       }
-      if (key === 'rating_matrix') return (
-        <div style={{ background: 'white', borderRadius: '18px', border: '1px solid #E2E8F0', overflow: 'hidden' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 1fr', background: '#F8FAFC', padding: '14px', borderBottom: '1px solid #E2E8F0' }}>
-            <span style={{ fontSize: '10px', fontWeight: '900', color: '#64748B' }}>CRITERIA</span>
-            {[1, 2, 3, 4, 5].map(n => <span key={n} style={{ fontSize: '10px', fontWeight: '900', color: '#64748B', textAlign: 'center' }}>{n}</span>)}
-          </div>
-          {(item.config?.criteria || []).map((c, cIdx) => (
-            <div key={cIdx} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 1fr', padding: '16px', borderBottom: cIdx === (item.config.criteria.length - 1) ? 'none' : '1px solid #F1F5F9', alignItems: 'center' }}>
-              <span style={{ fontSize: '13px', fontWeight: '700', color: '#1E293B' }}>{c}</span>
-              {[1, 2, 3, 4, 5].map(n => {
-                const isSel = matrixRatings[item.id]?.[c] === n;
-                return (
-                  <div key={n} style={{ display: 'flex', justifyContent: 'center' }}>
-                    <button onClick={() => setMatrixRatings(prev => ({ ...prev, [item.id]: { ...(prev[item.id] || {}), [c]: n } }))} style={{ width: '26px', height: '26px', borderRadius: '8px', border: `2.5px solid ${isSel ? 'var(--primary-color)' : '#E2E8F0'}`, background: isSel ? 'var(--primary-color)' : 'white', cursor: 'pointer', transition: 'all 0.2s' }} />
-                  </div>
-                );
-              })}
+      if (key === 'rating_matrix') {
+        const fieldId = item.id || key;
+        return (
+          <div style={{ background: 'white', borderRadius: '18px', border: '1px solid #E2E8F0', overflow: 'hidden' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 1fr', background: '#F8FAFC', padding: '14px', borderBottom: '1px solid #E2E8F0' }}>
+              <span style={{ fontSize: '10px', fontWeight: '900', color: '#64748B' }}>CRITERIA</span>
+              {[1, 2, 3, 4, 5].map(n => <span key={n} style={{ fontSize: '10px', fontWeight: '900', color: '#64748B', textAlign: 'center' }}>{n}</span>)}
             </div>
-          ))}
-        </div>
-      );
+            {(item.config?.criteria || []).map((c, cIdx) => (
+              <div key={cIdx} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 1fr', padding: '16px', borderBottom: cIdx === (item.config.criteria.length - 1) ? 'none' : '1px solid #F1F5F9', alignItems: 'center' }}>
+                <span style={{ fontSize: '13px', fontWeight: '700', color: '#1E293B' }}>{c}</span>
+                {[1, 2, 3, 4, 5].map(n => {
+                  const isSel = matrixRatings[fieldId]?.[c] === n;
+                  return (
+                    <div key={n} style={{ display: 'flex', justifyContent: 'center' }}>
+                      <button onClick={() => setMatrixRatings(prev => ({ ...prev, [fieldId]: { ...(prev[fieldId] || {}), [c]: n } }))} style={{ width: '26px', height: '26px', borderRadius: '8px', border: `2.5px solid ${isSel ? 'var(--primary-color)' : '#E2E8F0'}`, background: isSel ? 'var(--primary-color)' : 'white', cursor: 'pointer', transition: 'all 0.2s' }} />
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        );
+      }
       return <div style={{ color: '#94A3B8', fontSize: '12px', fontStyle: 'italic' }}>Module type not supported</div>;
     };
 

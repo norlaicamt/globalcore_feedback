@@ -74,16 +74,6 @@ const HistoryView = ({ currentUser, onBack, mode = "sent", minimalist = false })
     return dept ? dept.name : `Dept ID: ${deptId}`;
   };
 
-  const renderStars = (rating) => {
-    const starCount = rating || 0;
-    return (
-      <div style={{ display: 'flex', gap: '2px', alignItems: 'center' }}>
-        {[1, 2, 3, 4, 5].map(s => (
-          <Icons.Star key={s} filled={s <= starCount} size={12} />
-        ))}
-      </div>
-    );
-  };
 
   const filteredHistory = history.filter(item => {
     if (selectedDept) {
@@ -163,12 +153,6 @@ const HistoryView = ({ currentUser, onBack, mode = "sent", minimalist = false })
                   <Icons.User /> {selectedItem.sender_id === currentUser.id ? "By You" : (selectedItem.user_name || "Another User")}
                 </span>
                 <span style={styles.bullet}>•</span>
-                {selectedItem.rating > 0 && (
-                  <>
-                    {renderStars(selectedItem.rating)}
-                    <span style={styles.bullet}>•</span>
-                  </>
-                )}
                 <span>{formatDateTime(selectedItem.created_at).date}</span>
                 <span style={styles.bullet}>•</span>
                 <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
