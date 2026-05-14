@@ -505,7 +505,7 @@ export const renderFeedbackResponses = (post, options = { compact: true, viewerM
     }
   } else {
     const hasStarRatingInSchema = schema.some(i => i.key === 'star_rating' || i.type === 'star_rating');
-    
+
     if (post.rating && !hasStarRatingInSchema) {
       publicModules.push({ label: 'Rating', val: post.rating, key: 'star_rating', item: { key: 'star_rating', type: 'star_rating' } });
     }
@@ -513,7 +513,7 @@ export const renderFeedbackResponses = (post, options = { compact: true, viewerM
     schema.forEach(item => {
       const key = item.key || '';
       let val = resolveVal(data, item);
-      
+
       if ((val === undefined || val === null || val === '') && (key === 'star_rating' || item.type === 'star_rating')) {
         val = post.rating;
       }

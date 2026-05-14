@@ -90,7 +90,7 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
   const [selectedBroadcast, setSelectedBroadcast] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
   const { openLightbox } = useLightbox();
-  const [statusFilter, setStatusFilter] = useState('ONGOING');
+  const [statusFilter, setStatusFilter] = useState('');
   const [resumeDraft, setResumeDraft] = useState(null);
   const [currentTime, setCurrentTime] = useState(new Date());
 
@@ -139,19 +139,19 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
     const fetchData = async () => {
       try {
         const [ents, depts] = await fetchEntitiesAndDepts();
-        
+
         // --- PHASE 11: DRAFT RECOVERY, IDENTITY & EXPIRATION CHECK ---
         if (localUser?.id) {
           // Use a robust key (ID + CreatedAt) to prevent ID recycling issues
           const userFingerprint = `${localUser.id}_${localUser.created_at || 'legacy'}`;
           const draftsKey = `user.drafts_${userFingerprint}`;
-          
+
           // Legacy migration check: if old key exists, move it to the new fingerprinted key
           const oldKey = `user.drafts_${localUser.id}`;
           const oldData = localStorage.getItem(oldKey);
           if (oldData && !localStorage.getItem(draftsKey)) {
-             localStorage.setItem(draftsKey, oldData);
-             localStorage.removeItem(oldKey);
+            localStorage.setItem(draftsKey, oldData);
+            localStorage.removeItem(oldKey);
           }
 
           const currentDrafts = JSON.parse(localStorage.getItem(draftsKey) || "[]");
@@ -166,19 +166,19 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
           }
           if (currentDrafts.length > 0) {
             const latest = currentDrafts.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0];
-            
+
             // Session Dismissal Check: If user clicked "Not Now", don't show again this session
             const dismissalKey = `dismissedDraft_${userFingerprint}_${latest.entity_id}`;
             if (sessionStorage.getItem(dismissalKey)) {
               if (window.DEBUG_MODE) console.log("[DRAFT:RECOVERY] Suppression: Draft prompt already dismissed for this session.");
               return;
             }
-            
+
             // Expiration Check (30 Days)
             const draftDate = new Date(latest.timestamp);
             const now = new Date();
             const ageInDays = (now - draftDate) / (1000 * 60 * 60 * 24);
-            
+
             if (ageInDays > 30) {
               if (window.DEBUG_MODE) console.log("[AUDIT:CLEANUP] Purging expired draft (>30d)");
               setDialogState({
@@ -213,7 +213,7 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
               }
 
               setResumeDraft({ ...latest, entity });
-              
+
               // --- PHASE 11: DRAFT PREVIEW SUMMARY ---
               const photoCount = latest.customFields?.photo_upload?.length || (latest.customFields?.photo_upload ? 1 : 0);
               const previewContent = (
@@ -224,8 +224,8 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
                     {photoCount > 0 && (
                       <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '700', color: '#1E293B' }}>
-                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
-                         {photoCount} Photo{photoCount > 1 ? 's' : ''}
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+                        {photoCount} Photo{photoCount > 1 ? 's' : ''}
                       </div>
                     )}
                     {latest.idea && (
@@ -307,13 +307,15 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
     if (window.DEBUG_MODE) console.log("fetchFeed called with offset:", newOffset);
     if (newOffset === 0 && !silent) setLoading(true);
     try {
-      const data = await getFeedbacks({ skip: newOffset, limit: 10, status: statusFilter });
+      const params = { skip: newOffset, limit: 20 };
+      if (statusFilter) params.status = statusFilter;
+      const data = await getFeedbacks(params);
       if (newOffset === 0) {
         setFeed(data);
       } else {
         setFeed(prev => [...prev, ...data]);
       }
-      setHasMore(data.length === 10);
+      setHasMore(data.length === 20);
       setOffset(newOffset);
     } catch (err) {
       setDialogState({ isOpen: true, title: "Feed Error", message: "Failed to load activity feed.", type: "alert" });
@@ -380,10 +382,10 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
       // Optimistic UI removal
       setFeed(prev => prev.filter(post => post.id !== id));
       console.log('[AUDIT:DELETE_STATE_SYNC]', id);
-      
+
       await deleteFeedback(id);
       console.log('[AUDIT:DELETE_SUCCESS]', id);
-      
+
       // Silent background sync
       await refreshHomeData(true);
     } catch (error) {
@@ -399,7 +401,7 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
 
   const loadMoreFeed = () => {
     if (!loading && hasMore) {
-      fetchFeed(offset + 10);
+      fetchFeed(offset + 20);
     }
   };
 
@@ -579,7 +581,7 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
         </button>
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flex: 1, justifyContent: 'center' }}>
           {systemLogo && (
-              <img src={systemLogo} alt="Logo" loading="lazy" style={{ height: '36px', maxWidth: '100px', objectFit: 'contain' }} />
+            <img src={systemLogo} alt="Logo" loading="lazy" style={{ height: '36px', maxWidth: '100px', objectFit: 'contain' }} />
           )}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
             <span style={{ ...styles.headerTitle, color: 'var(--primary-color)', fontSize: '16px', fontWeight: '800', lineHeight: 1.2 }}>{systemName}</span>
@@ -1796,135 +1798,135 @@ const DashboardView = React.memo(({ feed, loading, hasMore, onLoadMore, onAction
               background: #94A3B8;
             }
           `}</style>
-          <section style={{ marginBottom: '16px', padding: '0 8px' }}>
-            <div style={{
-              background: 'linear-gradient(135deg, #FFFFFF 0%, #F8FAFC 100%)',
-              borderRadius: '20px',
-              padding: '16px',
-              border: '1px solid #E2E8F0',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '12px',
-              boxShadow: '0 10px 25px -5px rgba(var(--primary-rgb), 0.05)'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #F1F5F9', paddingBottom: '10px' }}>
-                <h3 style={{ fontSize: '11px', color: 'var(--primary-color)', fontWeight: '800', margin: 0, display: 'flex', alignItems: 'center', gap: '8px', letterSpacing: '0.08em' }}>
-                  <div style={{ backgroundColor: '#EF4444', padding: '4px', borderRadius: '6px', display: 'flex' }}>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="white" stroke="white" strokeWidth="2"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 3.5 2.5 6 .5 2.5-1 4.5-3 5.5"></path></svg>
+              <section style={{ marginBottom: '16px', padding: '0 8px' }}>
+                <div style={{
+                  background: 'linear-gradient(135deg, #FFFFFF 0%, #F8FAFC 100%)',
+                  borderRadius: '20px',
+                  padding: '16px',
+                  border: '1px solid #E2E8F0',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '12px',
+                  boxShadow: '0 10px 25px -5px rgba(var(--primary-rgb), 0.05)'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #F1F5F9', paddingBottom: '10px' }}>
+                    <h3 style={{ fontSize: '11px', color: 'var(--primary-color)', fontWeight: '800', margin: 0, display: 'flex', alignItems: 'center', gap: '8px', letterSpacing: '0.08em' }}>
+                      <div style={{ backgroundColor: '#EF4444', padding: '4px', borderRadius: '6px', display: 'flex' }}>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="white" stroke="white" strokeWidth="2"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 3.5 2.5 6 .5 2.5-1 4.5-3 5.5"></path></svg>
+                      </div>
+                      HOT TOPICS
+                    </h3>
+                    <span style={{ fontSize: '10px', color: '#94A3B8', fontWeight: 'bold' }}>LIVE UPDATES</span>
                   </div>
-                  HOT TOPICS
-                </h3>
-                <span style={{ fontSize: '10px', color: '#94A3B8', fontWeight: 'bold' }}>LIVE UPDATES</span>
-              </div>
 
-              {trendingItems.length > 0 ? (
-                <div
-                  className="horizontal-scroll"
-                  ref={el => {
-                    if (!el) return;
-                    let isDown = false, startX = 0, scrollLeft = 0;
-                    el.onmousedown = (e) => { isDown = true; el.style.cursor = 'grabbing'; startX = e.pageX - el.offsetLeft; scrollLeft = el.scrollLeft; };
-                    el.onmouseleave = () => { isDown = false; el.style.cursor = 'grab'; };
-                    el.onmouseup = () => { isDown = false; el.style.cursor = 'grab'; };
-                    el.onmousemove = (e) => { if (!isDown) return; e.preventDefault(); const x = e.pageX - el.offsetLeft; el.scrollLeft = scrollLeft - (x - startX) * 1.5; };
-                  }}
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'row',
-                    gap: '14px',
-                    overflowX: 'auto',
-                    padding: '8px 4px 20px 4px',
-                    scrollBehavior: 'smooth',
-                    cursor: 'grab',
-                    userSelect: 'none',
-                    scrollSnapType: 'x mandatory',
-                    WebkitOverflowScrolling: 'touch'
-                  }}
-                >
-                  {trendingItems.map((item, index) => (
+                  {trendingItems.length > 0 ? (
                     <div
-                      key={item.id}
-                      onClick={() => onOpenComments(item)}
+                      className="horizontal-scroll"
+                      ref={el => {
+                        if (!el) return;
+                        let isDown = false, startX = 0, scrollLeft = 0;
+                        el.onmousedown = (e) => { isDown = true; el.style.cursor = 'grabbing'; startX = e.pageX - el.offsetLeft; scrollLeft = el.scrollLeft; };
+                        el.onmouseleave = () => { isDown = false; el.style.cursor = 'grab'; };
+                        el.onmouseup = () => { isDown = false; el.style.cursor = 'grab'; };
+                        el.onmousemove = (e) => { if (!isDown) return; e.preventDefault(); const x = e.pageX - el.offsetLeft; el.scrollLeft = scrollLeft - (x - startX) * 1.5; };
+                      }}
                       style={{
                         display: 'flex',
-                        alignItems: 'center',
-                        backgroundColor: index === 0 ? '#FFFFFF' : '#F8FAFC',
-                        padding: '10px',
-                        borderRadius: '16px',
-                        border: index === 0 ? '1px solid #DBEAFE' : '1px solid #F1F5F9',
-                        cursor: 'pointer',
-                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                        position: 'relative',
-                        overflow: 'hidden',
-                        width: '280px',
-                        minWidth: '280px',
-                        flexShrink: 0,
-                        scrollSnapAlign: 'start'
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = '#FFFFFF';
-                        e.currentTarget.style.borderColor = 'var(--primary-color)';
-                        e.currentTarget.style.transform = 'translateY(-2px) scale(1.01)';
-                        e.currentTarget.style.boxShadow = '0 8px 20px rgba(var(--primary-rgb), 0.08)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = index === 0 ? '#FFFFFF' : 'transparent';
-                        e.currentTarget.style.borderColor = index === 0 ? '#DBEAFE' : '#F1F5F9';
-                        e.currentTarget.style.transform = 'none';
-                        e.currentTarget.style.boxShadow = 'none';
+                        flexDirection: 'row',
+                        gap: '14px',
+                        overflowX: 'auto',
+                        padding: '8px 4px 20px 4px',
+                        scrollBehavior: 'smooth',
+                        cursor: 'grab',
+                        userSelect: 'none',
+                        scrollSnapType: 'x mandatory',
+                        WebkitOverflowScrolling: 'touch'
                       }}
                     >
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', alignItems: 'center', marginRight: '10px' }}>
-                        <div style={{ backgroundColor: index === 0 ? '#EFF6FF' : '#F1F5F9', width: '28px', height: '28px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                          <span style={{ fontSize: '13px', fontWeight: '900', color: index === 0 ? '#2563EB' : '#64748B' }}>{index + 1}</span>
-                        </div>
-                        {/* Compact Service Chip */}
-                        <div style={{
-                          height: '14px',
-                          padding: '0 4px',
-                          backgroundColor: index === 0 ? '#DBEAFE' : '#E2E8F0',
-                          borderRadius: '4px',
-                          fontSize: '8px',
-                          fontWeight: '800',
-                          color: index === 0 ? '#1E40AF' : '#475569',
-                          textTransform: 'uppercase',
-                          maxWidth: '40px',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center'
-                        }}>
-                          {item.entity_name || 'GEN'}
-                        </div>
-                      </div>
-                      <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                        <h4 style={{ fontSize: '12px', fontWeight: '800', color: '#1E293B', margin: '0 0 2px 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.title}</h4>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-                            <Icons.ThumbUp size={8} color="#166534" />
-                            <span style={{ fontSize: '9px', color: '#166534', fontWeight: 'bold' }}>{item.likes_count || 0}</span>
+                      {trendingItems.map((item, index) => (
+                        <div
+                          key={item.id}
+                          onClick={() => onOpenComments(item)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            backgroundColor: index === 0 ? '#FFFFFF' : '#F8FAFC',
+                            padding: '10px',
+                            borderRadius: '16px',
+                            border: index === 0 ? '1px solid #DBEAFE' : '1px solid #F1F5F9',
+                            cursor: 'pointer',
+                            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                            position: 'relative',
+                            overflow: 'hidden',
+                            width: '280px',
+                            minWidth: '280px',
+                            flexShrink: 0,
+                            scrollSnapAlign: 'start'
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = '#FFFFFF';
+                            e.currentTarget.style.borderColor = 'var(--primary-color)';
+                            e.currentTarget.style.transform = 'translateY(-2px) scale(1.01)';
+                            e.currentTarget.style.boxShadow = '0 8px 20px rgba(var(--primary-rgb), 0.08)';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = index === 0 ? '#FFFFFF' : 'transparent';
+                            e.currentTarget.style.borderColor = index === 0 ? '#DBEAFE' : '#F1F5F9';
+                            e.currentTarget.style.transform = 'none';
+                            e.currentTarget.style.boxShadow = 'none';
+                          }}
+                        >
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', alignItems: 'center', marginRight: '10px' }}>
+                            <div style={{ backgroundColor: index === 0 ? '#EFF6FF' : '#F1F5F9', width: '28px', height: '28px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                              <span style={{ fontSize: '13px', fontWeight: '900', color: index === 0 ? '#2563EB' : '#64748B' }}>{index + 1}</span>
+                            </div>
+                            {/* Compact Service Chip */}
+                            <div style={{
+                              height: '14px',
+                              padding: '0 4px',
+                              backgroundColor: index === 0 ? '#DBEAFE' : '#E2E8F0',
+                              borderRadius: '4px',
+                              fontSize: '8px',
+                              fontWeight: '800',
+                              color: index === 0 ? '#1E40AF' : '#475569',
+                              textTransform: 'uppercase',
+                              maxWidth: '40px',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }}>
+                              {item.entity_name || 'GEN'}
+                            </div>
                           </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-                            <Icons.ThumbDown size={8} color="#991B1B" />
-                            <span style={{ fontSize: '9px', color: '#991B1B', fontWeight: 'bold' }}>{item.dislikes_count || 0}</span>
-                          </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '3px', marginLeft: 'auto' }}>
-                            <Icons.Message size={8} color="#64748B" />
-                            <span style={{ fontSize: '9px', color: '#64748B', fontWeight: 'bold' }}>{item.replies_count || 0}</span>
+                          <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                            <h4 style={{ fontSize: '12px', fontWeight: '800', color: '#1E293B', margin: '0 0 2px 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.title}</h4>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                                <Icons.ThumbUp size={8} color="#166534" />
+                                <span style={{ fontSize: '9px', color: '#166534', fontWeight: 'bold' }}>{item.likes_count || 0}</span>
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                                <Icons.ThumbDown size={8} color="#991B1B" />
+                                <span style={{ fontSize: '9px', color: '#991B1B', fontWeight: 'bold' }}>{item.dislikes_count || 0}</span>
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '3px', marginLeft: 'auto' }}>
+                                <Icons.Message size={8} color="#64748B" />
+                                <span style={{ fontSize: '9px', color: '#64748B', fontWeight: 'bold' }}>{item.replies_count || 0}</span>
+                              </div>
+                            </div>
                           </div>
                         </div>
-                      </div>
+                      ))}
                     </div>
-                  ))}
+                  ) : (
+                    <p style={{ fontSize: '10px', color: '#94A3B8', margin: 0, textAlign: 'center', padding: '10px' }}>No trending topics yet.</p>
+                  )}
                 </div>
-              ) : (
-                <p style={{ fontSize: '10px', color: '#94A3B8', margin: 0, textAlign: 'center', padding: '10px' }}>No trending topics yet.</p>
-              )}
-            </div>
-          </section>
-          </>
+              </section>
+            </>
           )}
 
           <section style={{ padding: '0 8px', marginBottom: '16px' }}>
@@ -1974,7 +1976,7 @@ const DashboardView = React.memo(({ feed, loading, hasMore, onLoadMore, onAction
                       </button>
                     </div>
                   )}
-                  {hasMore && feed.length >= 10 && (
+                  {hasMore && !loading && (
                     <div style={{ padding: '20px', textAlign: 'center' }}>
                       <button
                         onClick={onLoadMore}
@@ -2390,16 +2392,16 @@ const BroadcastViewModal = React.memo(({ notif, currentUser, onClose, onAcknowle
               {notif.attachments.filter(a => a.type?.startsWith('image/')).length > 0 && (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '12px' }}>
                   {notif.attachments.filter(a => a.type?.startsWith('image/')).map((img, i) => (
-                    <img 
-                      key={i} 
-                      src={img.data} 
-                      alt="attachment" 
+                    <img
+                      key={i}
+                      src={img.data}
+                      alt="attachment"
                       onClick={() => openLightbox(
-                        notif.attachments.filter(a => a.type?.startsWith('image/')).map(a => a.data), 
-                        i, 
+                        notif.attachments.filter(a => a.type?.startsWith('image/')).map(a => a.data),
+                        i,
                         { feedback_id: `broadcast_${notif.broadcast_id || notif.id}`, viewer_mode: 'public' }
                       )}
-                      style={{ width: '100%', borderRadius: '16px', border: '1px solid #F1F5F9', cursor: 'zoom-in', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }} 
+                      style={{ width: '100%', borderRadius: '16px', border: '1px solid #F1F5F9', cursor: 'zoom-in', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}
                     />
                   ))}
                 </div>
@@ -2409,13 +2411,13 @@ const BroadcastViewModal = React.memo(({ notif, currentUser, onClose, onAcknowle
               {notif.attachments.filter(a => !a.type?.startsWith('image/')).length > 0 && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   {notif.attachments.filter(a => !a.type?.startsWith('image/')).map((file, i) => (
-                    <a 
-                      key={i} 
-                      href={file.data} 
+                    <a
+                      key={i}
+                      href={file.data}
                       download={file.name}
-                      style={{ 
-                        display: 'flex', alignItems: 'center', gap: '16px', padding: '16px', 
-                        background: '#F8FAFC', borderRadius: '16px', border: '1px solid #F1F5F9', 
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: '16px', padding: '16px',
+                        background: '#F8FAFC', borderRadius: '16px', border: '1px solid #F1F5F9',
                         textDecoration: 'none', transition: '0.2s'
                       }}
                       onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--primary-color)'}

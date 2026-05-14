@@ -458,32 +458,40 @@ def get_feedbacks(
 ):
     print(f"DEBUG: get_feedbacks called. skip={skip}, limit={limit}")
     """Unified and optimized feedback retrieval with counts and relations."""
-    # Scalar subqueries for counts (single query execution for all)
-    replies_count_sq = (
-        select(func.count(models.Reply.id))
-        .where(models.Reply.feedback_id == models.Feedback.id)
-        .scalar_subquery()
-        .label("replies_count")
+    # --- OPTIMIZED: Pre-aggregate counts in single subqueries instead of N correlated sub-selects ---
+    replies_agg = (
+        db.query(
+            models.Reply.feedback_id,
+            func.count(models.Reply.id).label("cnt")
+        ).group_by(models.Reply.feedback_id).subquery()
     )
-    likes_count_sq = (
-        select(func.count(models.Reaction.id))
-        .where((models.Reaction.feedback_id == models.Feedback.id) & (models.Reaction.is_like == True))
-        .scalar_subquery()
-        .label("likes_count")
+    likes_agg = (
+        db.query(
+            models.Reaction.feedback_id,
+            func.count(models.Reaction.id).label("cnt")
+        ).filter(models.Reaction.is_like == True)
+        .group_by(models.Reaction.feedback_id).subquery()
     )
-    dislikes_count_sq = (
-        select(func.count(models.Reaction.id))
-        .where((models.Reaction.feedback_id == models.Feedback.id) & (models.Reaction.is_like == False))
-        .scalar_subquery()
-        .label("dislikes_count")
+    dislikes_agg = (
+        db.query(
+            models.Reaction.feedback_id,
+            func.count(models.Reaction.id).label("cnt")
+        ).filter(models.Reaction.is_like == False)
+        .group_by(models.Reaction.feedback_id).subquery()
     )
 
-    # Base query starts with Feedback and subqueries
+    # Base query: JOIN with pre-aggregated counts (3 queries total, not N×3)
     query = db.query(
         models.Feedback,
-        replies_count_sq,
-        likes_count_sq,
-        dislikes_count_sq
+        func.coalesce(replies_agg.c.cnt, 0).label("replies_count"),
+        func.coalesce(likes_agg.c.cnt, 0).label("likes_count"),
+        func.coalesce(dislikes_agg.c.cnt, 0).label("dislikes_count"),
+    ).outerjoin(
+        replies_agg, replies_agg.c.feedback_id == models.Feedback.id
+    ).outerjoin(
+        likes_agg, likes_agg.c.feedback_id == models.Feedback.id
+    ).outerjoin(
+        dislikes_agg, dislikes_agg.c.feedback_id == models.Feedback.id
     ).options(
         joinedload(models.Feedback.mentions),
         joinedload(models.Feedback.sender),
@@ -531,8 +539,8 @@ def get_feedbacks(
             # Exact status match (e.g. status=RESOLVED)
             enum_status = getattr(models.FeedbackStatus, status.upper())
             query = query.filter(models.Feedback.status == enum_status)
-        except:
-            pass
+        except AttributeError:
+            print(f"[WARN:INVALID_STATUS] '{status}' is not a valid FeedbackStatus — filter ignored. Valid: OPEN, IN_PROGRESS, RESOLVED, CLOSED")
 
     rows = query.order_by(models.Feedback.created_at.desc()).offset(skip).limit(limit).all()
     
@@ -575,45 +583,17 @@ def get_feedbacks(
         if fb.branch and not fb.branch.is_active:
             fb.branch_name += " (Inactive)"
             
-        # [AUDIT:FEED_MEDIA]
-        media_count = 0
+        # Media Extraction (Optimized: No blocking I/O or network checks)
         media_urls = []
         if fb.custom_data:
             for k, v in fb.custom_data.items():
                 if isinstance(v, list):
                     for item in v:
                         if isinstance(item, dict) and ('preview' in item or 'url' in item):
-                            media_count += 1
                             media_urls.append(item.get('preview') or item.get('url'))
                 elif isinstance(v, dict) and ('preview' in v or 'url' in v):
-                    media_count += 1
                     media_urls.append(v.get('preview') or v.get('url'))
-        
-        keys = list(fb.custom_data.keys()) if fb.custom_data else []
-        print(f"[AUDIT:PHOTO_FEED_SERIALIZER] feedback_id={fb.id} custom_data_keys={keys} photo_count={media_count} serialized_payload={media_urls}")
         fb.media = media_urls
-        
-        absolute_generated = any(u.startswith('http') for u in media_urls if isinstance(u, str))
-        print(f"[AUDIT:MEDIA_URL] Backend Response - feedback_id: {fb.id}, media_urls: {media_urls}, absolute_url_generated: {absolute_generated}")
-        
-        import os
-        import urllib.request
-        for u in media_urls:
-            if isinstance(u, str):
-                if '/uploads/feedback/' in u:
-                    filename = u.split('/uploads/feedback/')[-1]
-                    actual_file_path = os.path.join('uploads', 'feedback', filename)
-                    exists = os.path.exists(actual_file_path)
-                    fsize = os.path.getsize(actual_file_path) if exists else 0
-                    print(f"[AUDIT:FILE_EXISTS] feedback_id={fb.id} raw_db_url={u} resolved_disk_path={actual_file_path} exists={exists} file_size={fsize}")
-                    
-                    test_url = f"http://localhost:8000/uploads/feedback/{filename}"
-                    try:
-                        req = urllib.request.Request(test_url, method='HEAD')
-                        with urllib.request.urlopen(req, timeout=2) as res:
-                            print(f"[AUDIT:STATIC_ROUTE] url={test_url} status_code={res.status} content_type={res.headers.get('Content-Type')}")
-                    except Exception as e:
-                        print(f"[AUDIT:STATIC_ROUTE] url={test_url} status_code=ERROR error={str(e)}")
 
         # [AUDIT:MATRIX_FEED]
         if fb.custom_data:
@@ -1826,7 +1806,7 @@ def reset_password_with_token(db: Session, token: str, new_password: str):
 def get_user_activity(db: Session, user_id: int):
     results = []
     
-    # 1. User's Posts
+    # 1. User's Posts (Already joined entity/branch)
     feedbacks = db.query(models.Feedback)\
         .options(joinedload(models.Feedback.mentions))\
         .outerjoin(models.Branch, models.Feedback.branch_id == models.Branch.id)\
@@ -1839,7 +1819,7 @@ def get_user_activity(db: Session, user_id: int):
             "type": "post",
             "feedback_id": f.id,
             "title": f.title,
-            "message": f.description[:100],
+            "message": f.description[:100] if f.description else "",
             "mentions": f.mentions,
             "created_at": f.created_at,
             "rating": f.rating,
@@ -1853,39 +1833,40 @@ def get_user_activity(db: Session, user_id: int):
             "entity_name": f.entity.name if f.entity else None
         })
         
-    # 2. User's Comments
-    replies = db.query(models.Reply).filter(models.Reply.user_id == user_id).all()
+    # 2. User's Comments (Eager load feedback)
+    replies = db.query(models.Reply)\
+        .options(joinedload(models.Reply.feedback))\
+        .filter(models.Reply.user_id == user_id).all()
     for r in replies:
-        fb = db.query(models.Feedback).filter(models.Feedback.id == r.feedback_id).first()
         results.append({
             "id": f"comment_{r.id}",
             "type": "comment",
             "feedback_id": r.feedback_id,
-            "title": fb.title if fb else "Deleted Post",
+            "title": r.feedback.title if r.feedback else "Deleted Post",
             "message": r.message,
             "created_at": r.created_at
         })
         
-    # 3. User's Reactions (Feedback)
-    reactions = db.query(models.Reaction).filter(models.Reaction.user_id == user_id).all()
+    # 3. User's Reactions (Feedback) (Eager load feedback)
+    reactions = db.query(models.Reaction)\
+        .options(joinedload(models.Reaction.feedback))\
+        .filter(models.Reaction.user_id == user_id).all()
     for rx in reactions:
-        fb = db.query(models.Feedback).filter(models.Feedback.id == rx.feedback_id).first()
         results.append({
             "id": f"react_{rx.id}",
             "type": "like" if rx.is_like else "dislike",
             "feedback_id": rx.feedback_id,
-            "title": fb.title if fb else "Deleted Post",
+            "title": rx.feedback.title if rx.feedback else "Deleted Post",
             "message": "Liked this post" if rx.is_like else "Disliked this post",
             "created_at": rx.created_at
         })
-
-    # 4. User's Reactions (Replies)
-    reply_reactions = db.query(models.ReplyReaction).filter(models.ReplyReaction.user_id == user_id).all()
+ 
+    # 4. User's Reactions (Replies) (Eager load reply -> feedback)
+    reply_reactions = db.query(models.ReplyReaction)\
+        .options(joinedload(models.ReplyReaction.reply).joinedload(models.Reply.feedback))\
+        .filter(models.ReplyReaction.user_id == user_id).all()
     for rrx in reply_reactions:
-        reply = db.query(models.Reply).filter(models.Reply.id == rrx.reply_id).first()
-        fb = None
-        if reply:
-            fb = db.query(models.Feedback).filter(models.Feedback.id == reply.feedback_id).first()
+        fb = rrx.reply.feedback if rrx.reply else None
         
         results.append({
             "id": f"reply_react_{rrx.id}",
