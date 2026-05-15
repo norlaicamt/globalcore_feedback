@@ -178,6 +178,11 @@ export const getFeedbackById = async (id) => {
   return response.data;
 };
 
+export const getTrendingFeedbacks = async (limit = 10) => {
+  const response = await axios.get(`${API_BASE}/feedbacks/trending`, { params: { limit } });
+  return response.data;
+};
+
 export const createFeedback = async (feedback) => {
   const response = await axios.post(`${API_BASE}/feedbacks/`, feedback);
   return response.data;

@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session, joinedload, aliased, joinedload as _joinedload
-from sqlalchemy import func, select, case
+from sqlalchemy import func, select, case, cast, Text as SAText
 from app import models
 from app import schemas
 import asyncio
@@ -682,11 +682,30 @@ def get_feedbacks(
         query = query.filter(models.Feedback.mentions.any())
 
     if search:
+        # Comprehensive search: sender name (linked user), guest name (custom_data), recipient, mentions, and content
+        SenderUser = aliased(models.User, name="sender_user_search")
+        RecipientUser = aliased(models.User, name="recipient_user_search")
+        MentionAlias = aliased(models.FeedbackMention, name="mention_search")
+
+        query = query.outerjoin(SenderUser, models.Feedback.sender_id == SenderUser.id)
+        query = query.outerjoin(RecipientUser, models.Feedback.recipient_user_id == RecipientUser.id)
+        query = query.outerjoin(MentionAlias, models.Feedback.id == MentionAlias.feedback_id)
+
+        # For anonymous/guest users, their name is stored in custom_data->>'full_name'
+        guest_name_expr = func.coalesce(
+            cast(models.Feedback.custom_data['full_name'], SAText),
+            cast('', SAText)
+        )
+
         query = query.filter(
             (models.Feedback.description.ilike(f"%{search}%")) |
             (models.Feedback.product_name.ilike(f"%{search}%")) |
-            (models.Feedback.title.ilike(f"%{search}%"))
-        )
+            (models.Feedback.title.ilike(f"%{search}%")) |
+            (SenderUser.name.ilike(f"%{search}%")) |
+            (RecipientUser.name.ilike(f"%{search}%")) |
+            (MentionAlias.employee_name.ilike(f"%{search}%")) |
+            (guest_name_expr.ilike(f"%{search}%"))
+        ).distinct()
 
     if status:
         try:
@@ -757,6 +776,68 @@ def get_feedbacks(
 
         results.append(fb)
 
+    return results
+
+
+def get_trending_feedbacks(db: Session, limit: int = 10, only_approved: bool = True):
+    """Retrieves globally trending feedback based on activity score."""
+    replies_agg = (
+        db.query(
+            models.Reply.feedback_id,
+            func.count(models.Reply.id).label("cnt")
+        ).group_by(models.Reply.feedback_id).subquery()
+    )
+    likes_agg = (
+        db.query(
+            models.Reaction.feedback_id,
+            func.count(models.Reaction.id).label("cnt")
+        ).filter(models.Reaction.is_like == True).group_by(models.Reaction.feedback_id).subquery()
+    )
+    dislikes_agg = (
+        db.query(
+            models.Reaction.feedback_id,
+            func.count(models.Reaction.id).label("cnt")
+        ).filter(models.Reaction.is_like == False).group_by(models.Reaction.feedback_id).subquery()
+    )
+
+    query = db.query(
+        models.Feedback,
+        func.coalesce(replies_agg.c.cnt, 0).label("replies_count"),
+        func.coalesce(likes_agg.c.cnt, 0).label("likes_count"),
+        func.coalesce(dislikes_agg.c.cnt, 0).label("dislikes_count"),
+    ).outerjoin(
+        replies_agg, replies_agg.c.feedback_id == models.Feedback.id
+    ).outerjoin(
+        likes_agg, likes_agg.c.feedback_id == models.Feedback.id
+    ).outerjoin(
+        dislikes_agg, dislikes_agg.c.feedback_id == models.Feedback.id
+    ).options(
+        joinedload(models.Feedback.sender),
+        joinedload(models.Feedback.entity)
+    )
+
+    if only_approved:
+        query = query.filter(models.Feedback.is_approved == True)
+
+    # Activity Score = (replies * 2) + likes + dislikes
+    score = (func.coalesce(replies_agg.c.cnt, 0) * 2 + 
+             func.coalesce(likes_agg.c.cnt, 0) + 
+             func.coalesce(dislikes_agg.c.cnt, 0))
+    
+    # Return items with activity, sorted by score then date
+    rows = query.filter(score > 0).order_by(score.desc(), models.Feedback.created_at.desc()).limit(limit).all()
+    
+    results = []
+    for row in rows:
+        fb = row[0]
+        fb.replies_count = row.replies_count
+        fb.likes_count = row.likes_count
+        fb.dislikes_count = row.dislikes_count
+        
+        fb.user_name = "Anonymous" if fb.is_anonymous else (fb.sender.name if fb.sender else "Someone")
+        if fb.entity: fb.entity_name = fb.entity.name
+            
+        results.append(fb)
     return results
 
 

@@ -16,7 +16,7 @@ import NotificationsView from './NotificationsView';
 import CustomModal from './CustomModal';
 import GeneralFeedback from './GeneralFeedback';
 import ActivityView from './ActivityView';
-import { getFeedbacks, getUserById, getUserNotifications, getFeedbackReplies, createFeedbackReply, updateFeedbackReply, deleteFeedbackReply, toggleReaction, toggleReplyReaction, getReactionsSummary, markNotificationAsRead, updateFeedback, deleteFeedback, getAdminSettings, getEntities, trackBroadcastView, acknowledgeBroadcast, updateUserPresence, getDepartments } from "../services/api";
+import { getFeedbacks, getTrendingFeedbacks, getUserById, getUserNotifications, getFeedbackReplies, createFeedbackReply, updateFeedbackReply, deleteFeedbackReply, toggleReaction, toggleReplyReaction, getReactionsSummary, markNotificationAsRead, updateFeedback, deleteFeedback, getAdminSettings, getEntities, trackBroadcastView, acknowledgeBroadcast, updateUserPresence, getDepartments } from "../services/api";
 import { useTerminology } from "../context/TerminologyContext";
 import { IconRegistry } from "./IconRegistry";
 
@@ -56,6 +56,7 @@ const Icons = {
   Lock: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>,
   Tag: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>,
   Activity: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>,
+  Search: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>,
 };
 
 const getRelativeTime = (date) => {
@@ -87,17 +88,31 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
   // hasUnreadNotifications setter not needed currently
 
   const [commentingFeedback, setCommentingFeedback] = useState(null);
+  const [allTrendingItems, setAllTrendingItems] = useState([]);
   const [selectedBroadcast, setSelectedBroadcast] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
   const { openLightbox } = useLightbox();
   const [statusFilter, setStatusFilter] = useState('');
   const [resumeDraft, setResumeDraft] = useState(null);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const searchRef = useRef(null);
 
   // Real-time clock
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (searchRef.current && !searchRef.current.contains(event.target)) {
+        setIsSearchOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
   const [localUser, setLocalUser] = useState(() => {
     try { return JSON.parse(localStorage.getItem(STORAGE_KEYS.USER_CURRENT) || 'null') || currentUser; }
@@ -303,15 +318,24 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
     });
   };
 
+  const fetchTrending = React.useCallback(async () => {
+    try {
+      const data = await getTrendingFeedbacks(10);
+      setAllTrendingItems(data);
+    } catch (e) { console.error("Error fetching trending", e); }
+  }, []);
+
   const fetchFeed = React.useCallback(async (newOffset = 0, silent = false) => {
     if (window.DEBUG_MODE) console.log("fetchFeed called with offset:", newOffset);
     if (newOffset === 0 && !silent) setLoading(true);
     try {
       const params = { skip: newOffset, limit: 20 };
       if (statusFilter) params.status = statusFilter;
+      if (searchQuery) params.search = searchQuery;
       const data = await getFeedbacks(params);
       if (newOffset === 0) {
         setFeed(data);
+        fetchTrending(); // Sync trending when feed is refreshed
       } else {
         setFeed(prev => [...prev, ...data]);
       }
@@ -322,7 +346,7 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
     } finally {
       if (!silent) setLoading(false);
     }
-  }, [statusFilter]);
+  }, [statusFilter, searchQuery, fetchTrending]);
 
   const [unreadNotifCount, setUnreadNotifCount] = useState(0);
 
@@ -398,6 +422,12 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
       console.log('[AUDIT:DELETE_LOADING_RELEASED]');
     }
   }, [refreshHomeData, showToast]);
+
+  const handleUpdateFeedItem = React.useCallback((feedbackId, updates) => {
+    setFeed(prev => prev.map(item =>
+      item.id === feedbackId ? { ...item, ...updates } : item
+    ));
+  }, []);
 
   const loadMoreFeed = () => {
     if (!loading && hasMore) {
@@ -564,6 +594,10 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
     <div style={{ ...styles.hubContainer, backgroundColor: '#F8FAFC', color: '#1E293B' }}>
       <style>{`
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes fadeInDownRight {
+          from { opacity: 0; transform: translateY(-10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
         .fab-btn:hover {
           transform: scale(1.1) !important;
           background-color: var(--primary-color) !important;
@@ -590,7 +624,50 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
             </span>
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '18px', position: 'relative' }} ref={searchRef}>
+          {isSearchOpen && (
+            <div style={{
+              position: 'absolute',
+              top: 'calc(100% + 10px)',
+              right: '0',
+              width: '300px',
+              backgroundColor: '#FFFFFF',
+              padding: '8px 12px',
+              borderRadius: '12px',
+              boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
+              border: '1px solid #E2E8F0',
+              zIndex: 1000,
+              display: 'flex',
+              alignItems: 'center',
+              animation: 'fadeInDownRight 0.2s ease-out'
+            }}>
+              <div style={{ color: '#94A3B8', marginRight: '8px' }}>
+                <Icons.Search />
+              </div>
+              <input
+                autoFocus
+                type="text"
+                placeholder="Search..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                style={{
+                  flex: 1,
+                  border: 'none',
+                  outline: 'none',
+                  fontSize: '14px',
+                  color: '#1E293B'
+                }}
+              />
+              {searchQuery && (
+                <button onClick={() => setSearchQuery("")} style={{ background: 'none', border: 'none', color: '#94A3B8', cursor: 'pointer', padding: '4px' }}>
+                  ✕
+                </button>
+              )}
+            </div>
+          )}
+          <button onClick={() => setIsSearchOpen(!isSearchOpen)} style={{ ...styles.iconBtn, color: isSearchOpen ? 'var(--primary-color)' : '#64748B' }} title="Search">
+            <Icons.Search />
+          </button>
           <button onClick={handleOpenNotifications} style={{ ...styles.iconBtn, color: 'var(--primary-color)' }} title="Notifications">
             <Icons.Bell />
             {unreadNotifCount > 0 && (
@@ -628,6 +705,7 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
         {view === "home" ? (
           <DashboardView
             feed={feed}
+            allTrendingItems={allTrendingItems}
             loading={loading}
             hasMore={hasMore}
             onLoadMore={() => fetchFeed(offset + 10)}
@@ -637,11 +715,14 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
             onOpenComments={(f) => setCommentingFeedback(f)}
             onRefresh={refreshHomeData}
             onDelete={handleDeleteFeedback}
+            onUpdateFeedItem={handleUpdateFeedItem}
             publicFeedEnabled={publicFeedEnabled}
             entities={entities}
             departments={departments}
             statusFilter={statusFilter}
             setStatusFilter={setStatusFilter}
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
           />
         ) : (view === "history" || view === "mentioned") ? (
           <HistoryView
@@ -1313,7 +1394,7 @@ const getStatusColor = (status) => {
   }
 };
 
-const FeedCard = React.memo(({ item: initialItem, currentUser, onShowToast, onOpenComments, onRefresh, onDelete }) => {
+const FeedCard = React.memo(({ item: initialItem, currentUser, onShowToast, onOpenComments, onRefresh, onDelete, onUpdateFeedItem }) => {
   const { openLightbox } = useLightbox();
   const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'superadmin';
   const [dialogState, setDialogState] = useState({ isOpen: false });
@@ -1344,13 +1425,19 @@ const FeedCard = React.memo(({ item: initialItem, currentUser, onShowToast, onOp
   const handleReact = async (isLike) => {
     try {
       await toggleReaction(item.id, currentUser?.id || 1, isLike);
-      // Refresh counts locally and in parent feed for trending
       // Refresh counts locally instantly
       const data = await getReactionsSummary(item.id, currentUser?.id);
-      setLikes(data.likes || 0);
-      setDislikes(data.dislikes || 0);
+      const newLikes = data.likes || 0;
+      const newDislikes = data.dislikes || 0;
+      setLikes(newLikes);
+      setDislikes(newDislikes);
       setUserReaction(data.user_reaction ?? null);
-      // Removed global refresh to prevent scroll jumping
+      // Patch the parent feed state so Hot Topics fallback has fresh counts
+      if (onUpdateFeedItem) {
+        onUpdateFeedItem(item.id, { likes_count: newLikes, dislikes_count: newDislikes });
+      }
+      // Refresh parent trending silently
+      if (onRefresh) onRefresh(true);
     } catch (err) {
       console.error("Reaction failed", err);
     }
@@ -1593,15 +1680,14 @@ const FeedCard = React.memo(({ item: initialItem, currentUser, onShowToast, onOp
   );
 });
 
-const DashboardView = React.memo(({ feed, loading, hasMore, onLoadMore, onAction, currentUser, onShowToast, onOpenComments, onRefresh, onDelete, publicFeedEnabled, entities, departments, statusFilter, setStatusFilter }) => {
+const DashboardView = React.memo(({ feed, allTrendingItems, loading, hasMore, onLoadMore, onAction, currentUser, onShowToast, onOpenComments, onRefresh, onDelete, onUpdateFeedItem, publicFeedEnabled, entities, departments, statusFilter, setStatusFilter, searchQuery, setSearchQuery }) => {
   // eslint-disable-next-line no-unused-vars
   const [isHotTopicsExpanded, setIsHotTopicsExpanded] = useState(false);
   // eslint-disable-next-line no-unused-vars
   const { getLabel, getModeLabel, systemMode, systemName } = useTerminology();
   const [activeTab, setActiveTab] = useState('All');
   const [activeStarFilter, setActiveStarFilter] = useState('All');
-  const [feedFilter, setFeedFilter] = useState('All');
-  const [searchQuery, setSearchQuery] = useState('');
+
   const [selectedDept, setSelectedDept] = useState("");
 
   const getTabIcon = (cat) => {
@@ -1669,10 +1755,7 @@ const DashboardView = React.memo(({ feed, loading, hasMore, onLoadMore, onAction
     if (!matchesTab) return false;
 
     // Advanced Type Filter
-    if (feedFilter === 'Products' && !item.product_id) return false;
-    if (feedFilter === 'Staff' && !(item.employee_name || (item.mentions && item.mentions.length > 0))) return false;
-    if (feedFilter === 'Media' && !item.custom_data?.photo_upload) return false;
-    if (feedFilter === 'Voice' && !item.custom_data?.voice_record) return false;
+
 
     // Star Filter
     if (activeStarFilter !== 'All') {
@@ -1687,24 +1770,42 @@ const DashboardView = React.memo(({ feed, loading, hasMore, onLoadMore, onAction
         (item.title || "").toLowerCase().includes(q) ||
         (item.description || "").toLowerCase().includes(q) ||
         (item.product_name || "").toLowerCase().includes(q) ||
-        (item.user_name || item.sender_name || "").toLowerCase().includes(q);
+        (item.user_name || item.sender_name || "").toLowerCase().includes(q) ||
+        (item.recipient_user_name || "").toLowerCase().includes(q);
       if (!matchesSearch) return false;
     }
 
     return true;
   });
 
-  const allTrendingItems = [...feed]
-    .filter(item => (item.replies_count > 0) || (item.likes_count > 0) || (item.dislikes_count > 0))
-    .sort((a, b) => {
-      const scoreA = (a.replies_count || 0) * 2 + (a.likes_count || 0) + (a.dislikes_count || 0);
-      const scoreB = (b.replies_count || 0) * 2 + (b.likes_count || 0) + (b.dislikes_count || 0);
-      return scoreB - scoreA;
-    });
+  // Trending logic: use backend items if available, else derive from current feed
+  const getTrendingItems = () => {
+    let trending = [...allTrendingItems].slice(0, 3);
+    
+    // Fallback: if no trending items from backend, or we want to ensure 3 slots are filled
+    if (trending.length < 3) {
+      const trendingIds = new Set(trending.map(t => t.id));
+      const feedTrending = [...feed]
+        .filter(item => !trendingIds.has(item.id) && ((item.replies_count > 0) || (item.likes_count > 0) || (item.dislikes_count > 0)))
+        .sort((a, b) => {
+          const scoreA = (a.replies_count || 0) * 2 + (a.likes_count || 0) + (a.dislikes_count || 0);
+          const scoreB = (b.replies_count || 0) * 2 + (b.likes_count || 0) + (b.dislikes_count || 0);
+          return scoreB - scoreA;
+        });
+      
+      trending = [...trending, ...feedTrending].slice(0, 3);
+    }
 
-  const trendingItems = allTrendingItems.length > 0
-    ? allTrendingItems.slice(0, 3)
-    : feed.slice(0, 3);
+    // Secondary Fallback: fill remaining slots with most recent items if still under 3
+    if (trending.length < 3) {
+      const trendingIds = new Set(trending.map(t => t.id));
+      const recentFill = feed.filter(f => !trendingIds.has(f.id)).slice(0, 3 - trending.length);
+      trending = [...trending, ...recentFill];
+    }
+    
+    return trending;
+  };
+  const trendingItems = getTrendingItems();
 
 
   return (
@@ -1754,61 +1855,9 @@ const DashboardView = React.memo(({ feed, loading, hasMore, onLoadMore, onAction
 
           {/* ADVANCED FILTERS & SEARCH */}
           <div style={{ padding: '0 12px 12px 12px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-              <div style={{ position: 'absolute', left: '12px', color: '#94A3B8' }}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
-              </div>
-              <input
-                type="text"
-                placeholder="Search products, keywords, or people..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '10px 12px 10px 38px',
-                  borderRadius: '12px',
-                  border: '1px solid #E2E8F0',
-                  fontSize: '13px',
-                  backgroundColor: '#FFFFFF',
-                  outline: 'none',
-                  transition: 'all 0.2s'
-                }}
-              />
-            </div>
+          {/* Search box removed from here, now in header */}
 
-            <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }} className="no-scrollbar">
-              {[
-                { id: 'All', label: 'All Feed', icon: '🌍' },
-                { id: 'Products', label: 'Products', icon: '🛍️' },
-                { id: 'Staff', label: 'Staff', icon: '👔' },
-                { id: 'Media', label: 'Photos', icon: '📸' },
-                { id: 'Voice', label: 'Voice', icon: '🎙️' },
-              ].map(f => (
-                <button
-                  key={f.id}
-                  onClick={() => setFeedFilter(f.id)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '6px 12px',
-                    borderRadius: '20px',
-                    border: '1px solid',
-                    borderColor: feedFilter === f.id ? 'var(--primary-color)' : '#E2E8F0',
-                    backgroundColor: feedFilter === f.id ? '#EFF6FF' : '#FFFFFF',
-                    color: feedFilter === f.id ? 'var(--primary-color)' : '#64748B',
-                    fontSize: '11px',
-                    fontWeight: '700',
-                    cursor: 'pointer',
-                    whiteSpace: 'nowrap',
-                    transition: 'all 0.2s'
-                  }}
-                >
-                  <span>{f.icon}</span>
-                  <span>{f.label}</span>
-                </button>
-              ))}
-            </div>
+
           </div>
 
           {/* STAR FILTER */}
@@ -2013,7 +2062,7 @@ const DashboardView = React.memo(({ feed, loading, hasMore, onLoadMore, onAction
                   ) : filteredFeed.length > 0 ? (
                     <>
                       {filteredFeed.map(item => (
-                        <FeedCard key={item.id} item={item} currentUser={currentUser} onShowToast={onShowToast} onOpenComments={onOpenComments} onRefresh={onRefresh} onDelete={onDelete} />
+                        <FeedCard key={item.id} item={item} currentUser={currentUser} onShowToast={onShowToast} onOpenComments={onOpenComments} onRefresh={onRefresh} onDelete={onDelete} onUpdateFeedItem={onUpdateFeedItem} />
                       ))}
                     </>
                   ) : (
@@ -2105,7 +2154,7 @@ const CategorySelection = React.memo(({ onBack, onSelect }) => (
 
 const styles = {
   hubContainer: { height: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: 'transparent', fontFamily: '"Inter", -apple-system, sans-serif', fontSize: 'var(--size-body, 14px)' },
-  header: { padding: '8px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#FFFFFF', borderBottom: '1px solid #F1F5F9', flexShrink: 0 },
+  header: { padding: '12px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#FFFFFF', borderBottom: '1px solid #F1F5F9', flexShrink: 0 },
   headerTitle: { fontSize: 'var(--size-page-title, 14px)', fontWeight: '800', color: '#1E293B', margin: 0 },
   iconBtn: { background: 'none', border: 'none', cursor: 'pointer', position: 'relative' },
   notifDot: { position: 'absolute', top: '0px', right: '0px', width: '8px', height: '8px', backgroundColor: 'var(--primary-color)', borderRadius: '50%', border: '2px solid white' },

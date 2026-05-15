@@ -120,7 +120,20 @@ function App() {
                       currentUser={currentUser}
                       onBack={handleLogout}
                       onComplete={(updatedUser) => {
-                        localStorage.setItem(STORAGE_KEYS.USER_CURRENT, JSON.stringify(updatedUser));
+                        const userForStorage = { ...updatedUser };
+                        if (userForStorage.avatar_url && userForStorage.avatar_url.length > 100000) {
+                          delete userForStorage.avatar_url;
+                        }
+                        if (userForStorage.id_photo_url && userForStorage.id_photo_url.length > 100000) {
+                          delete userForStorage.id_photo_url;
+                        }
+                        try {
+                          localStorage.setItem(STORAGE_KEYS.USER_CURRENT, JSON.stringify(userForStorage));
+                        } catch (err) {
+                          delete userForStorage.avatar_url;
+                          delete userForStorage.id_photo_url;
+                          localStorage.setItem(STORAGE_KEYS.USER_CURRENT, JSON.stringify(userForStorage));
+                        }
                         setCurrentUser(updatedUser);
                       }}
                     />
@@ -128,7 +141,20 @@ function App() {
                 ) : (
                   <LoginPage
                     onLoginSuccess={(user) => {
-                      localStorage.setItem(STORAGE_KEYS.USER_CURRENT, JSON.stringify(user));
+                      const userForStorage = { ...user };
+                      if (userForStorage.avatar_url && userForStorage.avatar_url.length > 100000) {
+                        delete userForStorage.avatar_url;
+                      }
+                      if (userForStorage.id_photo_url && userForStorage.id_photo_url.length > 100000) {
+                        delete userForStorage.id_photo_url;
+                      }
+                      try {
+                        localStorage.setItem(STORAGE_KEYS.USER_CURRENT, JSON.stringify(userForStorage));
+                      } catch (err) {
+                        delete userForStorage.avatar_url;
+                        delete userForStorage.id_photo_url;
+                        localStorage.setItem(STORAGE_KEYS.USER_CURRENT, JSON.stringify(userForStorage));
+                      }
                       setCurrentUser(user);
                     }}
                   />

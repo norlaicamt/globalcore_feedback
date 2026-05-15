@@ -111,6 +111,7 @@ def read_feedbacks(
     recipient_user_id: Optional[int] = None, 
     sender_id: Optional[int] = None,
     status: Optional[str] = None,
+    search: Optional[str] = None,
     skip: int = 0,
     limit: int = 10,
     user_id: Optional[int] = None,
@@ -126,8 +127,15 @@ def read_feedbacks(
         recipient_user_id=recipient_user_id,
         mentioned_user_id=mentioned_user_id,
         current_user_id=user_id,
-        status=status
+        status=status,
+        search=search
     )
+
+@router.get("/trending", response_model=List[schemas.Feedback])
+def read_trending_feedbacks(limit: int = 10, db: Session = Depends(get_db)):
+    """Global trending topics sorted by activity."""
+    return crud.get_trending_feedbacks(db, limit=limit)
+
 
 @router.get("/{feedback_id}", response_model=schemas.FeedbackDetail)
 def read_feedback(feedback_id: int, db: Session = Depends(get_db)):
