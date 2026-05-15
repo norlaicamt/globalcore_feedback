@@ -6,7 +6,8 @@ import {
   formatFeedbackDate,
   renderFeedbackAction,
   renderFeedbackResponses,
-  formatMentions
+  formatMentions,
+  resolveMediaUrl
 } from "../utils/feedback";
 import { useLightbox } from "../context/LightboxContext";
 import ProfileSettings from './ProfileSettings';
@@ -615,7 +616,7 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
         </button>
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flex: 1, justifyContent: 'center' }}>
           {systemLogo && (
-            <img src={systemLogo} alt="Logo" loading="lazy" style={{ height: '36px', maxWidth: '100px', objectFit: 'contain' }} />
+            <img src={resolveMediaUrl(systemLogo)} alt="Logo" loading="lazy" style={{ height: '36px', maxWidth: '100px', objectFit: 'contain' }} />
           )}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
             <span style={{ ...styles.headerTitle, color: 'var(--primary-color)', fontSize: '16px', fontWeight: '800', lineHeight: 1.2 }}>{systemName}</span>
@@ -806,7 +807,7 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
             <div style={{ ...styles.menuHeader, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', cursor: 'pointer' }} onClick={() => navigateTo('profile')}>
               <div style={{ position: 'relative', display: 'inline-block' }}>
                 {localUser?.avatar_url ? (
-                  <img src={localUser.avatar_url} alt="avatar" loading="lazy" style={{ ...styles.avatarLarge, objectFit: 'cover', display: 'flex' }} />
+                  <img src={resolveMediaUrl(localUser.avatar_url)} alt="avatar" loading="lazy" style={{ ...styles.avatarLarge, objectFit: 'cover', display: 'flex' }} />
                 ) : (
                   <div style={styles.avatarLarge}>{localUser?.name?.charAt(0) || "U"}</div>
                 )}
@@ -1153,7 +1154,7 @@ const CommentModal = ({ item, currentUser, onClose, onShowToast, onRefreshProfil
             overflow: 'hidden'
           }}>
             {node.user?.avatar_url ? (
-              <img src={node.user.avatar_url} alt="avatar" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <img src={resolveMediaUrl(node.user.avatar_url)} alt="avatar" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             ) : (node.user?.name || node.user_name || 'U').charAt(0)}
           </div>
           <div style={{ flex: 1 }}>
@@ -1245,7 +1246,7 @@ const CommentModal = ({ item, currentUser, onClose, onShowToast, onRefreshProfil
                 {itemMeta.is_anonymous || !itemMeta.sender_avatar_url ? (
                   (itemMeta.user_name || 'U').charAt(0)
                 ) : (
-                  <img src={itemMeta.sender_avatar_url} alt="avatar" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <img src={resolveMediaUrl(itemMeta.sender_avatar_url)} alt="avatar" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 )}
               </div>
               <div style={{ flex: 1 }}>
@@ -1552,7 +1553,7 @@ const FeedCard = React.memo(({ item: initialItem, currentUser, onShowToast, onOp
           <div style={{ ...styles.cardAvatar, backgroundColor: 'var(--primary-color)', color: '#FFFFFF' }}>{(item.user_name || 'U').charAt(0)}</div>
         ) : (
           <img
-            src={item.sender_avatar_url}
+            src={resolveMediaUrl(item.sender_avatar_url)}
             alt={item.user_name}
             style={{ ...styles.cardAvatar, objectFit: 'cover', border: '1px solid #E2E8F0', backgroundColor: '#FFFFFF' }}
           />
@@ -1635,7 +1636,7 @@ const FeedCard = React.memo(({ item: initialItem, currentUser, onShowToast, onOp
         <div style={styles.feedImages}>
           {(() => {
             try {
-              const files = JSON.parse(item.attachments);
+              const files = JSON.parse(item.attachments).map(f => resolveMediaUrl(f));
               return files.map((src, idx) => (
                 <img
                   key={idx}

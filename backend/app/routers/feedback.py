@@ -65,8 +65,7 @@ async def upload_feedback_file(request: Request, file: UploadFile = File(...)):
 
     batch_id = request.headers.get("X-Batch-ID", "unknown")
     file_index = request.headers.get("X-File-Index", "0")
-    base_url = str(request.base_url).rstrip('/')
-    returned_url = f"{base_url}/uploads/feedback/{unique_name}"
+    returned_url = f"/uploads/feedback/{unique_name}"
     
     # Production Hardening: Disable audits in prod (check ENV)
     if os.getenv("ENV") == "development":

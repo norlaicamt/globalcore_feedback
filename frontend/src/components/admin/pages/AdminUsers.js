@@ -4,6 +4,7 @@ import {
   adminUpdateUserDetails, adminGetEntities, adminResetPassword,
   adminLogAction
 } from "../../../services/adminApi";
+import { resolveMediaUrl } from "../../../utils/feedback";
 import { useTerminology } from "../../../context/TerminologyContext";
 import CustomModal from "../../CustomModal";
 import jsPDF from "jspdf";
@@ -589,7 +590,7 @@ const AdminUsers = ({ theme, darkMode, adminUser }) => {
                 </td>
                 <td style={{ padding: "12px 20px" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "12px", cursor: "pointer" }} onClick={() => setProfileUser(u)}>
-                    <div style={{ width: "32px", height: "32px", borderRadius: "50%", background: "var(--primary-color)20", color: "var(--primary-color)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "800", fontSize: "12px" }}>{u.avatar_url ? <img src={u.avatar_url} alt={u.name} style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }} /> : u.name?.charAt(0)}</div>
+                    <div style={{ width: "32px", height: "32px", borderRadius: "50%", background: "var(--primary-color)20", color: "var(--primary-color)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "800", fontSize: "12px" }}>{u.avatar_url ? <img src={resolveMediaUrl(u.avatar_url)} alt={u.name} style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }} /> : u.name?.charAt(0)}</div>
                     <div>
                       <p style={{ margin: 0, fontSize: "13px", fontWeight: "700", color: "#1E293B" }}>{u.name}</p>
                       <p style={{ margin: 0, fontSize: "11px", color: "#64748B" }}>{u.email}</p>
@@ -639,7 +640,7 @@ const AdminUsers = ({ theme, darkMode, adminUser }) => {
                 <button onClick={() => setProfileUser(null)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: "20px" }}>&times;</button>
              </div>
              <div style={{ textAlign: "center", marginBottom: "24px" }}>
-                <div style={{ width: "80px", height: "80px", borderRadius: "50%", background: "var(--primary-color)20", color: "var(--primary-color)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px", fontSize: "32px", fontWeight: "900" }}>{profileUser.avatar_url ? <img src={profileUser.avatar_url} alt={profileUser.name} style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }} /> : profileUser.name?.charAt(0)}</div>
+                <div style={{ width: "80px", height: "80px", borderRadius: "50%", background: "var(--primary-color)20", color: "var(--primary-color)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px", fontSize: "32px", fontWeight: "900" }}>{profileUser.avatar_url ? <img src={resolveMediaUrl(profileUser.avatar_url)} alt={profileUser.name} style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }} /> : profileUser.name?.charAt(0)}</div>
                 <h4 style={{ margin: "0 0 4px 0", fontSize: "18px" }}>{profileUser.name}</h4>
                 <p style={{ margin: 0, fontSize: "14px", color: theme.textMuted }}>{profileUser.email}</p>
              </div>

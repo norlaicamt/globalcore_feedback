@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { adminGetProfile, adminUpdateProfile, getSystemLabels, updateSystemLabelsBulk, adminGetProfileActivity, getAdminSettings, updateAdminSetting } from "../../../services/adminApi";
 import { useTerminology } from "../../../context/TerminologyContext";
 import { STORAGE_KEYS } from "../../../utils/storage";
+import { resolveMediaUrl } from "../../../utils/feedback";
 import ImageCropperModal from "../../ImageCropperModal";
 
 const hexToRgb = (hex) => {
@@ -803,13 +804,13 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
                         <div style={{ position: "relative" }}>
                           {isGlobalAdmin ? (
                             systemLogo ? (
-                              <img src={systemLogo} alt="System Logo" style={{ width: "120px", height: "120px", borderRadius: "28px", objectFit: "contain", background: 'white', padding: '10px', border: `3px solid ${theme.border}`, boxShadow: '0 8px 20px rgba(0,0,0,0.08)' }} />
+                              <img src={resolveMediaUrl(systemLogo)} alt="System Logo" style={{ width: "120px", height: "120px", borderRadius: "28px", objectFit: "contain", background: 'white', padding: '10px', border: `3px solid ${theme.border}`, boxShadow: '0 8px 20px rgba(0,0,0,0.08)' }} />
                             ) : (
                               <div style={{ width: "120px", height: "120px", borderRadius: "28px", background: "linear-gradient(135deg, var(--primary-color), #4F46E5)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "42px", fontWeight: "900", boxShadow: '0 8px 20px rgba(var(--primary-rgb), 0.2)' }}>{profile.name?.charAt(0)}</div>
                             )
                           ) : (
                             profile.avatar_url
-                              ? <img src={profile.avatar_url} alt={profile.name} style={{ width: "120px", height: "120px", borderRadius: "28px", objectFit: "cover", border: `3px solid ${theme.border}`, boxShadow: '0 8px 20px rgba(0,0,0,0.08)' }} />
+                              ? <img src={resolveMediaUrl(profile.avatar_url)} alt={profile.name} style={{ width: "120px", height: "120px", borderRadius: "28px", objectFit: "cover", border: `3px solid ${theme.border}`, boxShadow: '0 8px 20px rgba(0,0,0,0.08)' }} />
                               : <div style={{ width: "120px", height: "120px", borderRadius: "28px", background: "linear-gradient(135deg, var(--primary-color), #4F46E5)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "42px", fontWeight: "900", boxShadow: '0 8px 20px rgba(var(--primary-rgb), 0.2)' }}>{profile.name?.charAt(0)}</div>
                           )}
                           {profile.profile_completed && (
@@ -857,9 +858,9 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
                           <div style={{ position: 'relative' }}>
                             <div style={{ width: "120px", height: "120px", borderRadius: "28px", background: theme.bg, border: `3px dashed ${theme.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
                               {isGlobalAdmin ? (
-                                systemLogo ? <img src={systemLogo} style={{ width: '100%', height: '100%', objectFit: 'contain', background: 'white', padding: '10px' }} /> : <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke={theme.textMuted} strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+                                systemLogo ? <img src={resolveMediaUrl(systemLogo)} style={{ width: '100%', height: '100%', objectFit: 'contain', background: 'white', padding: '10px' }} /> : <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke={theme.textMuted} strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
                               ) : (
-                                form.avatar_url ? <img src={form.avatar_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke={theme.textMuted} strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+                                form.avatar_url ? <img src={resolveMediaUrl(form.avatar_url)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke={theme.textMuted} strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
                               )}
                             </div>
                             {!isGlobalAdmin && (
@@ -1296,7 +1297,7 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
                     <p style={{ margin: '-4px 0 16px 0', fontSize: '11px', color: theme.textMuted }}>Shown in both admin and user screens.</p>
                     <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
                       <div style={{ width: '64px', height: '64px', borderRadius: '12px', background: theme.surface, border: `1.5px solid ${theme.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', padding: '8px' }}>
-                        {logoPreview ? <img src={logoPreview} style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={theme.textMuted} strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>}
+                        {logoPreview ? <img src={resolveMediaUrl(logoPreview)} style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={theme.textMuted} strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>}
                       </div>
                       <div style={{ flex: 1 }}>
                         <input type="file" id="logo-upload-premium" hidden onChange={handleLogoChange} accept="image/*" />

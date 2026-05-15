@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { updateUser, getDrafts, createDraft, updateDraft, deleteDraft } from "../services/api";
 import { useTerminology } from "../context/TerminologyContext";
 import { STORAGE_KEYS } from "../utils/storage";
+import { resolveMediaUrl } from "../utils/feedback";
 
 // Removed ROLE_OPTIONS as all users are now dynamic standard users
 const DRAFT_VERSION = 1;
@@ -401,7 +402,7 @@ const UserOnboarding = ({ currentUser, onBack, onComplete }) => {
                     <div style={styles.uploadBox}>
                       <input type="file" accept="image/*" onChange={(e) => handlePhotoUpload(e, "avatar_url")} style={{ fontSize: 12 }} />
                       {form.avatar_url && (
-                        <img src={form.avatar_url} alt="profile" style={styles.avatarPreview} />
+                        <img src={resolveMediaUrl(form.avatar_url)} alt="profile" style={styles.avatarPreview} />
                       )}
                     </div>
                   </div>

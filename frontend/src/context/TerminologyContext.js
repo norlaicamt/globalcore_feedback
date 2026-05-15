@@ -2,6 +2,8 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { getSystemLabels } from '../services/adminApi';
 import { getAdminSettings } from '../services/api';
 
+import { resolveMediaUrl } from '../utils/feedback';
+
 const TerminologyContext = createContext();
 
 export const useTerminology = () => {
@@ -98,7 +100,9 @@ export const TerminologyProvider = ({ children }) => {
 
       // Merge public branding settings
       if (publicInfo.organization_name) mappedSettings.primary_organization_name = publicInfo.organization_name;
-      if (publicInfo.organization_logo) mappedSettings.primary_organization_logo = publicInfo.organization_logo;
+      if (publicInfo.organization_logo) {
+        mappedSettings.primary_organization_logo = resolveMediaUrl(publicInfo.organization_logo);
+      }
       if (publicInfo.primary_color) mappedSettings.primary_color = publicInfo.primary_color;
       if (publicInfo.font_family) mappedSettings.font_family = publicInfo.font_family;
       if (publicInfo.system_mode) mappedSettings.system_mode = publicInfo.system_mode;

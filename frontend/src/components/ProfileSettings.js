@@ -9,6 +9,7 @@ import {
 } from "../services/api";
 import CustomModal from "./CustomModal";
 import ImageCropperModal from "./ImageCropperModal";
+import { resolveMediaUrl } from "../utils/feedback";
 
 // --- ICONS & REGISTRY ---
 
@@ -270,7 +271,7 @@ const ProfileView = ({ currentUser, onUserUpdate, showToast }) => {
                 <div style={styles.heroContent}>
                     <div style={styles.avatarLargeContainer}>
                         {currentUser.avatar_url ? (
-                            <img src={currentUser.avatar_url} style={styles.avatarLarge} alt="Avatar" />
+                            <img src={resolveMediaUrl(currentUser.avatar_url)} style={styles.avatarLarge} alt="Avatar" />
                         ) : (
                             <div style={styles.avatarLargePlaceholder}>
                                 {currentUser.name?.[0] || "U"}

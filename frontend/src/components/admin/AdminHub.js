@@ -15,6 +15,8 @@ import AdminProducts from "./pages/AdminProducts";
 import AdminTeam from "./pages/AdminTeam";
 import CustomModal from "../CustomModal";
 import { adminUpdatePresence, adminGetEntities } from "../../services/adminApi";
+import { resolveMediaUrl } from "../../utils/feedback";
+
 
 const NAV_ITEMS = [
   { id: "dashboard", label: "INSIGHT HUB", icon: <ChartIcon /> },
@@ -249,7 +251,7 @@ const AdminHub = ({ adminUser, onLogout }) => {
         <div style={styles.sidebarHeader}>
           <div style={styles.sidebarLogo}>
             {systemLogo ? (
-              <img src={systemLogo} alt="Logo" style={{ height: '36px', maxWidth: '100px', objectFit: 'contain' }} />
+              <img src={resolveMediaUrl(systemLogo)} alt="Logo" style={{ height: '36px', maxWidth: '100px', objectFit: 'contain' }} />
             ) : (
               <div style={styles.logoIcon}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
@@ -358,7 +360,7 @@ const AdminHub = ({ adminUser, onLogout }) => {
           <div style={{ ...styles.profileCard, cursor: 'pointer' }} onClick={() => handleSetView("settings")}>
             <div style={styles.profileMain}>
               {hasGlobalAdminAccess && systemLogo ? (
-                <img src={systemLogo} alt="Admin" style={{ ...styles.adminAvatar, objectFit: 'contain', background: 'white', padding: '4px' }} />
+                <img src={resolveMediaUrl(systemLogo)} alt="Admin" style={{ ...styles.adminAvatar, objectFit: 'contain', background: 'white', padding: '4px' }} />
               ) : (
                 <div style={{ ...styles.adminAvatar, background: hasGlobalAdminAccess ? 'linear-gradient(135deg, #9333ea, #7c3aed)' : 'var(--primary-color)' }}>
                   {localAdminUser?.name?.charAt(0) || "A"}

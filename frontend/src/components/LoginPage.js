@@ -3,6 +3,8 @@ import axios from "axios";
 import { login } from "../services/api";
 import CustomModal from "./CustomModal";
 import { useTerminology } from "../context/TerminologyContext";
+import { resolveMediaUrl } from "../utils/feedback";
+
 
 const LoginPage = ({ onLoginSuccess }) => {
   const { systemName, systemLogo } = useTerminology();
@@ -101,7 +103,7 @@ const LoginPage = ({ onLoginSuccess }) => {
         <div style={styles.cardHeader}>
           <div style={systemLogo ? { marginBottom: '20px', display: 'flex', justifyContent: 'center', width: '100%' } : styles.logoBadge}>
             {systemLogo ? (
-              <img src={systemLogo} alt="Logo" style={{ height: '52px', maxWidth: '100%', objectFit: 'contain', display: 'block' }} />
+              <img src={resolveMediaUrl(systemLogo)} alt="Logo" style={{ height: '52px', maxWidth: '100%', objectFit: 'contain', display: 'block' }} />
             ) : (
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>

@@ -93,7 +93,7 @@ export const renderFeedbackAction = (post, currentUser) => {
     <span style={{ lineHeight: '1.4', display: 'inline-flex', flexWrap: 'wrap', alignItems: 'center', gap: '3px' }}>
       {post.product_id && (post.product_image_url || post.custom_data?.product_metadata?.image_url) && (
         <img
-          src={post.product_image_url || post.custom_data?.product_metadata?.image_url}
+          src={resolveMediaUrl(post.product_image_url || post.custom_data?.product_metadata?.image_url)}
           alt=""
           style={{ width: '20px', height: '20px', borderRadius: '4px', objectFit: 'cover', marginRight: '4px' }}
         />
@@ -186,7 +186,7 @@ export const renderFeedbackAction = (post, currentUser) => {
       <span style={{ lineHeight: '1.4', display: 'inline-flex', flexWrap: 'wrap', alignItems: 'center', gap: '3px' }}>
         {post.product_id && (post.product_image_url || post.custom_data?.product_metadata?.image_url) && (
           <img
-            src={post.product_image_url || post.custom_data?.product_metadata?.image_url}
+            src={resolveMediaUrl(post.product_image_url || post.custom_data?.product_metadata?.image_url)}
             alt=""
             style={{ width: '20px', height: '20px', borderRadius: '4px', objectFit: 'cover', marginRight: '4px' }}
           />
@@ -213,6 +213,34 @@ export const renderFeedbackAction = (post, currentUser) => {
   return baseHeader;
 };
 
+export const resolveMediaUrl = (url) => {
+  if (!url || typeof url !== 'string') return url;
+  if (url.startsWith('blob:') || url.startsWith('data:')) return url;
+
+  const API_BASE = process.env.REACT_APP_API_URL || `http://${window.location.hostname}:8000`;
+
+  // Fix 1: If it contains /uploads/, always normalize it to the current API_BASE
+  // This handles both relative paths and absolute URLs with stale IPs/localhost
+  if (url.includes('/uploads/')) {
+    const parts = url.split('/uploads/');
+    return `${API_BASE}/uploads/${parts[parts.length - 1]}`;
+  }
+
+  // Fix 2: If it starts with uploads/ (no leading slash)
+  if (url.startsWith('uploads/')) {
+    return `${API_BASE}/${url}`;
+  }
+
+  // Fix 3: Legacy absolute URL check (as fallback)
+  if (url.includes('localhost:8000') || url.includes('127.0.0.1:8000')) {
+    const path = url.split(':8000')[1];
+    if (path) return `${API_BASE}${path}`;
+  }
+
+  return url;
+};
+
+
 // ─── Component: AuditImage ───────────────────────────────────────────────────
 
 export const AuditImage = ({ src, alt, style, images = [], index = 0, feedback_id = 'unknown', viewer_mode = 'public', lightboxSrc = null }) => {
@@ -221,13 +249,8 @@ export const AuditImage = ({ src, alt, style, images = [], index = 0, feedback_i
   const { openLightbox } = useLightbox();
 
   useEffect(() => {
-    let url = src;
-    if (typeof url === 'string' && url.startsWith('/uploads')) {
-      const API_BASE = process.env.REACT_APP_API_URL || `http://${window.location.hostname}:8000`;
-      url = `${API_BASE}${url}`;
-    }
-    setResolvedSrc(url);
-    setImgStatus('loaded'); // Rely on native onError event
+    setResolvedSrc(resolveMediaUrl(src));
+    setImgStatus('loaded');
   }, [src]);
 
   if (imgStatus === 'error') {
@@ -248,7 +271,7 @@ export const AuditImage = ({ src, alt, style, images = [], index = 0, feedback_i
       onClick={(e) => {
         e.stopPropagation();
         if (imgStatus === 'loaded') {
-          const lightboxImages = images.length > 0 ? images : [lightboxSrc || resolvedSrc];
+          const lightboxImages = (images.length > 0 ? images : [lightboxSrc || resolvedSrc]).map(img => resolveMediaUrl(img));
           openLightbox(lightboxImages, index, { feedback_id, viewer_mode });
         }
       }}

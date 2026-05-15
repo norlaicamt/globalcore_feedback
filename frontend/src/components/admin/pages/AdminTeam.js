@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { adminGetTeam, adminGetEntities, adminGetUnassignedFeedbacks, adminAssignFeedback, adminGetUsers, adminUpdateUserDetails } from "../../../services/adminApi";
 import { useTerminology } from "../../../context/TerminologyContext";
+import { resolveMediaUrl } from "../../../utils/feedback";
 import CustomModal from "../../CustomModal";
 
 export default function AdminTeam({ adminUser, onNavigate }) {
@@ -192,7 +193,7 @@ export default function AdminTeam({ adminUser, onNavigate }) {
         {/* Avatar Area */}
         <div style={{ position: "relative" }}>
           {m.avatar_url ? (
-            <img src={m.avatar_url} alt={m.name} style={{ width: "32px", height: "32px", borderRadius: "50%", objectFit: "cover" }} />
+            <img src={resolveMediaUrl(m.avatar_url)} alt={m.name} style={{ width: "32px", height: "32px", borderRadius: "50%", objectFit: "cover" }} />
           ) : (
             <div style={{
               width: "32px", height: "32px", borderRadius: "50%", backgroundColor: "#F3F4F6",
