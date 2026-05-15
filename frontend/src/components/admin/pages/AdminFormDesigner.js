@@ -284,7 +284,7 @@ function normalizeConfig(config) {
   normalized.steps = (normalized.steps || []).map((s, idx) => {
     // --- ID NORMALIZATION: STEP ---
     const oldStepId = s.id;
-    const newStepId = String(oldStepId || `step_${Date.now()}_${idx}`);
+    const newStepId = String(oldStepId || `step_${idx}`);
     if (typeof oldStepId === "number") {
       console.log(`[AUDIT:ID_NORMALIZATION] Step ID: ${oldStepId} (number) -> ${newStepId} (string)`);
     }
@@ -297,7 +297,7 @@ function normalizeConfig(config) {
       items: (s.items || []).map((it, iIdx) => {
         // --- ID NORMALIZATION: ITEM ---
         const oldItemId = it.id;
-        const newItemId = String(oldItemId || `it_${Date.now()}_${iIdx}`);
+        const newItemId = String(oldItemId || `it_${idx}_${iIdx}`);
         if (typeof oldItemId === "number") {
           console.log(`[AUDIT:ID_NORMALIZATION] Item ID: ${oldItemId} (number) -> ${newItemId} (string)`);
         }
@@ -666,7 +666,11 @@ function AdminFormDesigner({ theme, darkMode, adminUser }) {
           await updateEntityFormConfig(selectedEntId, normConfig);
           console.log("[AUDIT:DEPLOY_RESPONSE] Success");
           localStorage.removeItem(`form_draft_${selectedEntId}`);
-          setInitialConfig(JSON.parse(JSON.stringify(config)));
+          
+          // Sync state with exactly what was sent to server
+          setConfig(normConfig);
+          setInitialConfig(JSON.parse(JSON.stringify(normConfig)));
+          
           setModal({ isOpen: false });
           setTimeout(() => {
             setModal({ isOpen: true, title: "Success", message: "Workflow is now live!", type: "success" });

@@ -433,14 +433,34 @@ def delete_branch(db: Session, branch_id: int):
 
 # Product operations
 def get_products(db: Session, skip: int = 0, limit: int = 100, entity_id: int = None, branch_id: int = None, only_active: bool = True):
-    query = db.query(models.Product)
+    fb_agg = db.query(
+        models.Feedback.product_id,
+        func.count(models.Feedback.id).label("cnt"),
+        func.max(models.Feedback.created_at).label("latest")
+    ).group_by(models.Feedback.product_id).subquery()
+
+    query = db.query(
+        models.Product,
+        func.coalesce(fb_agg.c.cnt, 0).label("feedback_count"),
+        fb_agg.c.latest.label("latest_feedback_at")
+    ).outerjoin(fb_agg, models.Product.id == fb_agg.c.product_id)
+
     if entity_id:
         query = query.filter(models.Product.entity_id == entity_id)
     if branch_id:
         query = query.filter(models.Product.branch_id == branch_id)
     if only_active:
         query = query.filter(models.Product.is_active == True)
-    return query.offset(skip).limit(limit).all()
+    
+    results = query.offset(skip).limit(limit).all()
+    
+    products = []
+    for row in results:
+        p = row[0]
+        p.feedback_count = row.feedback_count
+        p.latest_feedback_at = row.latest_feedback_at
+        products.append(p)
+    return products
 
 def get_product(db: Session, product_id: int):
     return db.query(models.Product).filter(models.Product.id == product_id).first()

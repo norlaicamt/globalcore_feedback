@@ -4,6 +4,8 @@ import { useTerminology } from "../context/TerminologyContext";
 import CustomModal from "./CustomModal";
 import VoiceRecorder from "./VoiceRecorder";
 
+// Service types that can have Products
+const SERVICE_TYPES_WITH_PRODUCTS = ['Restaurant', 'Pool', 'Spa', 'Housekeeping', 'Shop', 'Store', 'Gift Shop'];
 
 const SMART_DEFAULTS = {
   star_rating: "How would you rate your overall experience?",
@@ -132,6 +134,7 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
   const [bulkSummary, setBulkSummary] = useState("");
   const [mediaStatus, setMediaStatus] = useState({}); // { fieldId: { status: 'idle'|'validating'|'compressing'|'uploading'|'scanning'|'safe'|'failed', progress: 0, preview: null, error: null } }
   const [products, setProducts] = useState([]);
+  const [globalProducts, setGlobalProducts] = useState([]);
   const [productLoading, setProductLoading] = useState(false);
   const [productSearch, setProductSearch] = useState("");
   const [selectedProduct, setSelectedProduct] = useState(draft?.selectedProduct || null);
@@ -423,11 +426,17 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
   useEffect(() => {
     if (dbEntities.length === 0 && !entityFetchRef.current) {
       entityFetchRef.current = true;
-      getEntities().then(data => {
-        setDbEntities(data);
-        if (window.DEBUG_MODE) console.log("[AUDIT:API] Entities deduplicated");
+      Promise.all([
+        getEntities(),
+        getProducts() // Fetch all active products globally once for previews
+      ]).then(([entData, prodData]) => {
+        setDbEntities(entData);
+        if (prodData && Array.isArray(prodData)) {
+          setGlobalProducts(prodData);
+        }
+        if (window.DEBUG_MODE) console.log("[AUDIT:API] Entities and Global Products deduplicated");
       }).catch(err => {
-        console.error("Failed to fetch entities", err);
+        console.error("Failed to fetch entities or products", err);
         entityFetchRef.current = false;
       });
     }
@@ -488,6 +497,9 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
         setSelectionMethod("auto");
       }
     }).catch(console.error).finally(() => setLoading(false));
+    getProducts().then(prodData => {
+      if (prodData && Array.isArray(prodData)) setGlobalProducts(prodData);
+    }).catch(console.error);
   }, [preFetchedEntities, draft]);
 
   const resetForm = () => {
@@ -1194,6 +1206,22 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
                 <div style={styles.itemIcon}><IconComp size={28} /></div>
                 <div style={styles.itemName}>{ent.name}</div>
                 <div style={{ fontSize: '10px', color: '#94A3B8', marginTop: '4px', textAlign: 'center' }}>{ent.description || 'Quality Service'}</div>
+                {(() => {
+                  if (!SERVICE_TYPES_WITH_PRODUCTS.includes(ent.fields?.operational?.workspace_type)) return null;
+                  const entProducts = globalProducts.filter(p => p.entity_id === ent.id && p.is_active !== false);
+                  if (entProducts.length === 0) return null;
+                  return (
+                    <div style={{ marginTop: '12px', padding: '6px 10px', background: 'rgba(99,102,241,0.05)', borderRadius: '12px', border: '1px solid rgba(99,102,241,0.1)', width: '100%' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#6366F1', fontSize: '10px', fontWeight: '800', marginBottom: '4px' }}>
+                        <span style={{ fontSize: '12px' }}>🛍</span> {entProducts.length} Product{entProducts.length !== 1 ? 's' : ''}
+                      </div>
+                      <div style={{ fontSize: '9px', color: '#64748B', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'left' }}>
+                        {entProducts.slice(0, 3).map(p => p.name).join(' • ')}
+                        {entProducts.length > 3 && ` • +${entProducts.length - 3}`}
+                      </div>
+                    </div>
+                  );
+                })()}
               </button>
             );
           })}</div>

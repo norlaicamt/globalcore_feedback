@@ -9,6 +9,29 @@ import { useTerminology } from "../../../context/TerminologyContext";
 import CustomModal from "../../CustomModal";
 import { IconRegistry, ICONS_LIST as ICONS } from "../../IconRegistry";
 
+// Workspace type classification
+const SERVICE_WORKSPACE_TYPES = ['Restaurant', 'Pool', 'Spa', 'Housekeeping', 'Shop', 'Store', 'Gift Shop'];
+
+// Auto-suggest icon per workspace type
+const WORKSPACE_ICON_PRESETS = {
+  Restaurant: 'cutlery',
+  Pool: 'pool',
+  Spa: 'spa',
+  Housekeeping: 'home',
+  Shop: 'amenities',
+  Store: 'amenities',
+  'Gift Shop': 'gift',
+  Department: 'users',
+  Office: 'briefcase',
+  Program: 'layers',
+};
+
+// Returns human-readable label for a workspace type
+const getWorkspaceLabel = (type) => {
+  if (SERVICE_WORKSPACE_TYPES.includes(type)) return 'Service';
+  return type || 'Program';
+};
+
 const renderIcon = (iconName) => {
     const IconComp = IconRegistry[iconName] || IconRegistry.default;
     return <IconComp />;
@@ -124,7 +147,7 @@ const AdminPrograms = ({ theme, darkMode, adminUser, onNavigate, initialTab }) =
     const hasGlobalAdminAccess = (adminUser?.role === "superadmin") || (adminUser?.role === "admin" && !adminUser?.entity_id);
 
     // Program List State
-    const [prgForm, setPrgForm] = useState({ name: "", description: "", icon: "layers", type: "Program" });
+    const [prgForm, setPrgForm] = useState({ name: "", description: "", icon: "layers", type: "Restaurant" });
     const [isAddingProgram, setIsAddingProgram] = useState(false);
 
     // Location List State
@@ -237,7 +260,8 @@ const AdminPrograms = ({ theme, darkMode, adminUser, onNavigate, initialTab }) =
         e.preventDefault();
         if (!prgForm.name.trim()) return;
         try {
-            await adminCreateEntity(prgForm.name.trim(), prgForm.description, {}, prgForm.icon);
+            const fieldsData = { operational: { workspace_type: prgForm.type } };
+            await adminCreateEntity(prgForm.name.trim(), prgForm.description, fieldsData, prgForm.icon);
             setPrgForm({ name: "", description: "", icon: "layers" });
             setIsAddingProgram(false);
             loadPrograms();
@@ -426,7 +450,7 @@ const AdminPrograms = ({ theme, darkMode, adminUser, onNavigate, initialTab }) =
                 background: 'transparent', borderRadius: '16px', padding: '24px', border: `2px dashed ${theme.border}`, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '10px', color: theme.textMuted, transition: 'all 0.2s'
             }}>
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
-                <span style={{ fontWeight: '700', fontSize: '13px' }}>Add New {getLabel('category_label', 'Program')}</span>
+                <span style={{ fontWeight: '700', fontSize: '13px' }}>Register New Service or Program</span>
             </div>
         </div>
     );
@@ -656,12 +680,25 @@ const AdminPrograms = ({ theme, darkMode, adminUser, onNavigate, initialTab }) =
                                                         value={selectedProgram.fields?.operational?.workspace_type ?? "Program"}
                                                         onChange={e => updateFields('operational', 'workspace_type', e.target.value)}
                                                     >
-                                                        <option>Program</option>
-                                                        <option>Service</option>
-                                                        <option>Department</option>
-                                                        <option>Office</option>
+                                                        <optgroup label="── Service Types (can have Products) ──">
+                                                            <option value="Restaurant">Restaurant</option>
+                                                            <option value="Pool">Pool</option>
+                                                            <option value="Spa">Spa</option>
+                                                            <option value="Housekeeping">Housekeeping</option>
+                                                            <option value="Shop">Shop</option>
+                                                            <option value="Store">Store</option>
+                                                            <option value="Gift Shop">Gift Shop</option>
+                                                        </optgroup>
+                                                        <optgroup label="── Other Workspace Types ──">
+                                                            <option value="Program">Program</option>
+                                                            <option value="Department">Department</option>
+                                                            <option value="Office">Office</option>
+                                                        </optgroup>
                                                     </select>
-                                                    <p style={{ marginTop: '8px', fontSize: '11px', color: theme.textMuted }}>Categorization helps in organization-wide reporting and filtering.</p>
+                                                    <p style={{ marginTop: '8px', fontSize: '11px', color: theme.textMuted }}>
+                                                        Service types (Restaurant, Pool, Spa, etc.) can have Products assigned to them.
+                                                        Other types are general workspaces.
+                                                    </p>
                                                 </div>
 
                                                 <div style={settingRowStyle(theme)}>
@@ -1263,24 +1300,54 @@ const AdminPrograms = ({ theme, darkMode, adminUser, onNavigate, initialTab }) =
             {isAddingProgram && (
                 <div style={modalOverlay}>
                     <div style={{ ...modalContent, background: theme.surface }}>
-                        <h3 style={{ margin: '0 0 16px 0', color: theme.text }}>Register New {getLabel('category_label', 'Program')}</h3>
+                        <h3 style={{ margin: '0 0 4px 0', color: theme.text }}>
+                            Register New {getWorkspaceLabel(prgForm.type)}
+                        </h3>
+                        <p style={{ margin: '0 0 20px 0', fontSize: '12px', color: theme.textMuted }}>
+                            {SERVICE_WORKSPACE_TYPES.includes(prgForm.type)
+                                ? `${prgForm.type} services can have Products assigned to them.`
+                                : 'General workspace — no products attached.'}
+                        </p>
                         <form onSubmit={handleCreateProgram}>
-                            <label style={labelStyle(theme)}>{getLabel('category_label', 'Workspace')} Name</label>
-                            <input value={prgForm.name} onChange={e => setPrgForm({ ...prgForm, name: e.target.value })} style={{ ...inputStyle(theme), marginBottom: '20px' }} placeholder={`e.g. 4Ps ${getLabel('category_label', 'Workspace')}`} />
-
-                            <label style={labelStyle(theme)}>{getLabel('category_label', 'Workspace')} Type</label>
+                            <label style={labelStyle(theme)}>{getWorkspaceLabel(prgForm.type)} Type</label>
                             <select
                                 value={prgForm.type}
-                                onChange={e => setPrgForm({ ...prgForm, type: e.target.value })}
+                                onChange={e => {
+                                    const t = e.target.value;
+                                    const preset = WORKSPACE_ICON_PRESETS[t] || 'layers';
+                                    setPrgForm({ ...prgForm, type: t, icon: preset });
+                                }}
                                 style={{ ...inputStyle(theme), marginBottom: '20px' }}
                             >
-                                <option>Program</option>
-                                <option>Service</option>
-                                <option>Department</option>
-                                <option>Office</option>
+                                <optgroup label="── Service Types (can have Products) ──">
+                                    <option value="Restaurant">Restaurant</option>
+                                    <option value="Pool">Pool</option>
+                                    <option value="Spa">Spa</option>
+                                    <option value="Housekeeping">Housekeeping</option>
+                                    <option value="Shop">Shop</option>
+                                    <option value="Store">Store</option>
+                                    <option value="Gift Shop">Gift Shop</option>
+                                </optgroup>
+                                <optgroup label="── Other Workspace Types ──">
+                                    <option value="Program">Program</option>
+                                    <option value="Department">Department</option>
+                                    <option value="Office">Office</option>
+                                </optgroup>
                             </select>
 
-                            <label style={labelStyle(theme)}>Icon</label>
+                            <label style={labelStyle(theme)}>{getWorkspaceLabel(prgForm.type)} Name</label>
+                            <input
+                                value={prgForm.name}
+                                onChange={e => setPrgForm({ ...prgForm, name: e.target.value })}
+                                style={{ ...inputStyle(theme), marginBottom: '20px' }}
+                                placeholder={`e.g. Main ${prgForm.type}`}
+                            />
+
+                            <label style={labelStyle(theme)}>Icon
+                                <span style={{ fontWeight: '400', color: theme.textMuted, marginLeft: '6px', textTransform: 'none' }}>
+                                    — auto-suggested, you can override below
+                                </span>
+                            </label>
                             <IconPicker
                                 theme={theme}
                                 currentIcon={prgForm.icon}
@@ -1288,7 +1355,9 @@ const AdminPrograms = ({ theme, darkMode, adminUser, onNavigate, initialTab }) =
                             />
 
                             <div style={{ display: 'flex', gap: '12px', marginTop: '10px' }}>
-                                <button type="submit" style={btnPrimary}>Create {getLabel('category_label', 'Program')}</button>
+                                <button type="submit" style={btnPrimary}>
+                                    Create {getWorkspaceLabel(prgForm.type)}
+                                </button>
                                 <button type="button" onClick={() => setIsAddingProgram(false)} style={btnSecondary(theme)}>Cancel</button>
                             </div>
                         </form>

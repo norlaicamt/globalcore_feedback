@@ -293,6 +293,8 @@ class Product(ProductBase):
     created_at: datetime
     updated_at: datetime
     evaluation_template: Optional[ProductEvaluationTemplate] = None
+    feedback_count: Optional[int] = 0
+    latest_feedback_at: Optional[datetime] = None
     model_config = ConfigDict(from_attributes=True)
 
 # --- REPLY SCHEMAS ---

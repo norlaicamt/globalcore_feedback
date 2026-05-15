@@ -178,6 +178,9 @@ export const renderFeedbackAction = (post, currentUser) => {
     resolved_emotion: emotionLabel ? emotionLabel.toLowerCase() : null,
   });
 
+  // When a product is linked, always use the product-review format — no emotion overlay
+  if (productName) return baseHeader;
+
   if (emotion && emotionLabel) {
     return (
       <span style={{ lineHeight: '1.4', display: 'inline-flex', flexWrap: 'wrap', alignItems: 'center', gap: '3px' }}>
@@ -189,7 +192,7 @@ export const renderFeedbackAction = (post, currentUser) => {
           />
         )}
         <span style={s.name}>{name}</span>
-        <span style={s.conn}> {productName ? `reviewed ${productName} and is feeling` : 'feeling'} </span>
+        <span style={s.conn}> is feeling </span>
         <span style={s.sent}>{emotion} {emotionLabel}</span>
         <span style={s.conn}> at </span>
         <span style={s.ent}>{truncate(entityLabel, 35)}</span>

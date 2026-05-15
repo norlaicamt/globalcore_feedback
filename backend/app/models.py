@@ -213,8 +213,6 @@ class Product(Base):
     name = Column(String, index=True)
     category = Column(String, nullable=True, index=True)
     evaluation_template_id = Column(Integer, ForeignKey("product_evaluation_templates.id"), nullable=True)
-    sku = Column(String, nullable=True, index=True)
-    price = Column(Float, nullable=True)
     image_url = Column(Text, nullable=True)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
@@ -245,7 +243,6 @@ class Feedback(Base):
     employee_name = Column(String, nullable=True)
     product_id = Column(Integer, ForeignKey("products.id"), nullable=True)
     product_name = Column(String, nullable=True)
-    product_sku = Column(String, nullable=True)
     attachments = Column(Text, nullable=True) # JSON-encoded list of Base64 strings or URLs
     custom_data = Column(JSONB, nullable=True) # stores dict of field values
     
