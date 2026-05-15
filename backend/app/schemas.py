@@ -267,8 +267,6 @@ class ProductBase(BaseModel):
     name: str
     category: Optional[str] = None
     evaluation_template_id: Optional[int] = None
-    sku: Optional[str] = None
-    price: Optional[float] = None
     image_url: Optional[str] = None
     is_active: bool = True
     entity_id: int
@@ -281,8 +279,6 @@ class ProductUpdate(BaseModel):
     name: Optional[str] = None
     category: Optional[str] = None
     evaluation_template_id: Optional[int] = None
-    sku: Optional[str] = None
-    price: Optional[float] = None
     image_url: Optional[str] = None
     is_active: Optional[bool] = None
     entity_id: Optional[int] = None
@@ -382,7 +378,6 @@ class FeedbackBase(BaseModel):
     employee_name: Optional[str] = None
     product_id: Optional[int] = None
     product_name: Optional[str] = None
-    product_sku: Optional[str] = None
     attachments: Optional[str] = None
     media: Optional[list] = None
     custom_data: Optional[dict] = None # Stores key-value pairs of dynamic fields
@@ -418,7 +413,6 @@ class Feedback(FeedbackBase):
     employee_name: Optional[str] = None
     product_id: Optional[int] = None
     product_name: Optional[str] = None
-    product_sku: Optional[str] = None
     attachments: Optional[str] = None
     media: Optional[list] = None
     custom_data: Optional[dict] = None

@@ -162,16 +162,20 @@ const AdminProducts = ({ theme, darkMode, adminUser, isScoped }) => {
                 const productsToImport = data.slice(1).map(row => {
                     const name = row[0]?.toString().trim();
                     const category = row[1]?.toString().trim() || "Uncategorized";
-                    const sku = row[2]?.toString().trim() || null;
-                    const price = row[3] ? parseFloat(row[3]) : null;
+                    const soldUnder = row[2]?.toString().trim() || "";
+
+                    let entity_id = parseInt(filterEntity) || adminUser?.entity_id;
+                    if (soldUnder) {
+                        const matchedEntity = entities.find(e => e.name.toLowerCase() === soldUnder.toLowerCase());
+                        if (matchedEntity) entity_id = matchedEntity.id;
+                    }
+
+                    if (!entity_id) throw new Error(`Service '${soldUnder}' not found for product '${name}'`);
 
                     return {
                         name,
                         category,
-                        sku,
-                        price: isNaN(price) ? null : price,
-                        entity_id: parseInt(filterEntity) || adminUser?.entity_id,
-                        branch_id: filterBranch ? parseInt(filterBranch) : null,
+                        entity_id,
                         is_active: true
                     };
                 }).filter(p => p.name);
@@ -189,7 +193,7 @@ const AdminProducts = ({ theme, darkMode, adminUser, isScoped }) => {
             } catch (err) {
                 setDialog({
                     isOpen: true, type: "error", title: "Import Failed",
-                    message: "Failed to parse Excel file. Ensure columns are: Name, Category, SKU, Price.",
+                    message: err.response?.data?.detail || err.message || "Failed to parse Excel file. Ensure columns are: Name, Product Type, Sold Under.",
                     confirmText: "OK", onConfirm: () => setDialog({ isOpen: false })
                 });
             }
@@ -206,22 +210,22 @@ const AdminProducts = ({ theme, darkMode, adminUser, isScoped }) => {
                 const delimiter = line.includes("\t") ? "\t" : ",";
                 const parts = line.split(delimiter);
                 
-                // Name and Category are the priority
                 const name = parts[0]?.trim();
                 const category = parts[1]?.trim() || "Uncategorized";
+                const soldUnder = parts[2]?.trim() || "";
                 
-                // SKU and Price are optional (fallback to empty if not provided or requested to be removed)
-                const sku = parts[2]?.trim() || null;
-                const priceStr = parts[3]?.trim();
-                const price = priceStr ? parseFloat(priceStr.replace(/[^0-9.]/g, '')) : null;
+                let entity_id = parseInt(filterEntity) || adminUser?.entity_id;
+                if (soldUnder) {
+                    const matchedEntity = entities.find(e => e.name.toLowerCase() === soldUnder.toLowerCase());
+                    if (matchedEntity) entity_id = matchedEntity.id;
+                }
+
+                if (!entity_id) throw new Error(`Service '${soldUnder}' not found for product '${name}'`);
 
                 return {
                     name,
                     category,
-                    sku: sku,
-                    price: isNaN(price) ? null : price,
-                    entity_id: parseInt(filterEntity) || adminUser?.entity_id,
-                    branch_id: filterBranch ? parseInt(filterBranch) : null,
+                    entity_id,
                     is_active: true
                 };
             }).filter(p => p.name);
@@ -239,7 +243,7 @@ const AdminProducts = ({ theme, darkMode, adminUser, isScoped }) => {
         } catch (err) {
             setDialog({
                 isOpen: true, type: "error", title: "Bulk Import Failed",
-                message: "Please ensure your data follows the format: Name, Category. You can also paste directly from Excel.",
+                message: err.response?.data?.detail || err.message || "Please ensure your data follows the format: Name, Product Type, Sold Under.",
                 confirmText: "OK", onConfirm: () => setDialog({ isOpen: false })
             });
         }
@@ -408,18 +412,7 @@ const AdminProducts = ({ theme, darkMode, adminUser, isScoped }) => {
                             return (
                                 <tr key={p.id}>
                                     <td style={styles.td}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                            {p.image_url ? (
-                                                <img src={p.image_url} alt="" style={styles.productThumb} />
-                                            ) : (
-                                                <div style={{ ...styles.productThumb, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(var(--primary-rgb), 0.1)', color: 'var(--primary-color)' }}>
-                                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>
-                                                </div>
-                                            )}
-                                            <div>
-                                                <div style={{ fontWeight: '700' }}>{p.name}</div>
-                                            </div>
-                                        </div>
+                                        <div style={{ fontWeight: '700' }}>{p.name}</div>
                                     </td>
                                     <td style={styles.td}>
                                         <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: '20px', fontSize: '10px', fontWeight: '800', background: 'rgba(99,102,241,0.1)', color: '#6366F1', textTransform: 'uppercase' }}>
@@ -532,7 +525,7 @@ const AdminProducts = ({ theme, darkMode, adminUser, isScoped }) => {
                             <label htmlFor="excel-upload" style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
                                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--primary-color)" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
                                 <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--primary-color)' }}>Click to upload Excel / CSV</span>
-                                <span style={{ fontSize: '10px', color: theme.textMuted }}>Columns: Name, Product Type (Drinks / Cosmetics / Food / Souvenirs / Merchandise / Hotel Items)</span>
+                                <span style={{ fontSize: '10px', color: theme.textMuted }}>Columns: Name, Product Type, Sold Under</span>
                             </label>
                         </div>
 
@@ -544,7 +537,7 @@ const AdminProducts = ({ theme, darkMode, adminUser, isScoped }) => {
 
                         <textarea 
                             style={{ ...styles.input, height: '120px', fontFamily: 'monospace', fontSize: '12px', padding: '12px', lineHeight: '1.6' }}
-                            placeholder="Example:&#10;Mango Smoothie, Drinks&#10;Lavender Body Scrub, Cosmetics&#10;Keychain, Souvenirs"
+                            placeholder="Example:&#10;Mango Smoothie, Drinks, Restaurant&#10;Lavender Body Scrub, Cosmetics, Spa&#10;Keychain, Souvenirs, Gift Shop"
                             value={bulkData}
                             onChange={e => setBulkData(e.target.value)}
                         />

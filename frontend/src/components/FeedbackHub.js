@@ -71,7 +71,7 @@ const getRelativeTime = (date) => {
 
 
 const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
-  const { getLabel, systemName, systemLogo } = useTerminology();
+  const { getLabel, getModeLabel, systemName, systemLogo } = useTerminology();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [view, setView] = useState(localStorage.getItem("userView") || "home");
   const [feed, setFeed] = useState([]);
@@ -973,6 +973,16 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
         />
       )}
 
+      {/* GLOBAL FLOATING ACTION BUTTON (FAB) */}
+      <button
+        className="fab-btn"
+        style={styles.fab}
+        onClick={(e) => { e.stopPropagation(); setIsReportModalOpen(true); setReportStep('general'); }}
+        title={`New ${getModeLabel("feedback_label", "Report")}`}
+      >
+        <Icons.Plus />
+      </button>
+
     </div>
   );
 });
@@ -1603,15 +1613,7 @@ const FeedCard = React.memo(({ item: initialItem, currentUser, onShowToast, onOp
       </div>
 
 
-      {/* DETAIL METADATA — product/staff only (address shown in header) */}
-      <div style={styles.metaGrid}>
-        {item.product_name && (
-          <div style={styles.metaItem}>
-            <span style={styles.metaIcon}>🛍️</span>
-            <span style={{ ...styles.metaText, color: '#64748B' }}>{item.product_name}</span>
-          </div>
-        )}
-      </div>
+
 
       {isEditing ? (
         <div style={{ marginBottom: '12px' }}>
@@ -2111,15 +2113,6 @@ const DashboardView = React.memo(({ feed, allTrendingItems, loading, hasMore, on
         </div>
       </div>
 
-      {/* FLOATING ACTION BUTTON (FAB) */}
-      <button
-        className="fab-btn"
-        style={styles.fab}
-        onClick={(e) => { e.stopPropagation(); onAction(); }}
-        title={`New ${getLabel("feedback_label", "Report")}`}
-      >
-        <Icons.Plus />
-      </button>
     </div>
   );
 });
@@ -2257,7 +2250,8 @@ const styles = {
     width: '56px',
     height: '56px',
     borderRadius: '28px',
-    backgroundColor: 'var(--primary-color)',
+    backgroundColor: '#6366F1', // Fallback Indigo
+    backgroundImage: 'linear-gradient(135deg, #6366F1 0%, #4F46E5 100%)',
     color: 'white',
     display: 'flex',
     alignItems: 'center',
@@ -2265,8 +2259,8 @@ const styles = {
     boxShadow: '0 8px 16px rgba(var(--primary-rgb), 0.3)',
     border: 'none',
     cursor: 'pointer',
-    zIndex: 200,
-    transition: 'transform 0.2s, background-color 0.2s',
+    zIndex: 9999,
+    transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
   },
 
   metaGrid: { display: 'flex', flexDirection: 'column', gap: '3px', marginBottom: '8px' },

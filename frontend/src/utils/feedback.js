@@ -349,10 +349,7 @@ const renderCompactModule = (item, val, feedbackId, viewerMode = 'public') => {
       </div>
     );
   }
-  if (key === 'product_picker') {
-    const name = typeof val === 'object' ? val.name : val;
-    return <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--primary-color)' }}>🛍 {name}</span>;
-  }
+  if (key === 'product_picker') return null;
   return null;
 };
 
@@ -493,25 +490,7 @@ const renderFullModule = (item, val, feedbackId, viewerMode = 'public') => {
     return <p style={{ margin: 0, fontSize: '14px', color: '#334155', lineHeight: '1.7', whiteSpace: 'pre-wrap' }}>{String(val)}</p>;
   }
 
-  if (key === 'product_picker') {
-    const p = typeof val === 'object' ? val : { name: val };
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', background: '#F8FAFC', borderRadius: '14px', border: '1px solid #E2E8F0', marginTop: '4px' }}>
-        <div style={{ width: '48px', height: '48px', borderRadius: '10px', background: 'white', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #F1F5F9', flexShrink: 0 }}>
-          {p.image_url ? (
-            <img src={p.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          ) : (
-            <span style={{ fontSize: '20px' }}>📦</span>
-          )}
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: '13px', fontWeight: '800', color: '#1E293B', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</div>
-          <div style={{ fontSize: '11px', color: '#64748B', fontWeight: '600' }}>{p.category || 'Product'}</div>
-          {p.price && <div style={{ fontSize: '12px', fontWeight: '900', color: 'var(--primary-color)', marginTop: '2px' }}>₱{p.price.toLocaleString()}</div>}
-        </div>
-      </div>
-    );
-  }
+  if (key === 'product_picker') return null;
 
   if (typeof val === 'object' && !Array.isArray(val)) {
     return (

@@ -1425,9 +1425,9 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
             ) : (
               <div style={{ 
                 display: 'grid', 
-                gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', 
-                gap: '12px',
-                maxHeight: '400px',
+                gridTemplateColumns: 'repeat(2, 1fr)', 
+                gap: '10px',
+                maxHeight: '140px',
                 overflowY: 'auto',
                 padding: '4px'
               }}>
@@ -1449,17 +1449,6 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
                         position: 'relative'
                       }}
                     >
-                      <div style={{ 
-                        width: '100%', aspectRatio: '1', borderRadius: '10px', 
-                        background: '#F8FAFC', marginBottom: '8px', overflow: 'hidden',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center'
-                      }}>
-                        {p.image_url ? (
-                          <img src={p.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        ) : (
-                          <LocalIcons.Package size={24} style={{ color: '#CBD5E1' }} />
-                        )}
-                      </div>
                       <div style={{ width: '100%' }}>
                         <div style={{ fontSize: '12px', fontWeight: '800', color: isSel ? 'var(--primary-color)' : '#1E293B', marginBottom: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
                         <div style={{ fontSize: '10px', fontWeight: '600', color: '#64748B' }}>{p.category || 'Product'}</div>
