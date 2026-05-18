@@ -318,9 +318,9 @@ const AdminHub = ({ adminUser, onLogout }) => {
                     isDisabled: !isLocationsEnabled,
                     title: !isLocationsEnabled ? "Locked by Governance" : ""
                   },
-                  { id: "workspace_settings", label: "Operational Rules", icon: <SettingsIcon />, isSub: true },
                   { id: "workspace_analytics", label: "Performance Hub", icon: <ChartIcon />, isSub: true },
                   { id: "workspace_products", label: "Product Catalog", icon: <ProductIcon />, isSub: true },
+                  { id: "workspace_settings", label: "Operational Rules", icon: <SettingsIcon />, isSub: true },
                   item // Keep Form Layout
                 ];
               }
