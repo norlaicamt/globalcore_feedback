@@ -1104,14 +1104,16 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
       )}
 
       {/* GLOBAL FLOATING ACTION BUTTON (FAB) */}
-      <button
-        className="fab-btn"
-        style={styles.fab}
-        onClick={(e) => { e.stopPropagation(); setIsReportModalOpen(true); setReportStep('general'); }}
-        title={`New ${getModeLabel("feedback_label", "Report")}`}
-      >
-        <Icons.Plus />
-      </button>
+      {(!isReportModalOpen && !commentingFeedback && !selectedBroadcast && !dialogState.isOpen) && (
+        <button
+          className="fab-btn"
+          style={styles.fab}
+          onClick={(e) => { e.stopPropagation(); setIsReportModalOpen(true); setReportStep('general'); }}
+          title={`New ${getModeLabel("feedback_label", "Report")}`}
+        >
+          <Icons.Plus />
+        </button>
+      )}
 
     </div>
   );

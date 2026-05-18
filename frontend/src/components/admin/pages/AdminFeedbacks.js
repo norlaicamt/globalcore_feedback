@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { adminDeleteFeedback, adminUpdateFeedbackStatus, adminGetResponseTemplates, adminUnifiedReply, adminRevealIdentity, adminGetInternalNotes, adminAddInternalNote, adminGetStaffList, adminAssignFeedback } from "../../../services/adminApi";
-import { getFeedbacks } from "../../../services/api";
+import { adminDeleteFeedback, adminUpdateFeedbackStatus, adminGetResponseTemplates, adminUnifiedReply, adminRevealIdentity, adminGetInternalNotes, adminAddInternalNote, adminGetStaffList, adminAssignFeedback, adminGetFeedbacks } from "../../../services/adminApi";
 import { renderFeedbackResponses } from "../../../utils/feedback";
 import { useTerminology } from "../../../context/TerminologyContext";
 import CustomModal from "../../CustomModal";
@@ -842,7 +841,7 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
       caller: "AdminSubmissions",
       product_id: null
     });
-    getFeedbacks({ only_approved: false, limit: 200 })
+    adminGetFeedbacks({ limit: 200, entity_id: adminUser?.entity_id || null })
       .then(setFeedbacks)
       .catch(console.error)
       .finally(() => setLoading(false));
@@ -873,7 +872,7 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
 
   const filtered = feedbacks.filter(f => {
     let tabMatch = activeTab === "ALL" || f.status === activeTab;
-    if (activeTab === "MY_CASES") tabMatch = f.assigned_to_user_id === adminUser.id;
+    if (activeTab === "MY_CASES") tabMatch = String(f.assigned_to_user_id) === String(adminUser?.id);
     if (activeTab === "UNASSIGNED") tabMatch = !f.assigned_to_user_id;
 
     const programMatch = selectedProgram === "ALL" || f.entity_name === selectedProgram;
@@ -888,7 +887,7 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
 
   const stats = {
     TOTAL: feedbacks.length,
-    MY_CASES: feedbacks.filter(f => f.assigned_to_user_id === adminUser?.id).length,
+    MY_CASES: feedbacks.filter(f => String(f.assigned_to_user_id) === String(adminUser?.id)).length,
     UNASSIGNED: feedbacks.filter(f => !f.assigned_to_user_id).length,
     OPEN: feedbacks.filter(f => f.status === "OPEN").length,
     IN_PROGRESS: feedbacks.filter(f => f.status === "IN_PROGRESS").length,
