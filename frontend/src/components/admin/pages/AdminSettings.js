@@ -537,6 +537,19 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
     await saveProfile(payload);
     setPristineForm(JSON.parse(JSON.stringify(form)));
     setForm(prev => ({ ...prev, current_password: "", password: "" }));
+
+    // Also save primary_organization_name if it was changed (Global Admin only)
+    if (isGlobalAdmin && settings.primary_organization_name !== pristineSettings.primary_organization_name) {
+      try {
+        await updateAdminSetting("primary_organization_name", settings.primary_organization_name || "");
+        setPristineSettings(prev => ({ ...prev, primary_organization_name: settings.primary_organization_name }));
+      } catch (err) {
+        console.error("Failed to save organization name", err);
+      }
+    }
+
+    // Close the edit form
+    setIsEditingProfile(false);
   };
 
   const handleNotificationSave = async () => {
@@ -582,7 +595,6 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
   if (isGlobalAdmin) {
     tabs.push({ id: "display", label: "Display" });
     tabs.push({ id: "activity", label: "Settings Activity" });
-    tabs.push({ id: "terminology", label: "Terminology" });
   }
 
   // Global Config tab removed per user request
@@ -886,6 +898,18 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
                               <label style={labelStyle}>{getLabel("category_label", "Assigned Unit")}</label>
                               <input value={form.unit_name} onChange={e => setForm(prev => ({ ...prev, unit_name: e.target.value }))} style={inputStyle} placeholder="Primary working unit..." />
                             </div>
+                            {isGlobalAdmin && (
+                              <div style={{ gridColumn: '1 / span 2' }}>
+                                <label style={labelStyle}>Main Organization / Company Name</label>
+                                <input
+                                  value={settings.primary_organization_name || ''}
+                                  onChange={e => setSettings(s => ({ ...s, primary_organization_name: e.target.value }))}
+                                  style={inputStyle}
+                                  placeholder="e.g. GlobalCore Inc., Department of Health..."
+                                />
+                                <p style={{ margin: '4px 0 0 0', fontSize: '11px', color: theme.textMuted }}>Displayed as the system-wide organization name across the portal.</p>
+                              </div>
+                            )}
                           </div>
                         </div>
 
