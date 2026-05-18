@@ -156,6 +156,10 @@ const AdminHub = ({ adminUser, onLogout }) => {
   };
 
   const handleSetView = (newView) => {
+    if (newView === "workspace_service") {
+      const isLocationsEnabled = scopedEntity ? (scopedEntity.fields?.operational?.enable_locations ?? true) : true;
+      newView = isLocationsEnabled ? "workspace_locations" : "workspace_settings";
+    }
     if (newView === "workspace_locations" && scopedEntity && scopedEntity.fields?.operational?.enable_locations === false) {
       return; // Locked
     }
@@ -305,11 +309,12 @@ const AdminHub = ({ adminUser, onLogout }) => {
                 const isLocationsEnabled = scopedEntity ? (scopedEntity.fields?.operational?.enable_locations ?? true) : true;
                 
                 return [
-                  { type: "label", label: serviceName },
+                  { id: "workspace_service", label: serviceName, icon: <OrgIcon /> },
                   { 
                     id: "workspace_locations", 
                     label: "Service Sites", 
                     icon: <OrgIcon />,
+                    isSub: true,
                     isDisabled: !isLocationsEnabled,
                     title: !isLocationsEnabled ? "Locked by Governance" : ""
                   },
@@ -329,7 +334,11 @@ const AdminHub = ({ adminUser, onLogout }) => {
                 <button
                   key={item.id}
                   disabled={item.isDisabled}
-                  className={`nav-item${(view === item.id || (view.startsWith("workspace_") && item.id === "workspace_" + view.split('_')[1])) ? " active" : ""}`}
+                  className={`nav-item${(
+                    view === item.id || 
+                    (view.startsWith("workspace_") && item.id === "workspace_" + view.split('_')[1]) ||
+                    (item.id === "workspace_service" && view.startsWith("workspace_"))
+                  ) ? " active" : ""}`}
                   style={{
                     ...styles.navItem,
                     ...(view === item.id ? styles.navItemActive : {}),
