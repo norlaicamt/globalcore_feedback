@@ -780,14 +780,14 @@ def admin_get_feedbacks(
         models.User.name.label("user_name"),
         models.Entity.name.label("entity_name"),
         models.Department.name.label("dept_name"),
-        Assignee.c.name.label("assignee_name"),
+        Assignee.c.display_name.label("assignee_name"),
         func.count(models.Reply.id).label("comments_count")
     ).outerjoin(models.User, models.Feedback.sender_id == models.User.id)\
      .outerjoin(models.Entity, models.Feedback.entity_id == models.Entity.id)\
      .outerjoin(models.Department, models.Feedback.recipient_dept_id == models.Department.id)\
      .outerjoin(Assignee, models.Feedback.recipient_user_id == Assignee.c.id)\
      .outerjoin(models.Reply, models.Reply.feedback_id == models.Feedback.id)\
-     .group_by(models.Feedback.id, models.User.name, models.Entity.name, models.Department.name, Assignee.c.name)
+     .group_by(models.Feedback.id, models.User.name, models.Entity.name, models.Department.name, Assignee.c.display_name)
 
     if status:
         q = q.filter(models.Feedback.status == status)

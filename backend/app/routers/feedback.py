@@ -109,12 +109,19 @@ def create_feedback(feedback: schemas.FeedbackCreate, db: Session = Depends(get_
 def read_feedbacks(
     recipient_user_id: Optional[int] = None, 
     sender_id: Optional[int] = None,
+    recipient_dept_id: Optional[int] = None,
     status: Optional[str] = None,
     search: Optional[str] = None,
     skip: int = 0,
     limit: int = 10,
     user_id: Optional[int] = None,
     mentioned_user_id: Optional[int] = None,
+    only_approved: bool = True,
+    entity_id: Optional[int] = None,
+    product_id: Optional[int] = None,
+    has_photo: bool = False,
+    has_voice: bool = False,
+    has_mentions: bool = False,
     db: Session = Depends(get_db)
 ):
     """The primary public newsfeed. Optionally filter by recipient or sender."""
@@ -124,10 +131,17 @@ def read_feedbacks(
         limit=limit, 
         sender_id=sender_id, 
         recipient_user_id=recipient_user_id,
+        recipient_dept_id=recipient_dept_id,
         mentioned_user_id=mentioned_user_id,
         current_user_id=user_id,
         status=status,
-        search=search
+        search=search,
+        only_approved=only_approved,
+        entity_id=entity_id,
+        product_id=product_id,
+        has_photo=has_photo,
+        has_voice=has_voice,
+        has_mentions=has_mentions
     )
 
 @router.get("/trending", response_model=List[schemas.Feedback])

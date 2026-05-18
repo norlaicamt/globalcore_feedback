@@ -10,7 +10,7 @@ DEFAULT_FORM_CONFIG = {
         "staff": { "enabled": True, "label": "Staff Involved" },
         "rating": { "enabled": True, "label": "Rate Experience" },
         "attachments": { "enabled": True, "label": "Upload Photo" },
-        "voice": { "enabled": True, "label": "Voice Recording" }
+        "voice": { "enabled": False, "label": "Voice Recording", "deprecated": True }
     },
     "sections": [],
     "terminology": {

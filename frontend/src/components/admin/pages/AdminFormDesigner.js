@@ -1842,7 +1842,7 @@ function AdminFormDesigner({ theme, darkMode, adminUser }) {
                 ? "Displays available services to route user feedback correctly."
                 : sIdx === 1
                   ? "Add rating or primary evaluation questions here."
-                  : "Optional: Collect additional photos, voice, or final comments.";
+                  : "Optional: Collect additional photos, files, or final comments.";
 
               return (
                 <div

@@ -187,7 +187,7 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
   };
 
   const [settings, setSettings] = useState({
-    allow_voice: true,
+    allow_voice: false,
     public_feed: true,
     email_notifications: false,
     status_notifications: true,
@@ -206,7 +206,7 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
     form_show_staff: true,
     form_show_rating: true,
     form_show_attachments: true,
-    form_show_voice: true
+    form_show_voice: false
   });
 
   const activeProfile = orgProfiles[settings.org_type || "government"] || orgProfiles.government;

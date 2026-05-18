@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import { createFeedback, getEntities, getBranches, getProducts, getEntityFormConfig, createDraft, updateDraft, deleteDraft } from "../services/api";
 import { useTerminology } from "../context/TerminologyContext";
 import CustomModal from "./CustomModal";
-import VoiceRecorder from "./VoiceRecorder";
 
 // Service types that can have Products
 const SERVICE_TYPES_WITH_PRODUCTS = ['Restaurant', 'Pool', 'Spa', 'Housekeeping', 'Shop', 'Store', 'Gift Shop'];
@@ -16,7 +15,6 @@ const SMART_DEFAULTS = {
   message_input: "How can we improve?",
   multiple_choice: "Which of these best describes your visit?",
   photo_upload: "Snap or upload a photo (Optional)",
-  voice_record: "Speak your feedback (Optional)",
   full_name: "May we know your name?",
   contact_number: "Mobile or phone number",
   email_address: "Email address",
@@ -31,7 +29,6 @@ const SMART_HELPERS = {
   star_rating: "Tap a star to give your rating",
   rating_matrix: "1 is low, 5 is high",
   photo_upload: "Images help us understand better",
-  voice_record: "Hold the mic to start recording",
   full_name: "We use this for internal verification",
   email_address: "We will only contact you if necessary",
   product_picker: "Search or select from the list below"

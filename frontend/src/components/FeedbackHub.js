@@ -74,6 +74,34 @@ const getRelativeTime = (date) => {
 const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
   const { getLabel, getModeLabel, systemName, systemLogo } = useTerminology();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024);
+  const [sidebarState, setSidebarState] = useState(() => {
+    if (window.innerWidth >= 1024) {
+      return localStorage.getItem("user_sidebar_state") || "expanded";
+    }
+    return "collapsed";
+  });
+
+  useEffect(() => {
+    const handleResize = () => {
+      const desktop = window.innerWidth >= 1024;
+      setIsDesktop(desktop);
+      if (desktop) {
+        setSidebarState(localStorage.getItem("user_sidebar_state") || "expanded");
+        setIsMenuOpen(false);
+      } else {
+        setSidebarState("collapsed");
+      }
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  const toggleSidebar = () => {
+    const nextState = sidebarState === "expanded" ? "collapsed" : "expanded";
+    setSidebarState(nextState);
+    localStorage.setItem("user_sidebar_state", nextState);
+  };
   const [view, setView] = useState(localStorage.getItem("userView") || "home");
   const [feed, setFeed] = useState([]);
   const [offset, setOffset] = useState(0);
@@ -591,8 +619,200 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
     { id: 'logout', label: 'Logout', icon: <Icons.Logout />, color: '#EF4444', action: triggerLogout },
   ];
 
+  const isSidebarExpanded = true;
+  const currentSidebarWidth = 280;
+
+  const sidebarContent = (
+    <div
+      style={{
+        ...styles.menuContent,
+        width: currentSidebarWidth,
+        minWidth: currentSidebarWidth,
+        position: isDesktop ? "relative" : "fixed",
+        top: 0,
+        bottom: 0,
+        left: 0,
+        zIndex: 1000,
+        transition: "width 0.25s cubic-bezier(0.4, 0, 0.2, 1), transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
+        height: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        boxShadow: isDesktop ? "none" : "4px 0 24px rgba(0,0,0,0.3)",
+        borderRight: "1px solid rgba(255,255,255,0.08)",
+        animation: isDesktop ? "none" : undefined
+      }}
+      onClick={e => e.stopPropagation()}
+    >
+      <div 
+        style={{ 
+          ...styles.menuHeader, 
+          padding: isSidebarExpanded ? '50px 24px 24px' : '30px 12px 16px',
+          alignItems: 'center',
+          textAlign: 'center',
+          cursor: 'pointer',
+          borderBottom: '1px solid rgba(255,255,255,0.08)'
+        }} 
+        onClick={() => navigateTo('profile')}
+      >
+        <div style={{ position: 'relative', display: 'inline-block' }}>
+          {localUser?.avatar_url ? (
+            <img 
+              src={resolveMediaUrl(localUser.avatar_url)} 
+              alt="avatar" 
+              loading="lazy" 
+              style={{ 
+                ...styles.avatarLarge, 
+                objectFit: 'cover', 
+                display: 'flex',
+                width: isSidebarExpanded ? '64px' : '44px',
+                height: isSidebarExpanded ? '64px' : '44px',
+                borderRadius: isSidebarExpanded ? '22px' : '14px',
+                marginBottom: isSidebarExpanded ? '16px' : '0'
+              }} 
+            />
+          ) : (
+            <div 
+              style={{
+                ...styles.avatarLarge,
+                width: isSidebarExpanded ? '64px' : '44px',
+                height: isSidebarExpanded ? '64px' : '44px',
+                borderRadius: isSidebarExpanded ? '22px' : '14px',
+                fontSize: isSidebarExpanded ? '24px' : '18px',
+                marginBottom: isSidebarExpanded ? '16px' : '0',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              {(localUser?.name || "User").charAt(0)}
+            </div>
+          )}
+          {localUser?.show_activity_status !== false && (
+            <span style={{ position: 'absolute', bottom: 2, right: 2, width: 12, height: 12, backgroundColor: '#22C55E', borderRadius: '50%', border: '2px solid white', display: 'block' }}></span>
+          )}
+        </div>
+
+        {isSidebarExpanded && (
+          <>
+            <h3 style={styles.userName}>{localUser?.name || "User"}</h3>
+
+            {/* COMPACT IMPACT MINI-STATS */}
+            <div style={{ marginTop: '12px', display: 'flex', gap: '16px', justifyContent: 'center' }}>
+              <div style={{ textAlign: 'center' }}>
+                <p style={{ margin: 0, fontSize: 'var(--size-nav, 12px)', fontWeight: '900', color: '#FCD34D' }}>{(localUser?.impact_points || 0).toFixed(0)}</p>
+                <p style={{ margin: 0, fontSize: 'var(--size-chip, 7px)', color: 'rgba(255,255,255,0.4)', fontWeight: 'bold' }}>PTS</p>
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <p style={{ margin: 0, fontSize: 'var(--size-nav, 12px)', fontWeight: '900', color: 'white' }}>{localUser?.posts_count || 0}</p>
+                <p style={{ margin: 0, fontSize: 'var(--size-chip, 7px)', color: 'rgba(255,255,255,0.4)', fontWeight: 'bold' }}>POSTS</p>
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <p style={{ margin: 0, fontSize: 'var(--size-nav, 12px)', fontWeight: '900', color: 'white' }}>{localUser?.likes_received || 0}</p>
+                <p style={{ margin: 0, fontSize: 'var(--size-chip, 7px)', color: 'rgba(255,255,255,0.4)', fontWeight: 'bold' }}>LIKES</p>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Nav List */}
+      <nav style={{ ...styles.menuLinks, padding: isSidebarExpanded ? "24px" : "16px 8px" }}>
+        {menuItems.map((item, idx) => {
+          if (item.type === 'label') {
+            return isSidebarExpanded ? (
+              <div key={`label-${idx}`} style={{
+                fontSize: 'var(--size-chip, 11px)', fontWeight: '800', color: 'rgba(255,255,255,0.4)',
+                letterSpacing: '1px', marginTop: '24px', marginBottom: '12px', paddingLeft: '16px'
+              }}>
+                {item.label}
+              </div>
+            ) : (
+              <div key={`label-${idx}`} style={{ height: "16px" }} />
+            );
+          }
+
+          const isActive = view === item.id || (item.subItems && item.subItems.some(sub => sub.id === view));
+
+          return (
+            <div key={item.id} style={{ marginTop: item.id === 'logout' ? 'auto' : '0', width: "100%" }}>
+              <button
+                style={{
+                  ...styles.menuLink,
+                  backgroundColor: (isActive && !item.subItems) ? 'var(--primary-color)' : 'transparent',
+                  color: (isActive && !item.subItems) ? 'white' : (item.color || 'rgba(255, 255, 255, 0.8)'),
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: isSidebarExpanded ? '12px' : '0',
+                  width: '100%',
+                  justifyContent: isSidebarExpanded ? 'flex-start' : 'center',
+                  padding: isSidebarExpanded ? '14px 16px' : '14px 0',
+                  borderRadius: '12px'
+                }}
+                title={item.label || ""}
+                onClick={() => {
+                  if (item.subItems) {
+                    if (!isSidebarExpanded) {
+                      setSidebarState("expanded");
+                    }
+                    if (item.id === 'feedback_group') setIsFeedbackExpanded(!isFeedbackExpanded);
+                    if (item.id === 'settings_group') setIsSettingsExpanded(!isSettingsExpanded);
+                  } else if (item.action) {
+                    item.action();
+                    if (!isDesktop) setIsMenuOpen(false);
+                  } else {
+                    navigateTo(item.id);
+                    if (!isDesktop) setIsMenuOpen(false);
+                  }
+                }}
+              >
+                {item.icon} 
+                {isSidebarExpanded && <span>{item.label}</span>}
+                {isSidebarExpanded && item.subItems && (
+                  <span style={{ marginLeft: 'auto', display: 'flex' }}>
+                    {(item.id === 'feedback_group' ? isFeedbackExpanded : isSettingsExpanded) ? (
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>
+                    ) : (
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    )}
+                  </span>
+                )}
+              </button>
+
+              {isSidebarExpanded && item.subItems && (item.id === 'feedback_group' ? isFeedbackExpanded : isSettingsExpanded) && (
+                <div style={{ paddingLeft: '32px', display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '8px' }}>
+                  {item.subItems.map(sub => {
+                    const isSubActive = view === sub.id;
+                    return (
+                      <button
+                        key={sub.id}
+                        style={{
+                          ...styles.menuLink,
+                          fontSize: 'var(--size-nav, 14px)',
+                          backgroundColor: isSubActive ? 'rgba(255, 255, 255, 0.1)' : 'transparent',
+                          color: isSubActive ? 'white' : 'rgba(255, 255, 255, 0.6)',
+                          display: 'flex', alignItems: 'center', gap: '10px',
+                          padding: '10px 12px'
+                        }}
+                        onClick={() => {
+                          navigateTo(sub.id);
+                          if (!isDesktop) setIsMenuOpen(false);
+                        }}
+                      >
+                        {sub.icon} <span>{sub.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </nav>
+    </div>
+  );
+
   return (
-    <div style={{ ...styles.hubContainer, backgroundColor: '#F8FAFC', color: '#1E293B' }}>
+    <div style={{ ...styles.hubContainer, backgroundColor: '#F8FAFC', color: '#1E293B', flexDirection: isDesktop ? 'row' : 'column' }}>
       <style>{`
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes fadeInDownRight {
@@ -606,14 +826,29 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
         }
         .fab-btn:active { transform: scale(0.95) !important; }
       `}</style>
-      <header style={{ ...styles.header, backgroundColor: '#FFFFFF', borderBottom: '1px solid #E2E8F0' }}>
-        <button onClick={() => setIsMenuOpen(true)} style={styles.iconBtn}>
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--primary-color)" strokeWidth="2.5" strokeLinecap="round">
-            <line x1="3" y1="12" x2="21" y2="12"></line>
-            <line x1="3" y1="6" x2="18" y2="6"></line>
-            <line x1="3" y1="18" x2="15" y2="18"></line>
-          </svg>
-        </button>
+      {/* Render sidebar inline on desktop */}
+      {isDesktop && sidebarContent}
+
+      {/* Render mobile overlay drawer with backdrop */}
+      {!isDesktop && isMenuOpen && (
+        <div style={styles.menuOverlay} onClick={() => setIsMenuOpen(false)}>
+          {sidebarContent}
+        </div>
+      )}
+
+      {/* Main container taking remaining width */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
+        <header style={{ ...styles.header, backgroundColor: '#FFFFFF', borderBottom: '1px solid #E2E8F0' }}>
+          {/* Hamburger button for mobile, hidden on desktop */}
+          {!isDesktop && (
+            <button onClick={() => setIsMenuOpen(true)} style={styles.iconBtn}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--primary-color)" strokeWidth="2.5" strokeLinecap="round">
+                <line x1="3" y1="12" x2="21" y2="12"></line>
+                <line x1="3" y1="6" x2="18" y2="6"></line>
+                <line x1="3" y1="18" x2="15" y2="18"></line>
+              </svg>
+            </button>
+          )}
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flex: 1, justifyContent: 'center' }}>
           {systemLogo && (
             <img src={resolveMediaUrl(systemLogo)} alt="Logo" loading="lazy" style={{ height: '36px', maxWidth: '100px', objectFit: 'contain' }} />
@@ -799,116 +1034,7 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
           />
         ) : null}
       </main>
-
-      {/* Side Menu */}
-      {isMenuOpen && (
-        <div style={styles.menuOverlay} onClick={() => setIsMenuOpen(false)}>
-          <div style={styles.menuContent} onClick={e => e.stopPropagation()}>
-            <div style={{ ...styles.menuHeader, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', cursor: 'pointer' }} onClick={() => navigateTo('profile')}>
-              <div style={{ position: 'relative', display: 'inline-block' }}>
-                {localUser?.avatar_url ? (
-                  <img src={resolveMediaUrl(localUser.avatar_url)} alt="avatar" loading="lazy" style={{ ...styles.avatarLarge, objectFit: 'cover', display: 'flex' }} />
-                ) : (
-                  <div style={styles.avatarLarge}>{localUser?.name?.charAt(0) || "U"}</div>
-                )}
-                {localUser?.show_activity_status !== false && (
-                  <span style={{ position: 'absolute', bottom: 2, right: 2, width: 12, height: 12, backgroundColor: '#22C55E', borderRadius: '50%', border: '2px solid white', display: 'block' }}></span>
-                )}
-              </div>
-              <h3 style={styles.userName}>{localUser?.name || "User"}</h3>
-
-              {/* COMPACT IMPACT MINI-STATS */}
-              <div style={{
-                marginTop: '12px', display: 'flex', gap: '16px', justifyContent: 'center'
-              }}>
-                <div style={{ textAlign: 'center' }}>
-                  <p style={{ margin: 0, fontSize: 'var(--size-nav, 12px)', fontWeight: '900', color: '#FCD34D' }}>{(localUser?.impact_points || 0).toFixed(0)}</p>
-                  <p style={{ margin: 0, fontSize: 'var(--size-chip, 7px)', color: 'rgba(255,255,255,0.4)', fontWeight: 'bold' }}>PTS</p>
-                </div>
-                <div style={{ textAlign: 'center' }}>
-                  <p style={{ margin: 0, fontSize: 'var(--size-nav, 12px)', fontWeight: '900', color: 'white' }}>{localUser?.posts_count || 0}</p>
-                  <p style={{ margin: 0, fontSize: 'var(--size-chip, 7px)', color: 'rgba(255,255,255,0.4)', fontWeight: 'bold' }}>POSTS</p>
-                </div>
-                <div style={{ textAlign: 'center' }}>
-                  <p style={{ margin: 0, fontSize: 'var(--size-nav, 12px)', fontWeight: '900', color: 'white' }}>{localUser?.likes_received || 0}</p>
-                  <p style={{ margin: 0, fontSize: 'var(--size-chip, 7px)', color: 'rgba(255,255,255,0.4)', fontWeight: 'bold' }}>LIKES</p>
-                </div>
-              </div>
-            </div>
-            <nav style={styles.menuLinks}>
-              {menuItems.map((item, idx) => {
-                if (item.type === 'label') {
-                  return (
-                    <div key={`label-${idx}`} style={{
-                      fontSize: 'var(--size-chip, 11px)', fontWeight: '800', color: 'rgba(255,255,255,0.4)',
-                      letterSpacing: '1px', marginTop: '24px', marginBottom: '12px', paddingLeft: '16px'
-                    }}>
-                      {item.label}
-                    </div>
-                  );
-                }
-                const isActive = view === item.id || (item.subItems && item.subItems.some(sub => sub.id === view));
-                return (
-                  <div key={item.id} style={{ marginTop: item.id === 'logout' ? 'auto' : '0' }}>
-                    <button
-                      style={{
-                        ...styles.menuLink,
-                        backgroundColor: (isActive && !item.subItems) ? 'var(--primary-color)' : 'transparent',
-                        color: (isActive && !item.subItems) ? 'white' : (item.color || 'rgba(255, 255, 255, 0.8)'),
-                        display: 'flex', alignItems: 'center', gap: '12px', width: '100%'
-                      }}
-                      onClick={() => {
-                        if (item.subItems) {
-                          if (item.id === 'feedback_group') setIsFeedbackExpanded(!isFeedbackExpanded);
-                          if (item.id === 'settings_group') setIsSettingsExpanded(!isSettingsExpanded);
-                        } else if (item.action) {
-                          item.action();
-                        } else {
-                          navigateTo(item.id);
-                        }
-                      }}
-                    >
-                      {item.icon} <span>{item.label}</span>
-                      {item.subItems && (
-                        <span style={{ marginLeft: 'auto', display: 'flex' }}>
-                          {(item.id === 'feedback_group' ? isFeedbackExpanded : isSettingsExpanded) ? (
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>
-                          ) : (
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                          )}
-                        </span>
-                      )}
-                    </button>
-
-                    {item.subItems && (item.id === 'feedback_group' ? isFeedbackExpanded : isSettingsExpanded) && (
-                      <div style={{ paddingLeft: '32px', display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '8px' }}>
-                        {item.subItems.map(sub => {
-                          const isSubActive = view === sub.id;
-                          return (
-                            <button
-                              key={sub.id}
-                              style={{
-                                ...styles.menuLink,
-                                fontSize: 'var(--size-nav, 14px)',
-                                backgroundColor: isSubActive ? 'rgba(255, 255, 255, 0.1)' : 'transparent',
-                                color: isSubActive ? 'white' : 'rgba(255, 255, 255, 0.6)',
-                                display: 'flex', alignItems: 'center', gap: '10px'
-                              }}
-                              onClick={() => navigateTo(sub.id)}
-                            >
-                              {sub.icon} <span>{sub.label}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </nav>
-          </div>
-        </div>
-      )}
+      </div>
 
       {/* Legacy Notifications Dropdown Removed in Favor of NotificationsView */}
 
@@ -1784,7 +1910,7 @@ const DashboardView = React.memo(({ feed, allTrendingItems, loading, hasMore, on
   // Trending logic: use backend items if available, else derive from current feed
   const getTrendingItems = () => {
     let trending = [...allTrendingItems].slice(0, 3);
-    
+
     // Fallback: if no trending items from backend, or we want to ensure 3 slots are filled
     if (trending.length < 3) {
       const trendingIds = new Set(trending.map(t => t.id));
@@ -1795,7 +1921,7 @@ const DashboardView = React.memo(({ feed, allTrendingItems, loading, hasMore, on
           const scoreB = (b.replies_count || 0) * 2 + (b.likes_count || 0) + (b.dislikes_count || 0);
           return scoreB - scoreA;
         });
-      
+
       trending = [...trending, ...feedTrending].slice(0, 3);
     }
 
@@ -1805,7 +1931,7 @@ const DashboardView = React.memo(({ feed, allTrendingItems, loading, hasMore, on
       const recentFill = feed.filter(f => !trendingIds.has(f.id)).slice(0, 3 - trending.length);
       trending = [...trending, ...recentFill];
     }
-    
+
     return trending;
   };
   const trendingItems = getTrendingItems();
@@ -1858,7 +1984,7 @@ const DashboardView = React.memo(({ feed, allTrendingItems, loading, hasMore, on
 
           {/* ADVANCED FILTERS & SEARCH */}
           <div style={{ padding: '0 12px 12px 12px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          {/* Search box removed from here, now in header */}
+            {/* Search box removed from here, now in header */}
 
 
           </div>

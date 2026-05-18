@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
-import { adminGetFeedbacks, adminDeleteFeedback, adminUpdateFeedbackStatus, adminGetResponseTemplates, adminUnifiedReply, adminRevealIdentity, adminGetInternalNotes, adminAddInternalNote, adminGetStaffList, adminAssignFeedback } from "../../../services/adminApi";
+import { adminDeleteFeedback, adminUpdateFeedbackStatus, adminGetResponseTemplates, adminUnifiedReply, adminRevealIdentity, adminGetInternalNotes, adminAddInternalNote, adminGetStaffList, adminAssignFeedback } from "../../../services/adminApi";
+import { getFeedbacks } from "../../../services/api";
 import { renderFeedbackResponses } from "../../../utils/feedback";
 import { useTerminology } from "../../../context/TerminologyContext";
 import CustomModal from "../../CustomModal";
@@ -721,7 +722,14 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
 
   const load = () => {
     setLoading(true);
-    adminGetFeedbacks({ limit: 200 }).then(setFeedbacks).catch(console.error).finally(() => setLoading(false));
+    console.log("[SUBMISSIONS_FETCH]", {
+      caller: "AdminSubmissions",
+      product_id: null
+    });
+    getFeedbacks({ only_approved: false, limit: 200 })
+      .then(setFeedbacks)
+      .catch(console.error)
+      .finally(() => setLoading(false));
   };
 
   useEffect(() => {

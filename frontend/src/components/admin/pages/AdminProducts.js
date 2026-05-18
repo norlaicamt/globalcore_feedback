@@ -3,10 +3,11 @@ import * as XLSX from 'xlsx';
 import {
     adminGetEntities, adminGetBranches,
     adminGetProducts, adminCreateProduct, adminUpdateProduct, adminDeleteProduct,
-    adminDuplicateProduct, adminBulkImportProducts, adminGetProductAnalytics,
-    adminGetProductEvaluationTemplates
+    adminDuplicateProduct, adminBulkImportProducts, adminGetProductAnalytics
 } from "../../../services/adminApi";
 import CustomModal from "../../CustomModal";
+import { resolveMediaUrl } from "../../../utils/feedback";
+import { getFeedbacks } from "../../../services/api";
 
 // Service-type workspace types — only these can own Products
 const SERVICE_TYPES = ['Restaurant', 'Pool', 'Spa', 'Housekeeping', 'Shop', 'Store', 'Gift Shop'];
@@ -22,7 +23,7 @@ const AdminProducts = ({ theme, darkMode, adminUser, isScoped }) => {
     const [searchQuery, setSearchQuery] = useState("");
     const [filterEntity, setFilterEntity] = useState(adminUser?.entity_id || "");
     const [filterBranch, setFilterBranch] = useState("");
-    
+
     // Modal states
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [currentProduct, setCurrentProduct] = useState(null);
@@ -40,23 +41,44 @@ const AdminProducts = ({ theme, darkMode, adminUser, isScoped }) => {
     const [isAnalyticsOpen, setIsAnalyticsOpen] = useState(false);
     const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
     const [bulkData, setBulkData] = useState("");
-    
-    // Template Management
-    const [templates, setTemplates] = useState([]);
+
+
+    // Product Feedbacks Modal
+    const [selectedProductForFeedback, setSelectedProductForFeedback] = useState(null);
+    const [productFeedbacks, setProductFeedbacks] = useState([]);
+    const [feedbacksLoading, setFeedbacksLoading] = useState(false);
+    const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
+
+    const handleOpenFeedbackModal = async (product) => {
+        setSelectedProductForFeedback(product);
+        setIsFeedbackModalOpen(true);
+        setFeedbacksLoading(true);
+        try {
+            console.log("[PRODUCT_MODAL_FETCH]", {
+                caller: "AdminProducts",
+                product_id: product.id
+            });
+            const data = await getFeedbacks({ product_id: product.id, only_approved: false, limit: 100 });
+            setProductFeedbacks(Array.isArray(data) ? data : (data.items || []));
+        } catch (err) {
+            console.error("Failed to load feedbacks for product:", err);
+            setProductFeedbacks([]);
+        } finally {
+            setFeedbacksLoading(false);
+        }
+    };
 
     const loadData = useCallback(async () => {
         setLoading(true);
         try {
-            const [prodData, entData, templData] = await Promise.all([
+            const [prodData, entData] = await Promise.all([
                 adminGetProducts(filterEntity || null, filterBranch || null),
-                adminGetEntities(),
-                adminGetProductEvaluationTemplates()
+                adminGetEntities()
             ]);
             setProducts(prodData);
             // Only keep Service-type entities so products can't be assigned to non-service workspaces
             setEntities(entData.filter(e => SERVICE_TYPES.includes(e.fields?.operational?.workspace_type)));
-            setTemplates(templData);
-            
+
             if (filterEntity) {
                 const branchData = await adminGetBranches(filterEntity);
                 setBranches(branchData);
@@ -157,7 +179,7 @@ const AdminProducts = ({ theme, darkMode, adminUser, isScoped }) => {
                 const wsname = wb.SheetNames[0];
                 const ws = wb.Sheets[wsname];
                 const data = XLSX.utils.sheet_to_json(ws, { header: 1 });
-                
+
                 // Skip header row and map data
                 const productsToImport = data.slice(1).map(row => {
                     const name = row[0]?.toString().trim();
@@ -181,7 +203,7 @@ const AdminProducts = ({ theme, darkMode, adminUser, isScoped }) => {
                 }).filter(p => p.name);
 
                 if (productsToImport.length === 0) throw new Error("No valid products found");
-                
+
                 await adminBulkImportProducts(productsToImport);
                 setIsBulkModalOpen(false);
                 setDialog({
@@ -209,11 +231,11 @@ const AdminProducts = ({ theme, darkMode, adminUser, isScoped }) => {
                 // Support both Comma (CSV) and Tab (Excel paste) separators
                 const delimiter = line.includes("\t") ? "\t" : ",";
                 const parts = line.split(delimiter);
-                
+
                 const name = parts[0]?.trim();
                 const category = parts[1]?.trim() || "Uncategorized";
                 const soldUnder = parts[2]?.trim() || "";
-                
+
                 let entity_id = parseInt(filterEntity) || adminUser?.entity_id;
                 if (soldUnder) {
                     const matchedEntity = entities.find(e => e.name.toLowerCase() === soldUnder.toLowerCase());
@@ -271,7 +293,7 @@ const AdminProducts = ({ theme, darkMode, adminUser, isScoped }) => {
         });
     };
 
-    const filteredProducts = products.filter(p => 
+    const filteredProducts = products.filter(p =>
         p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         p.category?.toLowerCase().includes(searchQuery.toLowerCase())
     );
@@ -280,7 +302,7 @@ const AdminProducts = ({ theme, darkMode, adminUser, isScoped }) => {
         container: { animation: 'fadeIn 0.3s ease-out' },
         header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' },
         title: { fontSize: '20px', fontWeight: '900', color: theme.text, margin: 0 },
-        statsRow: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' },
+        statsRow: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '24px' },
         statCard: { background: theme.surface, padding: '20px', borderRadius: '16px', border: `1px solid ${theme.border}` },
         statVal: { fontSize: '24px', fontWeight: '900', color: 'var(--primary-color)', margin: '0 0 4px 0' },
         statLabel: { fontSize: '11px', fontWeight: '700', color: theme.textMuted, textTransform: 'uppercase' },
@@ -299,7 +321,7 @@ const AdminProducts = ({ theme, darkMode, adminUser, isScoped }) => {
             if (type === 'Active') colors = { bg: 'rgba(16, 185, 129, 0.1)', text: '#10B981' };
             if (type === 'New') colors = { bg: 'rgba(59, 130, 246, 0.1)', text: '#3B82F6' };
             if (type === 'No Feedback') colors = { bg: 'rgba(107, 114, 128, 0.1)', text: '#6B7280' };
-            
+
             return { display: 'inline-block', padding: '4px 10px', borderRadius: '20px', fontSize: '10px', fontWeight: '800', background: colors.bg, color: colors.text, textTransform: 'uppercase', letterSpacing: '0.05em' };
         },
         btnPrimary: { padding: '10px 20px', background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '10px', fontSize: '13px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' },
@@ -337,24 +359,20 @@ const AdminProducts = ({ theme, darkMode, adminUser, isScoped }) => {
                     <p style={styles.statVal}>{new Set(products.map(p => p.category)).size}</p>
                     <p style={styles.statLabel}>Categories</p>
                 </div>
-                <div style={styles.statCard}>
-                    <p style={styles.statVal}>{products.filter(p => !p.image_url).length}</p>
-                    <p style={styles.statLabel}>Missing Images</p>
-                </div>
             </div>
 
             <div style={styles.controls}>
                 <div style={styles.searchBox}>
-                    <input 
-                        style={styles.input} 
-                        placeholder="Search by name or category..." 
+                    <input
+                        style={styles.input}
+                        placeholder="Search by name or category..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                     />
                 </div>
                 {!isScoped && (
-                    <select 
-                        style={styles.select} 
+                    <select
+                        style={styles.select}
                         value={filterEntity}
                         onChange={(e) => { setFilterEntity(e.target.value); setFilterBranch(""); }}
                     >
@@ -371,8 +389,8 @@ const AdminProducts = ({ theme, darkMode, adminUser, isScoped }) => {
                     </select>
                 )}
                 {filterEntity && branches.length > 0 && (
-                    <select 
-                        style={styles.select} 
+                    <select
+                        style={styles.select}
                         value={filterBranch}
                         onChange={(e) => setFilterBranch(e.target.value)}
                     >
@@ -410,7 +428,16 @@ const AdminProducts = ({ theme, darkMode, adminUser, isScoped }) => {
                             const status = getStatus();
 
                             return (
-                                <tr key={p.id}>
+                                <tr
+                                    key={p.id}
+                                    onClick={() => handleOpenFeedbackModal(p)}
+                                    style={{
+                                        cursor: 'pointer',
+                                        transition: 'background-color 0.2s'
+                                    }}
+                                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = darkMode ? 'rgba(255,255,255,0.02)' : '#F8FAFC'}
+                                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                >
                                     <td style={styles.td}>
                                         <div style={{ fontWeight: '700' }}>{p.name}</div>
                                     </td>
@@ -440,7 +467,7 @@ const AdminProducts = ({ theme, darkMode, adminUser, isScoped }) => {
                                             </span>
                                         </div>
                                     </td>
-                                    <td style={{ ...styles.td, textAlign: 'right' }}>
+                                    <td style={{ ...styles.td, textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
                                         <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
                                             <button onClick={() => handleOpenAnalytics(p)} title="Analytics" style={{ background: 'none', border: 'none', color: '#6366F1', cursor: 'pointer' }}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 20V10M18 20V4M6 20v-4" /></svg></button>
                                             <button onClick={() => handleDuplicate(p)} title="Duplicate" style={{ background: 'none', border: 'none', color: theme.textMuted, cursor: 'pointer' }}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" /></svg></button>
@@ -465,11 +492,11 @@ const AdminProducts = ({ theme, darkMode, adminUser, isScoped }) => {
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
                                 <div style={styles.formGroup}>
                                     <label style={styles.formLabel}>Product Name</label>
-                                    <input style={styles.input} value={form.name} onChange={e => setForm({...form, name: e.target.value})} required />
+                                    <input style={styles.input} value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required />
                                 </div>
                                 <div style={styles.formGroup}>
                                     <label style={styles.formLabel}>Product Type</label>
-                                    <select style={styles.input} value={form.category} onChange={e => setForm({...form, category: e.target.value})} required>
+                                    <select style={styles.input} value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} required>
                                         <option value="">Select a Product Type…</option>
                                         {PRODUCT_TYPES.map(pt => <option key={pt} value={pt}>{pt}</option>)}
                                     </select>
@@ -478,7 +505,7 @@ const AdminProducts = ({ theme, darkMode, adminUser, isScoped }) => {
                                 {!isScoped && (
                                     <div style={styles.formGroup}>
                                         <label style={styles.formLabel}>Sold Under</label>
-                                        <select style={styles.input} value={form.entity_id} onChange={e => setForm({...form, entity_id: e.target.value, branch_id: ""})} required>
+                                        <select style={styles.input} value={form.entity_id} onChange={e => setForm({ ...form, entity_id: e.target.value, branch_id: "" })} required>
                                             <option value="">Select a Service…</option>
                                             {entities.map(e => {
                                                 const wsType = e.fields?.operational?.workspace_type || 'Service';
@@ -496,7 +523,7 @@ const AdminProducts = ({ theme, darkMode, adminUser, isScoped }) => {
                                     </div>
                                 )}
                             </div>
-                            
+
                             <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '32px' }}>
                                 <button type="button" onClick={() => setIsModalOpen(false)} style={{ ...styles.btnPrimary, background: 'none', color: theme.textMuted, border: `1px solid ${theme.border}` }}>Cancel</button>
                                 <button type="submit" style={styles.btnPrimary}>Save Product</button>
@@ -513,17 +540,17 @@ const AdminProducts = ({ theme, darkMode, adminUser, isScoped }) => {
                         <p style={{ fontSize: '12px', color: theme.textMuted, marginBottom: '20px' }}>
                             Choose an Excel/CSV file or paste data below.
                         </p>
-                        
+
                         <div style={{ marginBottom: '20px', padding: '20px', border: `2px dashed ${theme.border}`, borderRadius: '12px', textAlign: 'center' }}>
-                            <input 
-                                type="file" 
-                                accept=".xlsx, .xls, .csv" 
+                            <input
+                                type="file"
+                                accept=".xlsx, .xls, .csv"
                                 onChange={handleFileUpload}
                                 style={{ display: 'none' }}
                                 id="excel-upload"
                             />
                             <label htmlFor="excel-upload" style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--primary-color)" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+                                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--primary-color)" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" /></svg>
                                 <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--primary-color)' }}>Click to upload Excel / CSV</span>
                                 <span style={{ fontSize: '10px', color: theme.textMuted }}>Columns: Name, Product Type, Sold Under</span>
                             </label>
@@ -535,7 +562,7 @@ const AdminProducts = ({ theme, darkMode, adminUser, isScoped }) => {
                             <div style={{ flex: 1, height: '1px', background: theme.border }} />
                         </div>
 
-                        <textarea 
+                        <textarea
                             style={{ ...styles.input, height: '120px', fontFamily: 'monospace', fontSize: '12px', padding: '12px', lineHeight: '1.6' }}
                             placeholder="Example:&#10;Mango Smoothie, Drinks, Restaurant&#10;Lavender Body Scrub, Cosmetics, Spa&#10;Keychain, Souvenirs, Gift Shop"
                             value={bulkData}
@@ -621,6 +648,236 @@ const AdminProducts = ({ theme, darkMode, adminUser, isScoped }) => {
                 type={dialog.type} confirmText={dialog.confirmText} isDestructive={dialog.isDestructive}
                 onConfirm={dialog.onConfirm} onCancel={() => setDialog({ isOpen: false })}
             />
+
+            {isFeedbackModalOpen && selectedProductForFeedback && (
+                <div style={styles.modal}>
+                    <div style={{ ...styles.modalContent, maxWidth: '750px', maxHeight: '85vh', display: 'flex', flexDirection: 'column', padding: '24px' }}>
+                        {/* Modal Header */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `1px solid ${theme.border}`, paddingBottom: '16px', marginBottom: '16px' }}>
+                            <div>
+                                <h3 style={{ margin: 0, fontSize: '20px', fontWeight: '900', color: theme.text }}>
+                                    Feedback for "{selectedProductForFeedback.name}"
+                                </h3>
+                                <span style={{ ...styles.badge('Active'), marginTop: '6px' }}>
+                                    {selectedProductForFeedback.category || "General"}
+                                </span>
+                            </div>
+                            <button
+                                onClick={() => { setIsFeedbackModalOpen(false); setSelectedProductForFeedback(null); }}
+                                style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: theme.textMuted }}
+                            >
+                                &times;
+                            </button>
+                        </div>
+
+                        {/* Modal Scrollable Body */}
+                        <div style={{ flex: 1, overflowY: 'auto', paddingRight: '4px' }}>
+                            {feedbacksLoading ? (
+                                <div style={{ padding: '40px 0', textAlign: 'center', color: theme.textMuted }}>
+                                    Loading feedback entries...
+                                </div>
+                            ) : productFeedbacks.length === 0 ? (
+                                <div style={{ padding: '40px 0', textAlign: 'center', color: theme.textMuted }}>
+                                    No feedback entries found for this product yet.
+                                </div>
+                            ) : (() => {
+                                const directFeedbacks = [];
+
+                                productFeedbacks.forEach(fb => {
+                                    const fbProdId = fb.product_id || (fb.custom_data && fb.custom_data.product_id);
+                                    const isDirect = fbProdId && Number(fbProdId) === Number(selectedProductForFeedback.id);
+
+                                    if (isDirect) {
+                                        directFeedbacks.push(fb);
+                                        console.log("[ADMIN_SUBMISSIONS_SCOPE]", {
+                                            feedback_id: fb.id,
+                                            entity_id: fb.entity_id,
+                                            product_id: fbProdId,
+                                            scope: "product"
+                                        });
+                                    } else {
+                                        console.log("[ADMIN_SUBMISSIONS_SCOPE]", {
+                                            feedback_id: fb.id,
+                                            entity_id: fb.entity_id,
+                                            product_id: fbProdId || null,
+                                            scope: "skipped"
+                                        });
+                                    }
+                                });
+
+                                if (directFeedbacks.length === 0) {
+                                    return (
+                                        <div style={{ padding: '40px 0', textAlign: 'center', color: theme.textMuted }}>
+                                            No feedback entries found for this product yet.
+                                        </div>
+                                    );
+                                }
+
+                                const renderFeedbackCard = (fb, isDirect) => (
+                                    <div 
+                                        key={fb.id} 
+                                        style={{ 
+                                            background: darkMode ? 'rgba(255,255,255,0.02)' : '#F8FAFC', 
+                                            border: `1px solid ${theme.border}`, 
+                                            borderRadius: '16px', 
+                                            padding: '16px',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            gap: '10px'
+                                        }}
+                                    >
+                                        {/* Top row: Sender & Rating */}
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <div 
+                                                    style={{ 
+                                                        width: '32px', 
+                                                        height: '32px', 
+                                                        borderRadius: '50%', 
+                                                        backgroundColor: 'var(--primary-color)', 
+                                                        color: '#FFFFFF', 
+                                                        display: 'flex', 
+                                                        alignItems: 'center', 
+                                                        justifyContent: 'center', 
+                                                        fontSize: '14px', 
+                                                        fontWeight: 'bold' 
+                                                    }}
+                                                >
+                                                    {(fb.sender?.name || "Anonymous").charAt(0).toUpperCase()}
+                                                </div>
+                                                <div>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                                        <span style={{ fontSize: '13px', fontWeight: '700', color: theme.text }}>
+                                                            {fb.sender?.name || "Anonymous User"}
+                                                        </span>
+                                                        {isDirect ? (
+                                                            <span style={{ 
+                                                                display: 'inline-flex', 
+                                                                alignItems: 'center', 
+                                                                gap: '2px',
+                                                                padding: '2px 6px', 
+                                                                borderRadius: '4px', 
+                                                                fontSize: '9px', 
+                                                                fontWeight: '800', 
+                                                                background: 'rgba(16, 185, 129, 0.1)', 
+                                                                color: '#10B981', 
+                                                                textTransform: 'uppercase', 
+                                                                letterSpacing: '0.05em' 
+                                                            }}>
+                                                                🎯 Product Review
+                                                            </span>
+                                                        ) : (
+                                                            <span style={{ 
+                                                                display: 'inline-flex', 
+                                                                alignItems: 'center', 
+                                                                gap: '2px',
+                                                                padding: '2px 6px', 
+                                                                borderRadius: '4px', 
+                                                                fontSize: '9px', 
+                                                                fontWeight: '800', 
+                                                                background: 'rgba(59, 130, 246, 0.1)', 
+                                                                color: '#3B82F6', 
+                                                                textTransform: 'uppercase', 
+                                                                letterSpacing: '0.05em' 
+                                                            }}>
+                                                                💬 Service Feedback
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <div style={{ fontSize: '11px', color: theme.textMuted }}>
+                                                        {new Date(fb.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div style={{ display: 'flex', gap: '2px', alignItems: 'center' }}>
+                                                {Array.from({ length: 5 }).map((_, idx) => (
+                                                    <span key={idx} style={{ color: idx < (fb.rating || 0) ? '#F59E0B' : '#E2E8F0', fontSize: '14px' }}>★</span>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        {/* Title & Description */}
+                                        <div>
+                                            {fb.title && (
+                                                <div style={{ fontWeight: '800', fontSize: '14px', color: theme.text, marginBottom: '4px' }}>
+                                                    {fb.title}
+                                                </div>
+                                            )}
+                                            <div style={{ fontSize: '13px', color: theme.text, lineHeight: '1.5', whiteSpace: 'pre-wrap' }}>
+                                                {fb.description || "No comment left."}
+                                            </div>
+                                        </div>
+
+                                        {/* Attachments & custom_data (e.g. photos) */}
+                                        {fb.custom_data && (fb.custom_data.photo_upload || fb.custom_data.photo) && (
+                                            <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', padding: '4px 0' }}>
+                                                {(() => {
+                                                    const pUpload = fb.custom_data.photo_upload || fb.custom_data.photo || [];
+                                                    const arr = Array.isArray(pUpload) ? pUpload : [pUpload];
+                                                    return arr.map((pic, pIdx) => {
+                                                        const url = typeof pic === 'string' ? pic : (pic?.url || pic?.preview);
+                                                        if (!url) return null;
+                                                        return (
+                                                            <img 
+                                                                key={pIdx} 
+                                                                src={resolveMediaUrl(url)} 
+                                                                alt="attachment" 
+                                                                style={{ height: '80px', borderRadius: '8px', border: `1px solid ${theme.border}`, objectFit: 'cover' }} 
+                                                            />
+                                                        );
+                                                    });
+                                                })()}
+                                            </div>
+                                        )}
+
+                                        {/* Approval & Metrics */}
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', color: theme.textMuted, borderTop: `1px solid ${theme.border}`, paddingTop: '8px', marginTop: '4px' }}>
+                                            <div>
+                                                Status: <span style={{ fontWeight: '700', color: fb.is_approved ? '#10B981' : '#F59E0B' }}>{fb.is_approved ? 'APPROVED' : 'PENDING'}</span>
+                                            </div>
+                                            <div style={{ display: 'flex', gap: '12px' }}>
+                                                <span>👍 {fb.likes_count || 0}</span>
+                                                <span>👎 {fb.dislikes_count || 0}</span>
+                                                <span>💬 {fb.replies_count || 0} replies</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+
+                                return (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                                        {/* Section 1: Direct Product Reviews */}
+                                        <div>
+                                            <div style={{ fontWeight: '800', fontSize: '14px', color: theme.text, display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                                                <span>🎯 Product Reviews ({directFeedbacks.length})</span>
+                                            </div>
+                                            {directFeedbacks.length === 0 ? (
+                                                <div style={{ padding: '20px 0', textAlign: 'center', color: theme.textMuted, fontSize: '12px', background: darkMode ? 'rgba(255,255,255,0.01)' : '#F8FAFC', borderRadius: '12px', border: `1px dashed ${theme.border}` }}>
+                                                    No direct product reviews found yet.
+                                                </div>
+                                            ) : (
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                                    {directFeedbacks.map(fb => renderFeedbackCard(fb, true))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+                        </div>
+
+                        {/* Modal Footer */}
+                        <div style={{ borderTop: `1px solid ${theme.border}`, paddingTop: '16px', marginTop: '16px', display: 'flex', justifyContent: 'flex-end' }}>
+                            <button
+                                onClick={() => { setIsFeedbackModalOpen(false); setSelectedProductForFeedback(null); }}
+                                style={{ ...styles.btnPrimary, background: 'none', color: theme.textMuted, border: `1px solid ${theme.border}` }}
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

@@ -546,7 +546,13 @@ def bulk_import_products(db: Session, products: List[dict]):
     return len(db_products)
 
 def get_product_analytics(db: Session, product_id: int):
-    base_query = db.query(models.Feedback).filter(models.Feedback.product_id == product_id)
+    from sqlalchemy import or_
+    cond = or_(
+        models.Feedback.product_id == product_id,
+        models.Feedback.custom_data['product_id'].astext == str(product_id)
+    )
+
+    base_query = db.query(models.Feedback).filter(cond)
     total = base_query.count()
     if total == 0:
         return {
@@ -555,7 +561,7 @@ def get_product_analytics(db: Session, product_id: int):
             "trend": []
         }
     
-    avg_rating = db.query(func.avg(models.Feedback.rating)).filter(models.Feedback.product_id == product_id).scalar() or 0
+    avg_rating = db.query(func.avg(models.Feedback.rating)).filter(cond).scalar() or 0
     pos = base_query.filter(models.Feedback.rating >= 4).count()
     neu = base_query.filter(models.Feedback.rating == 3).count()
     neg = base_query.filter(models.Feedback.rating <= 2).count()
@@ -568,7 +574,7 @@ def get_product_analytics(db: Session, product_id: int):
     trend_data = db.query(
         func.cast(models.Feedback.created_at, Date).label('date'),
         func.count(models.Feedback.id).label('count')
-    ).filter(models.Feedback.product_id == product_id).group_by('date').order_by('date').all()
+    ).filter(cond).group_by('date').order_by('date').all()
     
     return {
         "total_reviews": total,
@@ -613,7 +619,7 @@ def get_feedbacks(
     has_mentions: bool = False,
     search: str = None
 ):
-    print(f"DEBUG: get_feedbacks called. skip={skip}, limit={limit}")
+    print(f"DEBUG: get_feedbacks called. skip={skip}, limit={limit}, product_id={product_id}, entity_id={entity_id}, only_approved={only_approved}")
     """Unified and optimized feedback retrieval with counts and relations."""
     # --- OPTIMIZED: Pre-aggregate counts in single subqueries instead of N correlated sub-selects ---
     replies_agg = (
@@ -685,14 +691,20 @@ def get_feedbacks(
     if recipient_user_id:
         query = query.filter(models.Feedback.recipient_user_id == recipient_user_id)
         
-    if recipient_dept_id:
+    if recipient_dept_id and not product_id:
         query = query.filter(models.Feedback.recipient_dept_id == recipient_dept_id)
 
-    if entity_id:
+    if entity_id and not product_id:
         query = query.filter(models.Feedback.entity_id == entity_id)
 
     if product_id:
-        query = query.filter(models.Feedback.product_id == product_id)
+        from sqlalchemy import or_
+        query = query.filter(
+            or_(
+                models.Feedback.product_id == product_id,
+                models.Feedback.custom_data['product_id'].astext == str(product_id)
+            )
+        )
 
     if has_photo:
         query = query.filter(models.Feedback.custom_data.has_key('photo_upload'))
