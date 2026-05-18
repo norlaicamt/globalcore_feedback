@@ -479,7 +479,7 @@ const AdminUsers = ({ theme, darkMode, adminUser }) => {
             ))}
           </div>
           
-          {isBulkMode && (
+          {hasGlobalAdminAccess && isBulkMode && (
             <div style={{ display: "flex", gap: "12px", alignItems: "center", animation: "fadeIn 0.2s ease-out" }}>
               <button 
                 onClick={() => {
@@ -523,38 +523,40 @@ const AdminUsers = ({ theme, darkMode, adminUser }) => {
         <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
           <thead>
             <tr style={{ background: "#F8FAFC", borderBottom: `1px solid ${theme.border}` }}>
-              <th style={{ padding: "14px 20px", width: "80px" }}>
-                <div 
-                  onClick={() => {
-                    if (!isBulkMode) setIsBulkMode(true);
-                    else {
-                      const allVisibleIds = filteredAndSorted.map(u => u.id);
-                      if (selectedIds.length === allVisibleIds.length) setSelectedIds([]);
-                      else setSelectedIds(allVisibleIds);
-                    }
-                  }}
-                  style={{ display: "flex", alignItems: "center", gap: "6px", cursor: "pointer", color: isBulkMode ? "var(--primary-color)" : theme.textMuted, transition: "0.2s" }}
-                >
-                  <div style={{ 
-                    width: "16px", height: "16px", borderRadius: "4px", border: `2px solid ${isBulkMode ? "var(--primary-color)" : theme.border}`,
-                    background: selectedIds.length > 0 ? "var(--primary-color)" : "transparent",
-                    display: "flex", alignItems: "center", justifyContent: "center", transition: "0.2s"
-                  }}>
-                    {selectedIds.length > 0 && (
-                      <>
-                        {selectedIds.length === filteredAndSorted.length ? (
-                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="4"><polyline points="20 6 9 17 4 12" /></svg>
-                        ) : (
-                          <div style={{ width: "8px", height: "2.5px", background: "white", borderRadius: "1px" }} />
-                        )}
-                      </>
-                    )}
+              {hasGlobalAdminAccess && (
+                <th style={{ padding: "14px 20px", width: "80px" }}>
+                  <div 
+                    onClick={() => {
+                      if (!isBulkMode) setIsBulkMode(true);
+                      else {
+                        const allVisibleIds = filteredAndSorted.map(u => u.id);
+                        if (selectedIds.length === allVisibleIds.length) setSelectedIds([]);
+                        else setSelectedIds(allVisibleIds);
+                      }
+                    }}
+                    style={{ display: "flex", alignItems: "center", gap: "6px", cursor: "pointer", color: isBulkMode ? "var(--primary-color)" : theme.textMuted, transition: "0.2s" }}
+                  >
+                    <div style={{ 
+                      width: "16px", height: "16px", borderRadius: "4px", border: `2px solid ${isBulkMode ? "var(--primary-color)" : theme.border}`,
+                      background: selectedIds.length > 0 ? "var(--primary-color)" : "transparent",
+                      display: "flex", alignItems: "center", justifyContent: "center", transition: "0.2s"
+                    }}>
+                      {selectedIds.length > 0 && (
+                        <>
+                          {selectedIds.length === filteredAndSorted.length ? (
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="4"><polyline points="20 6 9 17 4 12" /></svg>
+                          ) : (
+                            <div style={{ width: "8px", height: "2.5px", background: "white", borderRadius: "1px" }} />
+                          )}
+                        </>
+                      )}
+                    </div>
+                    <span style={{ fontSize: "10px", fontWeight: "800", textTransform: "uppercase" }}>{isBulkMode ? "Mode" : "Select"}</span>
                   </div>
-                  <span style={{ fontSize: "10px", fontWeight: "800", textTransform: "uppercase" }}>{isBulkMode ? "Mode" : "Select"}</span>
-                </div>
-              </th>
-              {["User Account", "Last Active", "Governance", "Engagement", "Status", ""].map(h => (
-                <th key={h} style={{ padding: "14px 20px", fontSize: "11px", fontWeight: "700", color: "#64748B", textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</th>
+                </th>
+              )}
+              {["User Account", "Last Active", "Governance", "Engagement", "Status", hasGlobalAdminAccess ? "Actions" : null].filter(Boolean).map(h => (
+                <th key={h} style={{ padding: "14px 20px", fontSize: "11px", fontWeight: "700", color: "#64748B", textTransform: "uppercase", letterSpacing: "0.05em" }}>{h === "Actions" ? "" : h}</th>
               ))}
             </tr>
           </thead>
@@ -572,22 +574,24 @@ const AdminUsers = ({ theme, darkMode, adminUser }) => {
                 onMouseEnter={e => { if (!selectedIds.includes(u.id) && !isBulkMode) e.currentTarget.style.background = "#F1F5F9"; }} 
                 onMouseLeave={e => { if (!selectedIds.includes(u.id) && !isBulkMode) e.currentTarget.style.background = "none"; }}
               >
-                <td style={{ padding: "12px 20px", width: "80px" }}>
-                  <div style={{ 
-                    opacity: isBulkMode ? 1 : 0, 
-                    transform: isBulkMode ? "translateX(0)" : "translateX(-4px)",
-                    transition: "all 0.15s ease-out",
-                    pointerEvents: isBulkMode ? "auto" : "none",
-                    display: "flex", alignItems: "center", justifyContent: "center"
-                  }}>
-                    <input 
-                      type="checkbox" 
-                      checked={selectedIds.includes(u.id)} 
-                      onChange={e => setSelectedIds(prev => e.target.checked ? [...prev, u.id] : prev.filter(id => id !== u.id))} 
-                      style={{ cursor: "pointer", width: "16px", height: "16px" }}
-                    />
-                  </div>
-                </td>
+                {hasGlobalAdminAccess && (
+                  <td style={{ padding: "12px 20px", width: "80px" }}>
+                    <div style={{ 
+                      opacity: isBulkMode ? 1 : 0, 
+                      transform: isBulkMode ? "translateX(0)" : "translateX(-4px)",
+                      transition: "all 0.15s ease-out",
+                      pointerEvents: isBulkMode ? "auto" : "none",
+                      display: "flex", alignItems: "center", justifyContent: "center"
+                    }}>
+                      <input 
+                        type="checkbox" 
+                        checked={selectedIds.includes(u.id)} 
+                        onChange={e => setSelectedIds(prev => e.target.checked ? [...prev, u.id] : prev.filter(id => id !== u.id))} 
+                        style={{ cursor: "pointer", width: "16px", height: "16px" }}
+                      />
+                    </div>
+                  </td>
+                )}
                 <td style={{ padding: "12px 20px" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "12px", cursor: "pointer" }} onClick={() => setProfileUser(u)}>
                     <div style={{ width: "32px", height: "32px", borderRadius: "50%", background: "var(--primary-color)20", color: "var(--primary-color)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "800", fontSize: "12px" }}>{u.avatar_url ? <img src={resolveMediaUrl(u.avatar_url)} alt={u.name} style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }} /> : u.name?.charAt(0)}</div>
@@ -614,18 +618,20 @@ const AdminUsers = ({ theme, darkMode, adminUser }) => {
                     <span style={{ fontSize: "12px", fontWeight: "700", color: u.is_active ? theme.text : theme.textMuted }}>{u.is_active ? "Active" : "Deactivated"}</span>
                   </div>
                 </td>
-                <td style={{ padding: "12px 20px", overflow: "visible" }}>
-                  <UserActions 
-                    user={u} 
-                    onToggle={handleToggle} 
-                    onReset={handleResetPassword} 
-                    onAssign={handleAssignRole}
-                    theme={theme} 
-                    darkMode={darkMode} 
-                    adminUser={adminUser}
-                    hasGlobalAdminAccess={hasGlobalAdminAccess}
-                  />
-                </td>
+                {hasGlobalAdminAccess && (
+                  <td style={{ padding: "12px 20px", overflow: "visible" }}>
+                    <UserActions 
+                      user={u} 
+                      onToggle={handleToggle} 
+                      onReset={handleResetPassword} 
+                      onAssign={handleAssignRole}
+                      theme={theme} 
+                      darkMode={darkMode} 
+                      adminUser={adminUser}
+                      hasGlobalAdminAccess={hasGlobalAdminAccess}
+                    />
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
@@ -655,12 +661,14 @@ const AdminUsers = ({ theme, darkMode, adminUser }) => {
                  <div style={profileStatStyle(theme)}><p style={statLabel}>Last Active</p><p style={statVal}>{formatRelativeTime(profileUser.last_seen || profileUser.last_login)}</p></div>
              </div>
              
-             <div style={{ textAlign: "center", padding: "16px", background: theme.bg, borderRadius: "12px", border: `1px dashed ${theme.border}` }}>
-               <p style={{ margin: 0, fontSize: "11px", color: theme.textMuted, lineHeight: "1.5" }}>
-                 To manage this account (activate, assign, or reset access),<br />
-                 use the <strong>actions menu (⋮)</strong> in the user list.
-               </p>
-             </div>
+             {hasGlobalAdminAccess && (
+               <div style={{ textAlign: "center", padding: "16px", background: theme.bg, borderRadius: "12px", border: `1px dashed ${theme.border}` }}>
+                 <p style={{ margin: 0, fontSize: "11px", color: theme.textMuted, lineHeight: "1.5" }}>
+                   To manage this account (activate, assign, or reset access),<br />
+                   use the <strong>actions menu (⋮)</strong> in the user list.
+                 </p>
+               </div>
+             )}
           </div>
         </div>
       )}
