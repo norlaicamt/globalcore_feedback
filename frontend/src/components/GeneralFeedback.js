@@ -391,11 +391,11 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
       if (window.DEBUG_MODE) console.log("[AUDIT:DRAFT_SAVED] Progress persisted");
 
       // --- PHASE 11: RE-ELIGIBILITY RULE ---
-      // If user makes new progress, clear the session dismissal flag
+      // If user makes new progress, clear the localStorage dismissal flag
       const dismissalKey = `dismissedDraft_${userFingerprint}_${selectedEntity.id}`;
-      if (sessionStorage.getItem(dismissalKey)) {
-        sessionStorage.removeItem(dismissalKey);
-        if (window.DEBUG_MODE) console.log("[AUDIT:DRAFT_DISMISSAL] Session dismissal cleared due to new progress.");
+      if (localStorage.getItem(dismissalKey)) {
+        localStorage.removeItem(dismissalKey);
+        if (window.DEBUG_MODE) console.log("[AUDIT:DRAFT_DISMISSAL] LocalStorage dismissal cleared due to new progress.");
       }
     }, 800);
     

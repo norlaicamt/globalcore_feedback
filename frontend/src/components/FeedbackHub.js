@@ -211,8 +211,8 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
           if (currentDrafts.length > 0) {
             const latest = currentDrafts.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0];
 
-            // Dismissal Check: If user clicked "Not Now", don't show again for this specific draft
-            const dismissalKey = `dismissedDraft_${userFingerprint}_${latest.id || latest.entity_id}`;
+            // Dismissal Check: If user clicked "Not Now", don't show again for this specific draft entity
+            const dismissalKey = `dismissedDraft_${userFingerprint}_${latest.entity_id}`;
             if (localStorage.getItem(dismissalKey)) {
               if (window.DEBUG_MODE) console.log("[DRAFT:RECOVERY] Suppression: Draft prompt already dismissed for this draft.");
               return;
