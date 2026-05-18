@@ -187,6 +187,8 @@ def create_user(db: Session, user: schemas.UserCreate):
     data = user.model_dump()
     if "email" in data:
         data["email"] = data["email"].lower()
+    if "global_id" in data and not data["global_id"]:
+        del data["global_id"]
     db_user = models.User(**data)
     db.add(db_user)
     db.commit()

@@ -1,9 +1,10 @@
-from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime, Boolean, Enum, UniqueConstraint, Float
-from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import relationship
+from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime, Boolean, Enum, UniqueConstraint, Float, event
+from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.orm import relationship, synonym
 from datetime import datetime, timezone
 from app.database import Base
 import enum
+import uuid
 
 class FeedbackStatus(str, enum.Enum):
     OPEN = "OPEN"
@@ -25,7 +26,13 @@ class NotificationType(str, enum.Enum):
 class User(Base):
     __tablename__ = "global_user"
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, index=True)
+    display_name = Column(String, index=True)
+    name = synonym("display_name")
+    global_id = Column(UUID(as_uuid=True), index=True, unique=True, nullable=False, default=uuid.uuid4)
+    external_id = Column(String, index=True, nullable=True)
+    source = Column(String, nullable=False, default="local")
+    role_context = Column(String, nullable=False, default="citizen")
+    attributes = Column(JSONB, nullable=False, default=dict)
     email = Column(String, unique=True, index=True)
     is_active = Column(Boolean, default=True)
     username = Column(String, unique=True, index=True, nullable=True)
@@ -538,3 +545,23 @@ class Draft(Base):
     entity = relationship("Entity")
     branch = relationship("Branch")
     staff = relationship("User", foreign_keys=[staff_id])
+
+@event.listens_for(User, 'before_insert')
+def receive_before_insert(mapper, connection, target):
+    if not target.global_id:
+        target.global_id = uuid.uuid4()
+    if not target.source:
+        target.source = "local"
+    if not target.role_context:
+        role = target.role or "user"
+        role_lower = role.lower()
+        if role_lower in ["superadmin", "globaloverseer"]:
+            target.role_context = "global_admin"
+        elif role_lower in ["admin", "service_admin"]:
+            target.role_context = "admin"
+        elif role_lower in ["staff", "coordinator"]:
+            target.role_context = "staff"
+        else:
+            target.role_context = "citizen"
+    if target.attributes is None:
+        target.attributes = {}

@@ -7,6 +7,12 @@ from app.models import FeedbackStatus, NotificationType
 class UserBase(BaseModel):
     name: str
     email: str
+    display_name: Optional[str] = None
+    global_id: Optional[str] = None
+    external_id: Optional[str] = None
+    source: Optional[str] = None
+    role_context: Optional[str] = None
+    attributes: Optional[dict] = None
     entity_id: Optional[int] = None
     organization_id: Optional[int] = None
     session_token: Optional[str] = None
@@ -66,6 +72,12 @@ class UserCreate(UserBase):
 
 class UserUpdate(BaseModel):
     name: Optional[str] = None
+    display_name: Optional[str] = None
+    global_id: Optional[str] = None
+    external_id: Optional[str] = None
+    source: Optional[str] = None
+    role_context: Optional[str] = None
+    attributes: Optional[dict] = None
     username: Optional[str] = None
     email: Optional[str] = None
     phone: Optional[str] = None
@@ -137,6 +149,7 @@ class User(UserBase):
 class UserSearchEntry(BaseModel):
     id: int
     name: str
+    display_name: Optional[str] = None
     username: Optional[str] = None
     department: Optional[str] = None
     role_identity: Optional[str] = None
@@ -149,6 +162,7 @@ class UserSearchEntry(BaseModel):
 class UserProfile(BaseModel):
     id: int
     name: str
+    display_name: Optional[str] = None
     department: Optional[str] = None
     program: Optional[str] = None
     entity_id: Optional[int] = None
@@ -162,6 +176,7 @@ class UserProfile(BaseModel):
 class TeamMemberResponse(BaseModel):
     user_id: int
     name: str
+    display_name: Optional[str] = None
     role: str
     entities: List[str] = []
     last_active: Optional[datetime] = None
