@@ -291,8 +291,8 @@ const AdminHub = ({ adminUser, onLogout }) => {
                 const globalTools = ["feedbacktypes"];
                 if (globalTools.includes(item.id)) return false;
 
-                // Hide generic "Workspaces" for scoped admins as we'll inject specific items
-                if (item.id === "programs") return false;
+                // Hide generic "Workspaces" and global "Product Catalog" for scoped admins as we'll inject specific items
+                if (item.id === "programs" || item.id === "products") return false;
 
                 // Hide labels if we're simplifying for scoped view
                 if (item.type === "label" && (item.label === "PANEL" || item.label === "PREFERENCES")) return false;
