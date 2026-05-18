@@ -1387,7 +1387,7 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
                             <div style={{ display: 'flex', gap: '12px', marginTop: '12px', alignItems: 'center' }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={theme.textMuted} strokeWidth="2.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
-                                <span style={{ fontSize: '11px', color: theme.textMuted, fontWeight: '600' }}>{profile?.name || 'Global Admin'}</span>
+                                <span style={{ fontSize: '11px', color: theme.textMuted, fontWeight: '600' }}>{act.performed_by?.name || profile?.name || 'Global Admin'}</span>
                               </div>
                               <div style={{ width: '3px', height: '3px', borderRadius: '50%', background: theme.border }} />
                               <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>

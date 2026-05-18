@@ -22,17 +22,47 @@ const DraftsView = ({ currentUser, onBack }) => {
   const refreshDrafts = async () => {
     setIsLoading(true);
     try {
+      let allDrafts = [];
+
       if (currentUser?.id) {
-        const cloudDrafts = await getDrafts(currentUser.id);
-        // Combine with local if needed, or just use cloud
-        setDrafts(cloudDrafts);
+        // 1. Fetch server-side drafts
+        try {
+          const cloudDrafts = await getDrafts(currentUser.id);
+          allDrafts = [...cloudDrafts];
+        } catch (err) {
+          console.error("Failed to fetch cloud drafts", err);
+        }
+
+        // 2. Merge localStorage in-progress drafts (from "Resume Progress" / "Not Now")
+        const userFingerprint = `${currentUser.id}_${currentUser.created_at || 'legacy'}`;
+        const localKey = `user.drafts_${userFingerprint}`;
+        const localDrafts = JSON.parse(localStorage.getItem(localKey) || "[]");
+
+        if (localDrafts.length > 0) {
+          const cloudIds = new Set(allDrafts.map(d => String(d.id)));
+          const normalizedLocal = localDrafts
+            .filter(d => !cloudIds.has(String(d.id)))
+            .map(d => ({
+              id: d.id,
+              title: d.entity?.name ? `${d.entity.name} Draft` : 'Draft in Progress',
+              description: d.idea || 'Unsaved form progress — click to continue.',
+              created_at: d.timestamp,
+              updated_at: d.timestamp,
+              _isLocal: true,
+              _localDraft: d,  // keep original for editing
+              _localKey: localKey
+            }));
+          allDrafts = [...allDrafts, ...normalizedLocal];
+        }
       } else {
-        const savedDrafts = JSON.parse(localStorage.getItem(`user.drafts_guest`) || "[]");
-        setDrafts(savedDrafts);
+        const savedDrafts = JSON.parse(localStorage.getItem('user.drafts_guest') || "[]");
+        allDrafts = savedDrafts;
       }
+
+      setDrafts(allDrafts);
     } catch (err) {
       console.error("Failed to fetch drafts", err);
-      // Fallback
+      // Fallback to plain id-based key
       const savedDrafts = JSON.parse(localStorage.getItem(`user.drafts_${currentUser?.id || 'guest'}`) || "[]");
       setDrafts(savedDrafts);
     } finally {
@@ -66,22 +96,31 @@ const DraftsView = ({ currentUser, onBack }) => {
       onConfirm: async () => {
         try {
           if (currentUser?.id) {
-            await Promise.all(selectedIds.map(id => {
-              if (typeof id === 'number') return deleteDraft(id);
-              return Promise.resolve();
-            }));
-            
-            // Also cleanup any local ones if they were selected
+            // Separate cloud IDs (numbers) from local IDs (strings/UUIDs)
+            const cloudIds = selectedIds.filter(id => typeof id === 'number');
             const localIds = selectedIds.filter(id => typeof id !== 'number');
+
+            // Delete server-side drafts
+            if (cloudIds.length > 0) {
+              await Promise.all(cloudIds.map(id => deleteDraft(id)));
+            }
+
+            // Delete local drafts using the fingerprinted key
             if (localIds.length > 0) {
-              const savedDrafts = JSON.parse(localStorage.getItem(`user.drafts_${currentUser.id}`) || "[]");
+              const userFingerprint = `${currentUser.id}_${currentUser.created_at || 'legacy'}`;
+              const localKey = `user.drafts_${userFingerprint}`;
+              const savedDrafts = JSON.parse(localStorage.getItem(localKey) || "[]");
               const updated = savedDrafts.filter(d => !localIds.includes(d.id));
-              localStorage.setItem(`user.drafts_${currentUser.id}`, JSON.stringify(updated));
+              localStorage.setItem(localKey, JSON.stringify(updated));
+              // Also clean up dismissal keys for deleted local drafts
+              localIds.forEach(id => {
+                localStorage.removeItem(`dismissedDraft_${userFingerprint}_${id}`);
+              });
             }
           } else {
-            const savedDrafts = JSON.parse(localStorage.getItem(`user.drafts_guest`) || "[]");
+            const savedDrafts = JSON.parse(localStorage.getItem('user.drafts_guest') || "[]");
             const updated = savedDrafts.filter(d => !selectedIds.includes(d.id));
-            localStorage.setItem(`user.drafts_guest`, JSON.stringify(updated));
+            localStorage.setItem('user.drafts_guest', JSON.stringify(updated));
           }
           refreshDrafts();
         } catch (err) {
@@ -191,7 +230,7 @@ const DraftsView = ({ currentUser, onBack }) => {
                     border: isSelected ? '2px solid var(--primary-color)' : '1px solid #E2E8F0',
                     backgroundColor: isSelected ? 'rgba(var(--primary-rgb), 0.05)' : 'white',
                   }}
-                  onClick={(e) => isSelectMode ? toggleSelect(e, draft.id) : setEditingDraft(draft)}
+                  onClick={(e) => isSelectMode ? toggleSelect(e, draft.id) : setEditingDraft(draft._isLocal ? draft._localDraft : draft)}
                 >
                   {/* Selection Indicator on the left - Only Show in Select Mode */}
                   {isSelectMode && (

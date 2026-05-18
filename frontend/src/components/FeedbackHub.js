@@ -211,10 +211,10 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
           if (currentDrafts.length > 0) {
             const latest = currentDrafts.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0];
 
-            // Session Dismissal Check: If user clicked "Not Now", don't show again this session
-            const dismissalKey = `dismissedDraft_${userFingerprint}_${latest.entity_id}`;
-            if (sessionStorage.getItem(dismissalKey)) {
-              if (window.DEBUG_MODE) console.log("[DRAFT:RECOVERY] Suppression: Draft prompt already dismissed for this session.");
+            // Dismissal Check: If user clicked "Not Now", don't show again for this specific draft
+            const dismissalKey = `dismissedDraft_${userFingerprint}_${latest.id || latest.entity_id}`;
+            if (localStorage.getItem(dismissalKey)) {
+              if (window.DEBUG_MODE) console.log("[DRAFT:RECOVERY] Suppression: Draft prompt already dismissed for this draft.");
               return;
             }
 
@@ -298,7 +298,8 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
                 secondaryAction: {
                   label: 'Not Now',
                   onClick: () => {
-                    sessionStorage.setItem(dismissalKey, 'true');
+                    // Persist dismissal in localStorage so it survives page refreshes
+                    localStorage.setItem(dismissalKey, 'true');
                     setDialogState({ isOpen: false });
                     setResumeDraft(null);
                   }
@@ -309,6 +310,8 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
                   onClick: () => {
                     const filtered = currentDrafts.filter(d => d.id !== latest.id);
                     localStorage.setItem(draftsKey, JSON.stringify(filtered));
+                    // Also clean up the dismissal key since the draft is gone
+                    localStorage.removeItem(dismissalKey);
                     setDialogState({ isOpen: false });
                     setResumeDraft(null);
                   }
@@ -598,10 +601,10 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
   }, [localUser?.id, resumeDraft]);
 
   const menuItems = [
-    { id: 'home', label: 'Dashboard', icon: <Icons.Building /> },
+    { id: 'home', label: 'Home', icon: <Icons.Building /> },
     {
       id: 'feedback_group',
-      label: `My ${getLabel("feedback_label", "Feedback")}`,
+      label: 'My Feedback',
       icon: <Icons.Inbox />,
       subItems: [
         { id: 'history', label: 'Sent', icon: <Icons.User /> },

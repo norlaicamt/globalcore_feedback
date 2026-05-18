@@ -1627,12 +1627,27 @@ def update_admin_profile(payload: dict = Body(...), db: Session = Depends(get_db
     return {"message": "Profile updated", "updated_fields": list(changed.keys())}
 
 
-@router.get("/profile/activity")
+@router.get("/profile/activity", response_model=List[schemas.AuditLog])
 def get_admin_profile_activity(limit: int = 20, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
-    rows = db.query(models.AuditLog)\
-        .filter(models.AuditLog.performed_by_id == admin.id)\
-        .order_by(models.AuditLog.timestamp.desc())\
-        .limit(limit).all()
+    if has_global_admin_access(admin):
+        # Global Admin: See their own activity and activity from all scoped/regular admins
+        rows = db.query(models.AuditLog)\
+            .outerjoin(models.User, models.AuditLog.performed_by_id == models.User.id)\
+            .filter(
+                (models.AuditLog.performed_by_id == admin.id) |
+                (
+                    (models.User.role.in_(["admin", "superadmin", "staff"])) & 
+                    ((models.User.entity_id != None) | (models.User.organization_id != None) | (models.User.department != None))
+                )
+            )\
+            .order_by(models.AuditLog.timestamp.desc())\
+            .limit(limit).all()
+    else:
+        # Scoped Admin: Only see their own activity
+        rows = db.query(models.AuditLog)\
+            .filter(models.AuditLog.performed_by_id == admin.id)\
+            .order_by(models.AuditLog.timestamp.desc())\
+            .limit(limit).all()
     return rows
 
 

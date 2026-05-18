@@ -212,8 +212,15 @@ const AdminHub = ({ adminUser, onLogout }) => {
       case "workspace_analytics":
         return <AdminPrograms {...props} initialTab={view.startsWith("workspace_") ? view.replace("workspace_", "") : "locations"} />;
       case "formdesigner": return <AdminFormDesigner {...props} />;
-      case "broadcast": return <AdminBroadcast {...props} />;
-      case "broadcast_analytics": return <AdminBroadcastAnalytics {...props} />;
+      case "broadcast":
+      case "broadcast_analytics":
+        if (!hasGlobalAdminAccess) {
+          console.warn(`Access Denied: Announcements are disabled for regular admins.`);
+          window.history.replaceState(null, "", "/admin/dashboard");
+          setView("dashboard");
+          return <AdminDashboard {...props} />;
+        }
+        return view === "broadcast" ? <AdminBroadcast {...props} /> : <AdminBroadcastAnalytics {...props} />;
       case "products":
       case "workspace_products":
         return <AdminProducts {...props} isScoped={view === "workspace_products"} />;
@@ -284,15 +291,15 @@ const AdminHub = ({ adminUser, onLogout }) => {
               // Standard Role Check
               if (item.superOnly && !hasGlobalAdminAccess) return false;
 
-              // Program Admin Restictions (Admins with entity_id)
-              const isScopedAdmin = !!localAdminUser?.entity_id;
+              // Program Admin Restrictions (Regular/Scoped Admins)
+              const isScopedAdmin = !hasGlobalAdminAccess;
               if (isScopedAdmin) {
                 // Hide global configuration tools from program admins
                 const globalTools = ["feedbacktypes"];
                 if (globalTools.includes(item.id)) return false;
 
-                // Hide generic "Workspaces" and global "Product Catalog" for scoped admins as we'll inject specific items
-                if (item.id === "programs" || item.id === "products") return false;
+                // Hide generic "Workspaces", global "Product Catalog", Announcements, and Reach Analytics for scoped admins
+                if (item.id === "programs" || item.id === "products" || item.id === "broadcast" || item.id === "broadcast_analytics") return false;
 
                 // Hide labels if we're simplifying for scoped view
                 if (item.type === "label" && (item.label === "PANEL" || item.label === "PREFERENCES")) return false;
@@ -301,7 +308,7 @@ const AdminHub = ({ adminUser, onLogout }) => {
               return true;
             })
             .flatMap((item, idx) => {
-              const isScopedAdmin = !!localAdminUser?.entity_id;
+              const isScopedAdmin = !hasGlobalAdminAccess;
               
               // For scoped admins, inject sub-items for their workspace
               if (isScopedAdmin && item.id === "formdesigner") {
