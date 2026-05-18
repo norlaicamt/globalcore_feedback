@@ -675,6 +675,84 @@ const ExportDropdown = ({ onExport, theme, darkMode }) => {
   );
 };
 
+// --- COMPONENT: Columns Visibility Dropdown ---
+const ColumnsDropdown = ({ visibleColumns, setVisibleColumns, theme, darkMode, isScopedAdmin }) => {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const toggleColumn = (colKey) => {
+    setVisibleColumns(prev => ({
+      ...prev,
+      [colKey]: !prev[colKey]
+    }));
+  };
+
+  const columnsList = [
+    { key: "program", label: "Program / Service", show: !isScopedAdmin },
+    { key: "user", label: "User", show: true },
+    { key: "location", label: "Location", show: true },
+    { key: "status", label: "Status", show: true },
+    { key: "assignee", label: "Assignee", show: true },
+    { key: "date", label: "Date", show: true },
+    { key: "actions", label: "Actions", show: true }
+  ];
+
+  return (
+    <div ref={ref} style={{ position: "relative" }}>
+      <button
+        onClick={() => setOpen(!open)}
+        style={{
+          display: "flex", alignItems: "center", gap: "8px", padding: "10px 16px",
+          background: theme.surface, color: theme.text, border: `1.5px solid ${theme.border}`,
+          borderRadius: "10px", fontSize: "13px", fontWeight: "600", cursor: "pointer", transition: "0.2s"
+        }}
+        onMouseEnter={e => e.currentTarget.style.borderColor = "var(--primary-color)"}
+        onMouseLeave={e => e.currentTarget.style.borderColor = theme.border}
+      >
+        <span style={{ fontSize: "14px" }}>👁</span>
+        Columns
+      </button>
+      {open && (
+        <div style={{
+          position: "absolute", right: 0, top: "42px", background: theme.surface,
+          border: `1px solid ${theme.border}`, borderRadius: "12px", boxShadow: "0 10px 30px rgba(0,0,0,0.15)",
+          zIndex: 100, minWidth: "200px", padding: "12px", display: "flex", flexDirection: "column", gap: "8px"
+        }}>
+          <p style={{ margin: "0 0 6px 0", fontSize: "10px", fontWeight: "800", color: theme.textMuted, textTransform: "uppercase", letterSpacing: "0.05em" }}>Show/Hide Columns</p>
+          {columnsList.filter(c => c.show).map(col => (
+            <label
+              key={col.key}
+              style={{
+                display: "flex", alignItems: "center", gap: "10px", padding: "6px 8px",
+                borderRadius: "6px", cursor: "pointer", fontSize: "13px", fontWeight: "600",
+                color: theme.text, transition: "background 0.2s"
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = darkMode ? "rgba(255,255,255,0.05)" : "#F1F5F9"}
+              onMouseLeave={e => e.currentTarget.style.background = "none"}
+            >
+              <input
+                type="checkbox"
+                checked={!!visibleColumns[col.key]}
+                onChange={() => toggleColumn(col.key)}
+                style={{ width: "16px", height: "16px", accentColor: "var(--primary-color)", cursor: "pointer" }}
+              />
+              {col.label}
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
   const isScopedAdmin = !!adminUser?.entity_id;
   const { getLabel, getModeLabel, systemMode } = useTerminology();
@@ -692,6 +770,44 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
   const [isClosing, setIsClosing] = useState(false);
   const [dialog, setDialog] = useState({ isOpen: false });
   const [toast, setToast] = useState(null);
+
+  // Column visibility state with responsive defaults & localStorage persistence
+  const [visibleColumns, setVisibleColumns] = useState(() => {
+    const saved = localStorage.getItem("admin_submissions_columns");
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error("Failed to parse saved columns", e);
+      }
+    }
+    const isMobile = window.innerWidth < 768;
+    if (isMobile) {
+      return {
+        program: true,
+        user: true,
+        location: false,
+        status: true,
+        assignee: false,
+        date: true,
+        actions: false
+      };
+    }
+    return {
+      program: true,
+      user: true,
+      location: true,
+      status: true,
+      assignee: true,
+      date: true,
+      actions: true
+    };
+  });
+
+  useEffect(() => {
+    localStorage.setItem("admin_submissions_columns", JSON.stringify(visibleColumns));
+    console.log("[SUBMISSIONS_COLUMNS]", visibleColumns);
+  }, [visibleColumns]);
 
   const showToast = (msg, type = "success") => {
     setToast({ message: msg, type });
@@ -826,6 +942,11 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
     }
   };
 
+  const activeColsCount = Object.keys(visibleColumns).filter(key => {
+    if (key === 'program' && isScopedAdmin) return false;
+    return visibleColumns[key];
+  }).length;
+
   return (
     <div style={{
       display: "flex",
@@ -883,7 +1004,10 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
             style={{ width: "100%", padding: "10px 12px 10px 38px", background: theme.surface, color: theme.text, border: `1px solid ${theme.border}`, borderRadius: "10px", fontSize: "13px", outline: "none" }}
           />
         </div>
-        <ExportDropdown onExport={handleExport} theme={theme} darkMode={darkMode} />
+        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+          <ColumnsDropdown visibleColumns={visibleColumns} setVisibleColumns={setVisibleColumns} theme={theme} darkMode={darkMode} isScopedAdmin={isScopedAdmin} />
+          <ExportDropdown onExport={handleExport} theme={theme} darkMode={darkMode} />
+        </div>
       </div>
 
       {/* Table Section (Scrollable) */}
@@ -898,7 +1022,7 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
           <thead>
             <tr style={{ background: darkMode ? "rgba(255,255,255,0.02)" : "#F8FAFC", borderBottom: `1px solid ${theme.border}` }}>
-              {!isScopedAdmin && (
+              {!isScopedAdmin && visibleColumns.program && (
                 <th style={{ padding: "16px 20px", textAlign: "left", fontSize: "11px", fontWeight: "800", color: theme.textMuted, textTransform: "uppercase", letterSpacing: "0.05em" }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     Program / Service
@@ -929,41 +1053,43 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
                   </div>
                 </th>
               )}
-              <th style={{ padding: "16px 20px", textAlign: "left", fontSize: "11px", fontWeight: "800", color: theme.textMuted, textTransform: "uppercase", letterSpacing: "0.05em" }}>User</th>
-              <th style={{ padding: "16px 20px", textAlign: "left", fontSize: "11px", fontWeight: "800", color: theme.textMuted, textTransform: "uppercase", letterSpacing: "0.05em" }}>Location</th>
+              {visibleColumns.user && <th style={{ padding: "16px 20px", textAlign: "left", fontSize: "11px", fontWeight: "800", color: theme.textMuted, textTransform: "uppercase", letterSpacing: "0.05em" }}>User</th>}
+              {visibleColumns.location && <th style={{ padding: "16px 20px", textAlign: "left", fontSize: "11px", fontWeight: "800", color: theme.textMuted, textTransform: "uppercase", letterSpacing: "0.05em" }}>Location</th>}
 
-              <th style={{ padding: "16px 20px", textAlign: "left", fontSize: "11px", fontWeight: "800", color: theme.textMuted, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  Status
-                  <div style={{ position: 'relative' }} ref={statusFilterRef}>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setShowStatusFilter(!showStatusFilter); }}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', color: selectedStatusFilter !== 'ALL' ? 'var(--primary-color)' : 'inherit' }}
-                    >
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                    </button>
-                    {showStatusFilter && (
-                      <div style={{ position: 'absolute', top: '24px', left: 0, background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: '10px', boxShadow: '0 10px 25px rgba(0,0,0,0.15)', zIndex: 100, minWidth: '150px', padding: '6px' }}>
-                        {["ALL", "OPEN", "IN_PROGRESS", "RESOLVED"].map(s => (
-                          <button
-                            key={s}
-                            onClick={(e) => { e.stopPropagation(); setSelectedStatusFilter(s); setShowStatusFilter(false); }}
-                            style={{
-                              display: 'block', width: '100%', padding: '8px 12px', border: 'none', background: selectedStatusFilter === s ? 'rgba(var(--primary-rgb), 0.1)' : 'none',
-                              textAlign: 'left', fontSize: '12px', fontWeight: '600', color: selectedStatusFilter === s ? 'var(--primary-color)' : theme.text, borderRadius: '6px', cursor: 'pointer'
-                            }}
-                          >
-                            {s === "ALL" ? "All Statuses" : (STATUSES[s]?.label || s)}
-                          </button>
-                        ))}
-                      </div>
-                    )}
+              {visibleColumns.status && (
+                <th style={{ padding: "16px 20px", textAlign: "left", fontSize: "11px", fontWeight: "800", color: theme.textMuted, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    Status
+                    <div style={{ position: 'relative' }} ref={statusFilterRef}>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setShowStatusFilter(!showStatusFilter); }}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', color: selectedStatusFilter !== 'ALL' ? 'var(--primary-color)' : 'inherit' }}
+                      >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                      </button>
+                      {showStatusFilter && (
+                        <div style={{ position: 'absolute', top: '24px', left: 0, background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: '10px', boxShadow: '0 10px 25px rgba(0,0,0,0.15)', zIndex: 100, minWidth: '150px', padding: '6px' }}>
+                          {["ALL", "OPEN", "IN_PROGRESS", "RESOLVED"].map(s => (
+                            <button
+                              key={s}
+                              onClick={(e) => { e.stopPropagation(); setSelectedStatusFilter(s); setShowStatusFilter(false); }}
+                              style={{
+                                display: 'block', width: '100%', padding: '8px 12px', border: 'none', background: selectedStatusFilter === s ? 'rgba(var(--primary-rgb), 0.1)' : 'none',
+                                textAlign: 'left', fontSize: '12px', fontWeight: '600', color: selectedStatusFilter === s ? 'var(--primary-color)' : theme.text, borderRadius: '6px', cursor: 'pointer'
+                              }}
+                            >
+                              {s === "ALL" ? "All Statuses" : (STATUSES[s]?.label || s)}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              </th>
-              <th style={{ padding: "16px 20px", textAlign: "left", fontSize: "11px", fontWeight: "800", color: theme.textMuted, textTransform: "uppercase", letterSpacing: "0.05em" }}>Assignee</th>
-              <th style={{ padding: "16px 20px", textAlign: "left", fontSize: "11px", fontWeight: "800", color: theme.textMuted, textTransform: "uppercase", letterSpacing: "0.05em" }}>Date</th>
-              <th style={{ padding: "16px 20px", textAlign: "right", fontSize: "11px", fontWeight: "800", color: theme.textMuted, textTransform: "uppercase", letterSpacing: "0.05em" }}></th>
+                </th>
+              )}
+              {visibleColumns.assignee && <th style={{ padding: "16px 20px", textAlign: "left", fontSize: "11px", fontWeight: "800", color: theme.textMuted, textTransform: "uppercase", letterSpacing: "0.05em" }}>Assignee</th>}
+              {visibleColumns.date && <th style={{ padding: "16px 20px", textAlign: "left", fontSize: "11px", fontWeight: "800", color: theme.textMuted, textTransform: "uppercase", letterSpacing: "0.05em" }}>Date</th>}
+              {visibleColumns.actions && <th style={{ padding: "16px 20px", textAlign: "right", fontSize: "11px", fontWeight: "800", color: theme.textMuted, textTransform: "uppercase", letterSpacing: "0.05em" }}></th>}
             </tr>
           </thead>
           <tbody>
@@ -980,51 +1106,59 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
                 onMouseEnter={e => e.currentTarget.style.background = darkMode ? "rgba(255,255,255,0.03)" : "#FAFAFA"}
                 onMouseLeave={e => e.currentTarget.style.background = "none"}
               >
-                {!isScopedAdmin && (
+                {!isScopedAdmin && visibleColumns.program && (
                   <td style={{ padding: "16px 20px" }}>
                     <div style={{ fontWeight: "800", color: theme.text, fontSize: "14px", letterSpacing: "-0.01em" }}>{f.entity_name || "General"}</div>
                     <div style={{ fontSize: "11px", color: theme.textMuted, marginTop: "2px", fontWeight: "600" }}>{f.title?.split(": ")[1] || f.title || "No Subject"}</div>
                   </td>
                 )}
-                <td style={{ padding: "16px 20px" }}>
-                  <div style={{ fontWeight: "600", color: theme.text, fontSize: "14px" }}>
-                    {f.is_anonymous ? `Anonymous #${f.id}` : (f.user_name || `User #${f.id}`)}
-                  </div>
-                  {f.is_anonymous && <span style={{ fontSize: "10px", color: "#94A3B8", fontStyle: "italic", fontWeight: "700" }}>Private Submission</span>}
-                </td>
-                <td style={{ padding: "16px 20px", color: theme.textMuted, fontWeight: "500", fontSize: "12px" }}>{f.dept_name || "—"}</td>
-
-                <td style={{ padding: "16px 20px" }}>
-                  <span style={{
-                    padding: "6px 12px", borderRadius: "10px", fontSize: "10px", fontWeight: "700",
-                    textTransform: "uppercase", background: STATUSES[f.status]?.bg, color: STATUSES[f.status]?.color,
-                    border: `1px solid ${STATUSES[f.status]?.color}40`,
-                    display: "inline-flex", alignItems: "center", gap: "6px",
-                    letterSpacing: "0.02em"
-                  }}>
-                    {f.status === 'CLOSED' && <span>🔒</span>}
-                    {STATUSES[f.status]?.label || f.status}
-                  </span>
-                </td>
-                <td style={{ padding: "16px 20px" }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: f.assigned_to_user_id ? 'var(--primary-color)' : theme.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: 'white', fontWeight: '800' }}>
-                      {f.assigned_to_name ? f.assigned_to_name.charAt(0) : '?'}
+                {visibleColumns.user && (
+                  <td style={{ padding: "16px 20px" }}>
+                    <div style={{ fontWeight: "600", color: theme.text, fontSize: "14px" }}>
+                      {f.is_anonymous ? `Anonymous #${f.id}` : (f.user_name || `User #${f.id}`)}
                     </div>
-                    <span style={{ fontSize: '12px', color: f.assigned_to_user_id ? theme.text : theme.textMuted, fontWeight: f.assigned_to_user_id ? '700' : '400' }}>
-                      {f.assigned_to_user_id === adminUser.id ? "You" : (f.assigned_to_name || "Unassigned")}
+                    {f.is_anonymous && <span style={{ fontSize: "10px", color: "#94A3B8", fontStyle: "italic", fontWeight: "700" }}>Private Submission</span>}
+                  </td>
+                )}
+                {visibleColumns.location && <td style={{ padding: "16px 20px", color: theme.textMuted, fontWeight: "500", fontSize: "12px" }}>{f.dept_name || "—"}</td>}
+
+                {visibleColumns.status && (
+                  <td style={{ padding: "16px 20px" }}>
+                    <span style={{
+                      padding: "6px 12px", borderRadius: "10px", fontSize: "10px", fontWeight: "700",
+                      textTransform: "uppercase", background: STATUSES[f.status]?.bg, color: STATUSES[f.status]?.color,
+                      border: `1px solid ${STATUSES[f.status]?.color}40`,
+                      display: "inline-flex", alignItems: "center", gap: "6px",
+                      letterSpacing: "0.02em"
+                    }}>
+                      {f.status === 'CLOSED' && <span>🔒</span>}
+                      {STATUSES[f.status]?.label || f.status}
                     </span>
-                  </div>
-                </td>
-                <td style={{ padding: "16px 20px", color: theme.textMuted, fontWeight: "500", fontSize: "12px" }}>{f.created_at?.split("T")[0]}</td>
-                <td style={{ padding: "16px 20px", textAlign: "right" }} onClick={e => e.stopPropagation()}>
-                  <DotsMenu onUpdateStatus={(s) => handleUpdateStatus(f.id, s)} onDelete={() => handleDelete(f)} theme={theme} darkMode={darkMode} currentStatus={f.status} />
-                </td>
+                  </td>
+                )}
+                {visibleColumns.assignee && (
+                  <td style={{ padding: "16px 20px" }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: f.assigned_to_user_id ? 'var(--primary-color)' : theme.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: 'white', fontWeight: '800' }}>
+                        {f.assigned_to_name ? f.assigned_to_name.charAt(0) : '?'}
+                      </div>
+                      <span style={{ fontSize: '12px', color: f.assigned_to_user_id ? theme.text : theme.textMuted, fontWeight: f.assigned_to_user_id ? '700' : '400' }}>
+                        {f.assigned_to_user_id === adminUser.id ? "You" : (f.assigned_to_name || "Unassigned")}
+                      </span>
+                    </div>
+                  </td>
+                )}
+                {visibleColumns.date && <td style={{ padding: "16px 20px", color: theme.textMuted, fontWeight: "500", fontSize: "12px" }}>{f.created_at?.split("T")[0]}</td>}
+                {visibleColumns.actions && (
+                  <td style={{ padding: "16px 20px", textAlign: "right" }} onClick={e => e.stopPropagation()}>
+                    <DotsMenu onUpdateStatus={(s) => handleUpdateStatus(f.id, s)} onDelete={() => handleDelete(f)} theme={theme} darkMode={darkMode} currentStatus={f.status} />
+                  </td>
+                )}
               </tr>
             ))}
             {!loading && filtered.length === 0 && (
               <tr>
-                <td colSpan={8} style={{ padding: "48px 24px", textAlign: "center" }}>
+                <td colSpan={activeColsCount} style={{ padding: "48px 24px", textAlign: "center" }}>
                   <div style={{ fontSize: "18px", marginBottom: "8px" }}>📦</div>
                   <p style={{ margin: 0, fontSize: "14px", fontWeight: "600", color: theme.text }}>No feedback submissions found.</p>
                   <p style={{ margin: "4px 0 0", fontSize: "12px", color: theme.textMuted }}>Once users submit feedback, they will appear here for review and action.</p>

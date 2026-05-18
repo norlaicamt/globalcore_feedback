@@ -19,19 +19,19 @@ import { resolveMediaUrl } from "../../utils/feedback";
 
 
 const NAV_ITEMS = [
-  { id: "dashboard", label: "INSIGHT HUB", icon: <ChartIcon /> },
+  { id: "dashboard", label: "Insight Hub", icon: <ChartIcon /> },
   { id: "users", label: "User Management", icon: <UsersIcon /> },
   { id: "feedbacks", label: "Submissions", icon: <FeedIcon /> },
-  { id: "team", label: "My Team", icon: <UsersIcon /> },
-  { id: "auditlogs", label: "System Audit Trail", icon: <ClockIcon /> },
-  { type: "label", label: "ORGANIZATION" },
+  { id: "team", label: "Team", icon: <UsersIcon /> },
+  { type: "label", label: "PANEL" },
   { id: "broadcast", label: "Announcements", icon: <BellIcon /> },
   { id: "broadcast_analytics", label: "Reach Analytics", icon: <ChartIcon />, isSub: true },
   { id: "programs", label: "Workspaces Hub", icon: <OrgIcon /> },
   { id: "products", label: "Product Catalog", icon: <ProductIcon /> },
   { id: "formdesigner", label: "Form Layout", icon: <OrgIcon /> },
   { type: "label", label: "PREFERENCES" },
-  { id: "settings", label: "Portal Settings", icon: <SettingsIcon /> },
+  { id: "settings", label: "Settings", icon: <SettingsIcon /> },
+  { id: "auditlogs", label: "System Audit Trail", icon: <ClockIcon /> },
 ];
 
 const AdminHub = ({ adminUser, onLogout }) => {
@@ -291,7 +291,7 @@ const AdminHub = ({ adminUser, onLogout }) => {
                 if (item.id === "programs") return false;
 
                 // Hide labels if we're simplifying for scoped view
-                if (item.type === "label" && (item.label === "ORGANIZATION" || item.label === "PREFERENCES")) return false;
+                if (item.type === "label" && (item.label === "PANEL" || item.label === "PREFERENCES")) return false;
               }
 
               return true;

@@ -162,7 +162,9 @@ const AdminProducts = ({ theme, darkMode, adminUser, isScoped }) => {
         try {
             const payload = {
                 ...form,
-                branch_id: form.branch_id || null
+                branch_id: form.branch_id || null,
+                evaluation_template_id: form.evaluation_template_id || null,
+                image_url: form.image_url || null
             };
 
             if (currentProduct) {

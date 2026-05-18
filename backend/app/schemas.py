@@ -1,6 +1,7 @@
 from pydantic import BaseModel, ConfigDict, Field
-from typing import List, Optional
+from typing import List, Optional, Union
 from datetime import datetime
+from uuid import UUID
 from app.models import FeedbackStatus, NotificationType
 
 # --- USER SCHEMAS ---
@@ -8,7 +9,7 @@ class UserBase(BaseModel):
     name: str
     email: str
     display_name: Optional[str] = None
-    global_id: Optional[str] = None
+    global_id: Optional[Union[UUID, str]] = None
     external_id: Optional[str] = None
     source: Optional[str] = None
     role_context: Optional[str] = None
@@ -73,7 +74,7 @@ class UserCreate(UserBase):
 class UserUpdate(BaseModel):
     name: Optional[str] = None
     display_name: Optional[str] = None
-    global_id: Optional[str] = None
+    global_id: Optional[Union[UUID, str]] = None
     external_id: Optional[str] = None
     source: Optional[str] = None
     role_context: Optional[str] = None
@@ -604,7 +605,7 @@ class AuditLogBase(BaseModel):
 class AuditLog(AuditLogBase):
     id: int
     timestamp: datetime
-    performed_by: Optional[UserBase] = None
+    performed_by: Optional[User] = None
     model_config = ConfigDict(from_attributes=True)
 
 class FormFieldBase(BaseModel):
