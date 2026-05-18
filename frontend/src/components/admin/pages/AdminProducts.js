@@ -406,27 +406,16 @@ const AdminProducts = ({ theme, darkMode, adminUser, isScoped }) => {
                         <tr>
                             <th style={styles.th}>Product</th>
                             <th style={styles.th}>Product Type</th>
-                            <th style={styles.th}>Activity Status</th>
                             <th style={styles.th}>Scope</th>
                             <th style={styles.th}></th>
                         </tr>
                     </thead>
                     <tbody>
                         {loading ? (
-                            <tr><td colSpan="5" style={{ padding: '40px', textAlign: 'center', color: theme.textMuted }}>Loading products...</td></tr>
+                            <tr><td colSpan="4" style={{ padding: '40px', textAlign: 'center', color: theme.textMuted }}>Loading products...</td></tr>
                         ) : filteredProducts.length === 0 ? (
-                            <tr><td colSpan="5" style={{ padding: '40px', textAlign: 'center', color: theme.textMuted }}>No products found.</td></tr>
+                            <tr><td colSpan="4" style={{ padding: '40px', textAlign: 'center', color: theme.textMuted }}>No products found.</td></tr>
                         ) : filteredProducts.map(p => {
-                            const getStatus = () => {
-                                if (p.feedback_count > 5) return 'Trending';
-                                if (p.feedback_count > 0) return 'Active';
-                                const createdDate = new Date(p.created_at);
-                                const now = new Date();
-                                if ((now - createdDate) / (1000 * 60 * 60 * 24) < 7) return 'New';
-                                return 'No Feedback';
-                            };
-                            const status = getStatus();
-
                             return (
                                 <tr
                                     key={p.id}
@@ -445,16 +434,6 @@ const AdminProducts = ({ theme, darkMode, adminUser, isScoped }) => {
                                         <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: '20px', fontSize: '10px', fontWeight: '800', background: 'rgba(99,102,241,0.1)', color: '#6366F1', textTransform: 'uppercase' }}>
                                             {p.category || '—'}
                                         </span>
-                                    </td>
-                                    <td style={styles.td}>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                            <span style={styles.badge(status)}>{status}</span>
-                                            {p.feedback_count > 0 && (
-                                                <span style={{ fontSize: '10px', color: theme.textMuted, fontWeight: '600' }}>
-                                                    {p.feedback_count} feedback entries
-                                                </span>
-                                            )}
-                                        </div>
                                     </td>
                                     <td style={styles.td}>
                                         <div style={{ fontSize: '11px', fontWeight: '700' }}>
