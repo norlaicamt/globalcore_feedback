@@ -23,7 +23,7 @@ const NAV_ITEMS = [
   { id: "users", label: "User Management", icon: <UsersIcon /> },
   { id: "feedbacks", label: "Submissions", icon: <FeedIcon /> },
   { id: "team", label: "My Team", icon: <UsersIcon /> },
-  { id: "auditlogs", label: "System Audit Trail", icon: <ClockIcon />, superOnly: true },
+  { id: "auditlogs", label: "System Audit Trail", icon: <ClockIcon /> },
   { type: "label", label: "ORGANIZATION" },
   { id: "broadcast", label: "Announcements", icon: <BellIcon /> },
   { id: "broadcast_analytics", label: "Reach Analytics", icon: <ChartIcon />, isSub: true },
