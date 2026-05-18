@@ -24,6 +24,39 @@ const AdminProducts = ({ theme, darkMode, adminUser, isScoped }) => {
     const [filterEntity, setFilterEntity] = useState(adminUser?.entity_id || "");
     const [filterBranch, setFilterBranch] = useState("");
 
+    // Columns Visibility State
+    const [columns, setColumns] = useState(() => {
+        const saved = localStorage.getItem("admin_product_columns");
+        let initial = {
+            showName: true,
+            showType: false,
+            showScope: true,
+            showStatus: false,
+            showActions: true
+        };
+        if (saved) {
+            try {
+                initial = { ...initial, ...JSON.parse(saved) };
+            } catch (e) {
+                // fallback
+            }
+        }
+        // Force hide non-essential columns on mobile viewport to prevent initial crowding
+        if (window.innerWidth < 768) {
+            initial.showType = false;
+            initial.showStatus = false;
+        }
+        return initial;
+    });
+    const [isColDropdownOpen, setIsColDropdownOpen] = useState(false);
+
+    useEffect(() => {
+        localStorage.setItem("admin_product_columns", JSON.stringify(columns));
+        console.log("[PRODUCT_COLUMNS]", {
+            show_product_type: columns.showType
+        });
+    }, [columns]);
+
     // Modal states
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [currentProduct, setCurrentProduct] = useState(null);
@@ -333,6 +366,14 @@ const AdminProducts = ({ theme, darkMode, adminUser, isScoped }) => {
         formLabel: { display: 'block', fontSize: '12px', fontWeight: '800', color: theme.textMuted, marginBottom: '8px', textTransform: 'uppercase' }
     };
 
+    const activeColsCount = [
+        columns.showName,
+        columns.showType,
+        columns.showScope,
+        columns.showStatus,
+        columns.showActions
+    ].filter(Boolean).length;
+
     return (
         <div style={styles.container}>
             <div style={styles.header}>
@@ -400,23 +441,125 @@ const AdminProducts = ({ theme, darkMode, adminUser, isScoped }) => {
                         {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                     </select>
                 )}
+
+                {/* Columns Visibility Dropdown */}
+                <div style={{ position: 'relative' }}>
+                    <button
+                        onClick={() => setIsColDropdownOpen(!isColDropdownOpen)}
+                        style={{
+                            ...styles.select,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            cursor: 'pointer',
+                            userSelect: 'none',
+                            fontWeight: '700',
+                            background: theme.surface,
+                            color: theme.text,
+                            border: `1px solid ${theme.border}`,
+                            padding: '10px 16px',
+                            borderRadius: '10px',
+                            minWidth: 'auto'
+                        }}
+                    >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M3 12h18M3 6h18M3 18h18" />
+                        </svg>
+                        <span>Columns</span>
+                    </button>
+
+                    {isColDropdownOpen && (
+                        <>
+                            <div 
+                                onClick={() => setIsColDropdownOpen(false)} 
+                                style={{ position: 'fixed', inset: 0, zIndex: 998 }} 
+                            />
+                            <div
+                                style={{
+                                    position: 'absolute',
+                                    right: 0,
+                                    top: 'calc(100% + 8px)',
+                                    background: theme.surface,
+                                    border: `1px solid ${theme.border}`,
+                                    borderRadius: '12px',
+                                    boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
+                                    padding: '16px',
+                                    zIndex: 999,
+                                    minWidth: '180px',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '10px'
+                                }}
+                            >
+                                <div style={{ fontSize: '11px', fontWeight: '800', color: theme.textMuted, textTransform: 'uppercase', marginBottom: '4px', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                                        <circle cx="12" cy="12" r="3" />
+                                    </svg>
+                                    <span>View Options</span>
+                                </div>
+                                {[
+                                    { key: 'showName', label: 'Product Name' },
+                                    { key: 'showType', label: 'Product Type' },
+                                    { key: 'showScope', label: 'Scope' },
+                                    { key: 'showStatus', label: 'Status' },
+                                    { key: 'showActions', label: 'Actions' }
+                                ].map(col => (
+                                    <label
+                                        key={col.key}
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '10px',
+                                            fontSize: '13px',
+                                            fontWeight: '600',
+                                            color: theme.text,
+                                            cursor: 'pointer',
+                                            padding: '2px 0',
+                                            userSelect: 'none'
+                                        }}
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            checked={columns[col.key]}
+                                            onChange={() => {
+                                                setColumns(prev => ({
+                                                    ...prev,
+                                                    [col.key]: !prev[col.key]
+                                                }));
+                                            }}
+                                            style={{
+                                                accentColor: 'var(--primary-color)',
+                                                cursor: 'pointer',
+                                                width: '15px',
+                                                height: '15px'
+                                            }}
+                                        />
+                                        {col.label}
+                                    </label>
+                                ))}
+                            </div>
+                        </>
+                    )}
+                </div>
             </div>
 
             <div style={styles.tableCard}>
                 <table style={styles.table}>
                     <thead>
                         <tr>
-                            <th style={styles.th}>Product</th>
-                            <th style={styles.th}>Product Type</th>
-                            <th style={styles.th}>Scope</th>
-                            <th style={styles.th}></th>
+                            {columns.showName && <th style={styles.th}>Product</th>}
+                            {columns.showType && <th style={styles.th}>Product Type</th>}
+                            {columns.showScope && <th style={styles.th}>Scope</th>}
+                            {columns.showStatus && <th style={styles.th}>Status</th>}
+                            {columns.showActions && <th style={styles.th}></th>}
                         </tr>
                     </thead>
                     <tbody>
                         {loading ? (
-                            <tr><td colSpan="4" style={{ padding: '40px', textAlign: 'center', color: theme.textMuted }}>Loading products...</td></tr>
+                            <tr><td colSpan={activeColsCount} style={{ padding: '40px', textAlign: 'center', color: theme.textMuted }}>Loading products...</td></tr>
                         ) : filteredProducts.length === 0 ? (
-                            <tr><td colSpan="4" style={{ padding: '40px', textAlign: 'center', color: theme.textMuted }}>No products found.</td></tr>
+                            <tr><td colSpan={activeColsCount} style={{ padding: '40px', textAlign: 'center', color: theme.textMuted }}>No products found.</td></tr>
                         ) : filteredProducts.map(p => {
                             return (
                                 <tr
@@ -429,34 +572,67 @@ const AdminProducts = ({ theme, darkMode, adminUser, isScoped }) => {
                                     onMouseEnter={(e) => e.currentTarget.style.backgroundColor = darkMode ? 'rgba(255,255,255,0.02)' : '#F8FAFC'}
                                     onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                                 >
-                                    <td style={styles.td}>
-                                        <div style={{ fontWeight: '700' }}>{p.name}</div>
-                                    </td>
-                                    <td style={styles.td}>
-                                        <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: '20px', fontSize: '10px', fontWeight: '800', background: 'rgba(99,102,241,0.1)', color: '#6366F1', textTransform: 'uppercase' }}>
-                                            {p.category || '—'}
-                                        </span>
-                                    </td>
-                                    <td style={styles.td}>
-                                        <div style={{ fontSize: '11px', fontWeight: '700' }}>
-                                            {entities.find(e => e.id === p.entity_id)?.name || "Global"}
-                                        </div>
-                                        {p.branch_id && (
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
-                                                <span style={{ fontSize: '10px', color: theme.textMuted }}>
-                                                    {branches.find(b => b.id === p.branch_id)?.name || 'Specific Branch'}
-                                                </span>
+                                    {columns.showName && (
+                                        <td style={styles.td}>
+                                            <div style={{ fontWeight: '700' }}>{p.name}</div>
+                                        </td>
+                                    )}
+                                    {columns.showType && (
+                                        <td style={styles.td}>
+                                            <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: '20px', fontSize: '10px', fontWeight: '800', background: 'rgba(99,102,241,0.1)', color: '#6366F1', textTransform: 'uppercase' }}>
+                                                {p.category || '—'}
+                                            </span>
+                                        </td>
+                                    )}
+                                    {columns.showScope && (
+                                        <td style={styles.td}>
+                                            <div style={{ fontSize: '11px', fontWeight: '700' }}>
+                                                {entities.find(e => e.id === p.entity_id)?.name || "Global"}
                                             </div>
-                                        )}
-                                    </td>
-                                    <td style={{ ...styles.td, textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
-                                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                                            <button onClick={() => handleOpenAnalytics(p)} title="Analytics" style={{ background: 'none', border: 'none', color: '#6366F1', cursor: 'pointer' }}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 20V10M18 20V4M6 20v-4" /></svg></button>
-                                            <button onClick={() => handleDuplicate(p)} title="Duplicate" style={{ background: 'none', border: 'none', color: theme.textMuted, cursor: 'pointer' }}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" /></svg></button>
-                                            <button onClick={() => handleOpenModal(p)} style={{ background: 'none', border: 'none', color: 'var(--primary-color)', cursor: 'pointer', fontWeight: '700' }}>Edit</button>
-                                            <button onClick={() => handleDelete(p)} style={{ background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer', fontWeight: '700' }}>Deactivate</button>
-                                        </div>
-                                    </td>
+                                            {p.branch_id && (
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                                                    <span style={{ fontSize: '10px', color: theme.textMuted }}>
+                                                        {branches.find(b => b.id === p.branch_id)?.name || 'Specific Branch'}
+                                                    </span>
+                                                </div>
+                                            )}
+                                        </td>
+                                    )}
+                                    {columns.showStatus && (
+                                        <td style={styles.td}>
+                                            {(() => {
+                                                const getStatus = () => {
+                                                    if (p.feedback_count > 5) return 'Trending';
+                                                    if (p.feedback_count > 0) return 'Active';
+                                                    const createdDate = new Date(p.created_at);
+                                                    const now = new Date();
+                                                    if ((now - createdDate) / (1000 * 60 * 60 * 24) < 7) return 'New';
+                                                    return 'No Feedback';
+                                                };
+                                                const status = getStatus();
+                                                return (
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                        <span style={styles.badge(status)}>{status}</span>
+                                                        {p.feedback_count > 0 && (
+                                                            <span style={{ fontSize: '10px', color: theme.textMuted, fontWeight: '600' }}>
+                                                                {p.feedback_count} feedback entries
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })()}
+                                        </td>
+                                    )}
+                                    {columns.showActions && (
+                                        <td style={{ ...styles.td, textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
+                                            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                                                <button onClick={() => handleOpenAnalytics(p)} title="Analytics" style={{ background: 'none', border: 'none', color: '#6366F1', cursor: 'pointer' }}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 20V10M18 20V4M6 20v-4" /></svg></button>
+                                                <button onClick={() => handleDuplicate(p)} title="Duplicate" style={{ background: 'none', border: 'none', color: theme.textMuted, cursor: 'pointer' }}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" /></svg></button>
+                                                <button onClick={() => handleOpenModal(p)} style={{ background: 'none', border: 'none', color: 'var(--primary-color)', cursor: 'pointer', fontWeight: '700' }}>Edit</button>
+                                                <button onClick={() => handleDelete(p)} style={{ background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer', fontWeight: '700' }}>Deactivate</button>
+                                            </div>
+                                        </td>
+                                    )}
                                 </tr>
                             );
                         })}
