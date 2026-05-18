@@ -592,7 +592,8 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
 
   const handleClearDraft = React.useCallback(() => {
     if (localUser?.id && resumeDraft?.entity_id) {
-      const draftsKey = `user.drafts_${localUser.id}`;
+      const userFingerprint = `${localUser.id}_${localUser.created_at || 'legacy'}`;
+      const draftsKey = `user.drafts_${userFingerprint}`;
       const currentDrafts = JSON.parse(localStorage.getItem(draftsKey) || "[]");
       const filtered = currentDrafts.filter(d => d.entity_id !== resumeDraft.entity_id);
       localStorage.setItem(draftsKey, JSON.stringify(filtered));

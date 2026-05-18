@@ -1133,7 +1133,8 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
         onConfirm: () => {
           // --- PHASE 11: SECURE DRAFT CLEANUP ---
           if (currentUser?.id && selectedEntity?.id) {
-            const draftsKey = `user.drafts_${currentUser.id}`;
+            const userFingerprint = `${currentUser.id}_${currentUser.created_at || 'legacy'}`;
+            const draftsKey = `user.drafts_${userFingerprint}`;
             try {
               const savedDrafts = JSON.parse(localStorage.getItem(draftsKey) || "[]");
               // Remove both by explicit ID (if editing existing) and by entity_id (if auto-saved)
