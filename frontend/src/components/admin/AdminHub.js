@@ -321,7 +321,6 @@ const AdminHub = ({ adminUser, onLogout }) => {
                   { id: "workspace_settings", label: "Operational Rules", icon: <SettingsIcon />, isSub: true },
                   { id: "workspace_analytics", label: "Performance Hub", icon: <ChartIcon />, isSub: true },
                   { id: "workspace_products", label: "Product Catalog", icon: <ProductIcon />, isSub: true },
-                  { id: "auditlogs", label: "Operational Audit", icon: <ClockIcon />, isSub: true },
                   item // Keep Form Layout
                 ];
               }
