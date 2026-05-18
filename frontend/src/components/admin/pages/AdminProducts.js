@@ -743,12 +743,12 @@ const AdminProducts = ({ theme, darkMode, adminUser, isScoped }) => {
                                                         fontWeight: 'bold' 
                                                     }}
                                                 >
-                                                    {(fb.sender?.name || "Anonymous").charAt(0).toUpperCase()}
+                                                    {((fb.is_anonymous ? "Anonymous" : fb.user_name) || "Anonymous").charAt(0).toUpperCase()}
                                                 </div>
                                                 <div>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                                                         <span style={{ fontSize: '13px', fontWeight: '700', color: theme.text }}>
-                                                            {fb.sender?.name || "Anonymous User"}
+                                                            {fb.is_anonymous ? "Anonymous User" : (fb.user_name || "Anonymous User")}
                                                         </span>
                                                         {isDirect ? (
                                                             <span style={{ 
