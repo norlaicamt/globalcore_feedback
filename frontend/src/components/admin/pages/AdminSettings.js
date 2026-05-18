@@ -577,12 +577,13 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
     { id: "profile", label: "Profile" },
     { id: "security", label: "Security" },
     { id: "notifs", label: "Notifications" },
-    { id: "display", label: "Display" },
-    { id: "activity", label: "Settings Activity" },
   ];
 
-  // Any admin can manage terminology for their own scope
-  tabs.push({ id: "terminology", label: "Terminology" });
+  if (isGlobalAdmin) {
+    tabs.push({ id: "display", label: "Display" });
+    tabs.push({ id: "activity", label: "Settings Activity" });
+    tabs.push({ id: "terminology", label: "Terminology" });
+  }
 
   // Global Config tab removed per user request
   // if (isGlobalCoreAdmin) {
