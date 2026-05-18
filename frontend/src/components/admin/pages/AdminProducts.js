@@ -441,12 +441,13 @@ const AdminProducts = ({ theme, darkMode, adminUser, isScoped }) => {
                                         <div style={{ fontSize: '11px', fontWeight: '700' }}>
                                             {entities.find(e => e.id === p.entity_id)?.name || "Global"}
                                         </div>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
-                                            {(() => { const ws = entities.find(e => e.id === p.entity_id)?.fields?.operational?.workspace_type; return ws ? <span style={{ fontSize: '9px', fontWeight: '900', background: 'rgba(16,185,129,0.1)', color: '#10B981', padding: '1px 6px', borderRadius: '4px', textTransform: 'uppercase' }}>{ws}</span> : null; })()}
-                                            <span style={{ fontSize: '10px', color: theme.textMuted }}>
-                                                {p.branch_id ? (branches.find(b => b.id === p.branch_id)?.name || 'Specific Branch') : 'All Branches'}
-                                            </span>
-                                        </div>
+                                        {p.branch_id && (
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                                                <span style={{ fontSize: '10px', color: theme.textMuted }}>
+                                                    {branches.find(b => b.id === p.branch_id)?.name || 'Specific Branch'}
+                                                </span>
+                                            </div>
+                                        )}
                                     </td>
                                     <td style={{ ...styles.td, textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
                                         <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
