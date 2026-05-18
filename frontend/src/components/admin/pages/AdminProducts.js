@@ -293,10 +293,12 @@ const AdminProducts = ({ theme, darkMode, adminUser, isScoped }) => {
         });
     };
 
-    const filteredProducts = products.filter(p =>
-        p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.category?.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const filteredProducts = products
+        .filter(p =>
+            p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            p.category?.toLowerCase().includes(searchQuery.toLowerCase())
+        )
+        .sort((a, b) => a.name.localeCompare(b.name));
 
     const styles = {
         container: { animation: 'fadeIn 0.3s ease-out' },
