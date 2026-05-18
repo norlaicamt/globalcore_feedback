@@ -297,7 +297,7 @@ const AdminProducts = ({ theme, darkMode, adminUser, isScoped }) => {
             loadData();
         } catch (err) {
             setDialog({
-                isOpen: true, type: "error", title: "Bulk Import Failed",
+                isOpen: true, type: "error", title: "Import Failed",
                 message: err.response?.data?.detail || err.message || "Please ensure your data follows the format: Name, Product Type, Sold Under.",
                 confirmText: "OK", onConfirm: () => setDialog({ isOpen: false })
             });
@@ -380,7 +380,7 @@ const AdminProducts = ({ theme, darkMode, adminUser, isScoped }) => {
                 <h2 style={styles.title}>Product Catalog</h2>
                 <div style={{ display: 'flex', gap: '12px' }}>
                     <button onClick={() => setIsBulkModalOpen(true)} style={{ ...styles.btnPrimary, background: 'none', color: theme.text, border: `1px solid ${theme.border}` }}>
-                        Bulk Import
+                        Import
                     </button>
                     <button onClick={() => handleOpenModal()} style={styles.btnPrimary}>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
@@ -694,7 +694,7 @@ const AdminProducts = ({ theme, darkMode, adminUser, isScoped }) => {
             {isBulkModalOpen && (
                 <div style={styles.modal}>
                     <div style={{ ...styles.modalContent, maxWidth: '500px' }}>
-                        <h3 style={{ margin: '0 0 8px 0', fontSize: '18px', fontWeight: '900', color: theme.text }}>Bulk Import Products</h3>
+                        <h3 style={{ margin: '0 0 8px 0', fontSize: '18px', fontWeight: '900', color: theme.text }}>Import Products</h3>
                         <p style={{ fontSize: '12px', color: theme.textMuted, marginBottom: '20px' }}>
                             Choose an Excel/CSV file or paste data below.
                         </p>
