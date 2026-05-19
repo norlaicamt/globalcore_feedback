@@ -5,7 +5,11 @@ import {
     deleteUser,
     deactivateUser,
     reactivateUser,
-    changePassword
+    changePassword,
+    requestEmailChange,
+    confirmEmailChange,
+    requestPhoneChange,
+    confirmPhoneChange
 } from "../services/api";
 import CustomModal from "./CustomModal";
 import ImageCropperModal from "./ImageCropperModal";
@@ -627,6 +631,163 @@ const PrivacyView = ({ currentUser, onUserUpdate, showToast, onLogout }) => {
     const [deactivateDays, setDeactivateDays] = useState(2);
     const [showHiatusConfirm, setShowHiatusConfirm] = useState(false);
 
+    // Identity Verification State
+    const [emailModalOpen, setEmailModalOpen] = useState(false);
+    const [phoneModalOpen, setPhoneModalOpen] = useState(false);
+    const [newEmailInput, setNewEmailInput] = useState("");
+    const [newPhoneInput, setNewPhoneInput] = useState("");
+    const [confirmPassInput, setConfirmPassInput] = useState("");
+    const [emailVerificationToken, setEmailVerificationToken] = useState("");
+    const [phoneVerificationCode, setPhoneVerificationCode] = useState("");
+    const [simulatedToken, setSimulatedToken] = useState("");
+    const [simulatedCode, setSimulatedCode] = useState("");
+    const [loadingVerify, setLoadingVerify] = useState(false);
+
+    const handleRequestEmailChange = async (e) => {
+        e?.preventDefault();
+        if (!newEmailInput || !confirmPassInput) {
+            showToast("Please fill in all fields.");
+            return;
+        }
+        setLoadingVerify(true);
+        try {
+            const res = await requestEmailChange(currentUser.id, newEmailInput, confirmPassInput);
+            let token = "";
+            if (res.simulated_link) {
+                const url = new URL(res.simulated_link);
+                token = url.searchParams.get("token") || "";
+                setSimulatedToken(token);
+            }
+            showToast("Verification link generated successfully!");
+            const updatedUser = { 
+                ...currentUser, 
+                pending_email: newEmailInput,
+                email_verification_token: token || "pending" 
+            };
+            onUserUpdate(updatedUser);
+            setConfirmPassInput("");
+        } catch (err) {
+            showToast(err.response?.data?.detail || "Failed to initiate email change.");
+        } finally {
+            setLoadingVerify(false);
+        }
+    };
+
+    const handleConfirmEmailChange = async (tokenValue) => {
+        const tok = tokenValue || emailVerificationToken || simulatedToken;
+        if (!tok) {
+            showToast("Please enter or generate a verification token.");
+            return;
+        }
+        setLoadingVerify(true);
+        try {
+            await confirmEmailChange(tok);
+            showToast("Email verified and updated successfully!");
+            setEmailModalOpen(false);
+            setNewEmailInput("");
+            setEmailVerificationToken("");
+            setSimulatedToken("");
+            const fullUser = await axios.get(`http://${window.location.hostname}:8000/users/${currentUser.id}`);
+            onUserUpdate(fullUser.data);
+        } catch (err) {
+            showToast(err.response?.data?.detail || "Failed to verify email token.");
+        } finally {
+            setLoadingVerify(false);
+        }
+    };
+
+    const handleRequestPhoneChange = async (e) => {
+        e?.preventDefault();
+        if (!newPhoneInput || !confirmPassInput) {
+            showToast("Please fill in all fields.");
+            return;
+        }
+        setLoadingVerify(true);
+        try {
+            const res = await requestPhoneChange(currentUser.id, newPhoneInput, confirmPassInput);
+            if (res.simulated_code) {
+                setSimulatedCode(res.simulated_code);
+            }
+            showToast("SMS OTP verification code generated!");
+            const updatedUser = { 
+                ...currentUser, 
+                pending_phone: newPhoneInput,
+                phone_verification_code: res.simulated_code || "pending" 
+            };
+            onUserUpdate(updatedUser);
+            setConfirmPassInput("");
+        } catch (err) {
+            showToast(err.response?.data?.detail || "Failed to initiate phone change.");
+        } finally {
+            setLoadingVerify(false);
+        }
+    };
+
+    const handleConfirmPhoneChange = async (codeValue) => {
+        const cod = codeValue || phoneVerificationCode || simulatedCode;
+        if (!cod) {
+            showToast("Please enter verification OTP code.");
+            return;
+        }
+        setLoadingVerify(true);
+        try {
+            await confirmPhoneChange(currentUser.id, cod);
+            showToast("Phone number verified and updated successfully!");
+            setPhoneModalOpen(false);
+            setNewPhoneInput("");
+            setPhoneVerificationCode("");
+            setSimulatedCode("");
+            const fullUser = await axios.get(`http://${window.location.hostname}:8000/users/${currentUser.id}`);
+            onUserUpdate(fullUser.data);
+        } catch (err) {
+            showToast(err.response?.data?.detail || "Failed to verify phone code.");
+        } finally {
+            setLoadingVerify(false);
+        }
+    };
+
+    const handleCancelEmailChange = async () => {
+        setLoadingVerify(true);
+        try {
+            await axios.put(`http://${window.location.hostname}:8000/users/${currentUser.id}`, {
+                pending_email: null,
+                email_verification_token: null,
+                verification_expires_at: null
+            });
+            showToast("Email update cancelled.");
+            setNewEmailInput("");
+            setSimulatedToken("");
+            setEmailVerificationToken("");
+            const fullUser = await axios.get(`http://${window.location.hostname}:8000/users/${currentUser.id}`);
+            onUserUpdate(fullUser.data);
+        } catch (err) {
+            showToast("Failed to cancel email update.");
+        } finally {
+            setLoadingVerify(false);
+        }
+    };
+
+    const handleCancelPhoneChange = async () => {
+        setLoadingVerify(true);
+        try {
+            await axios.put(`http://${window.location.hostname}:8000/users/${currentUser.id}`, {
+                pending_phone: null,
+                phone_verification_code: null,
+                verification_expires_at: null
+            });
+            showToast("Phone number update cancelled.");
+            setNewPhoneInput("");
+            setSimulatedCode("");
+            setPhoneVerificationCode("");
+            const fullUser = await axios.get(`http://${window.location.hostname}:8000/users/${currentUser.id}`);
+            onUserUpdate(fullUser.data);
+        } catch (err) {
+            showToast("Failed to cancel phone number update.");
+        } finally {
+            setLoadingVerify(false);
+        }
+    };
+
     const [showOld, setShowOld] = useState(false);
     const [showNew, setShowNew] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
@@ -693,19 +854,228 @@ const PrivacyView = ({ currentUser, onUserUpdate, showToast, onLogout }) => {
                 <p style={styles.viewSubtitle}>Manage account protection, authentication, and privacy settings.</p>
             </div>
 
-            {/* SECTION 1: ACCOUNT INFORMATION */}
-            <div style={styles.sectionCardPremium}>
+            {/* SECTION 1: ACCOUNT INFORMATION - UPGRADED SECURE IDENTITY WORKFLOW */}
+            <div style={{ ...styles.sectionCardPremium, marginBottom: '24px' }}>
                 <h4 style={{ ...styles.cardTitlePremium, fontSize: '11px', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '24px' }}>
-                    Account Information
+                    Account Identity & Verification
                 </h4>
+                
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                    <div>
-                        <span style={{ ...styles.fieldLabel, color: '#64748B', display: 'block', marginBottom: '4px' }}>Registered Email</span>
-                        <span style={{ fontSize: '16px', fontWeight: '700', color: 'var(--primary-color)' }}>{currentUser.email}</span>
+                    {/* EMAIL FIELD CARD */}
+                    <div style={{ background: '#F8FAFC', padding: '20px', borderRadius: '16px', border: '1px solid #E2E8F0', position: 'relative' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
+                            <div>
+                                <span style={{ ...styles.fieldLabel, color: '#64748B', display: 'block', marginBottom: '4px', fontSize: '11px', textTransform: 'uppercase', fontWeight: '700' }}>Registered Email</span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                    <span style={{ fontSize: '16px', fontWeight: '700', color: '#1E293B' }}>{currentUser.email}</span>
+                                    <span style={{ 
+                                        backgroundColor: '#DEF7EC', 
+                                        color: '#03543F', 
+                                        fontSize: '11px', 
+                                        fontWeight: '800', 
+                                        padding: '4px 8px', 
+                                        borderRadius: '8px',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '4px'
+                                    }}>
+                                        <Icons.Check /> Verified
+                                    </span>
+                                </div>
+                            </div>
+                            
+                            {!currentUser.pending_email ? (
+                                <button 
+                                    onClick={() => setEmailModalOpen(true)}
+                                    style={{
+                                        backgroundColor: '#1E293B',
+                                        color: 'white',
+                                        border: 'none',
+                                        borderRadius: '10px',
+                                        padding: '8px 16px',
+                                        fontSize: '12px',
+                                        fontWeight: '700',
+                                        cursor: 'pointer',
+                                        transition: 'background-color 0.2s',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '6px'
+                                    }}
+                                    onMouseEnter={e => e.currentTarget.style.backgroundColor = '#334155'}
+                                    onMouseLeave={e => e.currentTarget.style.backgroundColor = '#1E293B'}
+                                >
+                                    <Icons.Edit /> Change Email
+                                </button>
+                            ) : (
+                                <div style={{ display: 'flex', gap: '8px' }}>
+                                    <button 
+                                        onClick={() => setEmailModalOpen(true)}
+                                        style={{
+                                            backgroundColor: 'var(--primary-color)',
+                                            color: 'white',
+                                            border: 'none',
+                                            borderRadius: '10px',
+                                            padding: '8px 16px',
+                                            fontSize: '12px',
+                                            fontWeight: '700',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        Verify Code
+                                    </button>
+                                    <button 
+                                        onClick={handleCancelEmailChange}
+                                        disabled={loadingVerify}
+                                        style={{
+                                            backgroundColor: '#F1F5F9',
+                                            color: '#64748B',
+                                            border: '1px solid #E2E8F0',
+                                            borderRadius: '10px',
+                                            padding: '8px 16px',
+                                            fontSize: '12px',
+                                            fontWeight: '700',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* PENDING EMAIL INDICATOR */}
+                        {currentUser.pending_email && (
+                            <div style={{ marginTop: '16px', backgroundColor: '#FEF3C7', border: '1px solid #FCD34D', borderRadius: '12px', padding: '14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#D97706', fontSize: '13px', fontWeight: '700' }}>
+                                    <Icons.Clock />
+                                    <span>Pending Change: {currentUser.pending_email}</span>
+                                </div>
+                                <span style={{ fontSize: '11px', color: '#B45309', fontWeight: '600' }}>
+                                    A verification link was generated. The update will take effect once verified.
+                                </span>
+                                {simulatedToken && (
+                                    <div style={{ background: 'white', border: '1px solid #FDE68A', padding: '10px', borderRadius: '8px', marginTop: '6px' }}>
+                                        <span style={{ fontSize: '10px', fontWeight: '800', color: '#92400E', textTransform: 'uppercase', display: 'block', marginBottom: '2px' }}>Simulated Token (Dev Helper)</span>
+                                        <code style={{ fontSize: '12px', fontWeight: '700', color: '#1E293B', wordBreak: 'break-all' }}>{simulatedToken}</code>
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
-                    <div>
-                        <span style={{ ...styles.fieldLabel, color: '#64748B', display: 'block', marginBottom: '4px' }}>Registered Contact Number</span>
-                        <span style={{ fontSize: '16px', fontWeight: '700', color: 'var(--primary-color)' }}>{currentUser.phone || "Not set"}</span>
+
+                    {/* PHONE FIELD CARD */}
+                    <div style={{ background: '#F8FAFC', padding: '20px', borderRadius: '16px', border: '1px solid #E2E8F0', position: 'relative' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
+                            <div>
+                                <span style={{ ...styles.fieldLabel, color: '#64748B', display: 'block', marginBottom: '4px', fontSize: '11px', textTransform: 'uppercase', fontWeight: '700' }}>Registered Contact Number</span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                    <span style={{ fontSize: '16px', fontWeight: '700', color: '#1E293B' }}>{currentUser.phone || "Not set"}</span>
+                                    {currentUser.phone ? (
+                                        <span style={{ 
+                                            backgroundColor: '#DEF7EC', 
+                                            color: '#03543F', 
+                                            fontSize: '11px', 
+                                            fontWeight: '800', 
+                                            padding: '4px 8px', 
+                                            borderRadius: '8px',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '4px'
+                                        }}>
+                                            <Icons.Check /> Verified
+                                        </span>
+                                    ) : (
+                                        <span style={{ 
+                                            backgroundColor: '#E2E8F0', 
+                                            color: '#64748B', 
+                                            fontSize: '11px', 
+                                            fontWeight: '800', 
+                                            padding: '4px 8px', 
+                                            borderRadius: '8px'
+                                        }}>
+                                            Unlinked
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                            
+                            {!currentUser.pending_phone ? (
+                                <button 
+                                    onClick={() => setPhoneModalOpen(true)}
+                                    style={{
+                                        backgroundColor: '#1E293B',
+                                        color: 'white',
+                                        border: 'none',
+                                        borderRadius: '10px',
+                                        padding: '8px 16px',
+                                        fontSize: '12px',
+                                        fontWeight: '700',
+                                        cursor: 'pointer',
+                                        transition: 'background-color 0.2s',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '6px'
+                                    }}
+                                    onMouseEnter={e => e.currentTarget.style.backgroundColor = '#334155'}
+                                    onMouseLeave={e => e.currentTarget.style.backgroundColor = '#1E293B'}
+                                >
+                                    <Icons.Edit /> {currentUser.phone ? "Change Number" : "Add Number"}
+                                </button>
+                            ) : (
+                                <div style={{ display: 'flex', gap: '8px' }}>
+                                    <button 
+                                        onClick={() => setPhoneModalOpen(true)}
+                                        style={{
+                                            backgroundColor: 'var(--primary-color)',
+                                            color: 'white',
+                                            border: 'none',
+                                            borderRadius: '10px',
+                                            padding: '8px 16px',
+                                            fontSize: '12px',
+                                            fontWeight: '700',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        Verify Code
+                                    </button>
+                                    <button 
+                                        onClick={handleCancelPhoneChange}
+                                        disabled={loadingVerify}
+                                        style={{
+                                            backgroundColor: '#F1F5F9',
+                                            color: '#64748B',
+                                            border: '1px solid #E2E8F0',
+                                            borderRadius: '10px',
+                                            padding: '8px 16px',
+                                            fontSize: '12px',
+                                            fontWeight: '700',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* PENDING PHONE INDICATOR */}
+                        {currentUser.pending_phone && (
+                            <div style={{ marginTop: '16px', backgroundColor: '#FEF3C7', border: '1px solid #FCD34D', borderRadius: '12px', padding: '14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#D97706', fontSize: '13px', fontWeight: '700' }}>
+                                    <Icons.Clock />
+                                    <span>Pending Change: {currentUser.pending_phone}</span>
+                                </div>
+                                <span style={{ fontSize: '11px', color: '#B45309', fontWeight: '600' }}>
+                                    SMS OTP code has been dispatched. Enter it below or open the verify dialog.
+                                </span>
+                                {simulatedCode && (
+                                    <div style={{ background: 'white', border: '1px solid #FDE68A', padding: '10px', borderRadius: '8px', marginTop: '6px' }}>
+                                        <span style={{ fontSize: '10px', fontWeight: '800', color: '#92400E', textTransform: 'uppercase', display: 'block', marginBottom: '2px' }}>Simulated SMS OTP Code (Dev Helper)</span>
+                                        <code style={{ fontSize: '16px', fontWeight: '800', color: 'var(--primary-color)', letterSpacing: '4px' }}>{simulatedCode}</code>
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
@@ -1017,6 +1387,198 @@ const PrivacyView = ({ currentUser, onUserUpdate, showToast, onLogout }) => {
                 confirmText="Confirm Pause"
                 onConfirm={handleDeactivate}
                 onCancel={() => setShowHiatusConfirm(false)}
+            />
+
+            {/* EMAIL IDENTITY VERIFICATION MODAL */}
+            <CustomModal
+                isOpen={emailModalOpen}
+                type="info"
+                title={currentUser.pending_email ? "Verify Registered Email" : "Change Registered Email"}
+                message={currentUser.pending_email ? "An email change is pending. Please enter the verification token to finalize." : "Upgrade your account security. Requires confirming your password."}
+                showDefaultActions={false}
+                content={
+                    <form onSubmit={currentUser.pending_email ? (e) => { e.preventDefault(); handleConfirmEmailChange(); } : handleRequestEmailChange}>
+                        {!currentUser.pending_email ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                <InputGroup
+                                    label="New Email Address"
+                                    value={newEmailInput}
+                                    onChange={setNewEmailInput}
+                                    placeholder="name@organization.org"
+                                    type="email"
+                                />
+                                <InputGroup
+                                    label="Confirm Current Password"
+                                    value={confirmPassInput}
+                                    onChange={setConfirmPassInput}
+                                    placeholder="••••••••"
+                                    type="password"
+                                />
+                                <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
+                                    <button 
+                                        type="submit"
+                                        disabled={loadingVerify}
+                                        style={{ ...styles.primaryBtnPremium, flex: 1 }}
+                                    >
+                                        {loadingVerify ? "Sending Request..." : "Request Change"}
+                                    </button>
+                                    <button 
+                                        type="button"
+                                        onClick={() => { setEmailModalOpen(false); setNewEmailInput(""); setConfirmPassInput(""); }}
+                                        style={{ ...styles.secondaryBtnPremium }}
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            </div>
+                        ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                <div style={{ background: '#F8FAFC', padding: '12px', borderRadius: '12px', border: '1px solid #E2E8F0', textAlign: 'center' }}>
+                                    <span style={{ fontSize: '11px', color: '#64748B', display: 'block', textTransform: 'uppercase', fontWeight: '800' }}>Pending Email</span>
+                                    <span style={{ fontSize: '15px', color: '#1E293B', fontWeight: '700' }}>{currentUser.pending_email}</span>
+                                </div>
+                                <InputGroup
+                                    label="Verification Token"
+                                    value={emailVerificationToken}
+                                    onChange={setEmailVerificationToken}
+                                    placeholder="Paste token or uuid here"
+                                />
+                                {simulatedToken && (
+                                    <button
+                                        type="button"
+                                        onClick={() => handleConfirmEmailChange(simulatedToken)}
+                                        style={{
+                                            background: '#DEF7EC',
+                                            color: '#03543F',
+                                            border: '1px solid #86EFAC',
+                                            borderRadius: '12px',
+                                            padding: '10px',
+                                            fontSize: '12px',
+                                            fontWeight: '700',
+                                            cursor: 'pointer',
+                                            width: '100%',
+                                            textAlign: 'center'
+                                        }}
+                                    >
+                                        ⚡ Auto-Fill Simulated Link Token
+                                    </button>
+                                )}
+                                <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
+                                    <button 
+                                        type="submit"
+                                        disabled={loadingVerify}
+                                        style={{ ...styles.primaryBtnPremium, flex: 1 }}
+                                    >
+                                        {loadingVerify ? "Verifying..." : "Verify Token"}
+                                    </button>
+                                    <button 
+                                        type="button"
+                                        onClick={() => { setEmailModalOpen(false); setEmailVerificationToken(""); }}
+                                        style={{ ...styles.secondaryBtnPremium }}
+                                    >
+                                        Back
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </form>
+                }
+            />
+
+            {/* PHONE IDENTITY VERIFICATION MODAL */}
+            <CustomModal
+                isOpen={phoneModalOpen}
+                type="info"
+                title={currentUser.pending_phone ? "Enter SMS OTP Verification" : "Add/Change Contact Number"}
+                message={currentUser.pending_phone ? "We sent a 6-digit verification code. Please input it below." : "Keep your account recoverable. Requires confirming your password."}
+                showDefaultActions={false}
+                content={
+                    <form onSubmit={currentUser.pending_phone ? (e) => { e.preventDefault(); handleConfirmPhoneChange(); } : handleRequestPhoneChange}>
+                        {!currentUser.pending_phone ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                <InputGroup
+                                    label="New Contact Number"
+                                    value={newPhoneInput}
+                                    onChange={setNewPhoneInput}
+                                    placeholder="+1234567890"
+                                    type="tel"
+                                />
+                                <InputGroup
+                                    label="Confirm Current Password"
+                                    value={confirmPassInput}
+                                    onChange={setConfirmPassInput}
+                                    placeholder="••••••••"
+                                    type="password"
+                                />
+                                <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
+                                    <button 
+                                        type="submit"
+                                        disabled={loadingVerify}
+                                        style={{ ...styles.primaryBtnPremium, flex: 1 }}
+                                    >
+                                        {loadingVerify ? "Sending OTP SMS..." : "Request Change"}
+                                    </button>
+                                    <button 
+                                        type="button"
+                                        onClick={() => { setPhoneModalOpen(false); setNewPhoneInput(""); setConfirmPassInput(""); }}
+                                        style={{ ...styles.secondaryBtnPremium }}
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            </div>
+                        ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                <div style={{ background: '#F8FAFC', padding: '12px', borderRadius: '12px', border: '1px solid #E2E8F0', textAlign: 'center' }}>
+                                    <span style={{ fontSize: '11px', color: '#64748B', display: 'block', textTransform: 'uppercase', fontWeight: '800' }}>Pending Number</span>
+                                    <span style={{ fontSize: '15px', color: '#1E293B', fontWeight: '700' }}>{currentUser.pending_phone}</span>
+                                </div>
+                                <InputGroup
+                                    label="6-Digit SMS Code"
+                                    value={phoneVerificationCode}
+                                    onChange={setPhoneVerificationCode}
+                                    placeholder="e.g. 123456"
+                                />
+                                {simulatedCode && (
+                                    <button
+                                        type="button"
+                                        onClick={() => handleConfirmPhoneChange(simulatedCode)}
+                                        style={{
+                                            background: '#DEF7EC',
+                                            color: '#03543F',
+                                            border: '1px solid #86EFAC',
+                                            borderRadius: '12px',
+                                            padding: '10px',
+                                            fontSize: '12px',
+                                            fontWeight: '700',
+                                            cursor: 'pointer',
+                                            width: '100%',
+                                            textAlign: 'center'
+                                        }}
+                                    >
+                                        ⚡ Auto-Fill Simulated SMS OTP
+                                    </button>
+                                )}
+                                <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
+                                    <button 
+                                        type="submit"
+                                        disabled={loadingVerify}
+                                        style={{ ...styles.primaryBtnPremium, flex: 1 }}
+                                    >
+                                        {loadingVerify ? "Confirming..." : "Verify SMS Code"}
+                                    </button>
+                                    <button 
+                                        type="button"
+                                        onClick={() => { setPhoneModalOpen(false); setPhoneVerificationCode(""); }}
+                                        style={{ ...styles.secondaryBtnPremium }}
+                                    >
+                                        Back
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </form>
+                }
             />
         </div>
     );

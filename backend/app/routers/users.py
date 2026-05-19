@@ -160,3 +160,171 @@ def update_user_presence(
     db_user.current_module = current_module
     db.commit()
     return {"status": "success"}
+
+
+# --- SECURE IDENTITY VERIFICATION ---
+import uuid
+import random
+import string
+from datetime import datetime, timezone, timedelta
+from app import models
+
+@router.post("/{user_id}/request-email-change")
+def request_email_change(user_id: int, request: schemas.EmailChangeRequest, db: Session = Depends(get_db)):
+    db_user = crud.get_user(db, user_id=user_id)
+    if not db_user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    if db_user.password != request.password:
+        raise HTTPException(status_code=400, detail="Incorrect current password")
+        
+    if db_user.email == request.new_email:
+        raise HTTPException(status_code=400, detail="New email cannot be the same as current email")
+        
+    # Check duplicate conflicts across active emails
+    conflict = db.query(models.UserProfile).filter(models.UserProfile.email == request.new_email, models.UserProfile.user_id != user_id).first()
+    if conflict:
+        raise HTTPException(status_code=400, detail="Email is already in use by another user")
+        
+    # Set pending verification data
+    token = uuid.uuid4().hex
+    expiry = datetime.now(timezone.utc) + timedelta(minutes=15)
+    
+    db_user.profile.pending_email = request.new_email
+    db_user.profile.email_verification_token = token
+    db_user.profile.verification_expires_at = expiry
+    db.commit()
+    
+    # Audit Trail
+    crud.create_audit_log(
+        db,
+        action_type="EMAIL_CHANGE_REQUESTED",
+        performed_by_id=user_id,
+        target_id=str(user_id),
+        details={"pending_email": request.new_email}
+    )
+    
+    # Simulate email dispatch
+    verify_link = f"http://localhost:3000/verify-email?token={token}"
+    print(f"\n[SECURITY] Email Verification Link for User {user_id} ({request.new_email}): {verify_link}\n")
+    
+    return {"status": "success", "message": "Verification link generated", "simulated_link": verify_link}
+
+@router.post("/confirm-email-change")
+def confirm_email_change(request: schemas.EmailChangeConfirm, db: Session = Depends(get_db)):
+    profile = db.query(models.UserProfile).filter(models.UserProfile.email_verification_token == request.token).first()
+    if not profile:
+        raise HTTPException(status_code=400, detail="Invalid or unrecognized email verification token")
+        
+    now = datetime.now(timezone.utc)
+    expires = profile.verification_expires_at
+    if expires.tzinfo is None:
+        expires = expires.replace(tzinfo=timezone.utc)
+        
+    if now > expires:
+        raise HTTPException(status_code=400, detail="Verification link has expired")
+        
+    old_email = profile.email
+    new_email = profile.pending_email
+    
+    # Final conflict check
+    conflict = db.query(models.UserProfile).filter(models.UserProfile.email == new_email, models.UserProfile.id != profile.id).first()
+    if conflict:
+        raise HTTPException(status_code=400, detail="Email is already in use by another user")
+        
+    # Update current email & clean up
+    profile.email = new_email
+    profile.pending_email = None
+    profile.email_verification_token = None
+    profile.verification_expires_at = None
+    db.commit()
+    
+    # Audit Trail
+    crud.create_audit_log(
+        db,
+        action_type="EMAIL_CHANGED",
+        performed_by_id=profile.user_id,
+        target_id=str(profile.user_id),
+        details={"old_email": old_email, "new_email": new_email}
+    )
+    
+    return {"status": "success", "message": "Email has been verified and updated successfully"}
+
+@router.post("/{user_id}/request-phone-change")
+def request_phone_change(user_id: int, request: schemas.PhoneChangeRequest, db: Session = Depends(get_db)):
+    db_user = crud.get_user(db, user_id=user_id)
+    if not db_user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    if db_user.password != request.password:
+        raise HTTPException(status_code=400, detail="Incorrect current password")
+        
+    if db_user.phone == request.new_phone:
+        raise HTTPException(status_code=400, detail="New phone cannot be the same as current phone")
+        
+    # Check duplicate conflicts across active phones
+    conflict = db.query(models.UserProfile).filter(models.UserProfile.phone == request.new_phone, models.UserProfile.user_id != user_id).first()
+    if conflict:
+        raise HTTPException(status_code=400, detail="Phone number is already in use by another user")
+        
+    # Generate 6-digit OTP code
+    code = "".join(random.choices(string.digits, k=6))
+    expiry = datetime.now(timezone.utc) + timedelta(minutes=15)
+    
+    db_user.profile.pending_phone = request.new_phone
+    db_user.profile.phone_verification_code = code
+    db_user.profile.verification_expires_at = expiry
+    db.commit()
+    
+    # Audit Trail
+    crud.create_audit_log(
+        db,
+        action_type="PHONE_CHANGE_REQUESTED",
+        performed_by_id=user_id,
+        target_id=str(user_id),
+        details={"pending_phone": request.new_phone}
+    )
+    
+    # Simulate SMS dispatch
+    print(f"\n[SECURITY] SMS OTP Code for User {user_id} ({request.new_phone}): {code}\n")
+    
+    return {"status": "success", "message": "SMS OTP code generated", "simulated_code": code}
+
+@router.post("/{user_id}/confirm-phone-change")
+def confirm_phone_change(user_id: int, request: schemas.PhoneChangeConfirm, db: Session = Depends(get_db)):
+    db_user = crud.get_user(db, user_id=user_id)
+    if not db_user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    profile = db_user.profile
+    if not profile or profile.phone_verification_code != request.code:
+        raise HTTPException(status_code=400, detail="Invalid verification code")
+        
+    now = datetime.now(timezone.utc)
+    expires = profile.verification_expires_at
+    if expires.tzinfo is None:
+        expires = expires.replace(tzinfo=timezone.utc)
+        
+    if now > expires:
+        raise HTTPException(status_code=400, detail="Verification code has expired")
+        
+    old_phone = profile.phone
+    new_phone = profile.pending_phone
+    
+    # Update current phone & clean up
+    profile.phone = new_phone
+    profile.pending_phone = None
+    profile.phone_verification_code = None
+    profile.verification_expires_at = None
+    db.commit()
+    
+    # Audit Trail
+    crud.create_audit_log(
+        db,
+        action_type="PHONE_CHANGED",
+        performed_by_id=user_id,
+        target_id=str(user_id),
+        details={"old_phone": old_phone, "new_phone": new_phone}
+    )
+    
+    return {"status": "success", "message": "Phone number has been verified and updated successfully"}

@@ -62,6 +62,11 @@ class User(Base):
     birthdate = association_proxy("profile", "birthdate")
     birthplace = association_proxy("profile", "birthplace")
     profile_completed = association_proxy("profile", "profile_completed")
+    pending_email = association_proxy("profile", "pending_email")
+    pending_phone = association_proxy("profile", "pending_phone")
+    email_verification_token = association_proxy("profile", "email_verification_token")
+    phone_verification_code = association_proxy("profile", "phone_verification_code")
+    verification_expires_at = association_proxy("profile", "verification_expires_at")
 
     # Proxy properties for UserSetting
     notify_replies = association_proxy("settings", "notify_replies")
@@ -138,6 +143,11 @@ class UserProfile(Base):
     birthdate = Column(String, nullable=True)
     birthplace = Column(String, nullable=True)
     profile_completed = Column(Boolean, default=False)
+    pending_email = Column(String, nullable=True)
+    pending_phone = Column(String, nullable=True)
+    email_verification_token = Column(String, nullable=True)
+    phone_verification_code = Column(String, nullable=True)
+    verification_expires_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     

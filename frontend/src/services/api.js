@@ -347,3 +347,34 @@ export const deleteDraft = async (draftId) => {
 };
 
 // (Update functions migrated to adminApi.js for authentication)
+
+export const requestEmailChange = async (userId, newEmail, password) => {
+  const response = await axios.post(`${API_BASE}/users/${userId}/request-email-change`, {
+    new_email: newEmail,
+    password: password
+  });
+  return response.data;
+};
+
+export const confirmEmailChange = async (token) => {
+  const response = await axios.post(`${API_BASE}/users/confirm-email-change`, {
+    token: token
+  });
+  return response.data;
+};
+
+export const requestPhoneChange = async (userId, newPhone, password) => {
+  const response = await axios.post(`${API_BASE}/users/${userId}/request-phone-change`, {
+    new_phone: newPhone,
+    password: password
+  });
+  return response.data;
+};
+
+export const confirmPhoneChange = async (userId, code) => {
+  const response = await axios.post(`${API_BASE}/users/${userId}/confirm-phone-change`, {
+    code: code
+  });
+  return response.data;
+};
+

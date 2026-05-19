@@ -21,6 +21,11 @@ class UserBase(BaseModel):
     is_global_user: Optional[bool] = False
     username: Optional[str] = None
     phone: Optional[str] = None
+    pending_email: Optional[str] = None
+    pending_phone: Optional[str] = None
+    email_verification_token: Optional[str] = None
+    phone_verification_code: Optional[str] = None
+    verification_expires_at: Optional[datetime] = None
     first_name: Optional[str] = None
     middle_name: Optional[str] = None
     last_name: Optional[str] = None
@@ -824,3 +829,19 @@ class Draft(DraftBase):
     created_at: datetime
     updated_at: datetime
     model_config = ConfigDict(from_attributes=True)
+
+
+# --- IDENTITY VERIFICATION SCHEMAS ---
+class EmailChangeRequest(BaseModel):
+    new_email: str
+    password: str
+
+class EmailChangeConfirm(BaseModel):
+    token: str
+
+class PhoneChangeRequest(BaseModel):
+    new_phone: str
+    password: str
+
+class PhoneChangeConfirm(BaseModel):
+    code: str
