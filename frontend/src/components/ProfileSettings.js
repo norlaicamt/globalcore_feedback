@@ -264,7 +264,7 @@ const ProfileView = ({ currentUser, onUserUpdate, showToast }) => {
         <div style={styles.viewContainer}>
             <div style={styles.sectionHeader}>
                 <h2 style={styles.viewTitle}>Professional Identity</h2>
-                <p style={styles.viewSubtitle}>Manage your organizational profile and regional stewardship data.</p>
+                <p style={styles.viewSubtitle}>Manage your organizational profile, assignments, and professional information.</p>
             </div>
 
             <div style={styles.heroCard}>
@@ -310,12 +310,12 @@ const ProfileView = ({ currentUser, onUserUpdate, showToast }) => {
                 <div style={styles.statsBar}>
                     <div style={styles.statBox}>
                         <span style={styles.statVal}>{(currentUser.impact_points || 0).toFixed(0)}</span>
-                        <span style={styles.statLab}>Impact Points</span>
+                        <span style={styles.statLab}>Participation Metrics</span>
                     </div>
                     <div style={styles.statDivider} />
                     <div style={styles.statBox}>
                         <span style={styles.statVal}>{currentUser.likes_received || 0}</span>
-                        <span style={styles.statLab}>Likes Earned</span>
+                        <span style={styles.statLab}>Community Reactions</span>
                     </div>
                     <div style={styles.statDivider} />
                     <div style={styles.statBox}>
@@ -557,14 +557,14 @@ const NotificationsView = ({ currentUser, notifs, handleToggle }) => {
                     <h3 style={styles.groupHeader}>System & Broadcast</h3>
                     <div style={styles.groupStack}>
                         <ToggleCard
-                            title="Broadcasting Alerts"
+                            title="Broadcast Alerts"
                             desc="Official emergency or system-wide announcements."
                             isOn={notifs.announcements}
                             icon={<Icons.Bell />}
                             onToggle={() => handleToggle("notify_announcements", "Announcements")}
                         />
                         <ToggleCard
-                            title="Platform Resilience"
+                            title="System Updates"
                             desc="Technical updates regarding platform maintenance or security."
                             isOn={notifs.system}
                             icon={<Icons.Activity />}
@@ -574,7 +574,7 @@ const NotificationsView = ({ currentUser, notifs, handleToggle }) => {
                 </div>
 
                 <div style={styles.notificationGroup}>
-                    <h3 style={styles.groupHeader}>Stewardship Summaries</h3>
+                    <h3 style={styles.groupHeader}>Activity Summaries</h3>
                     <div style={styles.groupStack}>
                         <ToggleCard
                             title="Daily Summary"
@@ -690,7 +690,7 @@ const PrivacyView = ({ currentUser, onUserUpdate, showToast, onLogout }) => {
         <div style={styles.viewContainer}>
             <div style={styles.sectionHeader}>
                 <h2 style={styles.viewTitle}>Security & Privacy</h2>
-                <p style={styles.viewSubtitle}>Controls for your identity and account security.</p>
+                <p style={styles.viewSubtitle}>Manage account protection, authentication, and privacy settings.</p>
             </div>
 
             {/* SECTION 1: ACCOUNT INFORMATION */}
