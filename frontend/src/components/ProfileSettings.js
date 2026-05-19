@@ -871,16 +871,11 @@ const PrivacyView = ({ currentUser, onUserUpdate, showToast, onLogout }) => {
                                     <span style={{ 
                                         backgroundColor: '#DEF7EC', 
                                         color: '#03543F', 
-                                        fontSize: '11px', 
-                                        fontWeight: '800', 
-                                        padding: '4px 8px', 
-                                        borderRadius: '8px',
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                        gap: '4px'
-                                    }}>
-                                        <Icons.Check /> Verified
-                                    </span>
+                                        fontSize: '9px', 
+                                        fontWeight: '700', 
+                                        padding: '2px 7px', 
+                                        borderRadius: '6px'
+                                    }}>Verified</span>
                                 </div>
                             </div>
                             
@@ -904,7 +899,7 @@ const PrivacyView = ({ currentUser, onUserUpdate, showToast, onLogout }) => {
                                     onMouseEnter={e => e.currentTarget.style.backgroundColor = '#334155'}
                                     onMouseLeave={e => e.currentTarget.style.backgroundColor = '#1E293B'}
                                 >
-                                    <Icons.Edit /> Change Email
+                                    Change
                                 </button>
                             ) : (
                                 <div style={{ display: 'flex', gap: '8px' }}>
@@ -974,16 +969,11 @@ const PrivacyView = ({ currentUser, onUserUpdate, showToast, onLogout }) => {
                                         <span style={{ 
                                             backgroundColor: '#DEF7EC', 
                                             color: '#03543F', 
-                                            fontSize: '11px', 
-                                            fontWeight: '800', 
-                                            padding: '4px 8px', 
-                                            borderRadius: '8px',
-                                            display: 'inline-flex',
-                                            alignItems: 'center',
-                                            gap: '4px'
-                                        }}>
-                                            <Icons.Check /> Verified
-                                        </span>
+                                            fontSize: '9px', 
+                                            fontWeight: '700', 
+                                            padding: '2px 7px', 
+                                            borderRadius: '6px'
+                                        }}>Verified</span>
                                     ) : (
                                         <span style={{ 
                                             backgroundColor: '#E2E8F0', 
@@ -1019,7 +1009,7 @@ const PrivacyView = ({ currentUser, onUserUpdate, showToast, onLogout }) => {
                                     onMouseEnter={e => e.currentTarget.style.backgroundColor = '#334155'}
                                     onMouseLeave={e => e.currentTarget.style.backgroundColor = '#1E293B'}
                                 >
-                                    <Icons.Edit /> {currentUser.phone ? "Change Number" : "Add Number"}
+                                    Change
                                 </button>
                             ) : (
                                 <div style={{ display: 'flex', gap: '8px' }}>
