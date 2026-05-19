@@ -20,8 +20,8 @@ import { resolveMediaUrl } from "../../utils/feedback";
 
 const NAV_ITEMS = [
   { id: "dashboard", label: "Insight Hub", icon: <ChartIcon /> },
-  { id: "users", label: "User Management", icon: <UserIcon /> },
   { id: "feedbacks", label: "Submissions", icon: <FeedIcon /> },
+  { id: "users", label: "User Management", icon: <UserIcon /> },
   { id: "team", label: "Team", icon: <UsersIcon /> },
   { type: "label", label: "PANEL" },
   { id: "broadcast", label: "Announcements", icon: <BellIcon /> },
