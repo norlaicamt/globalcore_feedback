@@ -1662,8 +1662,8 @@ const styles = {
     scrollWrapper: { padding: '20px' },
     viewContainer: { maxWidth: '840px', margin: '0 auto', fontSize: 'var(--size-body, 14px)' },
     sectionHeader: { marginBottom: 'var(--card-padding, 48px)' },
-    viewTitle: { fontSize: 'var(--size-page-title, 32px)', fontWeight: '900', color: 'var(--primary-color)', margin: '0 0 10px 0', letterSpacing: '-1.5px' },
-    viewSubtitle: { fontSize: 'var(--size-secondary, 16px)', color: '#64748B', margin: 0, fontWeight: '500' },
+    viewTitle: { fontSize: 'var(--size-page-title, 22px)', fontWeight: '900', color: 'var(--primary-color)', margin: '0 0 8px 0', letterSpacing: '-0.5px' },
+    viewSubtitle: { fontSize: 'var(--size-secondary, 14px)', color: '#64748B', margin: 0, fontWeight: '500' },
 
     heroCard: { background: 'white', borderRadius: '32px', padding: 'var(--card-padding, 40px)', border: '1.5px solid #E2E8F0', boxShadow: '0 15px 40px rgba(0,0,0,0.03)', marginBottom: '32px' },
     heroContent: { display: 'flex', alignItems: 'center', gap: 'var(--card-padding, 32px)', marginBottom: 'var(--card-padding, 40px)' },
