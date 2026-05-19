@@ -79,36 +79,36 @@ const DataTile = ({ label, value, icon }) => (
 
 const InputGroup = ({ label, value, onChange, placeholder, type, trailingAction }) => (
     <div style={{ marginBottom: '16px' }}>
-        <div style={{ 
-            position: 'relative', 
-            display: 'flex', 
-            alignItems: 'center', 
-            backgroundColor: '#F8FAFC', 
-            border: '1.5px solid #E2E8F0', 
-            borderRadius: '16px', 
+        <div style={{
+            position: 'relative',
+            display: 'flex',
+            alignItems: 'center',
+            backgroundColor: '#F8FAFC',
+            border: '1.5px solid #E2E8F0',
+            borderRadius: '16px',
             padding: 'var(--card-padding, 10px 16px)',
             transition: 'border-color 0.2s',
             minHeight: 'var(--button-height, 64px)'
         }}>
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                <label style={{ 
-                    fontSize: 'var(--size-chip, 10px)', 
-                    fontWeight: '800', 
-                    color: '#94A3B8', 
-                    textTransform: 'uppercase', 
-                    letterSpacing: '1px' 
+                <label style={{
+                    fontSize: 'var(--size-chip, 10px)',
+                    fontWeight: '800',
+                    color: '#94A3B8',
+                    textTransform: 'uppercase',
+                    letterSpacing: '1px'
                 }}>
                     {label}
                 </label>
-                <input 
+                <input
                     type={type || "text"}
-                    style={{ 
-                        border: 'none', 
-                        background: 'transparent', 
-                        outline: 'none', 
-                        fontSize: 'var(--size-body, 15px)', 
-                        color: '#1E293B', 
-                        padding: '0', 
+                    style={{
+                        border: 'none',
+                        background: 'transparent',
+                        outline: 'none',
+                        fontSize: 'var(--size-body, 15px)',
+                        color: '#1E293B',
+                        padding: '0',
                         width: '100%',
                         fontWeight: '600'
                     }}
@@ -297,14 +297,14 @@ const ProfileView = ({ currentUser, onUserUpdate, showToast }) => {
                             <span style={styles.statusBadge}>Verified</span>
                         </div>
                     </div>
-                    <button 
-                        style={{ 
-                            ...styles.premiumEditBtn, 
-                            background: isEditing ? '#F1F5F9' : 'var(--primary-color)', 
+                    <button
+                        style={{
+                            ...styles.premiumEditBtn,
+                            background: isEditing ? '#F1F5F9' : 'var(--primary-color)',
                             color: isEditing ? '#64748B' : 'white',
                             boxShadow: isEditing ? 'none' : '0 8px 16px rgba(var(--primary-rgb), 0.2)',
                             border: isEditing ? '1px solid #E2E8F0' : 'none'
-                        }} 
+                        }}
                         onClick={() => setIsEditing(!isEditing)}
                     >
                         {isEditing ? "Cancel" : "Edit"}
@@ -463,11 +463,11 @@ const ProfileView = ({ currentUser, onUserUpdate, showToast }) => {
                     </div>
                 )}
             </div>
-            <ImageCropperModal 
-                isOpen={cropper.isOpen} 
-                imageSrc={cropper.image} 
-                onCrop={handleCropConfirm} 
-                onCancel={() => setCropper({ isOpen: false, image: null })} 
+            <ImageCropperModal
+                isOpen={cropper.isOpen}
+                imageSrc={cropper.image}
+                onCrop={handleCropConfirm}
+                onCancel={() => setCropper({ isOpen: false, image: null })}
             />
         </div>
     );
@@ -659,10 +659,10 @@ const PrivacyView = ({ currentUser, onUserUpdate, showToast, onLogout }) => {
                 setSimulatedToken(token);
             }
             showToast("Verification link generated successfully!");
-            const updatedUser = { 
-                ...currentUser, 
+            const updatedUser = {
+                ...currentUser,
                 pending_email: newEmailInput,
-                email_verification_token: token || "pending" 
+                email_verification_token: token || "pending"
             };
             onUserUpdate(updatedUser);
             setConfirmPassInput("");
@@ -709,10 +709,10 @@ const PrivacyView = ({ currentUser, onUserUpdate, showToast, onLogout }) => {
                 setSimulatedCode(res.simulated_code);
             }
             showToast("SMS OTP verification code generated!");
-            const updatedUser = { 
-                ...currentUser, 
+            const updatedUser = {
+                ...currentUser,
                 pending_phone: newPhoneInput,
-                phone_verification_code: res.simulated_code || "pending" 
+                phone_verification_code: res.simulated_code || "pending"
             };
             onUserUpdate(updatedUser);
             setConfirmPassInput("");
@@ -836,15 +836,15 @@ const PrivacyView = ({ currentUser, onUserUpdate, showToast, onLogout }) => {
     const isPaused = currentUser.is_active === false;
     const [isExpanded, setIsExpanded] = useState(isPaused);
     const [isPassExpanded, setIsPassExpanded] = useState(false);
-    const resumeDate = currentUser.deactivated_until 
-        ? new Date(currentUser.deactivated_until).toLocaleString('en-US', { 
-            month: 'long', 
-            day: 'numeric', 
+    const resumeDate = currentUser.deactivated_until
+        ? new Date(currentUser.deactivated_until).toLocaleString('en-US', {
+            month: 'long',
+            day: 'numeric',
             year: 'numeric',
             hour: 'numeric',
             minute: '2-digit',
-            hour12: true 
-          }) 
+            hour12: true
+        })
         : "Manual resume required";
 
     return (
@@ -859,7 +859,7 @@ const PrivacyView = ({ currentUser, onUserUpdate, showToast, onLogout }) => {
                 <h4 style={{ ...styles.cardTitlePremium, fontSize: '11px', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '24px' }}>
                     Account Identity & Verification
                 </h4>
-                
+
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                     {/* EMAIL FIELD CARD */}
                     <div style={{ background: '#F8FAFC', padding: '20px', borderRadius: '16px', border: '1px solid #E2E8F0', position: 'relative' }}>
@@ -868,19 +868,19 @@ const PrivacyView = ({ currentUser, onUserUpdate, showToast, onLogout }) => {
                                 <span style={{ ...styles.fieldLabel, color: '#64748B', display: 'block', marginBottom: '4px', fontSize: '11px', textTransform: 'uppercase', fontWeight: '700' }}>Registered Email</span>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                                     <span style={{ fontSize: '16px', fontWeight: '700', color: '#1E293B' }}>{currentUser.email}</span>
-                                    <span style={{ 
-                                        backgroundColor: '#DEF7EC', 
-                                        color: '#03543F', 
-                                        fontSize: '9px', 
-                                        fontWeight: '700', 
-                                        padding: '2px 7px', 
+                                    <span style={{
+                                        backgroundColor: '#DEF7EC',
+                                        color: '#03543F',
+                                        fontSize: '9px',
+                                        fontWeight: '700',
+                                        padding: '2px 7px',
                                         borderRadius: '6px'
                                     }}>Verified</span>
                                 </div>
                             </div>
-                            
+
                             {!currentUser.pending_email ? (
-                                <button 
+                                <button
                                     onClick={() => setEmailModalOpen(true)}
                                     style={{
                                         backgroundColor: '#1E293B',
@@ -903,7 +903,7 @@ const PrivacyView = ({ currentUser, onUserUpdate, showToast, onLogout }) => {
                                 </button>
                             ) : (
                                 <div style={{ display: 'flex', gap: '8px' }}>
-                                    <button 
+                                    <button
                                         onClick={() => setEmailModalOpen(true)}
                                         style={{
                                             backgroundColor: 'var(--primary-color)',
@@ -918,7 +918,7 @@ const PrivacyView = ({ currentUser, onUserUpdate, showToast, onLogout }) => {
                                     >
                                         Verify Code
                                     </button>
-                                    <button 
+                                    <button
                                         onClick={handleCancelEmailChange}
                                         disabled={loadingVerify}
                                         style={{
@@ -966,21 +966,21 @@ const PrivacyView = ({ currentUser, onUserUpdate, showToast, onLogout }) => {
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                                     <span style={{ fontSize: '16px', fontWeight: '700', color: '#1E293B' }}>{currentUser.phone || "Not set"}</span>
                                     {currentUser.phone ? (
-                                        <span style={{ 
-                                            backgroundColor: '#DEF7EC', 
-                                            color: '#03543F', 
-                                            fontSize: '9px', 
-                                            fontWeight: '700', 
-                                            padding: '2px 7px', 
+                                        <span style={{
+                                            backgroundColor: '#DEF7EC',
+                                            color: '#03543F',
+                                            fontSize: '9px',
+                                            fontWeight: '700',
+                                            padding: '2px 7px',
                                             borderRadius: '6px'
                                         }}>Verified</span>
                                     ) : (
-                                        <span style={{ 
-                                            backgroundColor: '#E2E8F0', 
-                                            color: '#64748B', 
-                                            fontSize: '11px', 
-                                            fontWeight: '800', 
-                                            padding: '4px 8px', 
+                                        <span style={{
+                                            backgroundColor: '#E2E8F0',
+                                            color: '#64748B',
+                                            fontSize: '11px',
+                                            fontWeight: '800',
+                                            padding: '4px 8px',
                                             borderRadius: '8px'
                                         }}>
                                             Unlinked
@@ -988,9 +988,9 @@ const PrivacyView = ({ currentUser, onUserUpdate, showToast, onLogout }) => {
                                     )}
                                 </div>
                             </div>
-                            
+
                             {!currentUser.pending_phone ? (
-                                <button 
+                                <button
                                     onClick={() => setPhoneModalOpen(true)}
                                     style={{
                                         backgroundColor: '#1E293B',
@@ -1013,7 +1013,7 @@ const PrivacyView = ({ currentUser, onUserUpdate, showToast, onLogout }) => {
                                 </button>
                             ) : (
                                 <div style={{ display: 'flex', gap: '8px' }}>
-                                    <button 
+                                    <button
                                         onClick={() => setPhoneModalOpen(true)}
                                         style={{
                                             backgroundColor: 'var(--primary-color)',
@@ -1028,7 +1028,7 @@ const PrivacyView = ({ currentUser, onUserUpdate, showToast, onLogout }) => {
                                     >
                                         Verify Code
                                     </button>
-                                    <button 
+                                    <button
                                         onClick={handleCancelPhoneChange}
                                         disabled={loadingVerify}
                                         style={{
@@ -1070,16 +1070,16 @@ const PrivacyView = ({ currentUser, onUserUpdate, showToast, onLogout }) => {
                 </div>
             </div>
             {/* SECTION 2: CHANGE PASSWORD (ACCORDION) */}
-            <div 
-                style={{ 
-                    ...styles.sectionCardPremium, 
+            <div
+                style={{
+                    ...styles.sectionCardPremium,
                     padding: 0,
                     overflow: 'hidden',
                     marginBottom: '24px'
                 }}
             >
                 {/* Accordion Header */}
-                <div 
+                <div
                     onClick={() => setIsPassExpanded(!isPassExpanded)}
                     onKeyDown={(e) => {
                         if (e.key === 'Enter' || e.key === ' ') {
@@ -1091,11 +1091,11 @@ const PrivacyView = ({ currentUser, onUserUpdate, showToast, onLogout }) => {
                     role="button"
                     aria-expanded={isPassExpanded}
                     aria-controls="change-password-content"
-                    style={{ 
-                        padding: '24px', 
-                        display: 'flex', 
-                        justifyContent: 'space-between', 
-                        alignItems: 'center', 
+                    style={{
+                        padding: '24px',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
                         cursor: 'pointer',
                         userSelect: 'none',
                         transition: 'background-color 0.2s ease',
@@ -1114,8 +1114,8 @@ const PrivacyView = ({ currentUser, onUserUpdate, showToast, onLogout }) => {
                             </span>
                         </div>
                     </div>
-                    <div style={{ 
-                        transform: isPassExpanded ? 'rotate(180deg)' : 'rotate(0)', 
+                    <div style={{
+                        transform: isPassExpanded ? 'rotate(180deg)' : 'rotate(0)',
                         transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                         color: '#94A3B8'
                     }}>
@@ -1124,9 +1124,9 @@ const PrivacyView = ({ currentUser, onUserUpdate, showToast, onLogout }) => {
                 </div>
 
                 {/* Accordion Content */}
-                <div 
+                <div
                     id="change-password-content"
-                    style={{ 
+                    style={{
                         maxHeight: isPassExpanded ? '1000px' : '0',
                         opacity: isPassExpanded ? 1 : 0,
                         transition: 'max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease',
@@ -1212,17 +1212,17 @@ const PrivacyView = ({ currentUser, onUserUpdate, showToast, onLogout }) => {
             </div>
 
             {/* SECTION 3: ACCOUNT ACTIVITY CONTROL (ACCORDION) */}
-            <div 
-                style={{ 
-                    ...styles.sectionCardPremium, 
-                    background: '#F8FAFC', 
+            <div
+                style={{
+                    ...styles.sectionCardPremium,
+                    background: '#F8FAFC',
                     borderColor: '#E2E8F0',
                     padding: 0,
                     overflow: 'hidden'
                 }}
             >
                 {/* Accordion Header */}
-                <div 
+                <div
                     onClick={() => setIsExpanded(!isExpanded)}
                     onKeyDown={(e) => {
                         if (e.key === 'Enter' || e.key === ' ') {
@@ -1234,11 +1234,11 @@ const PrivacyView = ({ currentUser, onUserUpdate, showToast, onLogout }) => {
                     role="button"
                     aria-expanded={isExpanded}
                     aria-controls="account-activity-content"
-                    style={{ 
-                        padding: '24px', 
-                        display: 'flex', 
-                        justifyContent: 'space-between', 
-                        alignItems: 'center', 
+                    style={{
+                        padding: '24px',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
                         cursor: 'pointer',
                         userSelect: 'none',
                         transition: 'background-color 0.2s ease',
@@ -1262,8 +1262,8 @@ const PrivacyView = ({ currentUser, onUserUpdate, showToast, onLogout }) => {
                             )}
                         </div>
                     </div>
-                    <div style={{ 
-                        transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)', 
+                    <div style={{
+                        transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)',
                         transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                         color: '#94A3B8'
                     }}>
@@ -1272,9 +1272,9 @@ const PrivacyView = ({ currentUser, onUserUpdate, showToast, onLogout }) => {
                 </div>
 
                 {/* Accordion Content */}
-                <div 
+                <div
                     id="account-activity-content"
-                    style={{ 
+                    style={{
                         maxHeight: isExpanded ? '1000px' : '0',
                         opacity: isExpanded ? 1 : 0,
                         transition: 'max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease',
@@ -1284,7 +1284,7 @@ const PrivacyView = ({ currentUser, onUserUpdate, showToast, onLogout }) => {
                 >
                     <div style={{ padding: '24px' }}>
                         <p style={{ fontSize: '14px', color: '#475569', lineHeight: '1.6', marginBottom: '24px', fontWeight: '500' }}>
-                            {isPaused 
+                            {isPaused
                                 ? "Your account activity is currently paused. You are invisible to other users and will not receive system notifications."
                                 : "Temporarily pause your account activity. During this period, you will not receive notifications or appear as active in the system."}
                         </p>
@@ -1405,14 +1405,14 @@ const PrivacyView = ({ currentUser, onUserUpdate, showToast, onLogout }) => {
                                     type="password"
                                 />
                                 <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
-                                    <button 
+                                    <button
                                         type="submit"
                                         disabled={loadingVerify}
                                         style={{ ...styles.primaryBtnPremium, flex: 1 }}
                                     >
                                         {loadingVerify ? "Sending Request..." : "Request Change"}
                                     </button>
-                                    <button 
+                                    <button
                                         type="button"
                                         onClick={() => { setEmailModalOpen(false); setNewEmailInput(""); setConfirmPassInput(""); }}
                                         style={{ ...styles.secondaryBtnPremium }}
@@ -1454,14 +1454,14 @@ const PrivacyView = ({ currentUser, onUserUpdate, showToast, onLogout }) => {
                                     </button>
                                 )}
                                 <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
-                                    <button 
+                                    <button
                                         type="submit"
                                         disabled={loadingVerify}
                                         style={{ ...styles.primaryBtnPremium, flex: 1 }}
                                     >
                                         {loadingVerify ? "Verifying..." : "Verify Token"}
                                     </button>
-                                    <button 
+                                    <button
                                         type="button"
                                         onClick={() => { setEmailModalOpen(false); setEmailVerificationToken(""); }}
                                         style={{ ...styles.secondaryBtnPremium }}
@@ -1501,14 +1501,14 @@ const PrivacyView = ({ currentUser, onUserUpdate, showToast, onLogout }) => {
                                     type="password"
                                 />
                                 <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
-                                    <button 
+                                    <button
                                         type="submit"
                                         disabled={loadingVerify}
                                         style={{ ...styles.primaryBtnPremium, flex: 1 }}
                                     >
                                         {loadingVerify ? "Sending OTP SMS..." : "Request Change"}
                                     </button>
-                                    <button 
+                                    <button
                                         type="button"
                                         onClick={() => { setPhoneModalOpen(false); setNewPhoneInput(""); setConfirmPassInput(""); }}
                                         style={{ ...styles.secondaryBtnPremium }}
@@ -1550,14 +1550,14 @@ const PrivacyView = ({ currentUser, onUserUpdate, showToast, onLogout }) => {
                                     </button>
                                 )}
                                 <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
-                                    <button 
+                                    <button
                                         type="submit"
                                         disabled={loadingVerify}
                                         style={{ ...styles.primaryBtnPremium, flex: 1 }}
                                     >
                                         {loadingVerify ? "Confirming..." : "Verify SMS Code"}
                                     </button>
-                                    <button 
+                                    <button
                                         type="button"
                                         onClick={() => { setPhoneModalOpen(false); setPhoneVerificationCode(""); }}
                                         style={{ ...styles.secondaryBtnPremium }}
@@ -1662,8 +1662,8 @@ const styles = {
     scrollWrapper: { padding: '20px' },
     viewContainer: { maxWidth: '840px', margin: '0 auto', fontSize: 'var(--size-body, 14px)' },
     sectionHeader: { marginBottom: 'var(--card-padding, 48px)' },
-    viewTitle: { fontSize: 'var(--size-page-title, 22px)', fontWeight: '900', color: 'var(--primary-color)', margin: '0 0 8px 0', letterSpacing: '-0.5px' },
-    viewSubtitle: { fontSize: 'var(--size-secondary, 14px)', color: '#64748B', margin: 0, fontWeight: '500' },
+    viewTitle: { fontSize: 'clamp(16px, 4vw, 22px)', fontWeight: '900', color: 'var(--primary-color)', margin: '0 0 8px 0', letterSpacing: '-0.3px' },
+    viewSubtitle: { fontSize: 'clamp(12px, 2.5vw, 14px)', color: '#64748B', margin: 0, fontWeight: '500' },
 
     heroCard: { background: 'white', borderRadius: '32px', padding: 'var(--card-padding, 40px)', border: '1.5px solid #E2E8F0', boxShadow: '0 15px 40px rgba(0,0,0,0.03)', marginBottom: '32px' },
     heroContent: { display: 'flex', alignItems: 'center', gap: 'var(--card-padding, 32px)', marginBottom: 'var(--card-padding, 40px)' },
