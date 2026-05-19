@@ -33,7 +33,7 @@ const FeedbackCenter = ({ currentUser, onBack }) => {
             style={activeView === 'activity' ? styles.activeTab : styles.inactiveTab}
             onClick={() => setActiveView('activity')}
           >
-            <div style={styles.iconWrap}><Icons.Bell /></div> Interaction Activity
+            <div style={styles.iconWrap}><Icons.Bell /></div> Activity Insights
           </button>
         </nav>
       </div>

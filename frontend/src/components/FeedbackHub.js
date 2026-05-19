@@ -612,12 +612,12 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
       subItems: [
         { id: 'history', label: 'Sent', icon: <Icons.History /> },
         { id: 'drafts', label: 'Drafts', icon: <Icons.Draft /> },
-        { id: 'activity', label: 'Interaction Activity', icon: <Icons.Activity /> }
+        { id: 'activity', label: 'Activity Insights', icon: <Icons.Activity /> }
       ]
     },
     {
       id: 'settings_group', label: 'Settings', icon: <Icons.Gear />, subItems: [
-        { id: 'profile', label: 'Personal Details', icon: <Icons.User /> },
+        { id: 'profile', label: 'Profile Information', icon: <Icons.User /> },
         { id: 'notifs_settings', label: 'Notification Preferences', icon: <Icons.Bell /> },
         { id: 'privacy', label: 'Security', icon: <Icons.Lock /> }
       ]
