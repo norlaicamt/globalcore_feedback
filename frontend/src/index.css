@@ -133,4 +133,146 @@ input::-webkit-credentials-auto-fill-button {
   .text-metadata { font-size: var(--size-metadata) !important; }
   .text-nav { font-size: var(--size-nav) !important; }
   .text-chip { font-size: var(--size-chip) !important; }
+
+  /* User Portal — Settings (Profile, Notifications, Privacy) */
+  .profile-settings-page .profile-settings-scroll {
+    padding: 12px 10px !important;
+  }
+
+  .profile-settings-page h2 {
+    font-size: var(--size-page-title) !important;
+    font-weight: 800 !important;
+    letter-spacing: -0.02em !important;
+    margin-bottom: 4px !important;
+  }
+
+  .profile-settings-page h3 {
+    font-size: var(--size-user-name) !important;
+    font-weight: 800 !important;
+    letter-spacing: 0 !important;
+  }
+
+  .profile-settings-page h4 {
+    font-size: var(--size-card-title) !important;
+    font-weight: 800 !important;
+    letter-spacing: 0 !important;
+  }
+
+  .profile-settings-page p,
+  .profile-settings-page li {
+    font-size: var(--size-body) !important;
+    line-height: 1.45 !important;
+  }
+
+  .profile-settings-page label {
+    font-size: var(--size-chip) !important;
+  }
+
+  .profile-settings-page input,
+  .profile-settings-page select,
+  .profile-settings-page textarea,
+  .profile-settings-page button {
+    font-size: var(--size-body) !important;
+  }
+
+  .profile-settings-page span:not(.settings-badge),
+  .profile-settings-page code {
+    font-size: var(--size-body) !important;
+  }
+
+  .profile-settings-page .settings-badge {
+    font-size: var(--size-chip) !important;
+  }
+
+  .profile-settings-page .settings-hero-card,
+  .profile-settings-page .settings-section-card {
+    padding: 12px !important;
+    border-radius: 14px !important;
+    margin-bottom: 12px !important;
+  }
+
+  .profile-settings-page .settings-hero-content {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 12px !important;
+    margin-bottom: 12px !important;
+  }
+
+  .profile-settings-page .settings-stat-val {
+    font-size: var(--size-nav) !important;
+  }
+
+  .profile-settings-page .settings-stat-lab {
+    font-size: var(--size-chip) !important;
+    letter-spacing: 0.5px !important;
+  }
+
+  .profile-settings-page .settings-section-header {
+    margin-bottom: 16px !important;
+  }
+
+  .profile-settings-page .settings-toggle-card {
+    padding: 10px 12px !important;
+    border-radius: 12px !important;
+  }
+
+  .profile-settings-page .settings-toggle-icon {
+    width: 30px !important;
+    height: 30px !important;
+    margin-right: 10px !important;
+  }
+
+  .profile-settings-page .settings-input-shell {
+    min-height: var(--button-height) !important;
+    padding: 8px 12px !important;
+    border-radius: 12px !important;
+  }
+
+  .profile-settings-page .settings-form-actions {
+    margin-top: 20px !important;
+    padding-top: 16px !important;
+    gap: 10px !important;
+    flex-wrap: wrap !important;
+  }
+
+  .profile-settings-page .settings-primary-btn,
+  .profile-settings-page .settings-secondary-btn {
+    padding: 10px 16px !important;
+    height: var(--button-height) !important;
+    border-radius: 12px !important;
+    font-size: var(--size-nav) !important;
+  }
+
+  .profile-settings-page .settings-scope-banner {
+    padding: 12px !important;
+    border-radius: 12px !important;
+    margin-bottom: 16px !important;
+    gap: 12px !important;
+  }
+
+  .profile-settings-page .settings-scope-icon {
+    width: 36px !important;
+    height: 36px !important;
+    border-radius: 10px !important;
+  }
+
+  .profile-settings-page .settings-data-tile {
+    padding: 10px !important;
+    border-radius: 12px !important;
+    gap: 10px !important;
+  }
+
+  .profile-settings-page .settings-toast {
+    bottom: 16px !important;
+    right: 16px !important;
+    left: 16px !important;
+    padding: 12px 16px !important;
+    border-radius: 14px !important;
+    font-size: var(--size-nav) !important;
+  }
+
+  .profile-settings-page .settings-inner-panel {
+    padding: 12px !important;
+    border-radius: 12px !important;
+  }
 }

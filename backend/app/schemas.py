@@ -68,6 +68,10 @@ class UserBase(BaseModel):
     notify_high_activity: Optional[bool] = False
     notify_system_announcements: Optional[bool] = True
     biometrics_enabled: Optional[bool] = True
+    appearance_category: Optional[str] = "minimal"
+    appearance_pattern: Optional[str] = "soft_circles"
+    appearance_accent: Optional[str] = None
+    appearance_mode: Optional[str] = "light"
     avatar_url: Optional[str] = None
     id_photo_url: Optional[str] = None
     deactivated_until: Optional[datetime] = None
@@ -129,6 +133,10 @@ class UserUpdate(BaseModel):
     notify_high_activity: Optional[bool] = None
     notify_system_announcements: Optional[bool] = None
     biometrics_enabled: Optional[bool] = None
+    appearance_category: Optional[str] = None
+    appearance_pattern: Optional[str] = None
+    appearance_accent: Optional[str] = None
+    appearance_mode: Optional[str] = None
     avatar_url: Optional[str] = None
     id_photo_url: Optional[str] = None
     deactivated_until: Optional[datetime] = None

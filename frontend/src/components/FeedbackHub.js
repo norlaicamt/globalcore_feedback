@@ -20,6 +20,7 @@ import ActivityView from './ActivityView';
 import { getFeedbacks, getTrendingFeedbacks, getUserById, getUserNotifications, getFeedbackReplies, createFeedbackReply, updateFeedbackReply, deleteFeedbackReply, toggleReaction, toggleReplyReaction, getReactionsSummary, markNotificationAsRead, updateFeedback, deleteFeedback, getAdminSettings, getEntities, trackBroadcastView, acknowledgeBroadcast, updateUserPresence, getDepartments } from "../services/api";
 import { useTerminology } from "../context/TerminologyContext";
 import { IconRegistry } from "./IconRegistry";
+import { applyPortalAppearance, getPortalAppearanceClassName } from "../utils/portalAppearance";
 
 const Icons = {
   CheckCircle: ({ size = 16, color = "currentColor" }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>,
@@ -53,6 +54,7 @@ const Icons = {
   Moon: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>,
   Sun: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>,
   Gear: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>,
+  Palette: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="13.5" cy="6.5" r="1.5" /><circle cx="17.5" cy="10.5" r="1.5" /><circle cx="8.5" cy="7.5" r="1.5" /><circle cx="6.5" cy="12" r="1.5" /><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.9 0 1.75-.15 2.55-.4" /><path d="M22 12c0-2.2-1.8-4-4-4h-1.5" /></svg>,
   Alert: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>,
   TrendingUp: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>,
   TrendingDownGood: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"></polyline><polyline points="17 18 23 18 23 12"></polyline></svg>,
@@ -77,6 +79,7 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
   const { getLabel, getModeLabel, systemName, systemLogo } = useTerminology();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024);
+  const portalSurfaceRef = useRef(null);
   const [sidebarState, setSidebarState] = useState(() => {
     if (window.innerWidth >= 1024) {
       return localStorage.getItem("user_sidebar_state") || "expanded";
@@ -156,6 +159,30 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
       setLocalUser(currentUser);
     }
   }, [currentUser]);
+
+  const applyUserAppearance = React.useCallback(() => {
+    if (portalSurfaceRef.current && localUser) {
+      applyPortalAppearance(localUser, portalSurfaceRef.current);
+    }
+  }, [localUser]);
+
+  useEffect(() => {
+    applyUserAppearance();
+  }, [
+    applyUserAppearance,
+    localUser?.appearance_category,
+    localUser?.appearance_pattern,
+    localUser?.appearance_accent,
+    localUser?.appearance_mode,
+  ]);
+
+  useEffect(() => {
+    if (localUser?.appearance_mode !== 'system') return undefined;
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const onChange = () => applyUserAppearance();
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, [localUser?.appearance_mode, applyUserAppearance]);
 
   // --- PHASE 11: MODAL AUDIT LOG ---
   useEffect(() => {
@@ -527,7 +554,8 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
         notifications: "Reading Notifications",
         profile: "Updating Profile",
         notifs_settings: "Configuring Notifications",
-        privacy: "Managing Security"
+        privacy: "Managing Security",
+        appearance_settings: "Customizing Appearance"
       };
       const moduleName = ACTION_MAP[view] || "Active in Portal";
       updateUserPresence(localUser.id, moduleName).catch(err => console.debug("Presence sync failed", err));
@@ -618,6 +646,7 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
     {
       id: 'settings_group', label: 'Settings', icon: <Icons.Gear />, subItems: [
         { id: 'profile', label: 'Profile Information', icon: <Icons.User /> },
+        { id: 'appearance_settings', label: 'Appearance Preferences', icon: <Icons.Palette /> },
         { id: 'notifs_settings', label: 'Notification Preferences', icon: <Icons.Bell /> },
         { id: 'privacy', label: 'Security', icon: <Icons.Lock /> }
       ]
@@ -818,7 +847,16 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
   );
 
   return (
-    <div style={{ ...styles.hubContainer, backgroundColor: '#F8FAFC', color: '#1E293B', flexDirection: isDesktop ? 'row' : 'column' }}>
+    <div
+      ref={portalSurfaceRef}
+      className={getPortalAppearanceClassName()}
+      style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}
+    >
+      <div className="portal-appearance-bg" aria-hidden="true" />
+      <div
+        className="portal-appearance-content"
+        style={{ ...styles.hubContainer, flexDirection: isDesktop ? 'row' : 'column', flex: 1, minHeight: 0 }}
+      >
       <style>{`
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes fadeInDownRight {
@@ -844,7 +882,7 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
 
       {/* Main container taking remaining width */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
-        <header style={{ ...styles.header, backgroundColor: '#FFFFFF', borderBottom: '1px solid #E2E8F0' }}>
+        <header className="portal-surface-panel" style={{ ...styles.header, borderBottom: '1px solid #E2E8F0' }}>
           {/* Hamburger button for mobile, hidden on desktop */}
           {!isDesktop && (
             <button onClick={() => setIsMenuOpen(true)} style={styles.iconBtn}>
@@ -1030,13 +1068,18 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
               if (post) setCommentingFeedback(post);
             }}
           />
-        ) : (view === "profile" || view === "notifs_settings" || view === "privacy") ? (
+        ) : (view === "profile" || view === "notifs_settings" || view === "privacy" || view === "appearance_settings") ? (
           <ProfileSettings
             currentUser={localUser}
             onBack={() => { setView("home"); setIsMenuOpen(true); }}
             onLogout={onLogout}
             onUserUpdate={handleUserUpdate}
-            initialSubView={view === "profile" ? "personal_info" : view === "privacy" ? "privacy" : "notifs"}
+            initialSubView={
+              view === "profile" ? "personal_info"
+                : view === "privacy" ? "privacy"
+                  : view === "appearance_settings" ? "appearance"
+                    : "notifs"
+            }
           />
         ) : null}
       </main>
@@ -1106,11 +1149,15 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
         />
       )}
 
-      {/* GLOBAL FLOATING ACTION BUTTON (FAB) */}
+      {/* GLOBAL FLOATING ACTION BUTTON (FAB) — behind menu overlay on mobile so it blurs with the page */}
       {(!isReportModalOpen && !commentingFeedback && !selectedBroadcast && !dialogState.isOpen) && (
         <button
           className="fab-btn"
-          style={styles.fab}
+          style={{
+            ...styles.fab,
+            zIndex: !isDesktop && isMenuOpen ? 900 : styles.fab.zIndex,
+            pointerEvents: !isDesktop && isMenuOpen ? 'none' : 'auto',
+          }}
           onClick={(e) => { e.stopPropagation(); setIsReportModalOpen(true); setReportStep('general'); }}
           title={`New ${getModeLabel("feedback_label", "Report")}`}
         >
@@ -1118,6 +1165,7 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
         </button>
       )}
 
+      </div>
     </div>
   );
 });
@@ -2385,8 +2433,8 @@ const styles = {
     width: '56px',
     height: '56px',
     borderRadius: '28px',
-    backgroundColor: '#6366F1', // Fallback Indigo
-    backgroundImage: 'linear-gradient(135deg, #6366F1 0%, #4F46E5 100%)',
+    backgroundColor: 'var(--primary-color)',
+    backgroundImage: 'linear-gradient(135deg, var(--primary-color) 0%, #2563EB 100%)',
     color: 'white',
     display: 'flex',
     alignItems: 'center',

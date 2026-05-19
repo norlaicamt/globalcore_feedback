@@ -85,6 +85,10 @@ class User(Base):
     two_factor_enabled = association_proxy("settings", "two_factor_enabled")
     show_activity_status = association_proxy("settings", "show_activity_status")
     biometrics_enabled = association_proxy("settings", "biometrics_enabled")
+    appearance_category = association_proxy("settings", "appearance_category")
+    appearance_pattern = association_proxy("settings", "appearance_pattern")
+    appearance_accent = association_proxy("settings", "appearance_accent")
+    appearance_mode = association_proxy("settings", "appearance_mode")
 
     # Proxy properties for UserSession
     session_token = association_proxy("session", "session_token")
@@ -173,6 +177,10 @@ class UserSetting(Base):
     two_factor_enabled = Column(Boolean, default=False)
     biometrics_enabled = Column(Boolean, default=True)
     show_activity_status = Column(Boolean, default=True)
+    appearance_category = Column(String(32), default="minimal")
+    appearance_pattern = Column(String(32), default="soft_circles")
+    appearance_accent = Column(String(16), nullable=True)
+    appearance_mode = Column(String(16), default="light")
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     

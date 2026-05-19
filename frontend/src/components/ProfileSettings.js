@@ -12,6 +12,7 @@ import {
     confirmPhoneChange
 } from "../services/api";
 import CustomModal from "./CustomModal";
+import AppearancePreferences from "./AppearancePreferences";
 import ImageCropperModal from "./ImageCropperModal";
 import { resolveMediaUrl } from "../utils/feedback";
 
@@ -68,7 +69,7 @@ const PasswordRule = ({ met, text }) => (
 );
 
 const DataTile = ({ label, value, icon }) => (
-    <div style={styles.dataTile}>
+    <div className="settings-data-tile" style={styles.dataTile}>
         <div style={styles.tileIcon}>{icon}</div>
         <div>
             <span style={styles.tileLabel}>{label}</span>
@@ -89,7 +90,7 @@ const InputGroup = ({ label, value, onChange, placeholder, type, trailingAction 
             padding: 'var(--card-padding, 10px 16px)',
             transition: 'border-color 0.2s',
             minHeight: 'var(--button-height, 64px)'
-        }}>
+        }} className="settings-input-shell">
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '2px' }}>
                 <label style={{
                     fontSize: 'var(--size-chip, 10px)',
@@ -127,8 +128,8 @@ const InputGroup = ({ label, value, onChange, placeholder, type, trailingAction 
 );
 
 const ToggleCard = ({ title, desc, isOn, onToggle, icon, isDisabled }) => (
-    <div style={{ ...styles.toggleCard, opacity: isDisabled ? 0.5 : 1, filter: isDisabled ? 'grayscale(0.8)' : 'none' }}>
-        <div style={{ ...styles.toggleIconContainer, opacity: isDisabled ? 0.3 : 1 }}>
+    <div className="user-portal-card settings-section-card settings-toggle-card" style={{ ...styles.toggleCard, opacity: isDisabled ? 0.5 : 1, filter: isDisabled ? 'grayscale(0.8)' : 'none' }}>
+        <div className="settings-toggle-icon" style={{ ...styles.toggleIconContainer, opacity: isDisabled ? 0.3 : 1 }}>
             {icon}
         </div>
         <div style={{ flex: 1 }}>
@@ -266,13 +267,13 @@ const ProfileView = ({ currentUser, onUserUpdate, showToast }) => {
 
     return (
         <div style={styles.viewContainer}>
-            <div style={styles.sectionHeader}>
+            <div className="settings-section-header" style={styles.sectionHeader}>
                 <h2 style={styles.viewTitle}>Professional Identity</h2>
                 <p style={styles.viewSubtitle}>Manage your organizational profile, assignments, and professional information.</p>
             </div>
 
-            <div style={styles.heroCard}>
-                <div style={styles.heroContent}>
+            <div className="user-portal-card settings-hero-card" style={styles.heroCard}>
+                <div className="settings-hero-content" style={styles.heroContent}>
                     <div style={styles.avatarLargeContainer}>
                         {currentUser.avatar_url ? (
                             <img src={resolveMediaUrl(currentUser.avatar_url)} style={styles.avatarLarge} alt="Avatar" />
@@ -292,9 +293,9 @@ const ProfileView = ({ currentUser, onUserUpdate, showToast }) => {
 
                         <div style={{ ...styles.badgeRow, marginTop: '14px' }}>
                             {currentUser.role !== 'user' && (
-                                <span style={styles.roleBadge}>{currentUser.role === 'superadmin' ? 'Global Admin' : currentUser.role.toUpperCase()}</span>
+                                <span className="settings-badge" style={styles.roleBadge}>{currentUser.role === 'superadmin' ? 'Global Admin' : currentUser.role.toUpperCase()}</span>
                             )}
-                            <span style={styles.statusBadge}>Verified</span>
+                            <span className="settings-badge" style={styles.statusBadge}>Verified</span>
                         </div>
                     </div>
                     <button
@@ -313,23 +314,23 @@ const ProfileView = ({ currentUser, onUserUpdate, showToast }) => {
 
                 <div style={styles.statsBar}>
                     <div style={styles.statBox}>
-                        <span style={styles.statVal}>{(currentUser.impact_points || 0).toFixed(0)}</span>
-                        <span style={styles.statLab}>Participation Metrics</span>
+                        <span className="settings-stat-val" style={styles.statVal}>{(currentUser.impact_points || 0).toFixed(0)}</span>
+                        <span className="settings-stat-lab" style={styles.statLab}>Participation Metrics</span>
                     </div>
                     <div style={styles.statDivider} />
                     <div style={styles.statBox}>
-                        <span style={styles.statVal}>{currentUser.likes_received || 0}</span>
-                        <span style={styles.statLab}>Community Reactions</span>
+                        <span className="settings-stat-val" style={styles.statVal}>{currentUser.likes_received || 0}</span>
+                        <span className="settings-stat-lab" style={styles.statLab}>Community Reactions</span>
                     </div>
                     <div style={styles.statDivider} />
                     <div style={styles.statBox}>
-                        <span style={styles.statVal}>{currentUser.posts_count || 0}</span>
-                        <span style={styles.statLab}>Submissions</span>
+                        <span className="settings-stat-val" style={styles.statVal}>{currentUser.posts_count || 0}</span>
+                        <span className="settings-stat-lab" style={styles.statLab}>Submissions</span>
                     </div>
                 </div>
             </div>
 
-            <div style={styles.sectionCardPremiumProfile}>
+            <div className="user-portal-card settings-section-card" style={styles.sectionCardPremiumProfile}>
                 {!isEditing ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
                         {/* SECTION: PERSONAL IDENTITY */}
@@ -454,11 +455,11 @@ const ProfileView = ({ currentUser, onUserUpdate, showToast }) => {
                             </div>
                         )}
 
-                        <div style={styles.formActionsPremium}>
-                            <button style={styles.primaryBtnPremium} onClick={handleSave}>
+                        <div className="settings-form-actions" style={styles.formActionsPremium}>
+                            <button className="settings-primary-btn" style={styles.primaryBtnPremium} onClick={handleSave}>
                                 Save Changes
                             </button>
-                            <button style={styles.secondaryBtnPremium} onClick={() => setIsEditing(false)}>Cancel</button>
+                            <button className="settings-secondary-btn" style={styles.secondaryBtnPremium} onClick={() => setIsEditing(false)}>Cancel</button>
                         </div>
                     </div>
                 )}
@@ -478,7 +479,7 @@ const NotificationsView = ({ currentUser, notifs, handleToggle }) => {
 
     return (
         <div style={styles.viewContainer}>
-            <div style={styles.sectionHeader}>
+            <div className="settings-section-header" style={styles.sectionHeader}>
                 <h2 style={styles.viewTitle}>Awareness & Notifications</h2>
                 <p style={styles.viewSubtitle}>
                     {isAdmin
@@ -489,8 +490,8 @@ const NotificationsView = ({ currentUser, notifs, handleToggle }) => {
             </div>
 
             {isAdmin && (
-                <div style={styles.scopeAwarenessBanner}>
-                    <div style={styles.scopeIcon}><Icons.Info /></div>
+                <div className="settings-scope-banner" style={styles.scopeAwarenessBanner}>
+                    <div className="settings-scope-icon" style={styles.scopeIcon}><Icons.Info /></div>
                     <div style={styles.scopeText}>
                         <strong>Administrative Scope Active</strong>
                         <p>You will receive organizational alerts strictly isolated to your assigned Entity: <span style={{ color: 'var(--primary-color)', fontWeight: '800' }}>{currentUser.program || currentUser.entity_name || 'Global Scope'}</span>.</p>
@@ -849,20 +850,20 @@ const PrivacyView = ({ currentUser, onUserUpdate, showToast, onLogout }) => {
 
     return (
         <div style={styles.viewContainer}>
-            <div style={styles.sectionHeader}>
+            <div className="settings-section-header" style={styles.sectionHeader}>
                 <h2 style={styles.viewTitle}>Security & Privacy</h2>
                 <p style={styles.viewSubtitle}>Manage account protection, authentication, and privacy settings.</p>
             </div>
 
             {/* SECTION 1: ACCOUNT INFORMATION - UPGRADED SECURE IDENTITY WORKFLOW */}
-            <div style={{ ...styles.sectionCardPremium, marginBottom: '24px' }}>
+            <div className="user-portal-card settings-section-card" style={{ ...styles.sectionCardPremium, marginBottom: '24px' }}>
                 <h4 style={{ ...styles.cardTitlePremium, fontSize: '11px', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '24px' }}>
                     Account Identity & Verification
                 </h4>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                     {/* EMAIL FIELD CARD */}
-                    <div style={{ background: '#F8FAFC', padding: '20px', borderRadius: '16px', border: '1px solid #E2E8F0', position: 'relative' }}>
+                    <div className="settings-inner-panel" style={{ background: '#F8FAFC', padding: '20px', borderRadius: '16px', border: '1px solid #E2E8F0', position: 'relative' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
                             <div>
                                 <span style={{ ...styles.fieldLabel, color: '#64748B', display: 'block', marginBottom: '4px', fontSize: '11px', textTransform: 'uppercase', fontWeight: '700' }}>Registered Email</span>
@@ -959,7 +960,7 @@ const PrivacyView = ({ currentUser, onUserUpdate, showToast, onLogout }) => {
                     </div>
 
                     {/* PHONE FIELD CARD */}
-                    <div style={{ background: '#F8FAFC', padding: '20px', borderRadius: '16px', border: '1px solid #E2E8F0', position: 'relative' }}>
+                    <div className="settings-inner-panel" style={{ background: '#F8FAFC', padding: '20px', borderRadius: '16px', border: '1px solid #E2E8F0', position: 'relative' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
                             <div>
                                 <span style={{ ...styles.fieldLabel, color: '#64748B', display: 'block', marginBottom: '4px', fontSize: '11px', textTransform: 'uppercase', fontWeight: '700' }}>Registered Contact Number</span>
@@ -1071,6 +1072,7 @@ const PrivacyView = ({ currentUser, onUserUpdate, showToast, onLogout }) => {
             </div>
             {/* SECTION 2: CHANGE PASSWORD (ACCORDION) */}
             <div
+                className="user-portal-card settings-section-card"
                 style={{
                     ...styles.sectionCardPremium,
                     padding: 0,
@@ -1213,6 +1215,7 @@ const PrivacyView = ({ currentUser, onUserUpdate, showToast, onLogout }) => {
 
             {/* SECTION 3: ACCOUNT ACTIVITY CONTROL (ACCORDION) */}
             <div
+                className="user-portal-card settings-section-card"
                 style={{
                     ...styles.sectionCardPremium,
                     background: '#F8FAFC',
@@ -1583,6 +1586,7 @@ const ProfileSettings = ({ currentUser, onUserUpdate, onLogout, initialSubView }
     let activeTab = "profile";
     if (initialSubView === "notifs" || initialSubView === "notifications") activeTab = "notifications";
     if (initialSubView === "privacy" || initialSubView === "security") activeTab = "privacy";
+    if (initialSubView === "appearance" || initialSubView === "appearance_settings") activeTab = "appearance";
     if (initialSubView === "personal_info" || initialSubView === "profile") activeTab = "profile";
 
     const showToast = (message) => {
@@ -1612,10 +1616,10 @@ const ProfileSettings = ({ currentUser, onUserUpdate, onLogout, initialSubView }
     };
 
     return (
-        <div style={styles.container}>
+        <div className="user-portal-container profile-settings-page" style={styles.container}>
             {/* CONTENT AREA ONLY */}
             <div style={styles.contentAreaOnly}>
-                <div style={styles.scrollWrapper}>
+                <div className="profile-settings-scroll" style={styles.scrollWrapper}>
                     {activeTab === "profile" && <ProfileView currentUser={currentUser} onUserUpdate={onUserUpdate} showToast={showToast} />}
                     {activeTab === "notifications" && (
                         <NotificationsView
@@ -1639,12 +1643,20 @@ const ProfileSettings = ({ currentUser, onUserUpdate, onLogout, initialSubView }
                         />
                     )}
                     {activeTab === "privacy" && <PrivacyView currentUser={currentUser} onUserUpdate={onUserUpdate} showToast={showToast} onLogout={onLogout} />}
+                    {activeTab === "appearance" && (
+                        <AppearancePreferences
+                            currentUser={currentUser}
+                            onUserUpdate={onUserUpdate}
+                            showToast={showToast}
+                            styles={styles}
+                        />
+                    )}
                 </div>
             </div>
 
             {/* TOAST SYSTEM */}
             {toast.show && (
-                <div style={styles.toast}>
+                <div className="settings-toast" style={styles.toast}>
                     <Icons.Check />
                     <span>{toast.message}</span>
                 </div>
@@ -1659,22 +1671,22 @@ const ProfileSettings = ({ currentUser, onUserUpdate, onLogout, initialSubView }
 const styles = {
     container: { display: 'flex', flexDirection: 'column', padding: '10px 0', background: 'transparent', fontFamily: '"Inter", sans-serif' },
     contentAreaOnly: { flex: 1 },
-    scrollWrapper: { padding: '20px' },
+    scrollWrapper: { padding: 'var(--card-padding, 16px)' },
     viewContainer: { maxWidth: '840px', margin: '0 auto', fontSize: 'var(--size-body, 14px)' },
-    sectionHeader: { marginBottom: 'var(--card-padding, 48px)' },
-    viewTitle: { fontSize: 'clamp(16px, 4vw, 22px)', fontWeight: '900', color: 'var(--primary-color)', margin: '0 0 8px 0', letterSpacing: '-0.3px' },
-    viewSubtitle: { fontSize: 'clamp(12px, 2.5vw, 14px)', color: '#64748B', margin: 0, fontWeight: '500' },
+    sectionHeader: { marginBottom: 'var(--card-padding, 24px)' },
+    viewTitle: { fontSize: 'var(--size-page-title, 18px)', fontWeight: '900', color: 'var(--primary-color)', margin: '0 0 6px 0', letterSpacing: '-0.3px' },
+    viewSubtitle: { fontSize: 'var(--size-secondary, 13px)', color: '#64748B', margin: 0, fontWeight: '500', lineHeight: 1.45 },
 
-    heroCard: { background: 'white', borderRadius: '32px', padding: 'var(--card-padding, 40px)', border: '1.5px solid #E2E8F0', boxShadow: '0 15px 40px rgba(0,0,0,0.03)', marginBottom: '32px' },
-    heroContent: { display: 'flex', alignItems: 'center', gap: 'var(--card-padding, 32px)', marginBottom: 'var(--card-padding, 40px)' },
+    heroCard: { background: 'white', borderRadius: '20px', padding: 'var(--card-padding, 20px)', border: '1.5px solid #E2E8F0', boxShadow: '0 15px 40px rgba(0,0,0,0.03)', marginBottom: 'var(--card-padding, 16px)' },
+    heroContent: { display: 'flex', alignItems: 'center', gap: 'var(--card-padding, 16px)', marginBottom: 'var(--card-padding, 16px)' },
     avatarLargeContainer: { position: 'relative' },
     avatarLarge: { width: 'var(--avatar-size-large, 110px)', height: 'var(--avatar-size-large, 110px)', borderRadius: '35px', objectFit: 'cover', border: '4px solid white', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' },
     avatarLargePlaceholder: { width: 'var(--avatar-size-large, 110px)', height: 'var(--avatar-size-large, 110px)', borderRadius: '35px', background: '#F1F5F9', color: 'var(--primary-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 'var(--size-nav, 40px)', fontWeight: '900' },
     heroEditBadge: { position: 'absolute', bottom: '-4px', right: '-4px', width: 'var(--button-height, 32px)', height: 'var(--button-height, 32px)', borderRadius: '10px', background: 'var(--primary-color)', color: 'white', border: '2px solid white', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' },
     heroText: { flex: 1 },
-    heroName: { fontSize: 'var(--size-user-name, 26px)', fontWeight: '900', color: 'var(--primary-color)', margin: '0 0 4px 0', letterSpacing: '-0.5px' },
-    heroUsername: { fontSize: 'var(--size-metadata, 13px)', fontWeight: '800', color: 'var(--primary-color)', margin: '0 0 6px 0', letterSpacing: '0.5px' },
-    heroEmail: { fontSize: 'var(--size-secondary, 14px)', color: '#64748B', fontWeight: '500', marginBottom: '16px' },
+    heroName: { fontSize: 'var(--size-user-name, 18px)', fontWeight: '900', color: 'var(--primary-color)', margin: '0 0 4px 0', letterSpacing: '-0.3px' },
+    heroUsername: { fontSize: 'var(--size-metadata, 12px)', fontWeight: '800', color: 'var(--primary-color)', margin: '0 0 4px 0', letterSpacing: '0.3px' },
+    heroEmail: { fontSize: 'var(--size-secondary, 13px)', color: '#64748B', fontWeight: '500', marginBottom: '12px' },
     badgeRow: { display: 'flex', gap: '8px' },
     roleBadge: { padding: '2px 8px', background: '#F0F9FF', color: '#0369A1', borderRadius: '20px', fontSize: 'var(--size-chip, 8.5px)', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.5px' },
     statusBadge: { padding: '2px 8px', background: '#F0FDF4', color: '#166534', borderRadius: '20px', fontSize: 'var(--size-chip, 8.5px)', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.5px' },
@@ -1682,14 +1694,14 @@ const styles = {
 
     statsBar: { display: 'flex', padding: 'var(--card-padding, 24px 0)', borderTop: '1px solid #F1F5F9' },
     statBox: { flex: 1, textAlign: 'center' },
-    statVal: { fontSize: 'var(--size-nav, 24px)', fontWeight: '900', color: 'var(--primary-color)', display: 'block' },
+    statVal: { fontSize: 'var(--size-nav, 18px)', fontWeight: '900', color: 'var(--primary-color)', display: 'block' },
     statLab: { fontSize: 'var(--size-chip, 10px)', color: '#94A3B8', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1px', marginTop: '4px' },
     statDivider: { width: '1.5px', background: '#F1F5F9' },
 
-    sectionCardPremium: { background: 'white', borderRadius: '32px', padding: 'var(--card-padding, 40px)', border: '1.5px solid #E2E8F0', marginBottom: '32px', boxShadow: '0 10px 40px rgba(0,0,0,0.02)' },
-    sectionCardPremiumProfile: { background: 'white', borderRadius: '32px', padding: 'var(--card-padding, 40px)', border: '1.5px solid #E2E8F0', marginBottom: '32px' },
-    cardTitlePremium: { fontSize: 'var(--size-card-title, 20px)', fontWeight: '900', color: 'var(--primary-color)', letterSpacing: '-0.5px' },
-    cardHeader: { marginBottom: 'var(--card-padding, 32px)' },
+    sectionCardPremium: { background: 'white', borderRadius: '16px', padding: 'var(--card-padding, 16px)', border: '1.5px solid #E2E8F0', marginBottom: 'var(--card-padding, 12px)', boxShadow: '0 10px 40px rgba(0,0,0,0.02)' },
+    sectionCardPremiumProfile: { background: 'white', borderRadius: '16px', padding: 'var(--card-padding, 16px)', border: '1.5px solid #E2E8F0', marginBottom: 'var(--card-padding, 12px)' },
+    cardTitlePremium: { fontSize: 'var(--size-card-title, 14px)', fontWeight: '900', color: 'var(--primary-color)', letterSpacing: '-0.3px' },
+    cardHeader: { marginBottom: 'var(--card-padding, 16px)' },
     dataGridPremium: { display: 'grid', gridTemplateColumns: 'repeat(var(--grid-cols, 2), 1fr)', gap: 'var(--card-padding, 20px)' },
     dataTile: { padding: 'var(--card-padding, 20px)', borderRadius: '20px', background: '#F8FAFC', border: '1px solid #F1F5F9', display: 'flex', gap: '16px' },
     tileIcon: { width: 'var(--avatar-size, 40px)', height: 'var(--avatar-size, 40px)', background: 'white', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748B', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' },
@@ -1699,11 +1711,11 @@ const styles = {
     formGridPremium: { display: 'grid', gridTemplateColumns: 'repeat(var(--grid-cols, 2), 1fr)', gap: 'var(--card-padding, 20px)' },
     inputWrap: { display: 'flex', flexDirection: 'column', gap: '8px' },
     fieldLabel: { fontSize: 'var(--size-metadata, 12px)', fontWeight: '800', color: 'var(--primary-color)', textTransform: 'uppercase', letterSpacing: '0.5px' },
-    inputField: { padding: '16px', background: '#F8FAFC', border: '1.5px solid #E2E8F0', borderRadius: '16px', fontSize: 'var(--size-body, 15px)', color: '#1E293B' },
-    selectFieldPremium: { padding: '16px', background: '#F8FAFC', border: '1.5px solid #E2E8F0', borderRadius: '16px', fontSize: 'var(--size-body, 15px)', outline: 'none' },
-    primaryBtnPremium: { padding: '16px 28px', background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '18px', fontSize: 'var(--size-nav, 15px)', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', height: 'var(--button-height, 48px)', justifyContent: 'center' },
-    secondaryBtnPremium: { padding: '16px 28px', background: 'transparent', color: '#64748B', border: '1.5px solid #E2E8F0', borderRadius: '18px', fontSize: 'var(--size-nav, 15px)', fontWeight: '700', cursor: 'pointer', height: 'var(--button-height, 48px)', display: 'flex', alignItems: 'center', justifyContent: 'center' },
-    formActionsPremium: { display: 'flex', gap: '16px', marginTop: '40px', justifyContent: 'flex-end', borderTop: '1px solid #F1F5F9', paddingTop: '32px' },
+    inputField: { padding: '12px', background: '#F8FAFC', border: '1.5px solid #E2E8F0', borderRadius: '12px', fontSize: 'var(--size-body, 14px)', color: '#1E293B' },
+    selectFieldPremium: { padding: '12px', background: '#F8FAFC', border: '1.5px solid #E2E8F0', borderRadius: '12px', fontSize: 'var(--size-body, 14px)', outline: 'none' },
+    primaryBtnPremium: { padding: '12px 20px', background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '12px', fontSize: 'var(--size-nav, 13px)', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', height: 'var(--button-height, 40px)', justifyContent: 'center' },
+    secondaryBtnPremium: { padding: '12px 20px', background: 'transparent', color: '#64748B', border: '1.5px solid #E2E8F0', borderRadius: '12px', fontSize: 'var(--size-nav, 13px)', fontWeight: '700', cursor: 'pointer', height: 'var(--button-height, 40px)', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+    formActionsPremium: { display: 'flex', gap: '12px', marginTop: '24px', justifyContent: 'flex-end', borderTop: '1px solid #F1F5F9', paddingTop: '16px' },
 
     scopeAwarenessBanner: { display: 'flex', gap: '20px', background: '#F0F9FF', border: '1px solid #BAE6FD', padding: '24px', borderRadius: '24px', marginBottom: '40px' },
     scopeIcon: { width: '48px', height: '48px', background: '#E0F2FE', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0369A1' },
@@ -1712,10 +1724,10 @@ const styles = {
     notificationGroup: { marginBottom: 'var(--card-padding, 48px)' },
     groupHeader: { fontSize: 'var(--size-chip, 11px)', fontWeight: '900', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '20px', paddingLeft: '8px' },
     groupStack: { display: 'flex', flexDirection: 'column', gap: '12px' },
-    toggleCard: { display: 'flex', alignItems: 'center', padding: 'var(--card-padding, 24px)', background: 'white', borderRadius: '24px', border: '1.5px solid #F1F5F9', transition: 'all 0.2s ease', boxShadow: '0 4px 15px rgba(0,0,0,0.01)' },
+    toggleCard: { display: 'flex', alignItems: 'center', padding: 'var(--card-padding, 12px)', background: 'white', borderRadius: '12px', border: '1.5px solid #F1F5F9', transition: 'all 0.2s ease', boxShadow: '0 4px 15px rgba(0,0,0,0.01)' },
     toggleIconContainer: { width: 'var(--avatar-size, 40px)', height: 'var(--avatar-size, 40px)', background: '#F8FAFC', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748B', marginRight: 'var(--card-padding, 16px)' },
-    toggleTitle: { fontSize: 'var(--size-card-title, 16px)', fontWeight: '800', color: 'var(--primary-color)', margin: '0 0 4px 0' },
-    toggleDesc: { fontSize: 'var(--size-body, 13px)', color: '#64748B', margin: 0, lineHeight: '1.5', paddingRight: '20px' },
+    toggleTitle: { fontSize: 'var(--size-card-title, 13px)', fontWeight: '800', color: 'var(--primary-color)', margin: '0 0 2px 0' },
+    toggleDesc: { fontSize: 'var(--size-body, 12px)', color: '#64748B', margin: 0, lineHeight: '1.45', paddingRight: '12px' },
     toggleBtn: { width: '40px', height: '22px', borderRadius: '12px', position: 'relative', cursor: 'pointer', transition: 'all 0.3s', flexShrink: 0 },
     toggleCircle: { width: '16px', height: '16px', borderRadius: '50%', position: 'absolute', top: '3px', left: '0', transition: 'all 0.3s' },
     cardStack: { display: 'flex', flexDirection: 'column', gap: '0' },

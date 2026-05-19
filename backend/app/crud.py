@@ -183,6 +183,24 @@ def search_users(db: Session, query: str = None, roles: List[str] = None, limit:
         
     return q.limit(limit).all()
 
+USER_SETTING_FIELDS = {
+    "notify_replies", "notify_comments", "notify_mentions", "notify_likes",
+    "notify_announcements", "push_notifications", "email_notifications",
+    "weekly_digest", "daily_summary", "notify_new_feedback", "notify_assigned",
+    "notify_high_activity", "notify_system_announcements", "two_factor_enabled",
+    "show_activity_status", "biometrics_enabled",
+    "appearance_category", "appearance_pattern", "appearance_accent", "appearance_mode",
+}
+
+
+def _ensure_user_settings(db: Session, user: models.User) -> models.UserSetting:
+    if user.settings is None:
+        user.settings = models.UserSetting(user_id=user.id)
+        db.add(user.settings)
+        db.flush()
+    return user.settings
+
+
 def create_user(db: Session, user: schemas.UserCreate):
     data = user.model_dump()
     if "email" in data:
@@ -209,7 +227,13 @@ def update_user(db: Session, user_id: int, updates: schemas.UserUpdate):
                     # In this generic CRUD, we'll raise an error that the router can handle
                     raise ValueError(f"Email {new_email} is already taken")
             update_data["email"] = new_email
-            
+
+        settings_updates = {k: update_data.pop(k) for k in list(update_data.keys()) if k in USER_SETTING_FIELDS}
+        if settings_updates:
+            settings = _ensure_user_settings(db, db_user)
+            for key, value in settings_updates.items():
+                setattr(settings, key, value)
+
         for key, value in update_data.items():
             setattr(db_user, key, value)
         db.commit()
