@@ -1490,7 +1490,7 @@ const PrivacyView = ({ currentUser, onUserUpdate, showToast, onLogout }) => {
                                     label="New Contact Number"
                                     value={newPhoneInput}
                                     onChange={setNewPhoneInput}
-                                    placeholder="+1234567890"
+                                    placeholder="+63 912 345 6789"
                                     type="tel"
                                 />
                                 <InputGroup
