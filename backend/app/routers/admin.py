@@ -313,10 +313,7 @@ def analytics_top_users(
     # Calculate points in SQL or after fetch (SQL is better for sorting)
     # But for simplicity and consistency with the main list, we'll fetch and calc
     query = db.query(
-        models.User.id,
-        models.User.name,
-        models.User.email,
-        models.User.department,
+        models.User,
         post_count_sq.label("p_cnt"),
         recv_likes_sq.label("r_likes"),
         give_likes_sq.label("r_give"),
@@ -343,14 +340,15 @@ def analytics_top_users(
     # Calculate points and sort
     results = []
     for r in rows:
-        p_cnt = r.p_cnt or 0
-        r_lks = r.r_likes or 0
-        g_lks = (r.r_give or 0) + (r.rr_give or 0)
-        g_cms = r.c_give or 0
+        user_obj = r[0]
+        p_cnt = r[1] or 0
+        r_lks = r[2] or 0
+        g_lks = (r[3] or 0) + (r[4] or 0)
+        g_cms = r[5] or 0
         
         pts = (p_cnt * 3) + (r_lks * 0.5) + (g_lks * 0.5) + (g_cms * 0.3)
         results.append({
-            "id": r.id, "name": r.name, "email": r.email, "department": r.department, 
+            "id": user_obj.id, "name": user_obj.name, "email": user_obj.email, "department": user_obj.department, 
             "total_posts": p_cnt, "impact_points": round(float(pts), 1)
         })
     

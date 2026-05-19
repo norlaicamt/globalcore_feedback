@@ -20,18 +20,18 @@ import { resolveMediaUrl } from "../../utils/feedback";
 
 const NAV_ITEMS = [
   { id: "dashboard", label: "Insight Hub", icon: <ChartIcon /> },
-  { id: "users", label: "User Management", icon: <UsersIcon /> },
+  { id: "users", label: "User Management", icon: <UserIcon /> },
   { id: "feedbacks", label: "Submissions", icon: <FeedIcon /> },
   { id: "team", label: "Team", icon: <UsersIcon /> },
   { type: "label", label: "PANEL" },
   { id: "broadcast", label: "Announcements", icon: <BellIcon /> },
-  { id: "broadcast_analytics", label: "Reach Analytics", icon: <ChartIcon />, isSub: true },
+  { id: "broadcast_analytics", label: "Engagement Insights", icon: <ChartIcon />, isSub: true },
   { id: "programs", label: "Workspaces Hub", icon: <OrgIcon /> },
-  { id: "products", label: "Product Catalog", icon: <ProductIcon /> },
-  { id: "formdesigner", label: "Form Layout", icon: <OrgIcon /> },
+  { id: "products", label: "Product Hub", icon: <ProductIcon /> },
+  { id: "formdesigner", label: "Form Designer", icon: <FormIcon /> },
   { type: "label", label: "PREFERENCES" },
   { id: "settings", label: "Settings", icon: <SettingsIcon /> },
-  { id: "auditlogs", label: "System Audit Trail", icon: <ClockIcon /> },
+  { id: "auditlogs", label: "Audit Trail", icon: <ClockIcon /> },
 ];
 
 const AdminHub = ({ adminUser, onLogout }) => {
@@ -298,7 +298,7 @@ const AdminHub = ({ adminUser, onLogout }) => {
                 const globalTools = ["feedbacktypes"];
                 if (globalTools.includes(item.id)) return false;
 
-                // Hide generic "Workspaces", global "Product Catalog", Announcements, and Reach Analytics for scoped admins
+                // Hide generic "Workspaces", global "Product Hub", Announcements, and Engagement Insights for scoped admins
                 if (item.id === "programs" || item.id === "products" || item.id === "broadcast" || item.id === "broadcast_analytics") return false;
 
                 // Hide labels if we're simplifying for scoped view
@@ -320,15 +320,15 @@ const AdminHub = ({ adminUser, onLogout }) => {
                   { 
                     id: "workspace_locations", 
                     label: "Service Sites", 
-                    icon: <OrgIcon />,
+                    icon: <LocationIcon />,
                     isSub: true,
                     isDisabled: !isLocationsEnabled,
                     title: !isLocationsEnabled ? "Locked by Governance" : ""
                   },
                   { id: "workspace_analytics", label: "Performance Hub", icon: <ChartIcon />, isSub: true },
-                  { id: "workspace_products", label: "Product Catalog", icon: <ProductIcon />, isSub: true },
+                  { id: "workspace_products", label: "Product Hub", icon: <ProductIcon />, isSub: true },
                   { id: "workspace_settings", label: "Operational Rules", icon: <SettingsIcon />, isSub: true },
-                  item // Keep Form Layout
+                  item // Keep Form Designer
                 ];
               }
               return [item];
@@ -446,13 +446,16 @@ const AdminHub = ({ adminUser, onLogout }) => {
 
 // ─── SVG Icon Components (professional, monochrome) ───
 function ChartIcon() { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" /></svg>; }
-function UsersIcon() { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 00-3-3.87" /><path d="M16 3.13a4 4 0 010 7.75" /></svg>; }
+function UserIcon() { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>; }
+function UsersIcon() { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>; }
 function FeedIcon() { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" /></svg>; }
 function BellIcon() { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 01-3.46 0" /></svg>; }
 function SettingsIcon() { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z" /></svg>; }
 function SunIcon() { return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="5" /><line x1="12" y1="1" x2="12" y2="3" /><line x1="12" y1="21" x2="12" y2="23" /><line x1="4.22" y1="4.22" x2="5.64" y2="5.64" /><line x1="18.36" y1="18.36" x2="19.78" y2="19.78" /><line x1="1" y1="12" x2="3" y2="12" /><line x1="21" y1="12" x2="23" y2="12" /><line x1="4.22" y1="19.78" x2="5.64" y2="18.36" /><line x1="18.36" y1="5.64" x2="19.78" y2="4.22" /></svg>; }
 function MoonIcon() { return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>; }
-function OrgIcon() { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 00-3-3.87" /><path d="M16 3.13a4 4 0 010 7.75" /></svg>; }
+function OrgIcon() { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 21h18" /><path d="M9 21V9a3 3 0 0 1 3-3h0a3 3 0 0 1 3 3v12" /><path d="M5 21V12a2 2 0 0 1 2-2h2" /><path d="M15 21v-7a2 2 0 0 1 2-2h2v9" /></svg>; }
+function LocationIcon() { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>; }
+function FormIcon() { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" /><rect x="8" y="2" width="8" height="4" rx="1" ry="1" /><line x1="9" y1="12" x2="15" y2="12" /><line x1="9" y1="16" x2="15" y2="16" /><polyline points="9 8 10 8 12 8" /></svg>; }
 function ProductIcon() { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>; }
 function ClockIcon() { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>; }
 

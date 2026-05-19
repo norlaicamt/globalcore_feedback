@@ -2154,37 +2154,39 @@ def get_user_activity(db: Session, user_id: int):
 def get_user_distribution(db: Session, dept_name: Optional[str] = None, entity_id: Optional[int] = None):
     """Provides breakdown of users by Entity and Role Identity with Admin mapping."""
     from sqlalchemy import case
-    # 1. By Entity / Service (Priority: Entity.name -> unit_name fallback)
-    entity_label = func.coalesce(models.Entity.name, models.User.unit_name).label("name")
+    # 1. By Entity / Service (Priority: Entity.name -> UserModuleContext.unit_name fallback)
+    entity_label = func.coalesce(models.Entity.name, models.UserModuleContext.unit_name).label("name")
     entity_q = db.query(
         entity_label,
         func.count(models.User.id).label("value")
-    ).outerjoin(models.Entity, models.User.entity_id == models.Entity.id)\
+    ).join(models.UserModuleContext, models.User.id == models.UserModuleContext.user_id)\
+     .outerjoin(models.Entity, models.UserModuleContext.entity_id == models.Entity.id)\
      .filter(entity_label != None, entity_label != "")
     
     if entity_id:
-        entity_q = entity_q.filter(models.User.entity_id == entity_id)
+        entity_q = entity_q.filter(models.UserModuleContext.entity_id == entity_id)
     elif dept_name:
-        entity_q = entity_q.filter(models.User.unit_name == dept_name)
+        entity_q = entity_q.filter(models.UserModuleContext.unit_name == dept_name)
     
     entity_dist = entity_q.group_by(entity_label).all()
     
     # 2. By Role Identity (Filter out Admins)
-    role_label = models.User.role_identity.label("name")
+    role_label = models.UserModuleContext.role_identity.label("name")
     
     role_q = db.query(
         role_label,
         func.count(models.User.id).label("value")
-    ).filter(
-        models.User.role.notin_(["admin", "superadmin"]),
+    ).join(models.UserModuleContext, models.User.id == models.UserModuleContext.user_id)\
+     .filter(
+        models.UserModuleContext.role.notin_(["admin", "superadmin"]),
         role_label != None, 
         role_label != ""
     )
     
     if entity_id:
-        role_q = role_q.filter(models.User.entity_id == entity_id)
+        role_q = role_q.filter(models.UserModuleContext.entity_id == entity_id)
     elif dept_name:
-        role_q = role_q.filter(models.User.unit_name == dept_name)
+        role_q = role_q.filter(models.UserModuleContext.unit_name == dept_name)
     
     role_dist = role_q.group_by(role_label).all()
 
