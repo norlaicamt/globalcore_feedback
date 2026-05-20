@@ -52,7 +52,7 @@ const styles = {
     display: 'flex',
     height: '100%',
     width: '100%',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: 'var(--portal-surface-bg)',
     borderRadius: '24px',
     overflow: 'hidden',
     boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)',
@@ -124,7 +124,7 @@ const styles = {
     flex: 1,
     height: '100%',
     overflow: 'hidden',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: 'transparent',
     position: 'relative'
   }
 };

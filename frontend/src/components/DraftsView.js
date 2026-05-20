@@ -145,7 +145,7 @@ const DraftsView = ({ currentUser, onBack }) => {
 
   if (editingDraft) {
     return (
-      <div style={{ height: '100%', width: '100%', position: 'absolute', top: 0, left: 0, zIndex: 100, backgroundColor: 'white' }}>
+      <div style={{ height: '100%', width: '100%', position: 'absolute', top: 0, left: 0, zIndex: 100, backgroundColor: 'var(--portal-surface-bg)' }}>
         <GeneralFeedback
           currentUser={currentUser}
           initialDraft={editingDraft}
@@ -160,9 +160,9 @@ const DraftsView = ({ currentUser, onBack }) => {
   return (
     <div style={styles.container}>
       <style>{`
-        .bulk-btn:hover { background-color: #F1F5F9; border-color: #E2E8F0; }
+        .bulk-btn:hover { background-color: rgba(128,128,128,0.1); border-color: rgba(128,128,128,0.2); }
         .danger-btn:hover { background-color: #FEE2E2 !important; border-color: #EF4444 !important; }
-        .draft-card-hover:hover { border-color: var(--primary-color) !important; background-color: #F8FAFC; }
+        .draft-card-hover:hover { border-color: var(--primary-color) !important; background-color: rgba(128,128,128,0.05); }
       `}</style>
 
       <header style={styles.header}>
@@ -227,8 +227,8 @@ const DraftsView = ({ currentUser, onBack }) => {
                   className={!isSelectMode ? "draft-card-hover" : ""}
                   style={{
                     ...styles.draftCard,
-                    border: isSelected ? '2px solid var(--primary-color)' : '1px solid #E2E8F0',
-                    backgroundColor: isSelected ? 'rgba(var(--primary-rgb), 0.05)' : 'white',
+                    border: isSelected ? '2px solid var(--primary-color)' : '1px solid rgba(128,128,128,0.2)',
+                    backgroundColor: isSelected ? 'rgba(var(--primary-rgb), 0.05)' : 'var(--portal-surface-card)',
                   }}
                   onClick={(e) => isSelectMode ? toggleSelect(e, draft.id) : setEditingDraft(draft._isLocal ? draft._localDraft : draft)}
                 >
@@ -246,9 +246,9 @@ const DraftsView = ({ currentUser, onBack }) => {
                   {/* Main Content */}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={styles.cardHeader}>
-                      <span style={{ ...styles.itemDate, color: isSelected ? 'var(--primary-color)' : '#94A3B8' }}>{formatDateTime(draft.created_at || draft.updated_at).date}</span>
+                      <span style={{ ...styles.itemDate, color: isSelected ? 'var(--primary-color)' : 'var(--portal-surface-muted)' }}>{formatDateTime(draft.created_at || draft.updated_at).date}</span>
                     </div>
-                    <h3 style={{ ...styles.itemTitle, color: isSelected ? 'var(--primary-color)' : '#1E293B' }}>{draft.title || draft.subject || "Untitled Draft"}</h3>
+                    <h3 style={{ ...styles.itemTitle, color: isSelected ? 'var(--primary-color)' : 'var(--portal-surface-text)' }}>{draft.title || draft.subject || "Untitled Draft"}</h3>
                     <p style={styles.itemDesc}>{draft.description || draft.message || "No content..."}</p>
                     <div style={styles.cardFooter}>
                       <div style={styles.draftBadge}>DRAFT</div>
@@ -277,24 +277,24 @@ const DraftsView = ({ currentUser, onBack }) => {
 };
 
 const styles = {
-  container: { height: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: '#F8FAFC', overflow: 'hidden', fontSize: 'var(--size-body, 14px)' },
-  header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'var(--card-padding, 12px 20px)', flexShrink: 0, borderBottom: '1px solid #F1F5F9', backgroundColor: 'white' },
+  container: { height: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: 'transparent', overflow: 'hidden', fontSize: 'var(--size-body, 14px)' },
+  header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'var(--card-padding, 12px 20px)', flexShrink: 0, borderBottom: '1px solid rgba(128,128,128,0.1)', backgroundColor: 'transparent' },
   headerTitle: { fontSize: 'var(--size-page-title, 18px)', fontWeight: '900', color: 'var(--primary-color)', margin: 0 },
   selectModeBtn: { background: 'none', border: 'none', cursor: 'pointer', fontSize: 'var(--size-nav, 14px)', fontWeight: '800' },
-  bulkBar: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 'var(--card-padding, 12px 20px)', backgroundColor: 'white', borderBottom: '1px solid #E2E8F0', width: '100%' },
+  bulkBar: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 'var(--card-padding, 12px 20px)', backgroundColor: 'var(--portal-surface-card)', borderBottom: '1px solid rgba(128,128,128,0.2)', width: '100%' },
   bulkActionBtn: { background: 'none', border: 'none', fontSize: 'var(--size-chip, 13px)', fontWeight: '900', cursor: 'pointer', padding: '6px 8px', textTransform: 'uppercase', letterSpacing: '0.05em' },
   iconBtn: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--primary-color)', padding: '4px', display: 'flex' },
   mainContainer: { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: 'var(--card-padding, 16px)', maxWidth: '800px', margin: '0 auto', width: '100%' },
   listContainer: { flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px', paddingBottom: '40px' },
-  draftCard: { backgroundColor: 'white', borderRadius: '16px', padding: 'var(--card-padding, 16px)', border: '1px solid #E2E8F0', cursor: 'pointer', transition: 'all 0.2s ease', display: 'flex', gap: '16px', alignItems: 'center' },
+  draftCard: { backgroundColor: 'var(--portal-surface-card)', borderRadius: '16px', padding: 'var(--card-padding, 16px)', border: '1px solid rgba(128,128,128,0.2)', cursor: 'pointer', transition: 'all 0.2s ease', display: 'flex', gap: '16px', alignItems: 'center' },
   cardHeader: { display: 'flex', justifyContent: 'space-between', marginBottom: '4px', alignItems: 'center' },
-  itemDate: { fontSize: 'var(--size-metadata, 11px)', color: '#94A3B8', fontWeight: 'bold' },
-  itemTitle: { margin: '0 0 6px 0', fontSize: 'var(--size-card-title, 15px)', fontWeight: '800', color: '#1E293B', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
-  itemDesc: { fontSize: 'var(--size-body, 13px)', color: '#334155', margin: '0 0 12px 0', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: '1.4' },
+  itemDate: { fontSize: 'var(--size-metadata, 11px)', color: 'var(--portal-surface-muted)', fontWeight: 'bold' },
+  itemTitle: { margin: '0 0 6px 0', fontSize: 'var(--size-card-title, 15px)', fontWeight: '800', color: 'var(--portal-surface-text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
+  itemDesc: { fontSize: 'var(--size-body, 13px)', color: 'var(--portal-surface-text)', margin: '0 0 12px 0', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: '1.4' },
   cardFooter: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
-  draftBadge: { backgroundColor: '#F1F5F9', color: '#475569', padding: '3px 8px', borderRadius: '6px', fontSize: 'var(--size-chip, 10px)', fontWeight: '900' },
-  timeLabel: { fontSize: 'var(--size-metadata, 11px)', color: '#94A3B8', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: '600' },
-  emptyState: { padding: '60px 20px', border: '2px dashed #E2E8F0', borderRadius: '24px', marginTop: '20px', display: 'flex', justifyContent: 'center', alignItems: 'center' },
+  draftBadge: { backgroundColor: 'rgba(128,128,128,0.1)', color: 'var(--portal-surface-muted)', padding: '3px 8px', borderRadius: '6px', fontSize: 'var(--size-chip, 10px)', fontWeight: '900' },
+  timeLabel: { fontSize: 'var(--size-metadata, 11px)', color: 'var(--portal-surface-muted)', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: '600' },
+  emptyState: { padding: '60px 20px', border: '2px dashed rgba(128,128,128,0.2)', borderRadius: '24px', marginTop: '20px', display: 'flex', justifyContent: 'center', alignItems: 'center' },
 };
 
 export default DraftsView;

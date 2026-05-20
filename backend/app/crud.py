@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session, joinedload, aliased, joinedload as _joinedload
-from sqlalchemy import func, select, case, cast, Text as SAText
+from sqlalchemy import func, select, case, cast, Text as SAText, Date
 from app import models
 from app import schemas
 import asyncio
@@ -645,40 +645,33 @@ def get_feedbacks(
 ):
     print(f"DEBUG: get_feedbacks called. skip={skip}, limit={limit}, product_id={product_id}, entity_id={entity_id}, only_approved={only_approved}")
     """Unified and optimized feedback retrieval with counts and relations."""
-    # --- OPTIMIZED: Pre-aggregate counts in single subqueries instead of N correlated sub-selects ---
-    replies_agg = (
-        db.query(
-            models.Reply.feedback_id,
-            func.count(models.Reply.id).label("cnt")
-        ).group_by(models.Reply.feedback_id).subquery()
+    
+    # --- OPTIMIZED: Use correlated subqueries instead of global group-by joins ---
+    replies_sq = (
+        select(func.count(models.Reply.id))
+        .where(models.Reply.feedback_id == models.Feedback.id)
+        .scalar_subquery()
+        .label("replies_count")
     )
-    likes_agg = (
-        db.query(
-            models.Reaction.feedback_id,
-            func.count(models.Reaction.id).label("cnt")
-        ).filter(models.Reaction.is_like == True)
-        .group_by(models.Reaction.feedback_id).subquery()
+    likes_sq = (
+        select(func.count(models.Reaction.id))
+        .where((models.Reaction.feedback_id == models.Feedback.id) & (models.Reaction.is_like == True))
+        .scalar_subquery()
+        .label("likes_count")
     )
-    dislikes_agg = (
-        db.query(
-            models.Reaction.feedback_id,
-            func.count(models.Reaction.id).label("cnt")
-        ).filter(models.Reaction.is_like == False)
-        .group_by(models.Reaction.feedback_id).subquery()
+    dislikes_sq = (
+        select(func.count(models.Reaction.id))
+        .where((models.Reaction.feedback_id == models.Feedback.id) & (models.Reaction.is_like == False))
+        .scalar_subquery()
+        .label("dislikes_count")
     )
 
-    # Base query: JOIN with pre-aggregated counts (3 queries total, not N×3)
+    # Base query: Add correlated subqueries
     query = db.query(
         models.Feedback,
-        func.coalesce(replies_agg.c.cnt, 0).label("replies_count"),
-        func.coalesce(likes_agg.c.cnt, 0).label("likes_count"),
-        func.coalesce(dislikes_agg.c.cnt, 0).label("dislikes_count"),
-    ).outerjoin(
-        replies_agg, replies_agg.c.feedback_id == models.Feedback.id
-    ).outerjoin(
-        likes_agg, likes_agg.c.feedback_id == models.Feedback.id
-    ).outerjoin(
-        dislikes_agg, dislikes_agg.c.feedback_id == models.Feedback.id
+        func.coalesce(replies_sq, 0).label("replies_count"),
+        func.coalesce(likes_sq, 0).label("likes_count"),
+        func.coalesce(dislikes_sq, 0).label("dislikes_count"),
     ).options(
         joinedload(models.Feedback.mentions),
         joinedload(models.Feedback.sender),

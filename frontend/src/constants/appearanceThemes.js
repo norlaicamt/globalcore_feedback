@@ -17,6 +17,13 @@ export const APPEARANCE_ACCENTS = [
 ];
 
 export const APPEARANCE_CATEGORIES = {
+  standard: {
+    label: 'Normal (Plain)',
+    description: 'A clean, completely plain interface without patterns.',
+    patterns: [
+      { id: 'none', label: 'No pattern' },
+    ],
+  },
   minimal: {
     label: 'Minimal',
     description: 'Clean, calm backgrounds for focused work.',
@@ -54,8 +61,8 @@ export const APPEARANCE_CATEGORIES = {
 };
 
 export const DEFAULT_APPEARANCE = {
-  appearance_category: 'minimal',
-  appearance_pattern: 'soft_circles',
+  appearance_category: 'standard',
+  appearance_pattern: 'none',
   appearance_accent: '',
   appearance_mode: 'light',
 };

@@ -113,10 +113,10 @@ const ActivityView = React.memo(({ currentUser, onBack, onViewPost }) => {
     <div style={styles.container}>
       <style>{`
         .activity-card {
-          background: white;
+          background: var(--portal-surface-card);
           border-radius: 12px;
           padding: 12px 16px;
-          border: 1px solid #F1F5F9;
+          border: 1px solid rgba(128,128,128,0.15);
           display: flex;
           align-items: center;
           gap: 12px;
@@ -129,7 +129,7 @@ const ActivityView = React.memo(({ currentUser, onBack, onViewPost }) => {
         }
         .activity-card:hover {
           transform: translateY(-1px);
-          border-color: #E2E8F0;
+          border-color: rgba(128,128,128,0.3);
           box-shadow: 0 4px 12px -2px rgba(0,0,0,0.05);
         }
         .activity-card:active {
@@ -239,15 +239,15 @@ const styles = {
     height: '100%',
     display: 'flex',
     flexDirection: 'column',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: 'transparent',
     fontFamily: '"Inter", sans-serif'
   },
   filterBar: {
     position: 'sticky',
     top: 0,
     zIndex: 10,
-    backgroundColor: '#F8FAFC',
-    borderBottom: '1px solid #E2E8F0',
+    backgroundColor: 'transparent',
+    borderBottom: '1px solid rgba(128,128,128,0.15)',
     padding: '8px 20px 8px'
   },
   filterBarInner: {
@@ -260,7 +260,7 @@ const styles = {
   filterLabel: {
     fontSize: 'var(--size-metadata, 11px)',
     fontWeight: '800',
-    color: '#94A3B8',
+    color: 'var(--portal-surface-muted)',
     letterSpacing: '0.08em',
     textTransform: 'uppercase'
   },
@@ -276,11 +276,11 @@ const styles = {
   filterChip: {
     padding: '5px 12px',
     borderRadius: '20px',
-    border: '1px solid #E2E8F0',
+    border: '1px solid rgba(128,128,128,0.2)',
     background: 'transparent',
     fontSize: 'var(--size-metadata, 11px)',
     fontWeight: '600',
-    color: '#64748B',
+    color: 'var(--portal-surface-muted)',
     whiteSpace: 'nowrap',
     cursor: 'pointer',
     transition: 'all 0.2s ease',
@@ -288,9 +288,9 @@ const styles = {
     lineHeight: '1.4'
   },
   filterChipActive: {
-    background: '#1E293B',
-    color: 'white',
-    borderColor: '#1E293B'
+    background: 'var(--portal-surface-text)',
+    color: 'var(--portal-surface-bg)',
+    borderColor: 'var(--portal-surface-text)'
   },
   main: {
     flex: 1,
@@ -311,11 +311,11 @@ const styles = {
   groupHeader: {
     position: 'sticky',
     top: '-16px',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: 'var(--portal-surface-bg)',
     padding: '16px 0 8px 0',
     fontSize: '11px',
     fontWeight: '800',
-    color: '#64748B',
+    color: 'var(--portal-surface-muted)',
     letterSpacing: '0.08em',
     zIndex: 5,
     marginBottom: '4px'
@@ -330,7 +330,7 @@ const styles = {
   },
   actionText: {
     fontSize: 'var(--size-body, 13px)',
-    color: '#1E293B',
+    color: 'var(--portal-surface-text)',
     fontWeight: '600',
     lineHeight: '1.3',
     whiteSpace: 'nowrap',
@@ -343,7 +343,7 @@ const styles = {
   },
   date: {
     fontSize: 'var(--size-metadata, 11px)',
-    color: '#94A3B8',
+    color: 'var(--portal-surface-muted)',
     fontWeight: '500'
   },
   emptyContainer: {
@@ -358,13 +358,13 @@ const styles = {
     marginBottom: '24px'
   },
   emptyText: {
-    color: '#1E293B',
+    color: 'var(--portal-surface-text)',
     fontSize: 'var(--size-page-title, 18px)',
     fontWeight: '900',
     marginBottom: '12px'
   },
   emptySubText: {
-    color: '#64748B',
+    color: 'var(--portal-surface-muted)',
     fontSize: '14px',
     maxWidth: '280px',
     lineHeight: '1.6'

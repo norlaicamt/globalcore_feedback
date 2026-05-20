@@ -39,6 +39,11 @@
   background-size: 120px 120px;
 }
 
+/* Pattern: none (Plain) */
+.portal-appearance-surface[data-appearance-pattern='none'] .portal-appearance-bg::before {
+  display: none;
+}
+
 /* Pattern: soft circles */
 .portal-appearance-surface[data-appearance-pattern='soft_circles'] .portal-appearance-bg::before {
   background-image: radial-gradient(circle at 30% 30%, color-mix(in srgb, var(--portal-accent) 22%, transparent) 0 18%, transparent 19%),

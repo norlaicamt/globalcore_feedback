@@ -256,81 +256,90 @@ const HistoryView = ({ currentUser, onBack, mode = "sent", minimalist = false })
 };
 
 const styles = {
-  container: { height: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: '#F8FAFC', position: 'relative', fontFamily: 'inherit' },
-  minimalContainer: { height: '100%', display: 'flex', flexDirection: 'column', backgroundColor: '#F8FAFC', position: 'relative', fontFamily: 'inherit' },
-  header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'var(--card-padding, 12px 20px)', flexShrink: 0, maxWidth: '800px', margin: '0 auto', width: '100%', borderBottom: '1px solid #F1F5F9' },
+  container: { height: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: 'transparent', position: 'relative', fontFamily: 'inherit' },
+  minimalContainer: { height: '100%', display: 'flex', flexDirection: 'column', backgroundColor: 'transparent', position: 'relative', fontFamily: 'inherit' },
+  header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'var(--card-padding, 12px 20px)', flexShrink: 0, maxWidth: '800px', margin: '0 auto', width: '100%', borderBottom: '1px solid rgba(128,128,128,0.1)' },
   headerTitle: { fontSize: 'var(--size-page-title, 16px)', fontWeight: '800', color: 'var(--primary-color)' },
   iconBtn: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--primary-color)' },
   mainContainer: { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: 'var(--card-padding, 16px)', maxWidth: '800px', margin: '0 auto', width: '100%' },
   minimalMainScroll: { flex: 1, overflowY: 'auto', padding: 'var(--card-padding, 16px)', maxWidth: '800px', margin: '0 auto', width: '100%' },
-  searchContainer: { display: 'flex', alignItems: 'center', backgroundColor: 'white', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '0 12px', marginBottom: '16px', height: 'var(--search-height, 42px)', flexShrink: 0 },
+  searchContainer: { display: 'flex', alignItems: 'center', backgroundColor: 'var(--portal-surface-card)', border: '1px solid rgba(128,128,128,0.2)', borderRadius: '12px', padding: '0 12px', marginBottom: '16px', height: 'var(--search-height, 42px)', flexShrink: 0 },
   searchIcon: { marginRight: '10px', display: 'flex' },
-  searchInput: { flex: 1, border: 'none', outline: 'none', fontSize: 'var(--size-body, 13px)' },
+  searchInput: { flex: 1, border: 'none', outline: 'none', fontSize: 'var(--size-body, 13px)', color: 'var(--portal-surface-text)' },
   tabContainer: {
     display: 'flex',
     gap: '4px',
     marginBottom: '16px',
-    backgroundColor: '#F1F5F9',
+    backgroundColor: 'var(--portal-surface-card)',
     padding: '4px',
     borderRadius: '10px',
     flexShrink: 0
   },
   tabBtn: { flex: 1, padding: '6px 0', border: 'none', borderRadius: '8px', fontSize: 'var(--size-nav, 12px)', fontWeight: '700', height: 'var(--button-height, 32px)' },
   listContainer: { flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px' },
-  historyCard: { backgroundColor: 'white', borderRadius: '12px', padding: 'var(--card-padding, 12px)', border: '1px solid #F1F5F9', cursor: 'pointer' },
-  praiseCard: { backgroundColor: '#FFFAF0', borderRadius: '12px', padding: 'var(--card-padding, 12px)', border: '1px solid #FDE68A', cursor: 'pointer' },
-  notificationCard: { backgroundColor: '#F0F9FF', borderRadius: '12px', padding: 'var(--card-padding, 12px)', border: '1px solid #BAE6FD', cursor: 'pointer' },
+  historyCard: { backgroundColor: 'var(--portal-surface-card)', borderRadius: '12px', padding: 'var(--card-padding, 12px)', border: '1px solid rgba(128,128,128,0.15)', cursor: 'pointer', color: 'var(--portal-surface-text)' },
+  praiseCard: { backgroundColor: '#FFFAF0', borderRadius: '12px', padding: 'var(--card-padding, 12px)', border: '1px solid #FDE68A', cursor: 'pointer', color: 'var(--portal-surface-text)' },
+  notificationCard: { backgroundColor: '#F0F9FF', borderRadius: '12px', padding: 'var(--card-padding, 12px)', border: '1px solid #BAE6FD', cursor: 'pointer', color: 'var(--portal-surface-text)' },
   cardHeader: { display: 'flex', justifyContent: 'space-between', marginBottom: '6px', alignItems: 'center' },
-  senderText: { fontSize: 'var(--size-user-name, 11px)', fontWeight: '600', color: '#475569' },
-  itemDate: { fontSize: 'var(--size-metadata, 10px)', color: '#94A3B8' },
-  itemTitle: { margin: '0 0 12px 0', fontSize: 'var(--size-card-title, 14px)', fontWeight: '600', color: '#000000' },
+  senderText: { fontSize: 'var(--size-user-name, 11px)', fontWeight: '600', color: 'var(--portal-surface-muted)' },
+  itemDate: { fontSize: 'var(--size-metadata, 10px)', color: 'var(--portal-surface-muted)' },
+  itemTitle: { margin: '0 0 12px 0', fontSize: 'var(--size-card-title, 14px)', fontWeight: '600', color: 'var(--portal-surface-text)' },
   cardFooter: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
-  timeLabel: { fontSize: 'var(--size-metadata, 10px)', color: '#94A3B8', display: 'flex', alignItems: 'center', gap: '4px' },
+  timeLabel: { fontSize: 'var(--size-metadata, 10px)', color: 'var(--portal-surface-muted)', display: 'flex', alignItems: 'center', gap: '4px' },
   praiseBadge: { display: 'flex', alignItems: 'center', fontSize: 'var(--size-chip, 11px)', fontWeight: '700', color: '#D97706', gap: '4px', backgroundColor: '#FEF3C7', padding: '3px 8px', borderRadius: '6px' },
   regularBadge: { display: 'flex', alignItems: 'center', fontSize: 'var(--size-chip, 11px)', fontWeight: '700', color: 'var(--primary-color)', gap: '4px', backgroundColor: '#E2E8F0', padding: '3px 8px', borderRadius: '6px' },
-  emptyState: { padding: '30px 16px', border: '2px dashed #E2E8F0', borderRadius: '16px' },
+  emptyState: { padding: '30px 16px', border: '2px dashed rgba(128,128,128,0.2)', borderRadius: '16px' },
   modalOverlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 },
-  modalContent: { backgroundColor: 'white', width: '100%', maxWidth: '440px', borderRadius: '20px', padding: 'var(--card-padding, 24px)', position: 'relative' },
+  modalContent: { backgroundColor: 'var(--portal-surface-card)', width: '100%', maxWidth: '440px', borderRadius: '20px', padding: 'var(--card-padding, 24px)', position: 'relative' },
   closeBtn: { position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', cursor: 'pointer', width: 'var(--button-height, 24px)', height: 'var(--button-height, 24px)', display: 'flex', alignItems: 'center', justifyContent: 'center' },
   modalHeader: { marginBottom: '16px' },
-  modalTag: { fontSize: 'var(--size-metadata, 11px)', fontWeight: 'bold', color: '#64748B', textTransform: 'uppercase', marginBottom: '6px', display: 'block' },
-  modalTitle: { fontSize: 'var(--size-page-title, 18px)', fontWeight: '800', color: '#000000', margin: '0 0 6px 0' },
-  modalMeta: { display: 'flex', alignItems: 'center', gap: '6px', fontSize: 'var(--size-secondary, 12px)', color: '#94A3B8', flexWrap: 'wrap' },
-  bullet: { color: '#CBD5E1' },
-  divider: { height: '1px', backgroundColor: '#F1F5F9', margin: '16px 0' },
+  modalTag: { fontSize: 'var(--size-metadata, 11px)', fontWeight: 'bold', color: 'var(--portal-surface-muted)', textTransform: 'uppercase', marginBottom: '6px', display: 'block' },
+  modalTitle: { fontSize: 'var(--size-page-title, 18px)', fontWeight: '800', color: 'var(--portal-surface-text)', margin: '0 0 6px 0' },
+  modalMeta: { display: 'flex', alignItems: 'center', gap: '6px', fontSize: 'var(--size-secondary, 12px)', color: 'var(--portal-surface-muted)', flexWrap: 'wrap' },
+  bullet: { color: 'var(--portal-surface-muted)' },
+  divider: { height: '1px', backgroundColor: 'rgba(128,128,128,0.1)', margin: '16px 0' },
   modalBody: { marginBottom: '32px' },
   infoSection: { marginBottom: '20px' },
-  sectionLabel: { fontSize: 'var(--size-chip, 10px)', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px', fontWeight: '800', display: 'block' },
+  sectionLabel: { fontSize: 'var(--size-chip, 10px)', color: 'var(--portal-surface-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px', fontWeight: '800', display: 'block' },
 
   headerBadgeRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' },
-  caseId: { fontSize: 'var(--size-metadata, 11px)', fontWeight: '800', color: '#64748B', display: 'flex', alignItems: 'center', gap: '4px', backgroundColor: '#F1F5F9', padding: '4px 10px', borderRadius: '6px' },
+  caseId: { fontSize: 'var(--size-metadata, 11px)', fontWeight: '800', color: 'var(--portal-surface-muted)', display: 'flex', alignItems: 'center', gap: '4px', backgroundColor: 'rgba(128,128,128,0.1)', padding: '4px 10px', borderRadius: '6px' },
   statusBadge: { fontSize: 'var(--size-chip, 10px)', fontWeight: '900', padding: '4px 12px', borderRadius: '20px', letterSpacing: '0.5px' },
 
-  jurisdictionPill: { display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', backgroundColor: '#F0F9FF', color: '#0369A1', borderRadius: '12px', fontSize: 'var(--size-body, 13px)', fontWeight: '700', border: '1px solid #E0F2FE' },
-  messageBox: { padding: 'var(--card-padding, 16px)', background: '#F8FAFC', border: '1px solid #F1F5F9', borderRadius: '16px', fontSize: 'var(--size-body, 14px)', color: '#000000', lineHeight: '1.6', whiteSpace: 'pre-wrap', overflowWrap: 'break-word', wordBreak: 'break-word' },
+  jurisdictionPill: { display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', backgroundColor: 'rgba(128,128,128,0.1)', color: 'var(--portal-surface-text)', borderRadius: '12px', fontSize: 'var(--size-body, 13px)', fontWeight: '700', border: '1px solid rgba(128,128,128,0.2)' },
+  messageBox: { padding: 'var(--card-padding, 16px)', background: 'var(--portal-surface-bg)', border: '1px solid rgba(128,128,128,0.1)', borderRadius: '16px', fontSize: 'var(--size-body, 14px)', color: 'var(--portal-surface-text)', lineHeight: '1.6', whiteSpace: 'pre-wrap', overflowWrap: 'break-word', wordBreak: 'break-word' },
 
   mentionsGrid: { display: 'flex', flexWrap: 'wrap', gap: '8px' },
-  mentionPill: { display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', backgroundColor: '#F1F5F9', color: '#475569', borderRadius: '8px', fontSize: 'var(--size-nav, 12px)', fontWeight: '600' },
+  mentionPill: { display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', backgroundColor: 'rgba(128,128,128,0.1)', color: 'var(--portal-surface-text)', borderRadius: '8px', fontSize: 'var(--size-nav, 12px)', fontWeight: '600' },
 
   attachmentGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '10px' },
-  attachmentItem: { display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'white', border: '1px solid #E2E8F0', borderRadius: '10px', color: '#64748B', cursor: 'pointer' },
+  attachmentItem: { display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'var(--portal-surface-card)', border: '1px solid rgba(128,128,128,0.2)', borderRadius: '10px', color: 'var(--portal-surface-text)', cursor: 'pointer' },
   fileName: { fontSize: 'var(--size-metadata, 11px)', fontWeight: '600', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   primaryActionPremium: { width: '100%', padding: 'var(--card-padding, 16px)', borderRadius: '16px', border: 'none', backgroundColor: 'var(--primary-color)', color: 'white', fontSize: 'var(--size-nav, 15px)', fontWeight: '800', cursor: 'pointer', boxShadow: '0 4px 12px rgba(var(--primary-rgb), 0.2)', transition: 'transform 0.2s', height: 'var(--button-height, 48px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }
 };
 
-const HistoryCard = React.memo(({ item, currentUser, onClick }) => (
-  <div style={styles.historyCard} onClick={() => onClick(item)}>
-    <div style={styles.cardHeader}>
-      <span style={styles.itemDate}>{formatFeedbackDate(item.created_at)}</span>
+const HistoryCard = React.memo(({ item, currentUser, onClick }) => {
+  const previewText = item.description || item.comment || item.message || item.subject || 'View submission details...';
+
+  return (
+    <div style={styles.historyCard} onClick={() => onClick(item)}>
+      <div style={styles.cardHeader}>
+        <span style={styles.itemDate}>{formatFeedbackDate(item.created_at)}</span>
+      </div>
+      {renderFeedbackAction(item, currentUser)}
+      
+      <div style={{ marginTop: '8px', fontSize: 'var(--size-body, 13px)', color: 'var(--portal-surface-muted)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: '1.5' }}>
+        {previewText}
+      </div>
+
+      <div style={{ ...styles.cardFooter, marginTop: '12px', borderTop: '1px solid rgba(128,128,128,0.1)', paddingTop: '10px' }}>
+        <div style={styles.timeLabel}>REF-{item.id}</div>
+        <button type="button" style={{ background: 'transparent', border: 'none', color: 'var(--primary-color)', fontSize: 'var(--size-nav, 12px)', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
+          View Details &rarr;
+        </button>
+      </div>
     </div>
-    {renderFeedbackAction(item, currentUser)}
-    <div style={{ marginTop: '12px' }}>
-      {renderFeedbackResponses(item, { compact: true, viewerMode: 'owner' })}
-    </div>
-    <div style={{ ...styles.cardFooter, marginTop: '12px' }}>
-      <div style={styles.timeLabel}>REF-{item.id}</div>
-    </div>
-  </div>
-));
+  );
+});
 
 export default HistoryView;

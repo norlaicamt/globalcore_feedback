@@ -437,11 +437,12 @@ const renderFullModule = (item, val, feedbackId, viewerMode = 'public') => {
     if (entries.length === 0) return null;
 
     return (
-      <div style={{ marginTop: '8px', background: '#F8FAFC', borderRadius: '12px', border: '1px solid #E2E8F0', overflow: 'hidden' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
+      <div style={{ marginTop: '8px', background: '#F8FAFC', borderRadius: '12px', border: '1px solid #E2E8F0', padding: '12px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>
           {entries.map(([criterion, score], i) => (
-            <div key={i} style={{ padding: '8px 12px', fontSize: '13px', color: '#334155', borderBottom: i === entries.length - 1 ? 'none' : '1px solid #F1F5F9' }}>
-              {criterion} • {score}/5
+            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '8px 12px', background: 'var(--portal-surface-card)', border: '1px solid rgba(128,128,128,0.15)', borderRadius: '8px', fontSize: 'var(--size-body, 13px)', gap: '8px' }}>
+              <span style={{ fontWeight: '600', color: 'var(--portal-surface-muted)', wordBreak: 'break-word', lineHeight: '1.4' }}>{criterion}</span>
+              <span style={{ fontWeight: '800', color: 'var(--primary-color)', whiteSpace: 'nowrap', flexShrink: 0, marginTop: '1px' }}>{score}/5</span>
             </div>
           ))}
         </div>
@@ -517,13 +518,15 @@ const renderFullModule = (item, val, feedbackId, viewerMode = 'public') => {
 
   if (typeof val === 'object' && !Array.isArray(val)) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '12px', background: 'white', borderRadius: '12px', border: '1px solid #F1F5F9' }}>
-        {Object.entries(val).map(([k, v]) => (
-          <div key={k} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
-            <span style={{ color: '#64748B' }}>{k}</span>
-            <span style={{ fontWeight: '700', color: '#1E293B' }}>{String(v)}</span>
-          </div>
-        ))}
+      <div style={{ marginTop: '8px', padding: '12px', background: '#F8FAFC', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>
+          {Object.entries(val).map(([k, v]) => (
+            <div key={k} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '8px 12px', background: 'var(--portal-surface-card)', borderRadius: '8px', border: '1px solid rgba(128,128,128,0.15)', fontSize: 'var(--size-metadata, 11px)', gap: '8px' }}>
+              <span style={{ color: 'var(--portal-surface-muted)', fontWeight: '600', wordBreak: 'break-word', lineHeight: '1.4' }}>{k}</span>
+              <span style={{ fontWeight: '800', color: 'var(--portal-surface-text)', whiteSpace: 'nowrap', flexShrink: 0, marginTop: '2px' }}>{String(v)}</span>
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
