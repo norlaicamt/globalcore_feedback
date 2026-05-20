@@ -816,6 +816,24 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
   const [dialog, setDialog] = useState({ isOpen: false });
   const [toast, setToast] = useState(null);
 
+  // New Cases Tracking
+  const [openedCases, setOpenedCases] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem("admin_opened_cases") || "[]");
+    } catch {
+      return [];
+    }
+  });
+
+  const handleSelectFeedback = (f) => {
+    setSelectedFeedback(f);
+    if (!openedCases.includes(f.id)) {
+      const updatedTracker = [...openedCases, f.id];
+      setOpenedCases(updatedTracker);
+      localStorage.setItem("admin_opened_cases", JSON.stringify(updatedTracker));
+    }
+  };
+
   // Column visibility state with responsive defaults & localStorage persistence
   const [visibleColumns, setVisibleColumns] = useState(() => {
     const saved = localStorage.getItem("admin_submissions_columns");
@@ -1007,7 +1025,6 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
           { key: "ALL", label: "All Submissions", count: stats.TOTAL },
           { key: "MY_CASES", label: "My Cases", count: stats.MY_CASES, color: "var(--primary-color)" },
           { key: "UNASSIGNED", label: "Unassigned", count: stats.UNASSIGNED, color: "#EF4444" },
-          { key: "OPEN", label: "New", count: stats.OPEN, color: "#3B82F6" },
           { key: "IN_PROGRESS", label: "In Review", count: stats.IN_PROGRESS, color: "#EAB308" },
           { key: "RESOLVED", label: "Resolved", count: stats.RESOLVED, color: "#10B981" }
         ].map(tab => (
@@ -1138,29 +1155,37 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
             </tr>
           </thead>
           <tbody>
-            {filtered.map(f => (
+            {filtered.map(f => {
+              const isNew = !openedCases.includes(f.id) && (Date.now() - new Date(f.created_at).getTime() <= 3600000);
+              return (
               <tr
                 key={f.id}
-                onClick={() => setSelectedFeedback(f)}
+                onClick={() => handleSelectFeedback(f)}
                 style={{
                   borderBottom: `1px solid ${theme.border}`,
                   cursor: "pointer",
                   transition: "0.15s",
-                  backgroundColor: "transparent"
+                  backgroundColor: isNew ? (darkMode ? "rgba(59, 130, 246, 0.04)" : "rgba(59, 130, 246, 0.02)") : "transparent"
                 }}
                 onMouseEnter={e => e.currentTarget.style.background = darkMode ? "rgba(255,255,255,0.03)" : "#FAFAFA"}
-                onMouseLeave={e => e.currentTarget.style.background = "none"}
+                onMouseLeave={e => e.currentTarget.style.background = isNew ? (darkMode ? "rgba(59, 130, 246, 0.04)" : "rgba(59, 130, 246, 0.02)") : "none"}
               >
                 {!isScopedAdmin && visibleColumns.program && (
                   <td style={{ padding: "16px 20px" }}>
-                    <div style={{ fontWeight: "800", color: theme.text, fontSize: "14px", letterSpacing: "-0.01em" }}>{f.entity_name || "General"}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      {isNew && <span style={{ padding: "2px 6px", background: "#3B82F6", color: "#FFF", fontSize: "9px", fontWeight: "900", borderRadius: "10px", marginTop: "1px" }}>NEW</span>}
+                      <div style={{ fontWeight: "800", color: theme.text, fontSize: "14px", letterSpacing: "-0.01em" }}>{f.entity_name || "General"}</div>
+                    </div>
                     <div style={{ fontSize: "11px", color: theme.textMuted, marginTop: "2px", fontWeight: "600" }}>{f.title?.split(": ")[1] || f.title || "No Subject"}</div>
                   </td>
                 )}
                 {visibleColumns.user && (
                   <td style={{ padding: "16px 20px" }}>
-                    <div style={{ fontWeight: "600", color: theme.text, fontSize: "14px" }}>
-                      {f.is_anonymous ? `Anonymous #${f.id}` : (f.user_name || `User #${f.id}`)}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      {(isScopedAdmin && isNew) && <span style={{ padding: "2px 6px", background: "#3B82F6", color: "#FFF", fontSize: "9px", fontWeight: "900", borderRadius: "10px", marginTop: "1px" }}>NEW</span>}
+                      <div style={{ fontWeight: "600", color: theme.text, fontSize: "14px" }}>
+                        {f.is_anonymous ? `Anonymous #${f.id}` : (f.user_name || `User #${f.id}`)}
+                      </div>
                     </div>
                     {f.is_anonymous && <span style={{ fontSize: "10px", color: "#94A3B8", fontStyle: "italic", fontWeight: "700" }}>Private Submission</span>}
                   </td>
@@ -1200,7 +1225,8 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
                   </td>
                 )}
               </tr>
-            ))}
+            );
+            })}
             {!loading && filtered.length === 0 && (
               <tr>
                 <td colSpan={activeColsCount} style={{ padding: "48px 24px", textAlign: "center" }}>
