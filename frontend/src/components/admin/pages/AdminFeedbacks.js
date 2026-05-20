@@ -24,7 +24,7 @@ const STATUSES = {
 };
 
 // --- COMPONENT: Side Detail Panel ---
-const FeedbackSidePanel = ({ feedback, isClosing, onClose, onUpdateStatus, theme, darkMode, getModeLabel, systemMode, onShowToast, adminUser, onRefresh }) => {
+const FeedbackSidePanel = ({ feedback, isClosing, onClose, onUpdateStatus, theme, darkMode, getModeLabel, systemMode, onShowToast, adminUser, onRefresh, onNext, onPrev, currentIndex, totalCases }) => {
   const isScopedAdmin = !!adminUser?.entity_id;
   const [replyMessage, setReplyMessage] = useState("");
   const [isSendingReply, setIsSendingReply] = useState(false);
@@ -177,7 +177,7 @@ const FeedbackSidePanel = ({ feedback, isClosing, onClose, onUpdateStatus, theme
       />
 
       <div style={{
-        position: "fixed", right: 0, top: 0, width: "480px", height: "100vh",
+        position: "fixed", right: 0, top: 0, width: "min(960px, 95vw)", height: "100vh",
         background: theme.surface, borderLeft: `6px solid ${currentStatus.color}`,
         boxShadow: "-15px 0 50px rgba(0,0,0,0.15)", zIndex: 1100,
         display: "flex", flexDirection: "column",
@@ -185,21 +185,42 @@ const FeedbackSidePanel = ({ feedback, isClosing, onClose, onUpdateStatus, theme
       }}>
 
         {/* Header */}
-        <div style={{ padding: "32px 40px", borderBottom: `1px solid ${theme.border}`, display: "flex", justifyContent: "space-between", alignItems: "flex-start", background: theme.bg }}>
+        <div style={{ padding: "32px 40px", borderBottom: `1px solid ${theme.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", background: theme.bg }}>
           <div>
             <h3 style={{ margin: 0, fontSize: "20px", fontWeight: "900", color: theme.text, letterSpacing: "-0.02em" }}>Case Workspace</h3>
             <p style={{ margin: "6px 0 0", fontSize: "13px", fontWeight: "600", color: theme.textMuted }}>Reference ID: #{feedback?.id}</p>
           </div>
-          <button onClick={onClose} style={{ background: theme.surface, border: `1px solid ${theme.border}`, color: theme.text, width: "36px", height: "36px", borderRadius: "50%", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "0.2s" }}
-            onMouseOver={e => e.currentTarget.style.background = theme.bg}
-            onMouseOut={e => e.currentTarget.style.background = theme.surface}
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-          </button>
+          
+          <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+            {/* Sequence Navigation */}
+            {totalCases > 0 && currentIndex >= 0 && (
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", background: theme.surface, padding: "4px 8px", borderRadius: "8px", border: `1px solid ${theme.border}` }}>
+                <button onClick={onPrev} disabled={currentIndex === 0} style={{ background: "none", border: "none", color: currentIndex === 0 ? theme.border : theme.text, cursor: currentIndex === 0 ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                </button>
+                <span style={{ fontSize: "12px", fontWeight: "700", color: theme.textMuted, width: "70px", textAlign: "center" }}>
+                  {currentIndex + 1} of {totalCases}
+                </span>
+                <button onClick={onNext} disabled={currentIndex === totalCases - 1} style={{ background: "none", border: "none", color: currentIndex === totalCases - 1 ? theme.border : theme.text, cursor: currentIndex === totalCases - 1 ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                </button>
+              </div>
+            )}
+            
+            <button onClick={onClose} style={{ background: theme.surface, border: `1px solid ${theme.border}`, color: theme.text, width: "36px", height: "36px", borderRadius: "50%", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "0.2s" }}
+              onMouseOver={e => e.currentTarget.style.background = theme.bg}
+              onMouseOut={e => e.currentTarget.style.background = theme.surface}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+          </div>
         </div>
 
         {/* Content */}
-        <div style={{ flex: 1, overflowY: "auto", padding: "40px", display: "flex", flexDirection: "column", gap: "32px" }}>
+        <div className="case-workspace-grid" style={{ flex: 1, overflowY: "auto", padding: "40px" }}>
+          
+          {/* Left Column: Voice of User & Metrics */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "32px" }}>
 
           {/* Status Badge & Main Meta */}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -301,9 +322,17 @@ const FeedbackSidePanel = ({ feedback, isClosing, onClose, onUpdateStatus, theme
             />
           </div>
 
-          {/* Reply Section */}
-          <div style={{ borderTop: `1px solid ${theme.border}`, paddingTop: "32px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+          </div>
+
+          {/* Right Column: Workflows & Responses */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "32px" }}>
+            {/* Reply Section */}
+            <div style={{ 
+              background: theme.surface, 
+              // Removed borderTop since it's side-by-side, maybe wrap in a subtle card for definition
+              height: "100%"
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
               <h4 style={{ fontSize: "11px", color: "var(--primary-color)", fontWeight: "900", margin: 0, textTransform: "uppercase", letterSpacing: "0.1em" }}>Response to Submission</h4>
 
               {/* Template Selector */}
@@ -390,6 +419,7 @@ const FeedbackSidePanel = ({ feedback, isClosing, onClose, onUpdateStatus, theme
                 <div style={{ display: "flex", flexDirection: "column", gap: "20px", marginBottom: "24px" }}>
 
                   {/* Status Selector */}
+                  {feedback?.status !== 'RESOLVED' && feedback?.status !== 'CLOSED' && (
                   <div>
                     <p style={{ margin: "0 0 10px", fontSize: "10px", fontWeight: "800", color: theme.textMuted, textTransform: "uppercase" }}>Next Operational Step</p>
                     <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
@@ -432,6 +462,7 @@ const FeedbackSidePanel = ({ feedback, isClosing, onClose, onUpdateStatus, theme
                       </div>
                     )}
                   </div>
+                  )}
 
                   {/* Save as Template Toggle */}
                   <div style={{
@@ -558,15 +589,26 @@ const FeedbackSidePanel = ({ feedback, isClosing, onClose, onUpdateStatus, theme
                 </div>
               </div>
             )}
+            </div>
           </div>
         </div>
-
 
         <style>{`
           @keyframes slideInRight { from { transform: translateX(100%); } to { transform: translateX(0); } }
           @keyframes slideOutRight { from { transform: translateX(0); } to { transform: translateX(100%); } }
           @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
           @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
+          
+          .case-workspace-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+          }
+          @media (max-width: 900px) {
+            .case-workspace-grid {
+              grid-template-columns: 1fr;
+            }
+          }
         `}</style>
       </div>
     </>
@@ -605,19 +647,23 @@ const DotsMenu = ({ onUpdateStatus, onDelete, theme, darkMode, currentStatus }) 
           onClick={(e) => e.stopPropagation()}
           style={{ position: "absolute", right: 0, top: "34px", background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: "10px", boxShadow: "0 8px 24px rgba(0,0,0,0.1)", zIndex: 100, minWidth: "160px", padding: "6px" }}
         >
-          <p style={{ margin: "4px 8px 8px", fontSize: "9px", fontWeight: "800", color: theme.textMuted, textTransform: "uppercase" }}>Change Status</p>
-          {Object.entries(STATUSES).filter(([key]) => key !== 'CLOSED').map(([key, cfg]) => (
-            <button
-              key={key}
-              onClick={() => { onUpdateStatus(key); setOpen(false); }}
-              style={{ display: "block", width: "100%", padding: "8px 12px", background: "none", border: "none", borderRadius: "7px", textAlign: "left", fontSize: "12px", fontWeight: currentStatus === key ? "700" : "500", color: currentStatus === key ? cfg.color : theme.text, cursor: "pointer" }}
-              onMouseEnter={e => e.currentTarget.style.background = darkMode ? "rgba(255,255,255,0.05)" : "#F1F5F9"}
-              onMouseLeave={e => e.currentTarget.style.background = "none"}
-            >
-              {cfg.label}
-            </button>
-          ))}
-          <div style={{ margin: "6px 0", borderTop: `1px solid ${theme.border}` }} />
+          {currentStatus !== 'RESOLVED' && currentStatus !== 'CLOSED' && (
+            <>
+              <p style={{ margin: "4px 8px 8px", fontSize: "9px", fontWeight: "800", color: theme.textMuted, textTransform: "uppercase" }}>Change Status</p>
+              {Object.entries(STATUSES).filter(([key]) => key !== 'CLOSED').map(([key, cfg]) => (
+                <button
+                  key={key}
+                  onClick={() => { onUpdateStatus(key); setOpen(false); }}
+                  style={{ display: "block", width: "100%", padding: "8px 12px", background: "none", border: "none", borderRadius: "7px", textAlign: "left", fontSize: "12px", fontWeight: currentStatus === key ? "700" : "500", color: currentStatus === key ? cfg.color : theme.text, cursor: "pointer" }}
+                  onMouseEnter={e => e.currentTarget.style.background = darkMode ? "rgba(255,255,255,0.05)" : "#F1F5F9"}
+                  onMouseLeave={e => e.currentTarget.style.background = "none"}
+                >
+                  {cfg.label}
+                </button>
+              ))}
+              <div style={{ margin: "6px 0", borderTop: `1px solid ${theme.border}` }} />
+            </>
+          )}
           <button onClick={() => { onDelete(); setOpen(false); }} style={{ display: "block", width: "100%", padding: "8px 12px", background: "none", border: "none", borderRadius: "7px", textAlign: "left", fontSize: "12px", fontWeight: "700", color: "#EF4444", cursor: "pointer" }}>Delete Permanent</button>
         </div>
       )}
@@ -872,7 +918,7 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
 
   const filtered = feedbacks.filter(f => {
     let tabMatch = activeTab === "ALL" || f.status === activeTab;
-    if (activeTab === "MY_CASES") tabMatch = String(f.assigned_to_user_id) === String(adminUser?.id);
+    if (activeTab === "MY_CASES") tabMatch = String(f.assigned_to_user_id) === String(adminUser?.id) && f.status !== "RESOLVED" && f.status !== "CLOSED";
     if (activeTab === "UNASSIGNED") tabMatch = !f.assigned_to_user_id;
 
     const programMatch = selectedProgram === "ALL" || f.entity_name === selectedProgram;
@@ -887,7 +933,7 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
 
   const stats = {
     TOTAL: feedbacks.length,
-    MY_CASES: feedbacks.filter(f => String(f.assigned_to_user_id) === String(adminUser?.id)).length,
+    MY_CASES: feedbacks.filter(f => String(f.assigned_to_user_id) === String(adminUser?.id) && f.status !== "RESOLVED" && f.status !== "CLOSED").length,
     UNASSIGNED: feedbacks.filter(f => !f.assigned_to_user_id).length,
     OPEN: feedbacks.filter(f => f.status === "OPEN").length,
     IN_PROGRESS: feedbacks.filter(f => f.status === "IN_PROGRESS").length,
@@ -1180,6 +1226,18 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
         getModeLabel={getModeLabel}
         systemMode={systemMode}
         adminUser={adminUser}
+        onNext={() => {
+          if (!selectedFeedback) return;
+          const idx = filtered.findIndex(f => f.id === selectedFeedback.id);
+          if (idx !== -1 && idx < filtered.length - 1) setSelectedFeedback(filtered[idx + 1]);
+        }}
+        onPrev={() => {
+          if (!selectedFeedback) return;
+          const idx = filtered.findIndex(f => f.id === selectedFeedback.id);
+          if (idx > 0) setSelectedFeedback(filtered[idx - 1]);
+        }}
+        currentIndex={selectedFeedback ? filtered.findIndex(f => f.id === selectedFeedback.id) : -1}
+        totalCases={filtered.length}
       />
 
       <CustomModal isOpen={dialog.isOpen} title={dialog.title} message={dialog.message} type={dialog.type} confirmText={dialog.confirmText} isDestructive={dialog.isDestructive} onConfirm={dialog.onConfirm} onCancel={dialog.onCancel} />

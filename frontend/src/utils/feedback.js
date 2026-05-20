@@ -600,6 +600,36 @@ export const renderFeedbackResponses = (post, options = { compact: true, viewerM
     }
   }
 
+  const currentSchemaKeys = new Set(schema.map(i => i.id || i.key));
+  currentSchemaKeys.add('field_labels');
+  currentSchemaKeys.add('product_evaluations');
+  currentSchemaKeys.add('product_metadata');
+  currentSchemaKeys.add('routing_method');
+
+  // Blend removed/legacy fields effortlessly into the main feed
+  Object.entries(data).forEach(([dataKey, dataVal]) => {
+    if (dataVal !== null && dataVal !== undefined && dataVal !== '' && !currentSchemaKeys.has(dataKey)) {
+      if (['staff_id', 'department_id', 'location_id'].includes(dataKey)) return;
+      let label = data.field_labels?.[dataKey] || dataKey;
+      // Hide auto-generated form keys if no human label was captured
+      if (label && label.startsWith('it_')) {
+        label = null;
+      }
+
+      if (IDENTITY_KEYS.includes(dataKey)) {
+        if (options.viewerMode === 'admin' || options.viewerMode === 'owner') {
+          identityModules.push({ label, val: dataVal, key: dataKey, item: { key: dataKey, label } });
+        }
+      } else {
+        // Strict Privacy Guard: Never expose orphaned custom fields (like 'it_123') to the public
+        // because we don't know if they contain PII (like addresses or names). 
+        if (options.viewerMode === 'admin' || options.viewerMode === 'owner') {
+          publicModules.push({ label, val: dataVal, key: dataKey, item: { key: dataKey, label } });
+        }
+      }
+    }
+  });
+
   // Force strict display order: Rating -> Message -> Other -> Photos
   publicModules.sort((a, b) => {
     const getRank = (key) => {
@@ -616,7 +646,16 @@ export const renderFeedbackResponses = (post, options = { compact: true, viewerM
       {publicModules.map((mod, i) => {
         const content = renderFullModule(mod.item, mod.val, post.id, options.viewerMode);
         if (!content) return null;
-        return <div key={i}>{content}</div>;
+        return (
+          <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            {mod.item?.label && !['star_rating', 'photo_upload'].includes(mod.key) && (
+              <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                {mod.label}
+              </span>
+            )}
+            {content}
+          </div>
+        );
       })}
       {(() => {
         const allPhotos = publicModules.filter(m => m.key === 'photo_upload').flatMap(m => {

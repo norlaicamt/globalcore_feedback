@@ -999,6 +999,12 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
          sliderModules.forEach(id => { evalData[id] = rating; });
       }
 
+      // Snapshot field labels for data preservation
+      const field_labels = {};
+      schemaItems.forEach(item => {
+        field_labels[item.id || item.key] = item.label_override || item.label || item.key;
+      });
+
       const mergedCustomData = { 
         ...customFields, 
         ...evalData, 
@@ -1010,7 +1016,8 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
           price: selectedProduct.price,
           image_url: selectedProduct.image_url,
           evaluation_template_id: selectedProduct.evaluation_template_id
-        } : null
+        } : null,
+        field_labels
       };
 
       console.log('[AUDIT:EVALUATION_SUBMIT]', {
@@ -1239,19 +1246,36 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
           ))}
         </div>
       );
-      if (key === 'multiple_choice') return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          {(item.config?.options || []).map((opt, i) => {
-            const isSel = customFields[item.id || key] === opt;
-            return (
-              <button key={i} onClick={() => setCustomFields({ ...customFields, [item.id || key]: opt })} style={{ padding: '18px', borderRadius: '16px', border: `1.5px solid ${isSel ? 'var(--primary-color)' : 'rgba(0,0,0,0.05)'}`, background: isSel ? 'rgba(var(--primary-rgb), 0.05)' : 'white', fontWeight: '700', fontSize: '14px', textAlign: 'left', transition: '0.2s', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span>{opt}</span>
-                {isSel && <LocalIcons.CheckCircle size={18} color="var(--primary-color)" />}
-              </button>
-            );
-          })}
-        </div>
-      );
+      if (key === 'multiple_choice') {
+        // Evaluate config to determine if it allows multiple selections, defaulting to true for maximum flexibility unless explicitly disabled
+        const allowMultiple = item.config?.allow_multiple !== false;
+        
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {(item.config?.options || []).map((opt, i) => {
+              const currentVal = customFields[item.id || key];
+              const safeArray = Array.isArray(currentVal) ? currentVal : (currentVal ? [currentVal] : []);
+              const isSel = allowMultiple ? safeArray.includes(opt) : currentVal === opt;
+              
+              const handleSelect = () => {
+                if (!allowMultiple) {
+                  setCustomFields({ ...customFields, [item.id || key]: isSel ? null : opt });
+                } else {
+                  const nextArray = isSel ? safeArray.filter(v => v !== opt) : [...safeArray, opt];
+                  setCustomFields({ ...customFields, [item.id || key]: nextArray.length ? nextArray : null });
+                }
+              };
+
+              return (
+                <button key={i} onClick={handleSelect} type="button" style={{ padding: '18px', borderRadius: '16px', border: `1.5px solid ${isSel ? 'var(--primary-color)' : 'rgba(0,0,0,0.05)'}`, background: isSel ? 'rgba(var(--primary-rgb), 0.05)' : 'white', fontWeight: '700', fontSize: '14px', textAlign: 'left', transition: '0.2s', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span>{opt}</span>
+                  {isSel && <LocalIcons.CheckCircle size={18} color="var(--primary-color)" />}
+                </button>
+              );
+            })}
+          </div>
+        );
+      }
       // Voice recording module removed due to hardware incompatibility
       if (key === 'voice_record') return null;
 

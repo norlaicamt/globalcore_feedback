@@ -209,7 +209,6 @@ const AdminBroadcast = ({ theme, darkMode, adminUser }) => {
   const handleSend = async (status = "sent") => {
     if (!message.trim() || !title.trim()) return;
     setSending(true);
-    setShowPreview(false);
     try {
       const res = await adminBroadcast(
         title.trim(), 
@@ -218,10 +217,12 @@ const AdminBroadcast = ({ theme, darkMode, adminUser }) => {
         targetGroup, 
         priority, 
         status, 
+        false, // require_ack
         scheduledAt || null,
         currentDraftId,
         attachments.length > 0 ? attachments : null
       );
+      setShowPreview(false);
       if (status === 'draft') {
         setLastSaved(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
         setCurrentDraftId(res.id);
@@ -235,6 +236,7 @@ const AdminBroadcast = ({ theme, darkMode, adminUser }) => {
         onConfirm: () => { setDialog({ isOpen: false }); resetCompose(); fetchData(); }
       });
     } catch (err) {
+      setShowPreview(false);
       setDialog({ isOpen: true, type: "alert", title: "Failed", message: "Error sending announcement.", confirmText: "OK" });
     } finally { setSending(false); }
   };
@@ -466,15 +468,32 @@ const AdminBroadcast = ({ theme, darkMode, adminUser }) => {
                         accept="image/*,.pdf,.docx,.xlsx,.pptx"
                         onChange={(e) => {
                           const files = Array.from(e.target.files);
+                          
+                          const invalidFiles = files.filter(f => f.size > 2 * 1024 * 1024);
+                          if (invalidFiles.length > 0) {
+                            setDialog({
+                              isOpen: true,
+                              title: "File Too Large",
+                              message: `The following files exceed the 2MB limit: ${invalidFiles.map(f => f.name).join(', ')}. Please resize before uploading.`,
+                              type: "error",
+                              onConfirm: () => setDialog({ isOpen: false })
+                            });
+                            e.target.value = null;
+                            return;
+                          }
+
                           files.forEach(file => {
                             const reader = new FileReader();
                             reader.onloadend = () => {
-                              setAttachments(prev => [...prev, {
-                                name: file.name,
-                                size: file.size,
-                                type: file.type,
-                                data: reader.result
-                              }]);
+                              setAttachments(prev => {
+                                if (prev.length >= 5) return prev;
+                                return [...prev, {
+                                  name: file.name,
+                                  size: file.size,
+                                  type: file.type,
+                                  data: reader.result
+                                }];
+                              });
                             };
                             reader.readAsDataURL(file);
                           });
@@ -746,6 +765,7 @@ const AdminBroadcast = ({ theme, darkMode, adminUser }) => {
           targetGroup={targetGroup} recipientCount={recipientCount} 
           scheduledAt={scheduledAt} 
           attachments={attachments}
+          sending={sending}
           onCancel={() => setShowPreview(false)} onConfirm={() => handleSend("sent")} 
           adminUser={adminUser} 
         />
@@ -897,7 +917,7 @@ const CreateTemplateModal = ({ theme, isSaving, editingId, values, errors, onCan
   </div>
 );
 
-const PreviewModal = ({ theme, title, message, priority, targetGroup, recipientCount, scheduledAt, attachments = [], onCancel, onConfirm, adminUser }) => (
+const PreviewModal = ({ theme, title, message, priority, targetGroup, recipientCount, scheduledAt, attachments = [], sending, onCancel, onConfirm, adminUser }) => (
   <div style={overlayStyle}>
     <div style={{ ...modalStyle(theme), maxWidth: '650px', padding: '40px', maxHeight: '90vh', overflowY: 'auto' }}>
       <h2 style={{ margin: '0 0 8px 0', fontSize: '22px', fontWeight: '900', color: theme.text }}>Final Review</h2>
@@ -936,8 +956,15 @@ const PreviewModal = ({ theme, title, message, priority, targetGroup, recipientC
       </div>
 
       <div style={{ display: 'flex', gap: '16px' }}>
-        <button onClick={onCancel} style={{ ...secondaryButtonStyle(theme), flex: 1, padding: '14px' }}>Cancel</button>
-        <button onClick={onConfirm} style={{ ...primaryButtonStyle, flex: 1.5, background: 'var(--primary-color)', padding: '14px' }}>Confirm & Dispatch</button>
+        <button onClick={onCancel} disabled={sending} style={{ ...secondaryButtonStyle(theme), flex: 1, padding: '14px', opacity: sending ? 0.5 : 1, cursor: sending ? 'not-allowed' : 'pointer' }}>Cancel</button>
+        <button onClick={onConfirm} disabled={sending} style={{ ...primaryButtonStyle, flex: 1.5, background: sending ? 'rgba(var(--primary-rgb), 0.5)' : 'var(--primary-color)', padding: '14px', cursor: sending ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+          {sending ? (
+            <>
+              <div style={{ width: '16px', height: '16px', border: '2px solid white', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+              Dispatching...
+            </>
+          ) : "Confirm & Dispatch"}
+        </button>
       </div>
     </div>
   </div>
