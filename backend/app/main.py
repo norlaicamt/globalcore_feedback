@@ -104,7 +104,7 @@ async def check_blacklist(token: str = Depends(oauth2_scheme)):
 def login(email: str, password: str, db: Session = Depends(get_db)):
     user = crud.get_user_by_login_id(db, login_id=email)
     if not user:
-        raise HTTPException(status_code=404, detail="User not found in Global Core system")
+        raise HTTPException(status_code=404, detail="No existing account was detected.")
     
     if user.password != password:
         raise HTTPException(status_code=401, detail="Incorrect password")

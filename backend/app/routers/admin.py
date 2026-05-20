@@ -102,17 +102,30 @@ def apply_data_scope(query, model, admin_user: models.User):
 def admin_login(email: str, password: str, db: Session = Depends(get_db)):
     # Check Database for Admin users
     user = db.query(models.User).filter(models.User.email.ilike(email)).first()
-    if user and user.password == password: # In production, use hash checking
+    
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid admin credentials.")
+
+    if user.password == password: # In production, use hash checking
         # Allow both 'admin' and 'superadmin' roles
         if user.role in ["admin", "superadmin"]:
             # if not user.is_active:
             #     raise HTTPException(status_code=403, detail="Account is deactivated")
             # Generate/Update session token
             token = str(uuid.uuid4())
+            
+            # Ensure session record exists
+            if not user.session:
+                user.session = models.UserSession(user_id=user.id)
+                db.add(user.session)
+                db.flush()
+
             user.session_token = token
             user.last_login = datetime.now(timezone.utc)
             db.commit()
+            db.refresh(user)
             
+            # Return same fields as before
             return {
                 "id": user.id,
                 "name": user.name,
@@ -130,9 +143,9 @@ def admin_login(email: str, password: str, db: Session = Depends(get_db)):
                 "profile_completed": user.profile_completed
             }
         else:
-            raise HTTPException(status_code=403, detail="Access denied: Not an administrator")
+            raise HTTPException(status_code=403, detail="Invalid admin credentials.")
             
-    raise HTTPException(status_code=401, detail="Invalid admin credentials")
+    raise HTTPException(status_code=401, detail="Invalid admin credentials.")
  
  
 @router.post("/presence")

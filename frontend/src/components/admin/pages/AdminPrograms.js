@@ -138,16 +138,16 @@ const AdminPrograms = ({ theme, darkMode, adminUser, onNavigate, initialTab }) =
     }, [loadDetailedAnalytics]);
 
     useEffect(() => {
-        if (initialTab && initialTab !== activeTab) {
+        if (initialTab) {
             setActiveTab(initialTab);
         }
-    }, [initialTab, activeTab]);
+    }, [initialTab]);
 
     const isDirty = selectedProgram && pristineProgram && JSON.stringify(selectedProgram) !== JSON.stringify(pristineProgram);
     const hasGlobalAdminAccess = (adminUser?.role === "superadmin") || (adminUser?.role === "admin" && !adminUser?.entity_id);
 
     // Program List State
-    const [prgForm, setPrgForm] = useState({ name: "", description: "", icon: "layers", type: "Restaurant" });
+    const [prgForm, setPrgForm] = useState({ name: "", description: "", icon: "layers", type: "Program" });
     const [isAddingProgram, setIsAddingProgram] = useState(false);
 
     // Location List State
@@ -366,9 +366,7 @@ const AdminPrograms = ({ theme, darkMode, adminUser, onNavigate, initialTab }) =
                     Back
                 </button>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: '600' }}>
-                    <span onClick={() => setSelectedProgram(null)} style={{ color: 'var(--primary-color)', cursor: 'pointer', textDecoration: 'none' }}>
-                        {getLabel('category_label_plural', 'Programs')}
-                    </span>
+                    <span onClick={() => { setSelectedProgram(null); setActiveTab("locations"); }} style={{ cursor: 'pointer', color: 'var(--primary-color)', fontWeight: '800' }}>Workspaces</span>
                     <span style={{ color: theme.textMuted }}>/</span>
                     <span style={{ color: theme.text }}>{selectedProgram.name}</span>
                     <span style={{ color: 'var(--primary-color)', fontSize: '10px', fontWeight: '900', background: 'var(--primary-soft)', padding: '2px 8px', borderRadius: '6px', marginLeft: '8px', textTransform: 'uppercase' }}>
@@ -450,7 +448,7 @@ const AdminPrograms = ({ theme, darkMode, adminUser, onNavigate, initialTab }) =
                 background: 'transparent', borderRadius: '16px', padding: '24px', border: `2px dashed ${theme.border}`, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '10px', color: theme.textMuted, transition: 'all 0.2s'
             }}>
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
-                <span style={{ fontWeight: '700', fontSize: '13px' }}>Register New Service or Program</span>
+                <span style={{ fontWeight: '700', fontSize: '13px' }}>Register New Workspace</span>
             </div>
         </div>
     );
@@ -552,8 +550,8 @@ const AdminPrograms = ({ theme, darkMode, adminUser, onNavigate, initialTab }) =
                                     <div style={{ background: theme.surface, padding: '32px', borderRadius: '24px', border: `1px solid ${theme.border}`, boxShadow: '0 4px 20px rgba(0,0,0,0.02)', position: 'relative' }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '40px' }}>
                                             <div>
-                                                <h2 style={{ margin: '0 0 4px 0', fontSize: '20px', fontWeight: '900', color: theme.text, letterSpacing: '-0.02em' }}>Operational Control Panel</h2>
-                                                <p style={{ margin: '0', fontSize: '13px', color: theme.textMuted, fontWeight: '500' }}>Define behavioral logic and deployment rules for {selectedProgram.name}.</p>
+                                                <h2 style={{ margin: '0 0 4px 0', fontSize: '20px', fontWeight: '900', color: theme.text, letterSpacing: '-0.02em' }}>Workspace Control Center</h2>
+                                                <p style={{ margin: '0', fontSize: '13px', color: theme.textMuted, fontWeight: '500' }}>Define behavioral logic and deployment rules for the {selectedProgram.name} workspace.</p>
                                             </div>
                                             <div style={{ textAlign: 'right', background: theme.bg, padding: '12px 16px', borderRadius: '14px', border: `1px solid ${theme.border}` }}>
                                                 <p style={{ margin: 0, fontSize: '9px', fontWeight: '900', color: theme.textMuted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Last Audit Signal</p>
@@ -572,14 +570,14 @@ const AdminPrograms = ({ theme, darkMode, adminUser, onNavigate, initialTab }) =
                                             <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start' }}>
                                                 <div style={{ flex: 1 }}>
                                                     <label style={labelStyle(theme)}>
-                                                        {getLabel('category_label', 'Program')} Display Name
+                                                        {getLabel('category_label', 'Workspace')} Display Name
                                                     </label>
                                                     <input
                                                         disabled={!hasGlobalAdminAccess}
                                                         value={selectedProgram.name}
                                                         onChange={e => setSelectedProgram({ ...selectedProgram, name: e.target.value })}
                                                         style={inputStyle(theme)}
-                                                        placeholder="Enter public name..."
+                                                        placeholder="Enter workspace name..."
                                                     />
                                                 </div>
                                                 <div style={{ width: '200px' }}>
@@ -765,13 +763,13 @@ const AdminPrograms = ({ theme, darkMode, adminUser, onNavigate, initialTab }) =
                                                     Critical Governance Action
                                                 </h3>
                                                 <p style={{ margin: '0 0 20px 0', fontSize: '13px', color: darkMode ? '#FCA5A5' : '#991B1B', fontWeight: '600', lineHeight: '1.5' }}>
-                                                    Archiving this service will immediately remove it from active citizen discovery.
+                                                    Archiving this workspace will immediately remove it from active citizen discovery.
                                                     All historical records remain intact and immutable for audit purposes.
                                                 </p>
                                                 <button
                                                     onClick={() => {
                                                         setDialog({
-                                                            isOpen: true, type: "alert", title: "Confirm Service Archival",
+                                                            isOpen: true, type: "alert", title: "Confirm Workspace Archival",
                                                             message: (
                                                                 <div style={{ textAlign: 'left' }}>
                                                                     <p style={{ margin: '0 0 12px 0' }}>You are about to archive <strong>{selectedProgram.name}</strong>. This will result in:</p>
@@ -791,7 +789,7 @@ const AdminPrograms = ({ theme, darkMode, adminUser, onNavigate, initialTab }) =
                                                     onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-1px)'}
                                                     onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
                                                 >
-                                                    Archive Service Architecture
+                                                    Archive Workspace Architecture
                                                 </button>
                                             </div>
                                         )}
@@ -941,12 +939,12 @@ const AdminPrograms = ({ theme, darkMode, adminUser, onNavigate, initialTab }) =
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
                                 <div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                                        <span style={{ fontSize: '10px', fontWeight: '900', color: theme.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Operational Scope</span>
+                                        <span style={{ fontSize: '10px', fontWeight: '900', color: theme.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Operational Hub</span>
                                         <div style={{ padding: '2px 8px', background: theme.bg, borderRadius: '6px', fontSize: '10px', fontWeight: '800', color: 'var(--primary-color)', border: `1px solid ${theme.border}` }}>
-                                            SERVICE: {selectedProgram.name}
+                                            WORKSPACE: {selectedProgram.name}
                                         </div>
                                     </div>
-                                    <h2 style={{ margin: 0, fontSize: '22px', fontWeight: '900', color: theme.text, letterSpacing: '-0.02em' }}>Service Monitoring Panel</h2>
+                                    <h2 style={{ margin: 0, fontSize: '22px', fontWeight: '900', color: theme.text, letterSpacing: '-0.02em' }}>Workspace Monitoring Hub</h2>
                                 </div>
                                 <div style={{ display: 'flex', gap: '4px', background: theme.bg, padding: '4px', borderRadius: '10px', border: `1px solid ${theme.border}` }}>
                                     {['7d', '30d', '90d'].map(tf => (
@@ -1288,8 +1286,8 @@ const AdminPrograms = ({ theme, darkMode, adminUser, onNavigate, initialTab }) =
                 <>
                     <div style={{ marginBottom: "20px", display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div>
-                            <h2 style={{ margin: "0 0 4px 0", fontSize: "20px", fontWeight: "800", color: theme.text }}>Services</h2>
-                            <p style={{ margin: 0, fontSize: "13px", color: theme.textMuted }}>Manage your high-level operational units and their {getLabel('entity_label_plural', 'service sites').toLowerCase()}.</p>
+                            <h2 style={{ margin: "0 0 4px 0", fontSize: "20px", fontWeight: "800", color: theme.text }}>Workspaces</h2>
+                            <p style={{ margin: 0, fontSize: "13px", color: theme.textMuted }}>Manage your high-level operational units and their {getLabel('entity_label_plural', 'locations').toLowerCase()}.</p>
                         </div>
                     </div>
                     {loading ? <div style={{ padding: '60px', textAlign: 'center', color: theme.textMuted }}>Loading {getLabel('category_label_plural', 'programs').toLowerCase()}...</div> : renderProgramList()}
@@ -1301,46 +1299,18 @@ const AdminPrograms = ({ theme, darkMode, adminUser, onNavigate, initialTab }) =
                 <div style={modalOverlay}>
                     <div style={{ ...modalContent, background: theme.surface }}>
                         <h3 style={{ margin: '0 0 4px 0', color: theme.text }}>
-                            Register New {getWorkspaceLabel(prgForm.type)}
+                            Register New Workspace
                         </h3>
                         <p style={{ margin: '0 0 20px 0', fontSize: '12px', color: theme.textMuted }}>
-                            {SERVICE_WORKSPACE_TYPES.includes(prgForm.type)
-                                ? `${prgForm.type} services can have Products assigned to them.`
-                                : 'General workspace — no products attached.'}
+                            Define a new high-level operational unit for system-wide feedback tracking.
                         </p>
                         <form onSubmit={handleCreateProgram}>
-                            <label style={labelStyle(theme)}>{getWorkspaceLabel(prgForm.type)} Type</label>
-                            <select
-                                value={prgForm.type}
-                                onChange={e => {
-                                    const t = e.target.value;
-                                    const preset = WORKSPACE_ICON_PRESETS[t] || 'layers';
-                                    setPrgForm({ ...prgForm, type: t, icon: preset });
-                                }}
-                                style={{ ...inputStyle(theme), marginBottom: '20px' }}
-                            >
-                                <optgroup label="── Service Types (can have Products) ──">
-                                    <option value="Restaurant">Restaurant</option>
-                                    <option value="Pool">Pool</option>
-                                    <option value="Spa">Spa</option>
-                                    <option value="Housekeeping">Housekeeping</option>
-                                    <option value="Shop">Shop</option>
-                                    <option value="Store">Store</option>
-                                    <option value="Gift Shop">Gift Shop</option>
-                                </optgroup>
-                                <optgroup label="── Other Workspace Types ──">
-                                    <option value="Program">Program</option>
-                                    <option value="Department">Department</option>
-                                    <option value="Office">Office</option>
-                                </optgroup>
-                            </select>
-
-                            <label style={labelStyle(theme)}>{getWorkspaceLabel(prgForm.type)} Name</label>
+                            <label style={labelStyle(theme)}>Workspace Name</label>
                             <input
                                 value={prgForm.name}
                                 onChange={e => setPrgForm({ ...prgForm, name: e.target.value })}
                                 style={{ ...inputStyle(theme), marginBottom: '20px' }}
-                                placeholder={`e.g. Main ${prgForm.type}`}
+                                placeholder="e.g. Finance Workspace or Operations"
                             />
 
                             <label style={labelStyle(theme)}>Icon
@@ -1356,7 +1326,7 @@ const AdminPrograms = ({ theme, darkMode, adminUser, onNavigate, initialTab }) =
 
                             <div style={{ display: 'flex', gap: '12px', marginTop: '10px' }}>
                                 <button type="submit" style={btnPrimary}>
-                                    Create {getWorkspaceLabel(prgForm.type)}
+                                    Create Workspace
                                 </button>
                                 <button type="button" onClick={() => setIsAddingProgram(false)} style={btnSecondary(theme)}>Cancel</button>
                             </div>

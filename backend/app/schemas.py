@@ -298,7 +298,7 @@ class ProductBase(BaseModel):
     evaluation_template_id: Optional[int] = None
     image_url: Optional[str] = None
     is_active: bool = True
-    entity_id: int
+    entity_id: Optional[int] = None
     branch_id: Optional[int] = None
 
 class ProductCreate(ProductBase):

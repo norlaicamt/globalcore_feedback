@@ -203,12 +203,72 @@ def _ensure_user_settings(db: Session, user: models.User) -> models.UserSetting:
 
 def create_user(db: Session, user: schemas.UserCreate):
     data = user.model_dump()
-    if "email" in data:
-        data["email"] = data["email"].lower()
-    if "global_id" in data and not data["global_id"]:
-        del data["global_id"]
-    db_user = models.User(**data)
+    
+    # 1. Normalize and extract key fields
+    email = data.get("email", "").lower()
+    password = data.get("password")
+    username = data.get("username")
+    name = data.get("name") or data.get("display_name") or username or email
+
+    # 2. Create Base Identity (global_user)
+    # Use only actual Columns to avoid proxy-initialization errors
+    db_user = models.User(
+        display_name=name,
+        source=data.get("source", "local"),
+        role_context=data.get("role_context", "citizen"),
+        attributes=data.get("attributes") or {},
+        external_id=data.get("external_id")
+    )
     db.add(db_user)
+    db.flush() # Secure the user.id
+
+    # 3. Create Expansion Records
+    # Profile Expansion (email, phone, bio)
+    profile = models.UserProfile(
+        user_id=db_user.id,
+        email=email,
+        phone=data.get("phone"),
+        first_name=data.get("first_name"),
+        last_name=data.get("last_name"),
+        middle_name=data.get("middle_name"),
+        avatar_url=data.get("avatar_url"),
+        region=data.get("region"),
+        province=data.get("province"),
+        city=data.get("city"),
+        barangay=data.get("barangay"),
+        profile_completed=data.get("profile_completed", False)
+    )
+    db.add(profile)
+
+    # Module Identity & Auth (username, password, roles)
+    umc = models.UserModuleContext(
+        user_id=db_user.id,
+        username=username,
+        password=password,
+        role=data.get("role", "user"),
+        is_active=data.get("is_active", True),
+        organization_id=data.get("organization_id"),
+        entity_id=data.get("entity_id"),
+        department=data.get("department"),
+        program=data.get("program")
+    )
+    db.add(umc)
+
+    # Operational/Session State
+    session = models.UserSession(
+        user_id=db_user.id,
+        session_token=data.get("session_token")
+    )
+    db.add(session)
+
+    # Preferences & Settings
+    settings = models.UserSetting(
+        user_id=db_user.id,
+        appearance_mode=data.get("appearance_mode", "light"),
+        appearance_category=data.get("appearance_category", "minimal")
+    )
+    db.add(settings)
+
     db.commit()
     db.refresh(db_user)
     return db_user

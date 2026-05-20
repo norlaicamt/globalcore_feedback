@@ -66,7 +66,7 @@ def admin_login(email: str, password: str, db: Session = Depends(get_db)):
         else:
             raise HTTPException(status_code=403, detail="Access denied: Not an administrator")
             
-    raise HTTPException(status_code=401, detail="Invalid admin credentials")
+    raise HTTPException(status_code=401, detail="Invalid admin credentials.")
 
 
 # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

@@ -30,7 +30,7 @@ const AdminProducts = ({ theme, darkMode, adminUser, isScoped }) => {
         let initial = {
             showName: true,
             showType: false,
-            showScope: true,
+            showScope: false,
             showStatus: false,
             showActions: true
         };
@@ -147,7 +147,7 @@ const AdminProducts = ({ theme, darkMode, adminUser, isScoped }) => {
                 category: "",
                 image_url: "",
                 is_active: true,
-                entity_id: adminUser?.entity_id || "",
+                entity_id: filterEntity || adminUser?.entity_id || "",
                 branch_id: "",
                 evaluation_template_id: ""
             });
@@ -157,7 +157,7 @@ const AdminProducts = ({ theme, darkMode, adminUser, isScoped }) => {
 
     const handleSave = async (e) => {
         e.preventDefault();
-        if (!form.name || !form.entity_id) return;
+        if (!form.name) return;
 
         try {
             const payload = {
@@ -219,15 +219,8 @@ const AdminProducts = ({ theme, darkMode, adminUser, isScoped }) => {
                 const productsToImport = data.slice(1).map(row => {
                     const name = row[0]?.toString().trim();
                     const category = row[1]?.toString().trim() || "Uncategorized";
-                    const soldUnder = row[2]?.toString().trim() || "";
 
-                    let entity_id = parseInt(filterEntity) || adminUser?.entity_id;
-                    if (soldUnder) {
-                        const matchedEntity = entities.find(e => e.name.toLowerCase() === soldUnder.toLowerCase());
-                        if (matchedEntity) entity_id = matchedEntity.id;
-                    }
-
-                    if (!entity_id) throw new Error(`Service '${soldUnder}' not found for product '${name}'`);
+                    let entity_id = parseInt(filterEntity) || adminUser?.entity_id || null;
 
                     return {
                         name,
@@ -250,7 +243,7 @@ const AdminProducts = ({ theme, darkMode, adminUser, isScoped }) => {
             } catch (err) {
                 setDialog({
                     isOpen: true, type: "error", title: "Import Failed",
-                    message: err.response?.data?.detail || err.message || "Failed to parse Excel file. Ensure columns are: Name, Product Type, Sold Under.",
+                    message: err.response?.data?.detail || err.message || "Failed to parse Excel file. Ensure columns are: Name, Product Type.",
                     confirmText: "OK", onConfirm: () => setDialog({ isOpen: false })
                 });
             }
@@ -269,15 +262,8 @@ const AdminProducts = ({ theme, darkMode, adminUser, isScoped }) => {
 
                 const name = parts[0]?.trim();
                 const category = parts[1]?.trim() || "Uncategorized";
-                const soldUnder = parts[2]?.trim() || "";
 
-                let entity_id = parseInt(filterEntity) || adminUser?.entity_id;
-                if (soldUnder) {
-                    const matchedEntity = entities.find(e => e.name.toLowerCase() === soldUnder.toLowerCase());
-                    if (matchedEntity) entity_id = matchedEntity.id;
-                }
-
-                if (!entity_id) throw new Error(`Service '${soldUnder}' not found for product '${name}'`);
+                let entity_id = parseInt(filterEntity) || adminUser?.entity_id || null;
 
                 return {
                     name,
@@ -300,7 +286,7 @@ const AdminProducts = ({ theme, darkMode, adminUser, isScoped }) => {
         } catch (err) {
             setDialog({
                 isOpen: true, type: "error", title: "Import Failed",
-                message: err.response?.data?.detail || err.message || "Please ensure your data follows the format: Name, Product Type, Sold Under.",
+                message: err.response?.data?.detail || err.message || "Please ensure your data follows the format: Name, Product Type.",
                 confirmText: "OK", onConfirm: () => setDialog({ isOpen: false })
             });
         }
@@ -421,13 +407,13 @@ const AdminProducts = ({ theme, darkMode, adminUser, isScoped }) => {
                         value={filterEntity}
                         onChange={(e) => { setFilterEntity(e.target.value); setFilterBranch(""); }}
                     >
-                        <option value="">All Services</option>
+                        <option value="">All Workspaces</option>
                         {entities.map(e => {
-                            const wsType = e.fields?.operational?.workspace_type || 'Service';
+                            const wsType = e.fields?.operational?.workspace_type || 'Workspace';
                             const suffix = e.name.toLowerCase() !== wsType.toLowerCase() ? ` (${wsType})` : '';
                             return (
                                 <option key={e.id} value={e.id}>
-                                    {e.name}{suffix}
+                                    {e.name}
                                 </option>
                             );
                         })}
@@ -503,7 +489,7 @@ const AdminProducts = ({ theme, darkMode, adminUser, isScoped }) => {
                                 {[
                                     { key: 'showName', label: 'Product Name' },
                                     { key: 'showType', label: 'Product Type' },
-                                    { key: 'showScope', label: 'Scope' },
+                                    { key: 'showScope', label: 'Workspace' },
                                     { key: 'showStatus', label: 'Status' },
                                     { key: 'showActions', label: 'Actions' }
                                 ].map(col => (
@@ -552,7 +538,7 @@ const AdminProducts = ({ theme, darkMode, adminUser, isScoped }) => {
                         <tr>
                             {columns.showName && <th style={styles.th}>Product</th>}
                             {columns.showType && <th style={styles.th}>Product Type</th>}
-                            {columns.showScope && <th style={styles.th}>Scope</th>}
+                            {columns.showScope && <th style={styles.th}>Workspace</th>}
                             {columns.showStatus && <th style={styles.th}>Status</th>}
                             {columns.showActions && <th style={styles.th}></th>}
                         </tr>
@@ -662,26 +648,6 @@ const AdminProducts = ({ theme, darkMode, adminUser, isScoped }) => {
                                     </select>
                                 </div>
 
-                                {!isScoped && (
-                                    <div style={styles.formGroup}>
-                                        <label style={styles.formLabel}>Sold Under</label>
-                                        <select style={styles.input} value={form.entity_id} onChange={e => setForm({ ...form, entity_id: e.target.value, branch_id: "" })} required>
-                                            <option value="">Select a Service…</option>
-                                            {entities.map(e => {
-                                                const wsType = e.fields?.operational?.workspace_type || 'Service';
-                                                const suffix = e.name.toLowerCase() !== wsType.toLowerCase() ? ` — ${wsType}` : '';
-                                                return (
-                                                    <option key={e.id} value={e.id}>
-                                                        {e.name}{suffix}
-                                                    </option>
-                                                );
-                                            })}
-                                        </select>
-                                        <p style={{ margin: '6px 0 0', fontSize: '11px', color: theme.textMuted }}>
-                                            e.g. Sold Under: Restaurant · Spa · Gift Shop
-                                        </p>
-                                    </div>
-                                )}
                             </div>
 
                             <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '32px' }}>
@@ -712,7 +678,7 @@ const AdminProducts = ({ theme, darkMode, adminUser, isScoped }) => {
                             <label htmlFor="excel-upload" style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
                                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--primary-color)" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" /></svg>
                                 <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--primary-color)' }}>Click to upload Excel / CSV</span>
-                                <span style={{ fontSize: '10px', color: theme.textMuted }}>Columns: Name, Product Type, Sold Under</span>
+                                <span style={{ fontSize: '10px', color: theme.textMuted }}>Columns: Name, Product Type</span>
                             </label>
                         </div>
 
@@ -724,7 +690,7 @@ const AdminProducts = ({ theme, darkMode, adminUser, isScoped }) => {
 
                         <textarea
                             style={{ ...styles.input, height: '120px', fontFamily: 'monospace', fontSize: '12px', padding: '12px', lineHeight: '1.6' }}
-                            placeholder="Example:&#10;Mango Smoothie, Drinks, Restaurant&#10;Lavender Body Scrub, Cosmetics, Spa&#10;Keychain, Souvenirs, Gift Shop"
+                            placeholder="Example:&#10;Mango Smoothie, Drinks&#10;Lavender Body Scrub, Cosmetics&#10;Keychain, Souvenirs"
                             value={bulkData}
                             onChange={e => setBulkData(e.target.value)}
                         />
