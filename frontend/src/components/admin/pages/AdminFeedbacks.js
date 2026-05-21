@@ -1174,9 +1174,11 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
                   <td style={{ padding: "16px 20px" }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       {isNew && <span style={{ padding: "2px 6px", background: "#3B82F6", color: "#FFF", fontSize: "9px", fontWeight: "900", borderRadius: "10px", marginTop: "1px" }}>NEW</span>}
-                      <div style={{ fontWeight: "800", color: theme.text, fontSize: "14px", letterSpacing: "-0.01em" }}>{f.entity_name || "General"}</div>
+                      <div style={{ fontSize: "10px", fontWeight: "800", color: "#64748B", textTransform: "uppercase", letterSpacing: "0.05em", opacity: 0.8 }}>{f.entity_name || "General"}</div>
                     </div>
-                    <div style={{ fontSize: "11px", color: theme.textMuted, marginTop: "2px", fontWeight: "600" }}>{f.title?.split(": ")[1] || f.title || "No Subject"}</div>
+                    <div style={{ fontSize: "14px", color: theme.text, marginTop: "2px", fontWeight: "800", letterSpacing: "-0.02em", lineHeight: "1.3" }}>
+                      {f.title?.split(": ")[1] || f.title || "No Subject"}
+                    </div>
                   </td>
                 )}
                 {visibleColumns.user && (
