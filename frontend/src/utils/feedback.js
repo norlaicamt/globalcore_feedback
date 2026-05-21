@@ -382,7 +382,7 @@ const renderFullModule = (item, val, feedbackId, viewerMode = 'public') => {
   const key = item.type || item.key || '';
 
   // Handle detection for orphaned media data (prevents [object Object])
-  if (!item.type && (val?.url || val?.preview || (Array.isArray(val) && (val[0]?.url || val[0]?.preview)))) {
+  if (key !== 'photo_upload' && (val?.url || val?.preview || (Array.isArray(val) && (val[0]?.url || val[0]?.preview)))) {
     return renderFullModule({ ...item, type: 'photo_upload' }, val, feedbackId, viewerMode);
   }
 
@@ -613,12 +613,6 @@ export const renderFeedbackResponses = (post, options = { compact: true, viewerM
   currentSchemaKeys.add('product_evaluations');
   currentSchemaKeys.add('product_metadata');
   currentSchemaKeys.add('routing_method');
-  // Legacy fields that should not be rendered as orphaned custom fields
-  currentSchemaKeys.add('details');
-  currentSchemaKeys.add('idea');
-  currentSchemaKeys.add('comment');
-  currentSchemaKeys.add('message');
-  currentSchemaKeys.add('description');
 
   // Blend removed/legacy fields effortlessly into the main feed
   Object.entries(data).forEach(([dataKey, dataVal]) => {
