@@ -559,7 +559,12 @@ export const renderFeedbackResponses = (post, options = { compact: true, viewerM
     if (post.rating) {
       publicModules.push({ label: 'Rating', val: post.rating, key: 'star_rating', item: { key: 'star_rating', type: 'star_rating' } });
     }
-    if (coreMessage) {
+    // Suppress generic "Feedback" entry if this is a structured form:
+    // (a) field_labels present → form was schema-driven (entity may just not be loaded), OR
+    // (b) coreMessage text already exists as a custom_data value → will be shown via long/short answer module
+    const hasStructuredForm = data.field_labels && Object.keys(data.field_labels).length > 0;
+    const coreMessageInData = coreMessage && Object.values(data).some(v => typeof v === 'string' && v === coreMessage);
+    if (coreMessage && !hasStructuredForm && !coreMessageInData) {
       publicModules.push({ label: 'Feedback', val: coreMessage, key: 'long_text', item: { key: 'long_text' } });
     }
   } else {
