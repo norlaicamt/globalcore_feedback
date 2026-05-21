@@ -616,6 +616,8 @@ export const renderFeedbackResponses = (post, options = { compact: true, viewerM
   }
 
   const currentSchemaKeys = new Set(schema.map(i => i.id || i.key));
+  currentSchemaKeys.add('field_labels');
+  currentSchemaKeys.add('product_evaluations');
   currentSchemaKeys.add('product_metadata');
   currentSchemaKeys.add('routing_method');
   currentSchemaKeys.add('product_picker');
