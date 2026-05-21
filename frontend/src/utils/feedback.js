@@ -491,7 +491,7 @@ const renderFullModule = (item, val, feedbackId, viewerMode = 'public') => {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
         {choices.map((c, i) => (
-          <div key={i} style={{ fontSize: '14px', fontWeight: '800', color: '#0F172A', lineHeight: '1.4' }}>
+          <div key={i} style={{ fontSize: '14px', fontWeight: '600', color: '#0F172A', lineHeight: '1.4' }}>
             {c}
           </div>
         ))}
