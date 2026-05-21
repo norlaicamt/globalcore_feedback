@@ -1186,7 +1186,7 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
 
   const renderItem = (item, idx) => {
     const { key, required, label_override, helper } = item;
-    const label = (label_override && typeof label_override === 'string' && label_override.trim()) || (item.label && typeof item.label === 'string' && item.label.trim()) || (key === 'multiple_choice' ? 'Multiple Choice' : key === 'rating_matrix' ? 'Rating Matrix' : "");
+    const label = label_override || item.label || "";
     const isProminent = ['multiple_choice', 'rating_matrix'].includes(key);
     const invalid = showErrors && required && !isItemFilled(item);
     let itemValue = null;
@@ -1708,18 +1708,18 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
       >
         <div style={{ marginBottom: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
           <div style={{ flex: 1 }}>
-            <label style={{ 
-              ...styles.label, 
-              color: invalid ? '#EF4444' : (isProminent ? '#94A3B8' : '#0F172A'), 
-              fontSize: isProminent ? '11px' : 'var(--size-body, 14px)', 
-              fontWeight: isProminent ? '900' : '700', 
-              marginBottom: '4px', 
-              textTransform: isProminent ? 'uppercase' : 'none', 
-              letterSpacing: isProminent ? '0.05em' : '-0.01em', 
-              lineHeight: '1.4', 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '8px' 
+            <label style={{
+              ...styles.label,
+              color: invalid ? '#EF4444' : '#0F172A',
+              fontSize: isProminent ? '16px' : 'var(--size-body, 14px)',
+              fontWeight: isProminent ? '800' : '700',
+              marginBottom: isProminent ? '8px' : '4px',
+              textTransform: 'none',
+              letterSpacing: isProminent ? '-0.02em' : '-0.01em',
+              lineHeight: '1.4',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
             }}>
               {label}
 

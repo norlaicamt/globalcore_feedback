@@ -386,7 +386,7 @@ const renderFullModule = (item, val, feedbackId, viewerMode = 'public') => {
     return renderFullModule({ ...item, type: 'photo_upload' }, val, feedbackId, viewerMode);
   }
 
-  if (key === 'star_rating') {
+  if (key === 'star_rating' || key === 'rating' || key === 'overall_rating' || key.toLowerCase() === 'rating') {
     const n = parseInt(val) || 0;
     if (n === 0) return null;
     return (
@@ -556,7 +556,7 @@ export const renderFeedbackResponses = (post, options = { compact: true, viewerM
 
   if (schema.length === 0) {
     // No schema: render core fields only
-    if (post.rating && !options.compact) {
+    if (post.rating) {
       publicModules.push({ label: 'Rating', val: post.rating, key: 'star_rating', item: { key: 'star_rating', type: 'star_rating' } });
     }
     if (coreMessage) {
@@ -565,7 +565,7 @@ export const renderFeedbackResponses = (post, options = { compact: true, viewerM
   } else {
     const hasStarRatingInSchema = schema.some(i => i.key === 'star_rating' || i.type === 'star_rating');
 
-    if (post.rating && !hasStarRatingInSchema && !options.compact) {
+    if (post.rating && !hasStarRatingInSchema) {
       publicModules.push({ label: 'Rating', val: post.rating, key: 'star_rating', item: { key: 'star_rating', type: 'star_rating' } });
     }
 
@@ -573,8 +573,10 @@ export const renderFeedbackResponses = (post, options = { compact: true, viewerM
       const key = item.key || '';
       let val = resolveVal(data, item);
 
-      if ((val === undefined || val === null || val === '') && (key === 'star_rating' || item.type === 'star_rating')) {
+      if ((val === undefined || val === null || val === '') && (key === 'star_rating' || item.type === 'star_rating' || key === 'rating')) {
         val = post.rating;
+        // Optimization: Ensure the item type is forced so renderFullModule knows to show stars
+        item = { ...item, type: 'star_rating' };
       }
 
       if ((val === undefined || val === null || val === '') && key === 'product_picker') {
@@ -599,7 +601,12 @@ export const renderFeedbackResponses = (post, options = { compact: true, viewerM
           identityModules.push({ label, val, key, item });
         }
       } else {
-        publicModules.push({ label, val, key, item });
+        // Anti-Redundancy: Never show product picker in public feed (already in header)
+        if (key === 'product_picker' && options.viewerMode === 'public') {
+          // Skip
+        } else {
+          publicModules.push({ label, val, key, item });
+        }
       }
     });
 
@@ -609,10 +616,16 @@ export const renderFeedbackResponses = (post, options = { compact: true, viewerM
   }
 
   const currentSchemaKeys = new Set(schema.map(i => i.id || i.key));
-  currentSchemaKeys.add('field_labels');
-  currentSchemaKeys.add('product_evaluations');
   currentSchemaKeys.add('product_metadata');
   currentSchemaKeys.add('routing_method');
+  currentSchemaKeys.add('product_picker');
+  currentSchemaKeys.add('product_id');
+  currentSchemaKeys.add('rating'); 
+  currentSchemaKeys.add('details');
+  currentSchemaKeys.add('message');
+  currentSchemaKeys.add('description');
+  currentSchemaKeys.add('comment');
+  currentSchemaKeys.add('idea');
 
   // Blend removed/legacy fields effortlessly into the main feed
   Object.entries(data).forEach(([dataKey, dataVal]) => {
@@ -629,8 +642,10 @@ export const renderFeedbackResponses = (post, options = { compact: true, viewerM
           identityModules.push({ label, val: dataVal, key: dataKey, item: { key: dataKey, label } });
         }
       } else {
-        // Strict Privacy Guard: Never expose orphaned custom fields (like 'it_123') to the public
-        // because we don't know if they contain PII (like addresses or names). 
+        // Anti-Redundancy: Skip if this is a product object or explicitly the product_picker
+        if ((dataVal?.name && dataVal?.id) || dataKey === 'product_picker') return;
+        
+        // Default orphan handling: only Admin/Owner sees unidentified data
         if (options.viewerMode === 'admin' || options.viewerMode === 'owner') {
           publicModules.push({ label, val: dataVal, key: dataKey, item: { key: dataKey, label } });
         }
@@ -722,3 +737,4 @@ export const formatMentions = (mentions) => {
   if (names.length <= 2) return names.join(', ');
   return `${names.slice(0, 2).join(', ')} +${names.length - 2} more`;
 };
+
