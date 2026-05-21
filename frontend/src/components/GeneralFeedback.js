@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { createFeedback, getEntities, getBranches, getProducts, getEntityFormConfig, createDraft, updateDraft, deleteDraft } from "../services/api";
 import { useTerminology } from "../context/TerminologyContext";
+import { IconRegistry } from "./IconRegistry";
 import CustomModal from "./CustomModal";
 
 // Service types that can have Products
@@ -134,7 +135,7 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
   const [globalProducts, setGlobalProducts] = useState([]);
   const [productLoading, setProductLoading] = useState(false);
   const [productSearch, setProductSearch] = useState("");
-  const [selectedProduct, setSelectedProduct] = useState(draft?.selectedProduct || null);
+  const [selectedProducts, setSelectedProducts] = useState(draft?.selectedProducts || []);
   const [productEvaluations, setProductEvaluations] = useState(draft?.productEvaluations || []);
 
   // --- MEDIA GOVERNANCE HELPERS ---
@@ -533,7 +534,7 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
       // 1. Core System Pickers
       if (key === 'entity_picker') return !!selectedEntity;
       if (key === 'location_picker') return !!selectedBranch || (isManualLocation && !!manualLocationText.trim());
-      if (key === 'product_picker') return !!selectedProduct;
+      if (key === 'product_picker') return selectedProducts.length > 0;
       
       // 2. Ratings (Matrix has its own state, others use 'rating')
       if (key === 'rating_matrix') {
@@ -1011,11 +1012,12 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
         ...matrixRatings, 
         product_evaluations: productEvaluations,
         routing_method: selectionMethod,
-        product_metadata: selectedProduct ? {
-          category: selectedProduct.category,
-          price: selectedProduct.price,
-          image_url: selectedProduct.image_url,
-          evaluation_template_id: selectedProduct.evaluation_template_id
+        product_metadata: selectedProducts.length > 0 ? {
+          category: selectedProducts[0].category,
+          price: selectedProducts[0].price,
+          image_url: selectedProducts[0].image_url,
+          evaluation_template_id: selectedProducts[0].evaluation_template_id,
+          all_selected: selectedProducts.map(p => ({ id: p.id, name: p.name, category: p.category }))
         } : null,
         field_labels
       };
@@ -1032,9 +1034,9 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
         feedback_type: feedbackType,
         entity_id: selectedEntity.id,
         branch_id: selectedBranch?.id,
-        product_id: selectedProduct?.id || null,
-        product_name: selectedProduct?.name || null,
-        product_sku: selectedProduct?.sku || null,
+        product_id: selectedProducts[0]?.id || null,
+        product_name: selectedProducts.map(p => p.name).join(', ') || null,
+        product_sku: selectedProducts[0]?.sku || null,
         description: idea,
         rating,
         is_anonymous: isAnonymous,
@@ -1196,19 +1198,18 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
     else if (['full_name', 'contact_number', 'email_address', 'mailing_address', 'number_input'].includes(key)) {
       itemValue = customFields[item.id || key];
     }
-    else if (key === 'product_picker') itemValue = selectedProduct;
+    else if (key === 'product_picker') itemValue = selectedProducts.length > 0 ? selectedProducts : null;
 
     const renderContent = () => {
       if (key === 'entity_picker') {
         if (dbEntities.length <= 1) return null;
         return (
           <div style={styles.grid}>{dbEntities.map(ent => {
-            const name = ent.icon ? (ent.icon.charAt(0).toUpperCase() + ent.icon.slice(1)) : 'Layers';
-            const IconComp = LocalIcons[name] || LocalIcons.Layers;
+            const IconComp = IconRegistry[ent.icon] || IconRegistry.default;
             const isSel = selectedEntity?.id === ent.id;
             return (
               <button key={ent.id} onClick={() => { setSelectedEntity(ent); setConfirmingSelection(ent); setTimeout(() => { setConfirmingSelection(null); handleNext(null, null, ent); }, 800); }} style={{ ...styles.typeCard, borderColor: isSel ? 'var(--primary-color)' : 'rgba(0,0,0,0.05)', background: isSel ? 'rgba(var(--primary-rgb), 0.05)' : 'white', transform: isSel ? 'scale(1.02)' : 'scale(1)' }}>
-                <div style={styles.itemIcon}><IconComp size={28} /></div>
+                <div style={styles.itemIcon}><IconComp width="28" height="28" strokeWidth="2.5" /></div>
                 <div style={styles.itemName}>{ent.name}</div>
                 <div style={{ fontSize: '10px', color: '#94A3B8', marginTop: '4px', textAlign: 'center' }}>{ent.description || 'Quality Service'}</div>
                 {(() => {
@@ -1454,13 +1455,21 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
                 padding: '4px'
               }}>
                 {filteredProducts.map(p => {
-                  const isSel = selectedProduct?.id === p.id;
+                  const isSel = selectedProducts.some(sel => sel.id === p.id);
                   return (
                     <button
                       key={p.id}
                       onClick={() => {
-                        setSelectedProduct(p);
-                        setProductEvaluations([]); // Reset evaluations when product changes
+                        setSelectedProducts(prev => {
+                          const isAlreadySel = prev.some(sel => sel.id === p.id);
+                          if (isAlreadySel) {
+                            return prev.filter(sel => sel.id !== p.id);
+                          } else {
+                            return [...prev, p];
+                          }
+                        });
+                        // Optional: Reset evaluations if needed, or keep them if they are per-product
+                        // setProductEvaluations([]); 
                       }}
                       style={{
                         display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
@@ -1489,18 +1498,18 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
             
             {/* DYNAMIC PRODUCT EVALUATION INJECTION (Progressive Reveal) */}
             <div style={{ 
-              maxHeight: selectedProduct?.evaluation_template ? '800px' : '0px',
+              maxHeight: selectedProducts.length > 0 && selectedProducts[0].evaluation_template ? '800px' : '0px',
               overflow: 'hidden',
               transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
-              opacity: selectedProduct?.evaluation_template ? 1 : 0,
-              marginTop: selectedProduct?.evaluation_template ? '12px' : '0px'
+              opacity: selectedProducts.length > 0 && selectedProducts[0].evaluation_template ? 1 : 0,
+              marginTop: selectedProducts.length > 0 && selectedProducts[0].evaluation_template ? '12px' : '0px'
             }}>
               <div style={{ 
                 padding: '20px', borderRadius: '24px', 
                 background: 'rgba(var(--primary-rgb), 0.03)', border: '1.5px solid rgba(var(--primary-rgb), 0.1)',
                 display: 'flex', flexDirection: 'column', gap: '16px'
               }}>
-                {selectedProduct?.evaluation_template?.criteria.map(c => (
+                {selectedProducts[0]?.evaluation_template?.criteria.map(c => (
                   <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ fontSize: '13px', fontWeight: '800', color: '#475569' }}>{c.label}</span>
                     <div style={{ display: 'flex', gap: '6px' }}>
@@ -1914,8 +1923,7 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
             }}>
               {dbEntities.map(ent => {
                 const isSel = selectedEntity?.id === ent.id;
-                const iconName = ent.icon ? (ent.icon.charAt(0).toUpperCase() + ent.icon.slice(1)) : 'Layers';
-                const IconComp = LocalIcons[iconName] || LocalIcons.Layers;
+                const IconComp = IconRegistry[ent.icon] || IconRegistry.default;
 
                 const colorMap = {
                   spa: { bg: '#F0FDFA', icon: '#0D9488', border: '#CCFBF1' },
@@ -1970,7 +1978,7 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
                         ? '0 8px 16px rgba(var(--primary-rgb), 0.3)'
                         : `inset 0 0 0 1px ${theme.border}`
                     }}>
-                      <IconComp size={24} />
+                      <IconComp width="24" height="24" strokeWidth="2.5" />
                     </div>
 
                     <div style={{

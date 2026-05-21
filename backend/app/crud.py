@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session, joinedload, aliased, joinedload as _joinedload
-from sqlalchemy import func, select, case, cast, Text as SAText, Date
+from sqlalchemy import func, select, case, cast, Text as SAText, Date, or_
 from app import models
 from app import schemas
 import asyncio
@@ -532,9 +532,9 @@ def get_products(db: Session, skip: int = 0, limit: int = 100, entity_id: int = 
     ).outerjoin(fb_agg, models.Product.id == fb_agg.c.product_id)
 
     if entity_id:
-        query = query.filter(models.Product.entity_id == entity_id)
+        query = query.filter(or_(models.Product.entity_id == entity_id, models.Product.entity_id == None))
     if branch_id:
-        query = query.filter(models.Product.branch_id == branch_id)
+        query = query.filter(or_(models.Product.branch_id == branch_id, models.Product.branch_id == None))
     if only_active:
         query = query.filter(models.Product.is_active == True)
     

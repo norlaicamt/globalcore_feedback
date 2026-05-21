@@ -951,14 +951,33 @@ function AdminFormDesigner({ theme, darkMode, adminUser }) {
   };
 
   const addModuleItem = (sIdx, key) => {
-    if (config.steps[sIdx]?.locked) return; // Prevent adding if locked
-    const steps = [...config.steps];
-    const newItem = getDefaultItem(key);
+    // If target step doesn't exist, create it (handles empty config)
+    let currentSteps = [...(config.steps || [])];
+    let targetIdx = sIdx;
 
+    if (!currentSteps[targetIdx]) {
+      const isFirst = currentSteps.length === 0;
+      const newStep = {
+        id: `step_${Date.now()}`,
+        label: isFirst ? "Interaction Step 1" : `Interaction Step ${currentSteps.length + 1}`,
+        enabled: true,
+        items: []
+      };
+      currentSteps.push(newStep);
+      targetIdx = currentSteps.length - 1;
+    }
+
+    if (currentSteps[targetIdx].locked) return; // Prevent adding if locked
+    
+    const newItem = getDefaultItem(key);
     pushHistory(config);
-    steps[sIdx].items = [...(steps[sIdx].items || []), newItem];
-    setConfig({ ...config, steps });
-    setSelectedItem({ sIdx, itIdx: steps[sIdx].items.length - 1 });
+    
+    currentSteps[targetIdx].items = [...(currentSteps[targetIdx].items || []), newItem];
+    setConfig({ ...config, steps: currentSteps });
+    setSelectedItem({ sIdx: targetIdx, itIdx: currentSteps[targetIdx].items.length - 1 });
+    
+    // Auto-expand the step so the user sees their new module immediately
+    setExpandedSteps(prev => ({ ...prev, [currentSteps[targetIdx].id]: true }));
   };
 
   const updateItem = (sIdx, iIdx, key, val) => {
