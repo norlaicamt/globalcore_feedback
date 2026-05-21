@@ -139,7 +139,8 @@ def get_service_team_members(db: Session, entity_id: int, current_user_id: int):
             "is_you": u.id == current_user_id,
             "active_cases": case_map.get(u.id, 0),
             "avatar_url": u.avatar_url,
-            "email": u.email
+            "email": u.email,
+            "entity_id": u.entity_id
         })
         
     return {

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { adminGetTeam, adminGetEntities, adminGetUnassignedFeedbacks, adminAssignFeedback, adminGetUsers, adminUpdateUserDetails } from "../../../services/adminApi";
 import { useTerminology } from "../../../context/TerminologyContext";
-import { resolveMediaUrl } from "../../../utils/feedback";
+import { formatFeedbackDate, resolveMediaUrl } from "../../../utils/feedback";
 import CustomModal from "../../CustomModal";
 
 export default function AdminTeam({ adminUser, onNavigate }) {
@@ -22,6 +22,8 @@ export default function AdminTeam({ adminUser, onNavigate }) {
   const [inviteLoading, setInviteLoading] = useState(false);
   const [targetAssignUser, setTargetAssignUser] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [viewMode, setViewMode] = useState("service"); // "service" or "admins"
+  const [allAdmins, setAllAdmins] = useState([]);
 
   const isGlobalAdmin = ["superadmin", "GlobalOverseer"].includes(adminUser?.role);
   const canInvite = isGlobalAdmin || adminUser?.role === "admin";
@@ -65,12 +67,45 @@ export default function AdminTeam({ adminUser, onNavigate }) {
     }
   };
 
-  const handleOpenAssign = async (userId = null) => {
+  const fetchAllAdmins = async () => {
+    setLoading(true);
+    try {
+      const allUsers = await adminGetUsers();
+      const admins = allUsers.filter(u => u.role === "admin" || u.role === "superadmin")
+        .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+      setAllAdmins(admins);
+    } catch (err) {
+      console.error("Failed to load admins:", err);
+      setError("Failed to load system administrators.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (viewMode === "admins") {
+      fetchAllAdmins();
+    }
+  }, [viewMode]);
+
+  const handleOpenAssign = async (member = null) => {
+    const userId = typeof member === "object" ? (member?.user_id || member?.id) : member;
     setTargetAssignUser(userId);
     setIsAssignModalOpen(true);
     setAssignLoading(true);
     try {
-      const cases = await adminGetUnassignedFeedbacks(selectedEntityId);
+      // If we are assigning to a specific admin, filter cases by THEIR specific entity context.
+      // Otherwise (global bulk distribution), use the header's selected entity.
+      // Global Admins can see all cases in the 'Admins' view by passing null.
+      let entityFilter = selectedEntityId;
+      
+      if (typeof member === "object" && member) {
+        entityFilter = member.entity_id;
+      } else if (viewMode === "admins" && isGlobalAdmin) {
+        entityFilter = null;
+      }
+      
+      const cases = await adminGetUnassignedFeedbacks(entityFilter);
       setUnassignedCases(cases || []);
     } catch (e) {
       console.error(e);
@@ -171,16 +206,28 @@ export default function AdminTeam({ adminUser, onNavigate }) {
   const overloadedCount = teamMembers.filter(m => m.active_cases >= 7).length;
 
   const renderMemberCard = (m) => {
-    const presence = getPresence(m.last_active);
+    const lastActiveTime = m.last_active || m.last_seen;
+    const presence = getPresence(lastActiveTime);
 
     let dotColor = "#9CA3AF";
-    if (presence === "online") dotColor = "#22C55E";
-    if (presence === "idle") dotColor = "#F59E0B";
+    let statusText = "Offline";
+    if (presence === "online") {
+      dotColor = "#22C55E";
+      statusText = "Online";
+    }
+    if (presence === "idle") {
+      dotColor = "#F59E0B";
+      statusText = "Idle";
+    }
+    if (presence === "offline" && lastActiveTime) {
+      statusText = `Offline • ${formatFeedbackDate(lastActiveTime)}`;
+    }
 
     const isCore = ["Admin", "Global Admin", "Coordinator", "Service_admin", "Superadmin"].includes(m.role);
+    const workspaceLabel = (m.entities && m.entities.length > 0) ? m.entities.join(" • ") : m.entity_name;
 
     return (
-      <div key={m.user_id} style={{
+      <div key={m.user_id || m.id} style={{
         padding: "12px 14px",
         borderRadius: "12px",
         border: "1px solid #E5E7EB",
@@ -217,23 +264,30 @@ export default function AdminTeam({ adminUser, onNavigate }) {
           </div>
 
           <div style={{ fontSize: "11px", color: isCore ? "#4B5563" : "#6B7280", marginTop: "2px", fontWeight: isCore ? "500" : "normal" }}>
-            {m.role} {m.entities && m.entities.length > 0 && ` • ${m.entities.join(" • ")}`}
+            {viewMode === "admins" ? (workspaceLabel || m.role) : m.role} 
+            {viewMode !== "admins" && m.entities && m.entities.length > 0 && ` • ${m.entities.join(" • ")}`}
           </div>
 
           <div style={{ display: "block", marginTop: "4px" }}>
-            <span
-              style={{ fontSize: "11px", color: "#2563EB", fontWeight: "500", cursor: "pointer", display: "inline-block" }}
-              onClick={() => {
-                if (m.is_you) {
-                  localStorage.setItem("admin_feedback_filter", "MY_CASES");
-                } else {
-                  localStorage.setItem("admin_feedback_filter", m.name);
-                }
-                onNavigate("feedbacks");
-              }}
-            >
-              Handling: {m.active_cases} {m.active_cases === 1 ? 'case' : 'cases'} {getWorkloadIcon(m.active_cases)}
-            </span>
+            {viewMode === "admins" ? (
+              <span style={{ fontSize: "11px", color: dotColor, fontWeight: "600", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                {statusText}
+              </span>
+            ) : (
+              <span
+                style={{ fontSize: "11px", color: "#2563EB", fontWeight: "500", cursor: "pointer", display: "inline-block" }}
+                onClick={() => {
+                  if (m.is_you) {
+                    localStorage.setItem("admin_feedback_filter", "MY_CASES");
+                  } else {
+                    localStorage.setItem("admin_feedback_filter", m.name);
+                  }
+                  onNavigate("feedbacks");
+                }}
+              >
+                Handling: {m.active_cases} {m.active_cases === 1 ? 'case' : 'cases'} {getWorkloadIcon(m.active_cases)}
+              </span>
+            )}
           </div>
         </div>
 
@@ -253,7 +307,7 @@ export default function AdminTeam({ adminUser, onNavigate }) {
             }}
             onMouseOver={(e) => { e.currentTarget.style.backgroundColor = "#F3F4F6"; e.currentTarget.style.borderColor = "#D1D5DB"; }}
             onMouseOut={(e) => { e.currentTarget.style.backgroundColor = "#F9FAFB"; e.currentTarget.style.borderColor = "#E5E7EB"; }}
-            onClick={() => handleOpenAssign(m.user_id)}
+            onClick={() => handleOpenAssign(m)}
           >
             Assign &rarr;
           </button>
@@ -315,6 +369,44 @@ export default function AdminTeam({ adminUser, onNavigate }) {
           <p style={{ margin: 0, fontSize: "13px", color: "#6B7280" }}>Manage workload and assignments for this service</p>
         </div>
 
+        {/* VIEW TOGGLE */}
+        <div style={{ display: "flex", background: "#F1F5F9", padding: "4px", borderRadius: "10px", gap: "4px" }}>
+          <button
+            onClick={() => setViewMode("service")}
+            style={{
+              padding: "6px 16px",
+              fontSize: "12px",
+              fontWeight: "700",
+              borderRadius: "8px",
+              border: "none",
+              cursor: "pointer",
+              backgroundColor: viewMode === "service" ? "white" : "transparent",
+              color: viewMode === "service" ? "#111827" : "#64748B",
+              boxShadow: viewMode === "service" ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+              transition: "0.2s"
+            }}
+          >
+            Service Team
+          </button>
+          <button
+            onClick={() => setViewMode("admins")}
+            style={{
+              padding: "6px 16px",
+              fontSize: "12px",
+              fontWeight: "700",
+              borderRadius: "8px",
+              border: "none",
+              cursor: "pointer",
+              backgroundColor: viewMode === "admins" ? "white" : "transparent",
+              color: viewMode === "admins" ? "#111827" : "#64748B",
+              boxShadow: viewMode === "admins" ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+              transition: "0.2s"
+            }}
+          >
+            Admins
+          </button>
+        </div>
+
         <div style={{ display: "flex", gap: "10px" }}>
           {canInvite && (
             <button
@@ -342,60 +434,74 @@ export default function AdminTeam({ adminUser, onNavigate }) {
         <div style={{ padding: "12px", backgroundColor: "#FEE2E2", color: "#B91C1C", borderRadius: "8px", fontSize: "13px" }}>{error}</div>
       ) : (
         <>
-          {/* KPI STRIP */}
-          <div style={{ display: "flex", gap: "12px", marginBottom: "30px" }}>
-            <div style={{ background: "#F3F4F6", height: "48px", padding: "0 16px", borderRadius: "8px", border: "1px solid #E5E7EB", display: "flex", alignItems: "center", gap: "10px" }}>
-              <span style={{ fontSize: "16px", fontWeight: "700", color: "#111827" }}>{overview.total_active_cases}</span>
-              <span style={{ fontSize: "12px", color: "#4B5563", fontWeight: "500" }}>Active Cases</span>
-            </div>
-            <div
-              style={{ background: overview.unassigned_cases > 0 ? "#FEF2F2" : "#F3F4F6", height: "48px", padding: "0 16px", borderRadius: "8px", border: overview.unassigned_cases > 0 ? "1px solid #FECACA" : "1px solid #E5E7EB", display: "flex", alignItems: "center", gap: "10px", cursor: "pointer" }}
-              onClick={() => {
-                localStorage.setItem("admin_feedback_filter", "UNASSIGNED");
-                onNavigate("feedbacks");
-              }}
-            >
-              <span style={{ fontSize: "16px", fontWeight: "700", color: overview.unassigned_cases > 0 ? "#991B1B" : "#111827" }}>{overview.unassigned_cases}</span>
-              <span style={{ fontSize: "12px", color: overview.unassigned_cases > 0 ? "#B91C1C" : "#4B5563", fontWeight: "500" }}>Unassigned {overview.unassigned_cases > 0 && "⚠️"}</span>
-            </div>
-          </div>
-
-          {/* MAIN GRID */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: "30px" }}>
-
-            {/* LEFT PANEL */}
-            <div>
-              {renderGroup("You", you)}
-              {renderGroup("Core Team", coreTeam, true)}
-              {renderGroup("Support Team", supportTeam, true)}
-            </div>
-
-            {/* RIGHT PANEL */}
-            <div>
-              <div style={{ background: "white", padding: "20px", borderRadius: "12px", border: "1px solid #E5E7EB", position: "sticky", top: "20px", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
-                <h3 style={{ margin: "0 0 16px", fontSize: "12px", fontWeight: "700", color: "#4B5563", textTransform: "uppercase", letterSpacing: "0.5px" }}>Team Snapshot</h3>
-
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px", fontSize: "13px" }}>
-                  <span style={{ color: "#6B7280" }}>Core Team:</span>
-                  <span style={{ fontWeight: "600", color: "#111827" }}>{coreTeam.length}</span>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "16px", fontSize: "13px", paddingBottom: "16px", borderBottom: "1px solid #F3F4F6" }}>
-                  <span style={{ color: "#6B7280" }}>Support Team:</span>
-                  <span style={{ fontWeight: "600", color: "#111827" }}>{supportTeam.length}</span>
-                </div>
-
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px", fontSize: "13px" }}>
-                  <span style={{ color: "#6B7280" }}>Available:</span>
-                  <span style={{ fontWeight: "600", color: "#111827" }}>{availableCount} 🟢</span>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "20px", fontSize: "13px" }}>
-                  <span style={{ color: "#6B7280" }}>Overloaded:</span>
-                  <span style={{ fontWeight: "600", color: "#111827" }}>{overloadedCount} 🔴</span>
+          {/* KPI STRIP & MAIN CONTENT */}
+          {viewMode === "admins" ? (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "10px" }}>
+              <div style={{ marginBottom: "12px" }}>
+                <h3 style={{ fontSize: "12px", fontWeight: "600", color: "#4B5563", marginBottom: "12px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                  System Administrators • {allAdmins.length}
+                </h3>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(350px, 1fr))", gap: "12px" }}>
+                  {allAdmins.map(renderMemberCard)}
                 </div>
               </div>
             </div>
+          ) : (
+            <>
+              {/* KPI STRIP */}
+              <div style={{ display: "flex", gap: "12px", marginBottom: "30px" }}>
+                <div style={{ background: "#F3F4F6", height: "48px", padding: "0 16px", borderRadius: "8px", border: "1px solid #E5E7EB", display: "flex", alignItems: "center", gap: "10px" }}>
+                  <span style={{ fontSize: "16px", fontWeight: "700", color: "#111827" }}>{overview.total_active_cases}</span>
+                  <span style={{ fontSize: "12px", color: "#4B5563", fontWeight: "500" }}>Active Cases</span>
+                </div>
+                <div
+                  style={{ background: overview.unassigned_cases > 0 ? "#FEF2F2" : "#F3F4F6", height: "48px", padding: "0 16px", borderRadius: "8px", border: overview.unassigned_cases > 0 ? "1px solid #FECACA" : "1px solid #E5E7EB", display: "flex", alignItems: "center", gap: "10px", cursor: "pointer" }}
+                  onClick={() => {
+                    localStorage.setItem("admin_feedback_filter", "UNASSIGNED");
+                    onNavigate("feedbacks");
+                  }}
+                >
+                  <span style={{ fontSize: "16px", fontWeight: "700", color: overview.unassigned_cases > 0 ? "#991B1B" : "#111827" }}>{overview.unassigned_cases}</span>
+                  <span style={{ fontSize: "12px", color: overview.unassigned_cases > 0 ? "#B91C1C" : "#4B5563", fontWeight: "500" }}>Unassigned {overview.unassigned_cases > 0 && "⚠️"}</span>
+                </div>
+              </div>
 
-          </div>
+              {/* MAIN GRID */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: "30px" }}>
+                {/* LEFT PANEL */}
+                <div>
+                  {renderGroup("You", you)}
+                  {renderGroup("Core Team", coreTeam, true)}
+                  {renderGroup("Support Team", supportTeam, true)}
+                </div>
+
+                {/* RIGHT PANEL */}
+                <div>
+                  <div style={{ background: "white", padding: "20px", borderRadius: "12px", border: "1px solid #E5E7EB", position: "sticky", top: "20px", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
+                    <h3 style={{ margin: "0 0 16px", fontSize: "12px", fontWeight: "700", color: "#4B5563", textTransform: "uppercase", letterSpacing: "0.5px" }}>Team Snapshot</h3>
+
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px", fontSize: "13px" }}>
+                      <span style={{ color: "#6B7280" }}>Core Team:</span>
+                      <span style={{ fontWeight: "600", color: "#111827" }}>{coreTeam.length}</span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "16px", fontSize: "13px", paddingBottom: "16px", borderBottom: "1px solid #F3F4F6" }}>
+                      <span style={{ color: "#6B7280" }}>Support Team:</span>
+                      <span style={{ fontWeight: "600", color: "#111827" }}>{supportTeam.length}</span>
+                    </div>
+
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px", fontSize: "13px" }}>
+                      <span style={{ color: "#6B7280" }}>Available:</span>
+                      <span style={{ fontWeight: "600", color: "#111827" }}>{availableCount} 🟢</span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "20px", fontSize: "13px" }}>
+                      <span style={{ color: "#6B7280" }}>Overloaded:</span>
+                      <span style={{ fontWeight: "600", color: "#111827" }}>{overloadedCount} 🔴</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
         </>
       )}
 

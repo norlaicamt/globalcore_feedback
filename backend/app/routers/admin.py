@@ -512,11 +512,14 @@ def admin_get_users(entity_id: Optional[int] = None, skip: int = 0, limit: int =
 
 @router.get("/staff")
 def admin_get_staff_list(db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
-    """Returns a list of all administrative accounts. Restricted to Global Admins."""
-    if not has_global_admin_access(admin):
-        raise HTTPException(status_code=403, detail="Access denied: Only Global Admins can view the Staff Registry")
+    """Returns a list of administrative accounts. Global admins see everyone; scoped admins see their entity."""
+    query = db.query(models.User).filter(models.User.role.in_(["admin", "superadmin"]))
     
-    staff = db.query(models.User).filter(models.User.role.in_(["admin", "superadmin"])).order_by(models.User.name).all()
+    if not has_global_admin_access(admin):
+        # Scoped admins only see staff in their entity
+        query = query.filter(models.User.entity_id == admin.entity_id)
+    
+    staff = query.order_by(models.User.name).all()
     
     return [{
         "id": s.id,
@@ -527,7 +530,9 @@ def admin_get_staff_list(db: Session = Depends(get_db), admin: models.User = Dep
         "last_login": s.last_login,
         "last_seen": s.last_seen,
         "current_module": s.current_module,
-        "position_title": s.position_title
+        "position_title": s.position_title,
+        "entity_id": s.entity_id,
+        "entity_name": (s.entity.name if s.entity else None) or s.program or s.department or None
     } for s in staff]
 
 @router.post("/users/{user_id}/reset-password")
@@ -737,20 +742,26 @@ def get_unassigned_feedbacks(
     admin: models.User = Depends(get_current_admin)
 ):
     target_entity = entity_id
-    if not target_entity:
+    is_global = has_global_admin_access(admin)
+
+    if not target_entity and not is_global:
         primary_ctx = db.query(models.UserContext).filter(models.UserContext.user_id == admin.id).first()
         if primary_ctx: target_entity = primary_ctx.entity_id
         elif admin.entity_id: target_entity = admin.entity_id
-
-    if not target_entity: return []
+        
+        # Still null? Then regular admin has no context, return empty.
+        if not target_entity: return []
 
     q = db.query(
         models.Feedback.id, models.Feedback.title, models.Feedback.description,
         models.Feedback.created_at, models.User.name.label("sender_name")
-    ).outerjoin(models.User, models.Feedback.sender_id == models.User.id)\
-     .filter(models.Feedback.entity_id == target_entity)\
-     .filter(models.Feedback.recipient_user_id.is_(None))\
-     .filter(models.Feedback.status.in_(["OPEN", "IN_PROGRESS"]))
+    ).outerjoin(models.User, models.Feedback.sender_id == models.User.id)
+    
+    if target_entity:
+        q = q.filter(models.Feedback.entity_id == target_entity)
+
+    q = q.filter(models.Feedback.recipient_user_id.is_(None))\
+         .filter(models.Feedback.status.in_(["OPEN", "IN_PROGRESS"]))
      
     res = q.order_by(models.Feedback.created_at.desc()).all()
     return [{"id": r.id, "title": r.title, "description": r.description, "created_at": r.created_at, "sender_name": r.sender_name} for r in res]
@@ -787,7 +798,7 @@ def admin_get_feedbacks(
         models.Feedback.id, models.Feedback.title, models.Feedback.description,
         models.Feedback.status, models.Feedback.is_anonymous, models.Feedback.created_at,
         models.Feedback.rating, models.Feedback.sender_id, models.Feedback.custom_data,
-        models.Feedback.recipient_user_id,
+        models.Feedback.recipient_user_id, models.Feedback.entity_id,
         models.User.name.label("user_name"),
         models.Entity.name.label("entity_name"),
         models.Department.name.label("dept_name"),

@@ -97,6 +97,35 @@ const FeedbackSidePanel = ({ feedback, isClosing, onClose, onUpdateStatus, theme
     }
   };
 
+  const sortedStaff = React.useMemo(() => {
+    if (!staff || staff.length === 0) return [];
+    
+    // Create categories
+    const workspaceAdmins = [];
+    const globalAdmins = [];
+    const otherAdmins = [];
+
+    staff.forEach(s => {
+      if (s.id === feedback?.assigned_to_user_id) return; // Skip currently assigned
+
+      if (s.entity_id && s.entity_id === feedback?.entity_id) {
+        workspaceAdmins.push(s);
+      } else if (!s.entity_id) {
+        globalAdmins.push(s);
+      } else {
+        otherAdmins.push(s);
+      }
+    });
+
+    // Sort each group alphabetically
+    const sortFn = (a, b) => (a.name || "").localeCompare(b.name || "");
+    workspaceAdmins.sort(sortFn);
+    globalAdmins.sort(sortFn);
+    otherAdmins.sort(sortFn);
+
+    return { workspaceAdmins, globalAdmins, otherAdmins };
+  }, [staff, feedback?.entity_id, feedback?.assigned_to_user_id]);
+
   if (!feedback && !isClosing) return null;
 
   const currentStatus = STATUSES[feedback?.status || "OPEN"] || STATUSES.OPEN;
@@ -161,6 +190,8 @@ const FeedbackSidePanel = ({ feedback, isClosing, onClose, onUpdateStatus, theme
       setIsReassigning(false);
     }
   };
+
+
 
   const isAssignedToMe = feedback?.assigned_to_user_id === adminUser?.id;
 
@@ -249,9 +280,27 @@ const FeedbackSidePanel = ({ feedback, isClosing, onClose, onUpdateStatus, theme
               value=""
             >
               <option value="" disabled>{isReassigning ? "Updating..." : "Reassign Case"}</option>
-              {staff.filter(s => s.id !== feedback?.assigned_to_user_id).map(s => (
-                <option key={s.id} value={s.id}>{s.name} ({s.position_title || s.role})</option>
-              ))}
+              {sortedStaff.workspaceAdmins?.length > 0 && (
+                <optgroup label={`${feedback?.entity_name || 'This Workspace'} Admins`}>
+                  {sortedStaff.workspaceAdmins.map(s => (
+                    <option key={s.id} value={s.id}>{s.name} ({s.position_title || s.role})</option>
+                  ))}
+                </optgroup>
+              )}
+              {sortedStaff.globalAdmins?.length > 0 && (
+                <optgroup label="Global Administrators">
+                  {sortedStaff.globalAdmins.map(s => (
+                    <option key={s.id} value={s.id}>{s.name} ({s.position_title || s.role})</option>
+                  ))}
+                </optgroup>
+              )}
+              {sortedStaff.otherAdmins?.length > 0 && (
+                <optgroup label="Other Service Admins">
+                  {sortedStaff.otherAdmins.map(s => (
+                    <option key={s.id} value={s.id}>{s.name} ({s.entity_name || s.position_title || s.role})</option>
+                  ))}
+                </optgroup>
+              )}
             </select>
           </div>
 

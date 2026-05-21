@@ -205,8 +205,8 @@ const AdminUsers = ({ theme, darkMode, adminUser }) => {
 
   const filteredAndSorted = useMemo(() => {
     let result = users.filter(u => {
-      // Allow seeing all roles for comprehensive management
-      // if (role === "admin" || role === "superadmin") return false;
+      // Exclude administrative roles from User Management (Moved to Team > Admins)
+      if (u.role === "admin" || u.role === "superadmin") return false;
 
       if (statusFilter === "active") { if (!u.is_active) return false; }
       else if (statusFilter === "inactive") { if (u.is_active) return false; }
