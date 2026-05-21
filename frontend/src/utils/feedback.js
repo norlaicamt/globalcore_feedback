@@ -556,7 +556,7 @@ export const renderFeedbackResponses = (post, options = { compact: true, viewerM
 
   if (schema.length === 0) {
     // No schema: render core fields only
-    if (post.rating) {
+    if (post.rating && !options.compact) {
       publicModules.push({ label: 'Rating', val: post.rating, key: 'star_rating', item: { key: 'star_rating', type: 'star_rating' } });
     }
     if (coreMessage) {
@@ -565,7 +565,7 @@ export const renderFeedbackResponses = (post, options = { compact: true, viewerM
   } else {
     const hasStarRatingInSchema = schema.some(i => i.key === 'star_rating' || i.type === 'star_rating');
 
-    if (post.rating && !hasStarRatingInSchema) {
+    if (post.rating && !hasStarRatingInSchema && !options.compact) {
       publicModules.push({ label: 'Rating', val: post.rating, key: 'star_rating', item: { key: 'star_rating', type: 'star_rating' } });
     }
 
