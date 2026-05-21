@@ -1185,7 +1185,8 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
 
 
   const renderItem = (item, idx) => {
-    const label = item.label_override || item.label || "";
+    const { key, required, label_override, helper } = item;
+    const label = label_override || item.label || "";
     const isProminent = ['multiple_choice', 'rating_matrix'].includes(key);
 
     const invalid = showErrors && required && !isItemFilled(item);
