@@ -489,11 +489,11 @@ const renderFullModule = (item, val, feedbackId, viewerMode = 'public') => {
   if (key === 'multiple_choice' || key === 'dropdown') {
     const choices = Array.isArray(val) ? val : [val];
     return (
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
         {choices.map((c, i) => (
-          <span key={i} style={{ background: 'rgba(var(--primary-rgb), 0.08)', color: 'var(--primary-color)', borderRadius: '8px', padding: '4px 12px', fontSize: '13px', fontWeight: '700' }}>
-            🏷 {c}
-          </span>
+          <div key={i} style={{ fontSize: '14px', fontWeight: '800', color: '#0F172A', lineHeight: '1.4' }}>
+            {c}
+          </div>
         ))}
       </div>
     );
@@ -651,7 +651,7 @@ export const renderFeedbackResponses = (post, options = { compact: true, viewerM
         if (!content) return null;
         return (
           <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            {mod.item?.label && !['star_rating', 'photo_upload'].includes(mod.key) && (
+            {mod.label && !['star_rating', 'photo_upload'].includes(mod.key) && (
               <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 {mod.label}
               </span>
