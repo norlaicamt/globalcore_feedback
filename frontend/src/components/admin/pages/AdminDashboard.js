@@ -243,7 +243,6 @@ const AdminDashboard = ({ onNavigate, theme, darkMode, adminUser }) => {
   );
 
   const lowestRated = programRankings.lowest[0];
-  const hasActionableIssue = lowestRated && lowestRated.avg_rating < 3 && lowestRated.count >= 1;
 
   // Helper to get status counts for Overview
   const getStatusCount = (s) => byStatus.find(b => b.status === s)?.count || 0;
@@ -469,23 +468,7 @@ const AdminDashboard = ({ onNavigate, theme, darkMode, adminUser }) => {
         />
 
         {/* 🚨 Actionable Alert Bar */}
-        {hasActionableIssue && (
-          <div style={{
-            background: darkMode ? "rgba(239, 68, 68, 0.15)" : "#FEF2F2",
-            border: `1px solid ${darkMode ? "rgba(239, 68, 68, 0.3)" : "#FEE2E2"}`,
-            borderRadius: "12px", padding: "14px 20px", display: "flex", alignItems: "center", gap: "16px", marginBottom: "8px"
-          }}>
-            <div style={{ width: "32px", height: "32px", borderRadius: "50%", background: "#EF4444", color: "white", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
-            </div>
-            <div style={{ flex: 1 }}>
-              <h4 style={{ margin: 0, fontSize: "14px", fontWeight: "800", color: darkMode ? "#F87171" : "#991B1B" }}>Urgent Attention Required</h4>
-              <p style={{ margin: "2px 0 0", fontSize: "12px", color: darkMode ? "#FCA5A5" : "#B91C1C" }}>
-                <strong>{lowestRated.name}</strong> is performing significantly below average (<strong>{lowestRated.avg_rating}★</strong> from {lowestRated.count} reports).
-              </p>
-            </div>
-          </div>
-        )}
+
 
         <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: "16px" }}>
           <Section theme={theme} title={`Performance Benchmarking (Volume vs Rating)`} empty={programRankings.all.length === 0}>
