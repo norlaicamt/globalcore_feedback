@@ -652,7 +652,7 @@ export const renderFeedbackResponses = (post, options = { compact: true, viewerM
         return (
           <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             {mod.label && !['star_rating', 'photo_upload'].includes(mod.key) && (
-              <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              <span style={{ fontSize: '10px', color: '#64748B', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.6 }}>
                 {mod.label}
               </span>
             )}
