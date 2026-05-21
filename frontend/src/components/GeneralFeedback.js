@@ -1185,7 +1185,9 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
 
 
   const renderItem = (item, idx) => {
-    const { key, required, label_override, helper } = item;
+    const label = item.label_override || item.label || "";
+    const isProminent = ['multiple_choice', 'rating_matrix'].includes(key);
+
     const invalid = showErrors && required && !isItemFilled(item);
     let itemValue = null;
     if (key === 'star_rating' || key === 'rating') itemValue = rating;
@@ -1706,8 +1708,20 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
       >
         <div style={{ marginBottom: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
           <div style={{ flex: 1 }}>
-            <label style={{ ...styles.label, color: invalid ? '#EF4444' : '#0F172A', fontSize: 'var(--size-body, 14px)', fontWeight: '700', marginBottom: '4px', textTransform: 'none', letterSpacing: '-0.01em', lineHeight: '1.4', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              {label_override}
+            <label style={{ 
+              ...styles.label, 
+              color: invalid ? '#EF4444' : '#0F172A', 
+              fontSize: isProminent ? '16px' : 'var(--size-body, 14px)', 
+              fontWeight: isProminent ? '800' : '700', 
+              marginBottom: isProminent ? '8px' : '4px', 
+              textTransform: 'none', 
+              letterSpacing: isProminent ? '-0.02em' : '-0.01em', 
+              lineHeight: '1.4', 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '8px' 
+            }}>
+              {label}
               
               {/* --- PHASE 4: FIELD-LEVEL FEEDBACK LABELS --- */}
               {(() => {
