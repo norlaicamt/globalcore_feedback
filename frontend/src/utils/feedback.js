@@ -459,9 +459,9 @@ const renderFullModule = (item, val, feedbackId, viewerMode = 'public') => {
       if (original && !original.startsWith('blob:')) photos.push({ original, thumb });
     });
     if (photos.length === 0) return null;
-    const cols = photos.length === 1 ? '120px' : photos.length <= 4 ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)';
+    const cols = photos.length === 1 ? '80px' : photos.length <= 4 ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)';
     return (
-      <div style={{ display: 'grid', gridTemplateColumns: cols, gap: '4px', borderRadius: '16px', overflow: 'hidden', maxWidth: photos.length === 1 ? '120px' : '100%' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: cols, gap: '4px', borderRadius: '12px', overflow: 'hidden', maxWidth: photos.length === 1 ? '80px' : '180px' }}>
         {photos.slice(0, 5).map((p, i) => (
           <div key={i} style={{ position: 'relative', aspectRatio: photos.length === 1 ? '4/3' : '1/1' }}>
             <AuditImage
