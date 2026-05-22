@@ -273,35 +273,13 @@ const FeedbackSidePanel = ({ feedback, isClosing, onClose, onUpdateStatus, theme
               </div>
             </div>
 
-            <select
-              onChange={(e) => handleReassign(e.target.value)}
-              disabled={isReassigning}
-              style={{ padding: "6px 10px", borderRadius: "8px", border: `1px solid ${theme.border}`, background: theme.surface, color: theme.text, fontSize: "11px", fontWeight: "700", outline: "none", cursor: "pointer" }}
-              value=""
-            >
-              <option value="" disabled>{isReassigning ? "Updating..." : "Reassign Case"}</option>
-              {sortedStaff.workspaceAdmins?.length > 0 && (
-                <optgroup label={`${feedback?.entity_name || 'This Workspace'} Admins`}>
-                  {sortedStaff.workspaceAdmins.map(s => (
-                    <option key={s.id} value={s.id}>{s.name} ({s.position_title || s.role})</option>
-                  ))}
-                </optgroup>
-              )}
-              {sortedStaff.globalAdmins?.length > 0 && (
-                <optgroup label="Global Administrators">
-                  {sortedStaff.globalAdmins.map(s => (
-                    <option key={s.id} value={s.id}>{s.name} ({s.position_title || s.role})</option>
-                  ))}
-                </optgroup>
-              )}
-              {sortedStaff.otherAdmins?.length > 0 && (
-                <optgroup label="Other Service Admins">
-                  {sortedStaff.otherAdmins.map(s => (
-                    <option key={s.id} value={s.id}>{s.name} ({s.entity_name || s.position_title || s.role})</option>
-                  ))}
-                </optgroup>
-              )}
-            </select>
+            <ReassignDropdown
+              sortedStaff={sortedStaff}
+              entityName={feedback?.entity_name}
+              isReassigning={isReassigning}
+              onReassign={handleReassign}
+              theme={theme}
+            />
           </div>
 
           {!isAssignedToMe && feedback?.assigned_to_user_id && (
@@ -650,6 +628,138 @@ const FeedbackSidePanel = ({ feedback, isClosing, onClose, onUpdateStatus, theme
         `}</style>
       </div>
     </>
+  );
+};
+
+const ReassignDropdown = ({ sortedStaff, entityName, isReassigning, onReassign, theme }) => {
+  const [open, setOpen] = React.useState(false);
+  const ref = React.useRef(null);
+
+  React.useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const handleSelect = (id) => {
+    setOpen(false);
+    onReassign(id);
+  };
+
+  const hasWorkspace = sortedStaff.workspaceAdmins?.length > 0;
+  const hasGlobal = sortedStaff.globalAdmins?.length > 0;
+  const hasOther = sortedStaff.otherAdmins?.length > 0;
+  const hasAny = hasWorkspace || hasGlobal || hasOther;
+
+  return (
+    <div ref={ref} style={{ position: "relative" }}>
+      <button
+        onClick={() => !isReassigning && setOpen(o => !o)}
+        disabled={isReassigning}
+        style={{
+          padding: "6px 12px", borderRadius: "8px", border: `1px solid ${theme.border}`,
+          background: theme.surface, color: theme.text, fontSize: "11px", fontWeight: "700",
+          outline: "none", cursor: isReassigning ? "not-allowed" : "pointer",
+          display: "flex", alignItems: "center", gap: "6px", whiteSpace: "nowrap"
+        }}
+      >
+        {isReassigning ? "Updating..." : "Reassign Case"}
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+
+      {open && (
+        <div style={{
+          position: "absolute", right: 0, top: "calc(100% + 6px)", minWidth: "240px",
+          background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: "12px",
+          boxShadow: "0 10px 30px rgba(0,0,0,0.15)", zIndex: 200, overflow: "hidden",
+          maxHeight: "320px", overflowY: "auto"
+        }}>
+          {!hasAny && (
+            <div style={{ padding: "16px", fontSize: "12px", color: theme.textMuted, textAlign: "center" }}>
+              No admins available
+            </div>
+          )}
+
+          {/* Global Admins */}
+          {hasGlobal && (
+            <>
+              <div style={{ padding: "8px 14px 4px", fontSize: "9px", fontWeight: "900", color: theme.textMuted, textTransform: "uppercase", letterSpacing: "0.08em", borderBottom: `1px solid ${theme.border}` }}>
+                Global Administrators
+              </div>
+              {sortedStaff.globalAdmins.map(s => (
+                <button
+                  key={s.id}
+                  onClick={() => handleSelect(s.id)}
+                  style={{
+                    display: "flex", alignItems: "center", width: "100%", padding: "10px 14px",
+                    border: "none", cursor: "pointer", background: "none", textAlign: "left",
+                    borderBottom: `1px solid ${theme.border}`
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background = theme.bg}
+                  onMouseLeave={e => e.currentTarget.style.background = "none"}
+                >
+                  <div>
+                    <div style={{ fontSize: "12px", fontWeight: "700", color: theme.text }}>{s.name}</div>
+                    <div style={{ fontSize: "10px", color: theme.textMuted }}>{s.position_title || s.role}</div>
+                  </div>
+                </button>
+              ))}
+            </>
+          )}
+
+          {/* Other Service Admins — workspace-matched shown first with Recommended badge */}
+          {(hasWorkspace || hasOther) && (
+            <>
+              <div style={{ padding: "8px 14px 4px", fontSize: "9px", fontWeight: "900", color: theme.textMuted, textTransform: "uppercase", letterSpacing: "0.08em", borderBottom: `1px solid ${theme.border}` }}>
+                Other Service Admins
+              </div>
+              {sortedStaff.workspaceAdmins.map(s => (
+                <button
+                  key={s.id}
+                  onClick={() => handleSelect(s.id)}
+                  style={{
+                    display: "flex", alignItems: "center", justifyContent: "space-between",
+                    width: "100%", padding: "10px 14px", border: "none", cursor: "pointer",
+                    background: "none", textAlign: "left", gap: "8px",
+                    borderBottom: `1px solid ${theme.border}`
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background = theme.bg}
+                  onMouseLeave={e => e.currentTarget.style.background = "none"}
+                >
+                  <div>
+                    <div style={{ fontSize: "12px", fontWeight: "700", color: theme.text }}>{s.name}</div>
+                    <div style={{ fontSize: "10px", color: theme.textMuted }}>{s.entity_name || s.position_title || s.role}</div>
+                  </div>
+                  <span style={{ fontSize: "9px", fontWeight: "800", color: "#10B981", background: "rgba(16,185,129,0.15)", padding: "2px 7px", borderRadius: "20px", whiteSpace: "nowrap" }}>
+                    Recommended
+                  </span>
+                </button>
+              ))}
+              {sortedStaff.otherAdmins.map(s => (
+                <button
+                  key={s.id}
+                  onClick={() => handleSelect(s.id)}
+                  style={{
+                    display: "flex", alignItems: "center", width: "100%", padding: "10px 14px",
+                    border: "none", cursor: "pointer", background: "none", textAlign: "left",
+                    borderBottom: `1px solid ${theme.border}`
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background = theme.bg}
+                  onMouseLeave={e => e.currentTarget.style.background = "none"}
+                >
+                  <div>
+                    <div style={{ fontSize: "12px", fontWeight: "700", color: theme.text }}>{s.name}</div>
+                    <div style={{ fontSize: "10px", color: theme.textMuted }}>{s.entity_name || s.position_title || s.role}</div>
+                  </div>
+                </button>
+              ))}
+            </>
+          )}
+        </div>
+      )}
+    </div>
   );
 };
 

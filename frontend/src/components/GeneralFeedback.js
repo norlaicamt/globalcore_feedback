@@ -26,6 +26,8 @@ const SMART_DEFAULTS = {
   product_picker: "What did you purchase or review?"
 };
 
+
+
 const SMART_HELPERS = {
   star_rating: "Tap a star to give your rating",
   rating_matrix: "1 is low, 5 is high",
@@ -1210,17 +1212,27 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
             const IconComp = IconRegistry[ent.icon] || IconRegistry.default;
             const isSel = selectedEntity?.id === ent.id;
             return (
-              <button key={ent.id} onClick={() => { setSelectedEntity(ent); setConfirmingSelection(ent); setTimeout(() => { setConfirmingSelection(null); handleNext(null, null, ent); }, 800); }} style={{ ...styles.typeCard, borderColor: isSel ? 'var(--primary-color)' : 'rgba(0,0,0,0.05)', background: isSel ? 'rgba(var(--primary-rgb), 0.05)' : 'white', transform: isSel ? 'scale(1.02)' : 'scale(1)' }}>
-                <div style={styles.itemIcon}><IconComp width="28" height="28" strokeWidth="2.5" /></div>
+              <button 
+                key={ent.id} 
+                onClick={() => { setSelectedEntity(ent); setConfirmingSelection(ent); setTimeout(() => { setConfirmingSelection(null); handleNext(null, null, ent); }, 800); }} 
+                style={{ 
+                  ...styles.typeCard, 
+                  borderColor: isSel ? 'var(--primary-color)' : 'rgba(0,0,0,0.05)', 
+                  background: isSel ? 'rgba(var(--primary-rgb), 0.05)' : 'white' 
+                }}
+              >
+                <div style={{ ...styles.itemIcon, color: isSel ? 'var(--primary-color)' : '#64748B', background: isSel ? 'rgba(var(--primary-rgb), 0.1)' : '#F1F5F9' }}>
+                  <IconComp width="28" height="28" strokeWidth="2.5" />
+                </div>
                 <div style={styles.itemName}>{ent.name}</div>
-                <div style={{ fontSize: '10px', color: '#94A3B8', marginTop: '4px', textAlign: 'center' }}>{ent.description || 'Quality Service'}</div>
+                <div style={{ fontSize: '10px', color: '#94A3B8', marginTop: '4px', textAlign: 'center', fontWeight: '500' }}>{ent.description || 'Quality Service'}</div>
                 {(() => {
                   if (!SERVICE_TYPES_WITH_PRODUCTS.includes(ent.fields?.operational?.workspace_type)) return null;
                   const entProducts = globalProducts.filter(p => p.entity_id === ent.id && p.is_active !== false);
                   if (entProducts.length === 0) return null;
                   return (
-                    <div style={{ marginTop: '12px', padding: '6px 10px', background: 'rgba(99,102,241,0.05)', borderRadius: '12px', border: '1px solid rgba(99,102,241,0.1)', width: '100%' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#6366F1', fontSize: '10px', fontWeight: '800', marginBottom: '4px' }}>
+                    <div style={{ marginTop: '12px', padding: '6px 10px', background: 'rgba(0,0,0,0.05)', borderRadius: '12px', border: '1px solid rgba(0,0,0,0.1)', width: '100%' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#64748B', fontSize: '10px', fontWeight: '800', marginBottom: '4px' }}>
                         <span style={{ fontSize: '12px' }}>🛍</span> {entProducts.length} Product{entProducts.length !== 1 ? 's' : ''}
                       </div>
                       <div style={{ fontSize: '9px', color: '#64748B', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'left' }}>

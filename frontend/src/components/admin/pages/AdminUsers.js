@@ -217,6 +217,12 @@ const AdminUsers = ({ theme, darkMode, adminUser }) => {
 
     // Apply Sorting
     result.sort((a, b) => {
+      // Primary Sort: Active status (Active at top, Inactive at bottom)
+      if (a.is_active !== b.is_active) {
+        return a.is_active ? -1 : 1;
+      }
+
+      // Secondary Sort: Selected sort key
       if (sortKey === "az") return a.name.localeCompare(b.name);
       if (sortKey === "za") return b.name.localeCompare(a.name);
       if (sortKey === "newest") return new Date(b.created_at) - new Date(a.created_at);

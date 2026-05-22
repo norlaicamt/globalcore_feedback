@@ -34,6 +34,12 @@ body {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 10px; }
 ::-webkit-scrollbar-thumb:hover { background: #94A3B8; }
+
+@media (max-width: 768px) {
+  ::-webkit-scrollbar { width: 3px; height: 3px; }
+  ::-webkit-scrollbar-thumb { background: #D1D5DB; }
+}
+
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
@@ -191,12 +197,7 @@ input::-webkit-credentials-auto-fill-button {
     margin-bottom: 12px !important;
   }
 
-  .profile-settings-page .settings-hero-content {
-    flex-direction: column !important;
-    align-items: flex-start !important;
-    gap: 12px !important;
-    margin-bottom: 12px !important;
-  }
+
 
   .profile-settings-page .settings-stat-val {
     font-size: var(--size-nav) !important;

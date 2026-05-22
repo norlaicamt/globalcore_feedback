@@ -36,19 +36,19 @@ const ImageCropperModal = ({ isOpen, imageSrc, onCrop, onCancel }) => {
     }
   }, [imageSrc]);
 
-  const handleMouseDown = (e) => {
+  const handlePointerDown = (e) => {
+    e.target.setPointerCapture(e.pointerId);
     setIsDragging(true);
     setDragStart({ x: e.clientX - position.x, y: e.clientY - position.y });
   };
 
-  const handleMouseMove = (e) => {
+  const handlePointerMove = (e) => {
     if (isDragging) {
       const newX = e.clientX - dragStart.x;
       const newY = e.clientY - dragStart.y;
       
-      // Constraints: Image must always cover the container
-      const limitX = (imgSize.width * zoom - containerSize) / 2;
-      const limitY = (imgSize.height * zoom - containerSize) / 2;
+      const limitX = Math.max(0, (imgSize.width * zoom - containerSize) / 2);
+      const limitY = Math.max(0, (imgSize.height * zoom - containerSize) / 2);
       
       setPosition({
         x: Math.max(-limitX, Math.min(limitX, newX)),
@@ -57,7 +57,7 @@ const ImageCropperModal = ({ isOpen, imageSrc, onCrop, onCancel }) => {
     }
   };
 
-  const handleMouseUp = () => {
+  const handlePointerUp = (e) => {
     setIsDragging(false);
   };
 
@@ -105,10 +105,10 @@ const ImageCropperModal = ({ isOpen, imageSrc, onCrop, onCancel }) => {
         <div 
           ref={containerRef}
           style={styles.cropContainer}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseUp}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerUp}
         >
           <img
             ref={imgRef}
@@ -141,9 +141,15 @@ const ImageCropperModal = ({ isOpen, imageSrc, onCrop, onCancel }) => {
               value={zoom} 
               onChange={(e) => {
                 const newZoom = parseFloat(e.target.value);
+                // Clamp existing position to new zoom limits instead of resetting to 0
+                const limitX = Math.max(0, (imgSize.width * newZoom - containerSize) / 2);
+                const limitY = Math.max(0, (imgSize.height * newZoom - containerSize) / 2);
+                
                 setZoom(newZoom);
-                // Reset position constraints on zoom
-                setPosition({ x: 0, y: 0 });
+                setPosition(prev => ({
+                  x: Math.max(-limitX, Math.min(limitX, prev.x)),
+                  y: Math.max(-limitY, Math.min(limitY, prev.y))
+                }));
               }}
               style={styles.slider}
             />
@@ -205,6 +211,7 @@ const styles = {
     overflow: 'hidden',
     borderRadius: '12px',
     userSelect: 'none',
+    touchAction: 'none',
     boxShadow: '0 0 0 1px rgba(0,0,0,0.05)'
   },
   image: {

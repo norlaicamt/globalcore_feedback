@@ -380,13 +380,15 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
   };
 
   const fetchTrending = React.useCallback(async () => {
+    if (view !== 'home') return;
     try {
       const data = await getTrendingFeedbacks(10);
       setAllTrendingItems(data);
     } catch (e) { console.error("Error fetching trending", e); }
-  }, []);
+  }, [view]);
 
   const fetchFeed = React.useCallback(async (newOffset = 0, silent = false) => {
+    if (view !== 'home') return; // Don't fetch if not on the dashboard to save resources and avoid errors during transitions
     if (window.DEBUG_MODE) console.log("fetchFeed called with offset:", newOffset);
     if (newOffset === 0 && !silent) setLoading(true);
     try {
@@ -427,7 +429,22 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
       const updated = await getUserById(localUser.id);
       handleUserUpdate(updated);
     } catch (e) { console.error("Could not refresh user profile", e); }
-  }, [localUser?.id]);
+  }, [localUser?.id, handleUserUpdate]);
+
+  // Re-fetch profile on window focus for cross-device sync
+  useEffect(() => {
+    const handleFocus = () => {
+      if (document.visibilityState === 'visible') {
+        fetchUserProfile();
+      }
+    };
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleFocus);
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleFocus);
+    };
+  }, [fetchUserProfile]);
 
   const showToast = React.useCallback((message, isError = false) => {
     setToastMessage({ text: message, isError });
@@ -570,6 +587,11 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
   const navigateTo = (newView) => {
     setView(newView);
     setIsMenuOpen(false);
+    // Reset search state when navigating away to keep things tidy
+    if (newView !== 'home') {
+      setIsSearchOpen(false);
+      setSearchQuery("");
+    }
   };
 
   const handleSecureLogout = async () => {
@@ -610,10 +632,22 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
   }, []);
 
   const handleGeneralSuccess = React.useCallback(() => {
+    // Clear the draft from localStorage so the "Resume Progress" banner
+    // never reappears after the user has successfully submitted.
+    if (localUser?.id && resumeDraft?.entity_id) {
+      const userFingerprint = `${localUser.id}_${localUser.created_at || 'legacy'}`;
+      const draftsKey = `user.drafts_${userFingerprint}`;
+      const currentDrafts = JSON.parse(localStorage.getItem(draftsKey) || "[]");
+      const filtered = currentDrafts.filter(d => d.entity_id !== resumeDraft.entity_id);
+      localStorage.setItem(draftsKey, JSON.stringify(filtered));
+      // Also clean up the dismissal suppression key for this draft
+      const dismissalKey = `dismissedDraft_${userFingerprint}_${resumeDraft.entity_id}`;
+      localStorage.removeItem(dismissalKey);
+    }
     showSuccessModal("Your suggestions have been submitted.");
     setResumeDraft(null);
     fetchUserProfile();
-  }, [showSuccessModal, fetchUserProfile]);
+  }, [showSuccessModal, fetchUserProfile, localUser?.id, localUser?.created_at, resumeDraft?.entity_id]);
 
   const handleSaveDraft = React.useCallback(() => {
     setIsReportModalOpen(false);
@@ -646,7 +680,6 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
     {
       id: 'settings_group', label: 'Settings', icon: <Icons.Gear />, subItems: [
         { id: 'profile', label: 'Profile Information', icon: <Icons.User /> },
-        { id: 'appearance_settings', label: 'Appearance Preferences', icon: <Icons.Palette /> },
         { id: 'notifs_settings', label: 'Notification Preferences', icon: <Icons.Bell /> },
         { id: 'privacy', label: 'Security', icon: <Icons.Lock /> }
       ]
@@ -692,7 +725,7 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
         <div style={{ position: 'relative', display: 'inline-block' }}>
           {localUser?.avatar_url ? (
             <img 
-              src={resolveMediaUrl(localUser.avatar_url)} 
+              src={`${resolveMediaUrl(localUser.avatar_url)}${localUser.avatar_url?.startsWith('data:') ? '' : `?t=${new Date(localUser.updated_at || Date.now()).getTime()}`}`} 
               alt="avatar" 
               loading="lazy" 
               style={{ 
@@ -734,16 +767,16 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
             {/* COMPACT IMPACT MINI-STATS */}
             <div style={{ marginTop: '12px', display: 'flex', gap: '16px', justifyContent: 'center' }}>
               <div style={{ textAlign: 'center' }}>
-                <p style={{ margin: 0, fontSize: 'var(--size-nav, 12px)', fontWeight: '900', color: '#FCD34D' }}>{(localUser?.impact_points || 0).toFixed(0)}</p>
-                <p style={{ margin: 0, fontSize: 'var(--size-chip, 7px)', color: 'rgba(255,255,255,0.4)', fontWeight: 'bold' }}>PTS</p>
+                <p style={{ margin: 0, fontSize: 'var(--size-chip, 10px)', fontWeight: '500', color: '#FCD34D' }}>{(localUser?.impact_points || 0).toFixed(0)}</p>
+                <p style={{ margin: 0, fontSize: 'var(--size-chip, 7px)', color: 'rgba(255,255,255,0.4)' }}>PTS</p>
               </div>
               <div style={{ textAlign: 'center' }}>
-                <p style={{ margin: 0, fontSize: 'var(--size-nav, 12px)', fontWeight: '900', color: 'white' }}>{localUser?.posts_count || 0}</p>
-                <p style={{ margin: 0, fontSize: 'var(--size-chip, 7px)', color: 'rgba(255,255,255,0.4)', fontWeight: 'bold' }}>POSTS</p>
+                <p style={{ margin: 0, fontSize: 'var(--size-chip, 10px)', fontWeight: '500', color: 'white' }}>{localUser?.posts_count || 0}</p>
+                <p style={{ margin: 0, fontSize: 'var(--size-chip, 7px)', color: 'rgba(255,255,255,0.4)' }}>POSTS</p>
               </div>
               <div style={{ textAlign: 'center' }}>
-                <p style={{ margin: 0, fontSize: 'var(--size-nav, 12px)', fontWeight: '900', color: 'white' }}>{localUser?.likes_received || 0}</p>
-                <p style={{ margin: 0, fontSize: 'var(--size-chip, 7px)', color: 'rgba(255,255,255,0.4)', fontWeight: 'bold' }}>LIKES</p>
+                <p style={{ margin: 0, fontSize: 'var(--size-chip, 10px)', fontWeight: '500', color: 'white' }}>{localUser?.likes_received || 0}</p>
+                <p style={{ margin: 0, fontSize: 'var(--size-chip, 7px)', color: 'rgba(255,255,255,0.4)' }}>LIKES</p>
               </div>
             </div>
           </>
@@ -904,59 +937,61 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
             </span>
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '18px', position: 'relative' }} ref={searchRef}>
-          {isSearchOpen && (
-            <div style={{
-              position: 'absolute',
-              top: 'calc(100% + 10px)',
-              right: '0',
-              width: '300px',
-              backgroundColor: '#FFFFFF',
-              padding: '8px 12px',
-              borderRadius: '12px',
-              boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
-              border: '1px solid #E2E8F0',
-              zIndex: 1000,
-              display: 'flex',
-              alignItems: 'center',
-              animation: 'fadeInDownRight 0.2s ease-out'
-            }}>
-              <div style={{ color: '#94A3B8', marginRight: '8px' }}>
-                <Icons.Search />
-              </div>
-              <input
-                autoFocus
-                type="text"
-                placeholder="Search..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                style={{
-                  flex: 1,
-                  border: 'none',
-                  outline: 'none',
-                  fontSize: '14px',
-                  color: '#1E293B'
-                }}
-              />
-              {searchQuery && (
-                <button onClick={() => setSearchQuery("")} style={{ background: 'none', border: 'none', color: '#94A3B8', cursor: 'pointer', padding: '4px' }}>
-                  ✕
-                </button>
-              )}
-            </div>
-          )}
-          <button onClick={() => setIsSearchOpen(!isSearchOpen)} style={{ ...styles.iconBtn, color: isSearchOpen ? 'var(--primary-color)' : '#64748B' }} title="Search">
-            <Icons.Search />
-          </button>
-          <button onClick={handleOpenNotifications} style={{ ...styles.iconBtn, color: 'var(--primary-color)' }} title="Notifications">
-            <Icons.Bell />
-            {unreadNotifCount > 0 && (
-              <div style={{ ...styles.notifDot, backgroundColor: '#EF4444', width: '16px', height: '16px', fontSize: '10px', fontWeight: '800', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', border: '2px solid #FFFFFF', top: -4, right: -4 }}>
-                {unreadNotifCount > 9 ? '9+' : unreadNotifCount}
+        {view === 'home' && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '18px', position: 'relative' }} ref={searchRef}>
+            {isSearchOpen && (
+              <div style={{
+                position: 'absolute',
+                top: 'calc(100% + 10px)',
+                right: '0',
+                width: '300px',
+                backgroundColor: '#FFFFFF',
+                padding: '8px 12px',
+                borderRadius: '12px',
+                boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
+                border: '1px solid #E2E8F0',
+                zIndex: 1000,
+                display: 'flex',
+                alignItems: 'center',
+                animation: 'fadeInDownRight 0.2s ease-out'
+              }}>
+                <div style={{ color: '#94A3B8', marginRight: '8px' }}>
+                  <Icons.Search />
+                </div>
+                <input
+                  autoFocus
+                  type="text"
+                  placeholder="Search..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  style={{
+                    flex: 1,
+                    border: 'none',
+                    outline: 'none',
+                    fontSize: '14px',
+                    color: '#1E293B'
+                  }}
+                />
+                {searchQuery && (
+                  <button onClick={() => setSearchQuery("")} style={{ background: 'none', border: 'none', color: '#94A3B8', cursor: 'pointer', padding: '4px' }}>
+                    ✕
+                  </button>
+                )}
               </div>
             )}
-          </button>
-        </div>
+            <button onClick={() => setIsSearchOpen(!isSearchOpen)} style={{ ...styles.iconBtn, color: isSearchOpen ? 'var(--primary-color)' : '#64748B' }} title="Search">
+              <Icons.Search />
+            </button>
+            <button onClick={handleOpenNotifications} style={{ ...styles.iconBtn, color: 'var(--primary-color)' }} title="Notifications">
+              <Icons.Bell />
+              {unreadNotifCount > 0 && (
+                <div style={{ ...styles.notifDot, backgroundColor: '#EF4444', width: '16px', height: '16px', fontSize: '10px', fontWeight: '800', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', border: '2px solid #FFFFFF', top: -4, right: -4 }}>
+                  {unreadNotifCount > 9 ? '9+' : unreadNotifCount}
+                </div>
+              )}
+            </button>
+          </div>
+        )}
       </header>
 
       {/* Live date/time bar */}
@@ -1755,9 +1790,10 @@ const FeedCard = React.memo(({ item: initialItem, currentUser, onShowToast, onOp
           </div>
           <div style={{ ...styles.cardMeta, color: '#64748B', fontWeight: '500', fontSize: 'var(--size-chip, 9px)' }}>
             {formatFeedbackDate(item.created_at)}
-            {item.type !== 'comment' && (
-              <span style={{ color: '#94A3B8' }}> • {formatLocation(item)}</span>
-            )}
+            {item.type !== 'comment' && (() => {
+              const loc = formatLocation(item);
+              return loc ? <span style={{ color: '#94A3B8' }}> • {loc}</span> : null;
+            })()}
           </div>
         </div>
         {item.status && item.status.toUpperCase() === 'RESOLVED' && (

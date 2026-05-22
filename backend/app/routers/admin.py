@@ -824,12 +824,12 @@ def admin_get_feedbacks(
         q = q.filter(models.Entity.name == dept_name)
 
     rows = q.order_by(models.Feedback.created_at.desc()).offset(skip).limit(limit).all()
-    return [{
-        "id": r.id, "title": r.title, "description": r.description,
+    return [{"id": r.id, "title": r.title, "description": r.description,
         "status": str(r.status).replace("FeedbackStatus.", ""),
         "is_anonymous": r.is_anonymous, "created_at": str(r.created_at),
         "rating": r.rating, "sender_id": r.sender_id,
         "user_name": r.user_name, "entity_name": r.entity_name,
+        "entity_id": r.entity_id,
         "dept_name": r.dept_name, "comments_count": r.comments_count,
         "custom_data": r.custom_data,
         "assigned_to_user_id": r.recipient_user_id,

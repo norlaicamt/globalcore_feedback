@@ -31,7 +31,7 @@ export const formatLocation = (post) => {
   if (city) return city;
   if (province) return province;
   if (barangay) return barangay;
-  return 'Location not specified';
+  return null; // No real location — caller should hide the element entirely
 };
 
 export const formatFeedbackDate = (dateStr) => {

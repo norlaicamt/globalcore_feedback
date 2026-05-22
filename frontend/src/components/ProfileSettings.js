@@ -12,7 +12,6 @@ import {
     confirmPhoneChange
 } from "../services/api";
 import CustomModal from "./CustomModal";
-import AppearancePreferences from "./AppearancePreferences";
 import ImageCropperModal from "./ImageCropperModal";
 import { resolveMediaUrl } from "../utils/feedback";
 
@@ -276,7 +275,7 @@ const ProfileView = ({ currentUser, onUserUpdate, showToast }) => {
                 <div className="settings-hero-content" style={styles.heroContent}>
                     <div style={styles.avatarLargeContainer}>
                         {currentUser.avatar_url ? (
-                            <img src={resolveMediaUrl(currentUser.avatar_url)} style={styles.avatarLarge} alt="Avatar" />
+                            <img src={`${resolveMediaUrl(currentUser.avatar_url)}${currentUser.avatar_url?.startsWith('data:') ? '' : `?t=${new Date(currentUser.updated_at || Date.now()).getTime()}`}`} style={styles.avatarLarge} alt="Avatar" />
                         ) : (
                             <div style={styles.avatarLargePlaceholder}>
                                 {currentUser.name?.[0] || "U"}
@@ -287,29 +286,19 @@ const ProfileView = ({ currentUser, onUserUpdate, showToast }) => {
                             <Icons.Edit />
                         </label>
                     </div>
-                    <div style={styles.heroText}>
-                        <h3 style={styles.heroName}>{currentUser.name}</h3>
+                    <div style={styles.heroText} className="settings-hero-text">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                            <h3 style={{ ...styles.heroName, margin: 0 }}>{currentUser.name}</h3>
+                            <span className="settings-badge" style={{ ...styles.statusBadge, padding: '1px 6px', fontSize: '9px' }}>Verified</span>
+                        </div>
                         <p style={styles.heroUsername}>@{currentUser.username || currentUser.name.toLowerCase().replace(" ", ".")}</p>
 
-                        <div style={{ ...styles.badgeRow, marginTop: '14px' }}>
+                        <div style={{ ...styles.badgeRow, marginTop: '10px' }} className="settings-badge-row">
                             {currentUser.role !== 'user' && (
                                 <span className="settings-badge" style={styles.roleBadge}>{currentUser.role === 'superadmin' ? 'Global Admin' : currentUser.role.toUpperCase()}</span>
                             )}
-                            <span className="settings-badge" style={styles.statusBadge}>Verified</span>
                         </div>
                     </div>
-                    <button
-                        style={{
-                            ...styles.premiumEditBtn,
-                            background: isEditing ? '#F1F5F9' : 'var(--primary-color)',
-                            color: isEditing ? '#64748B' : 'white',
-                            boxShadow: isEditing ? 'none' : '0 8px 16px rgba(var(--primary-rgb), 0.2)',
-                            border: isEditing ? '1px solid #E2E8F0' : 'none'
-                        }}
-                        onClick={() => setIsEditing(!isEditing)}
-                    >
-                        {isEditing ? "Cancel" : "Edit"}
-                    </button>
                 </div>
 
                 <div style={styles.statsBar}>
@@ -335,8 +324,22 @@ const ProfileView = ({ currentUser, onUserUpdate, showToast }) => {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
                         {/* SECTION: PERSONAL IDENTITY */}
                         <div>
-                            <div style={{ ...styles.cardHeader, borderBottom: '1px solid #F1F5F9', paddingBottom: '12px' }}>
+                            <div style={{ ...styles.cardHeader, borderBottom: '1px solid #F1F5F9', paddingBottom: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <h4 style={styles.cardTitlePremium}>Personal Information</h4>
+                                <button
+                                    style={{
+                                        ...styles.premiumEditBtn,
+                                        background: isEditing ? '#F1F5F9' : 'var(--primary-color)',
+                                        color: isEditing ? '#64748B' : 'white',
+                                        boxShadow: isEditing ? 'none' : '0 8px 16px rgba(var(--primary-rgb), 0.2)',
+                                        border: isEditing ? '1px solid #E2E8F0' : 'none',
+                                        padding: '4px 12px',
+                                        fontSize: '11px'
+                                    }}
+                                    onClick={() => setIsEditing(!isEditing)}
+                                >
+                                    {isEditing ? "Cancel" : "Edit Details"}
+                                </button>
                             </div>
                             <div style={{ ...styles.dataGridPremium, marginTop: '20px' }}>
                                 <DataTile label="Full Name" value={currentUser.name} icon={<Icons.Users />} />
@@ -1586,7 +1589,6 @@ const ProfileSettings = ({ currentUser, onUserUpdate, onLogout, initialSubView }
     let activeTab = "profile";
     if (initialSubView === "notifs" || initialSubView === "notifications") activeTab = "notifications";
     if (initialSubView === "privacy" || initialSubView === "security") activeTab = "privacy";
-    if (initialSubView === "appearance" || initialSubView === "appearance_settings") activeTab = "appearance";
     if (initialSubView === "personal_info" || initialSubView === "profile") activeTab = "profile";
 
     const showToast = (message) => {
@@ -1643,14 +1645,6 @@ const ProfileSettings = ({ currentUser, onUserUpdate, onLogout, initialSubView }
                         />
                     )}
                     {activeTab === "privacy" && <PrivacyView currentUser={currentUser} onUserUpdate={onUserUpdate} showToast={showToast} onLogout={onLogout} />}
-                    {activeTab === "appearance" && (
-                        <AppearancePreferences
-                            currentUser={currentUser}
-                            onUserUpdate={onUserUpdate}
-                            showToast={showToast}
-                            styles={styles}
-                        />
-                    )}
                 </div>
             </div>
 
@@ -1677,25 +1671,25 @@ const styles = {
     viewTitle: { fontSize: 'var(--size-page-title, 18px)', fontWeight: '900', color: 'var(--primary-color)', margin: '0 0 6px 0', letterSpacing: '-0.3px' },
     viewSubtitle: { fontSize: 'var(--size-secondary, 13px)', color: '#64748B', margin: 0, fontWeight: '500', lineHeight: 1.45 },
 
-    heroCard: { background: 'white', borderRadius: '20px', padding: 'var(--card-padding, 20px)', border: '1.5px solid #E2E8F0', boxShadow: '0 15px 40px rgba(0,0,0,0.03)', marginBottom: 'var(--card-padding, 16px)' },
-    heroContent: { display: 'flex', alignItems: 'center', gap: 'var(--card-padding, 16px)', marginBottom: 'var(--card-padding, 16px)' },
+    heroCard: { background: 'white', borderRadius: '20px', padding: 'var(--card-padding, 32px)', border: '1.5px solid #E2E8F0', boxShadow: '0 15px 40px rgba(0,0,0,0.03)', marginBottom: 'var(--card-padding, 16px)' },
+    heroContent: { display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 'var(--card-padding, 24px)', marginBottom: 'var(--card-padding, 8px)' },
     avatarLargeContainer: { position: 'relative' },
     avatarLarge: { width: 'var(--avatar-size-large, 110px)', height: 'var(--avatar-size-large, 110px)', borderRadius: '35px', objectFit: 'cover', border: '4px solid white', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' },
     avatarLargePlaceholder: { width: 'var(--avatar-size-large, 110px)', height: 'var(--avatar-size-large, 110px)', borderRadius: '35px', background: '#F1F5F9', color: 'var(--primary-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 'var(--size-nav, 40px)', fontWeight: '900' },
     heroEditBadge: { position: 'absolute', bottom: '-4px', right: '-4px', width: 'var(--button-height, 32px)', height: 'var(--button-height, 32px)', borderRadius: '10px', background: 'var(--primary-color)', color: 'white', border: '2px solid white', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' },
-    heroText: { flex: 1 },
-    heroName: { fontSize: 'var(--size-user-name, 18px)', fontWeight: '900', color: 'var(--primary-color)', margin: '0 0 4px 0', letterSpacing: '-0.3px' },
-    heroUsername: { fontSize: 'var(--size-metadata, 12px)', fontWeight: '800', color: 'var(--primary-color)', margin: '0 0 4px 0', letterSpacing: '0.3px' },
+    heroText: { flex: 1, display: 'flex', flexDirection: 'column', gap: '2px' },
+    heroName: { fontSize: 'var(--size-user-name, 18px)', fontWeight: '900', color: 'var(--primary-color)', letterSpacing: '-0.3px' },
+    heroUsername: { fontSize: 'var(--size-metadata, 12px)', fontWeight: '800', color: 'var(--primary-color)', margin: 0, letterSpacing: '0.3px', opacity: 0.7 },
     heroEmail: { fontSize: 'var(--size-secondary, 13px)', color: '#64748B', fontWeight: '500', marginBottom: '12px' },
-    badgeRow: { display: 'flex', gap: '8px' },
+    badgeRow: { display: 'flex', gap: '8px', justifyContent: 'flex-start' },
     roleBadge: { padding: '2px 8px', background: '#F0F9FF', color: '#0369A1', borderRadius: '20px', fontSize: 'var(--size-chip, 8.5px)', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.5px' },
     statusBadge: { padding: '2px 8px', background: '#F0FDF4', color: '#166534', borderRadius: '20px', fontSize: 'var(--size-chip, 8.5px)', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.5px' },
     premiumEditBtn: { padding: 'var(--card-padding, 8px 14px)', height: 'var(--button-height, 32px)', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(var(--primary-rgb), 0.04)', color: 'var(--primary-color)', border: '1.5px solid rgba(var(--primary-rgb), 0.1)', borderRadius: '10px', fontSize: 'var(--size-nav, 11px)', fontWeight: '800', cursor: 'pointer' },
 
     statsBar: { display: 'flex', padding: 'var(--card-padding, 24px 0)', borderTop: '1px solid #F1F5F9' },
     statBox: { flex: 1, textAlign: 'center' },
-    statVal: { fontSize: 'var(--size-nav, 18px)', fontWeight: '900', color: 'var(--primary-color)', display: 'block' },
-    statLab: { fontSize: 'var(--size-chip, 10px)', color: '#94A3B8', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1px', marginTop: '4px' },
+    statVal: { fontSize: 'var(--size-chip, 14px)', fontWeight: '600', color: 'var(--primary-color)', display: 'block' },
+    statLab: { fontSize: 'var(--size-chip, 9px)', color: '#94A3B8', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: '2px' },
     statDivider: { width: '1.5px', background: '#F1F5F9' },
 
     sectionCardPremium: { background: 'white', borderRadius: '16px', padding: 'var(--card-padding, 16px)', border: '1.5px solid #E2E8F0', marginBottom: 'var(--card-padding, 12px)', boxShadow: '0 10px 40px rgba(0,0,0,0.02)' },

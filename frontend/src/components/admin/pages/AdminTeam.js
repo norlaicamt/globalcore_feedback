@@ -131,14 +131,16 @@ export default function AdminTeam({ adminUser, onNavigate }) {
     setSearchTerm("");
     try {
       const allUsers = await adminGetUsers();
+      // Always exclude deactivated users — only include explicitly active ones
+      const activeUsers = allUsers.filter(u => u.is_active === true);
       let potential = [];
 
       if (isGlobalAdmin) {
         // Global Admins see people who are not yet administrators (to promote them)
-        potential = allUsers.filter(u => u.role !== "admin" && u.role !== "superadmin");
+        potential = activeUsers.filter(u => u.role !== "admin" && u.role !== "superadmin");
       } else {
         // Regular SPA Admins only see users who are already administrators but not assigned to a service
-        potential = allUsers.filter(u => u.role === "admin" && !u.entity_id);
+        potential = activeUsers.filter(u => u.role === "admin" && !u.entity_id);
       }
 
       potential = potential.sort((a, b) => (a.name || "").localeCompare(b.name || ""));

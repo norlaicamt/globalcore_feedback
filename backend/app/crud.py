@@ -861,11 +861,10 @@ def get_feedbacks(
             fb.branch_name = fb.branch.name
         if not fb.branch_name:
             fb.branch_name = fb.manual_location_text
-        if not fb.branch_name:
-            fb.branch_name = "Unknown Location"
+        # If still None — no location data; frontend will hide the location element
             
         # Append Inactive status if applicable
-        if fb.branch and not fb.branch.is_active:
+        if fb.branch and not fb.branch.is_active and fb.branch_name:
             fb.branch_name += " (Inactive)"
             
         # Media Extraction (Optimized: No blocking I/O or network checks)
@@ -947,6 +946,11 @@ def get_trending_feedbacks(db: Session, limit: int = 10, only_approved: bool = T
         fb.dislikes_count = row.dislikes_count
         
         fb.user_name = "Anonymous" if fb.is_anonymous else (fb.sender.name if fb.sender else "Someone")
+        if fb.is_anonymous:
+            fb.sender_avatar_url = None
+        else:
+            fb.sender_avatar_url = fb.sender.avatar_url if fb.sender else None
+            
         if fb.entity: fb.entity_name = fb.entity.name
             
         results.append(fb)
