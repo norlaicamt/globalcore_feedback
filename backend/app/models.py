@@ -1,6 +1,7 @@
 from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime, Boolean, Enum, UniqueConstraint, Float, event
 from sqlalchemy.dialects.postgresql import JSONB, UUID
-from sqlalchemy.orm import relationship, synonym
+from sqlalchemy.orm import relationship, synonym, Session, joinedload
+from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.ext.associationproxy import association_proxy
 from datetime import datetime, timezone
 from app.database import Base
@@ -36,6 +37,33 @@ class User(Base):
     attributes = Column(JSONB, nullable=False, default=dict)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
+    # --- LEGACY COLUMN MAPPINGS (Backward Compatibility) ---
+    # These columns exist in the 'global_user' table but are being normalized 
+    # to UserProfile, UserSettings, UserSessions, and UserModuleContext.
+    _legacy_email = Column("email", String, nullable=True)
+    _legacy_phone = Column("phone", String, nullable=True)
+    _legacy_first_name = Column("first_name", String, nullable=True)
+    _legacy_last_name = Column("last_name", String, nullable=True)
+    _legacy_middle_name = Column("middle_name", String, nullable=True)
+    _legacy_avatar_url = Column("avatar_url", Text, nullable=True)
+    _legacy_region = Column("region", String, nullable=True)
+    _legacy_province = Column("province", String, nullable=True)
+    _legacy_city = Column("city", String, nullable=True)
+    _legacy_barangay = Column("barangay", String, nullable=True)
+    _legacy_birthdate = Column("birthdate", String, nullable=True)
+    _legacy_birthplace = Column("birthplace", String, nullable=True)
+    _legacy_username = Column("username", String, nullable=True)
+    _legacy_password = Column("password", String, nullable=True)
+    _legacy_role = Column("role", String, nullable=True)
+    _legacy_is_active = Column("is_active", Boolean, default=True)
+    _legacy_entity_id = Column("entity_id", Integer, nullable=True)
+    _legacy_organization_id = Column("organization_id", Integer, nullable=True)
+    _legacy_department = Column("department", String, nullable=True)
+    _legacy_program = Column("program", String, nullable=True)
+    # Preferences / Status
+    _legacy_show_activity_status = Column("show_activity_status", Boolean, default=True)
+    _legacy_two_factor_enabled = Column("two_factor_enabled", Boolean, default=False)
+
     # One-to-One Extension Relationships
     profile = relationship("UserProfile", back_populates="user", uselist=False, cascade="all, delete-orphan")
     settings = relationship("UserSetting", back_populates="user", uselist=False, cascade="all, delete-orphan")
@@ -49,6 +77,73 @@ class User(Base):
     middle_name = association_proxy("profile", "middle_name")
     last_name = association_proxy("profile", "last_name")
     avatar_url = association_proxy("profile", "avatar_url")
+    id_photo_url = association_proxy("profile", "id_photo_url")
+    citizenship = association_proxy("profile", "citizenship")
+    marital_status = association_proxy("profile", "marital_status")
+    company_name = association_proxy("profile", "company_name")
+    position_title = association_proxy("profile", "position_title")
+    exact_address = association_proxy("profile", "exact_address")
+    region = association_proxy("profile", "region")
+    province = association_proxy("profile", "province")
+    city = association_proxy("profile", "city")
+    barangay = association_proxy("profile", "barangay")
+    birthdate = association_proxy("profile", "birthdate")
+    birthplace = association_proxy("profile", "birthplace")
+    profile_completed = association_proxy("profile", "profile_completed")
+    pending_email = association_proxy("profile", "pending_email")
+    pending_phone = association_proxy("profile", "pending_phone")
+    email_verification_token = association_proxy("profile", "email_verification_token")
+    phone_verification_code = association_proxy("profile", "phone_verification_code")
+    verification_expires_at = association_proxy("profile", "verification_expires_at")
+
+    # Proxy properties for UserSetting
+    notify_replies = association_proxy("settings", "notify_replies")
+    notify_comments = association_proxy("settings", "notify_comments")
+    notify_mentions = association_proxy("settings", "notify_mentions")
+    notify_likes = association_proxy("settings", "notify_likes")
+    notify_announcements = association_proxy("settings", "notify_announcements")
+    push_notifications = association_proxy("settings", "push_notifications")
+    email_notifications = association_proxy("settings", "email_notifications")
+    weekly_digest = association_proxy("settings", "weekly_digest")
+    daily_summary = association_proxy("settings", "daily_summary")
+    notify_new_feedback = association_proxy("settings", "notify_new_feedback")
+    notify_assigned = association_proxy("settings", "notify_assigned")
+    notify_high_activity = association_proxy("settings", "notify_high_activity")
+    notify_system_announcements = association_proxy("settings", "notify_system_announcements")
+    two_factor_enabled = association_proxy("settings", "two_factor_enabled")
+    show_activity_status = association_proxy("settings", "show_activity_status")
+    biometrics_enabled = association_proxy("settings", "biometrics_enabled")
+    appearance_category = association_proxy("settings", "appearance_category")
+    appearance_pattern = association_proxy("settings", "appearance_pattern")
+    appearance_accent = association_proxy("settings", "appearance_accent")
+    appearance_mode = association_proxy("settings", "appearance_mode")
+
+    # Proxy properties for UserSession
+    session_token = association_proxy("session", "session_token")
+    last_login = association_proxy("session", "last_login")
+    last_seen = association_proxy("session", "last_seen")
+    deactivated_until = association_proxy("session", "deactivated_until")
+
+    # Proxy properties for UserModuleContext
+    is_active = association_proxy("module_context", "is_active")
+    username = association_proxy("module_context", "username")
+    password = association_proxy("module_context", "password")
+    role = association_proxy("module_context", "role")
+    role_identity = association_proxy("module_context", "role_identity")
+    is_global_user = association_proxy("module_context", "is_global_user")
+    onboarding_completed = association_proxy("module_context", "onboarding_completed")
+    current_module = association_proxy("module_context", "current_module")
+    unit_name = association_proxy("module_context", "unit_name")
+    school = association_proxy("module_context", "school")
+    department = association_proxy("module_context", "department")
+    program = association_proxy("module_context", "program")
+    entity_id = association_proxy("module_context", "entity_id")
+    organization_id = association_proxy("module_context", "organization_id")
+    impact_points = association_proxy("module_context", "impact_points")
+    completed_at = association_proxy("module_context", "completed_at")
+    
+    organization = association_proxy("module_context", "organization")
+    entity = association_proxy("module_context", "entity")
     id_photo_url = association_proxy("profile", "id_photo_url")
     citizenship = association_proxy("profile", "citizenship")
     marital_status = association_proxy("profile", "marital_status")

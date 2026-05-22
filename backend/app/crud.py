@@ -20,16 +20,29 @@ def create_audit_log(db: Session, action_type: str, performed_by_id: int, target
 
 # User operations
 def get_user(db: Session, user_id: int):
-    return db.query(models.User).filter(models.User.id == user_id).first()
+    return db.query(models.User).options(
+        joinedload(models.User.profile),
+        joinedload(models.User.settings),
+        joinedload(models.User.session),
+        joinedload(models.User.module_context)
+    ).filter(models.User.id == user_id).first()
 
 def get_user_by_email(db: Session, email: str):
     if not email: return None
-    return db.query(models.User).filter(models.User.email.ilike(email)).first()
+    return db.query(models.User).options(
+        joinedload(models.User.profile),
+        joinedload(models.User.settings),
+        joinedload(models.User.module_context)
+    ).filter(models.User.email.ilike(email)).first()
 
 def get_user_by_login_id(db: Session, login_id: str):
     if not login_id: return None
     from sqlalchemy import or_
-    return db.query(models.User).filter(
+    return db.query(models.User).options(
+        joinedload(models.User.profile),
+        joinedload(models.User.settings),
+        joinedload(models.User.module_context)
+    ).filter(
         or_(
             models.User.email.ilike(login_id),
             models.User.username.ilike(login_id)
