@@ -635,6 +635,10 @@ const PrivacyView = ({ currentUser, onUserUpdate, showToast, onLogout }) => {
     const [deactivateDays, setDeactivateDays] = useState(2);
     const [showHiatusConfirm, setShowHiatusConfirm] = useState(false);
 
+    const [loadingVerify, setLoadingVerify] = useState(false);
+    const [emailTimeLeft, setEmailTimeLeft] = useState(null);
+    const [phoneTimeLeft, setPhoneTimeLeft] = useState(null);
+
     // Identity Verification State
     const [emailModalOpen, setEmailModalOpen] = useState(false);
     const [phoneModalOpen, setPhoneModalOpen] = useState(false);
@@ -645,7 +649,60 @@ const PrivacyView = ({ currentUser, onUserUpdate, showToast, onLogout }) => {
     const [phoneVerificationCode, setPhoneVerificationCode] = useState("");
     const [simulatedToken, setSimulatedToken] = useState("");
     const [simulatedCode, setSimulatedCode] = useState("");
-    const [loadingVerify, setLoadingVerify] = useState(false);
+
+    const formatTimeLeft = (ms) => {
+        if (ms === null || ms <= 0) return "00:00";
+        const totalSecs = Math.floor(ms / 1000);
+        const mins = Math.floor(totalSecs / 60);
+        const secs = totalSecs % 60;
+        return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    };
+
+    useEffect(() => {
+        let interval;
+        if (currentUser.pending_email && currentUser.verification_expires_at) {
+            const updateTime = () => {
+                const now = new Date();
+                const expiry = new Date(currentUser.verification_expires_at);
+                const diff = expiry - now;
+                if (diff <= 1000) {
+                    setEmailTimeLeft(0);
+                    handleCancelEmailChange();
+                    clearInterval(interval);
+                } else {
+                    setEmailTimeLeft(diff);
+                }
+            };
+            updateTime();
+            interval = setInterval(updateTime, 1000);
+        } else {
+            setEmailTimeLeft(null);
+        }
+        return () => clearInterval(interval);
+    }, [currentUser.pending_email, currentUser.verification_expires_at]);
+
+    useEffect(() => {
+        let interval;
+        if (currentUser.pending_phone && currentUser.verification_expires_at) {
+            const updateTime = () => {
+                const now = new Date();
+                const expiry = new Date(currentUser.verification_expires_at);
+                const diff = expiry - now;
+                if (diff <= 1000) {
+                    setPhoneTimeLeft(0);
+                    handleCancelPhoneChange();
+                    clearInterval(interval);
+                } else {
+                    setPhoneTimeLeft(diff);
+                }
+            };
+            updateTime();
+            interval = setInterval(updateTime, 1000);
+        } else {
+            setPhoneTimeLeft(null);
+        }
+        return () => clearInterval(interval);
+    }, [currentUser.pending_phone, currentUser.verification_expires_at]);
 
     const handleRequestEmailChange = async (e) => {
         e?.preventDefault();
@@ -949,8 +1006,11 @@ const PrivacyView = ({ currentUser, onUserUpdate, showToast, onLogout }) => {
                                     <Icons.Clock />
                                     <span>Pending Change: {currentUser.pending_email}</span>
                                 </div>
-                                <span style={{ fontSize: '11px', color: '#B45309', fontWeight: '600' }}>
-                                    A verification link was generated. The update will take effect once verified.
+                                <span style={{ fontSize: '11px', color: '#B45309', fontWeight: '600', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <span>A verification link was generated. Use it to finalize the update.</span>
+                                    <span style={{ background: '#F59E0B', color: 'white', padding: '2px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: '800' }}>
+                                        Expires in {formatTimeLeft(emailTimeLeft)}
+                                    </span>
                                 </span>
                                 {simulatedToken && (
                                     <div style={{ background: 'white', border: '1px solid #FDE68A', padding: '10px', borderRadius: '8px', marginTop: '6px' }}>
@@ -1059,8 +1119,11 @@ const PrivacyView = ({ currentUser, onUserUpdate, showToast, onLogout }) => {
                                     <Icons.Clock />
                                     <span>Pending Change: {currentUser.pending_phone}</span>
                                 </div>
-                                <span style={{ fontSize: '11px', color: '#B45309', fontWeight: '600' }}>
-                                    SMS OTP code has been dispatched. Enter it below or open the verify dialog.
+                                <span style={{ fontSize: '11px', color: '#B45309', fontWeight: '600', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <span>Enter the code below or open the verify dialog.</span>
+                                    <span style={{ background: '#F59E0B', color: 'white', padding: '2px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: '800' }}>
+                                        Expires in {formatTimeLeft(phoneTimeLeft)}
+                                    </span>
                                 </span>
                                 {simulatedCode && (
                                     <div style={{ background: 'white', border: '1px solid #FDE68A', padding: '10px', borderRadius: '8px', marginTop: '6px' }}>

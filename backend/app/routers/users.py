@@ -188,7 +188,7 @@ def request_email_change(user_id: int, request: schemas.EmailChangeRequest, db: 
         
     # Set pending verification data
     token = uuid.uuid4().hex
-    expiry = datetime.now(timezone.utc) + timedelta(minutes=15)
+    expiry = datetime.now(timezone.utc) + timedelta(minutes=5)
     
     db_user.profile.pending_email = request.new_email
     db_user.profile.email_verification_token = token
@@ -269,7 +269,7 @@ def request_phone_change(user_id: int, request: schemas.PhoneChangeRequest, db: 
         
     # Generate 6-digit OTP code
     code = "".join(random.choices(string.digits, k=6))
-    expiry = datetime.now(timezone.utc) + timedelta(minutes=15)
+    expiry = datetime.now(timezone.utc) + timedelta(minutes=5)
     
     db_user.profile.pending_phone = request.new_phone
     db_user.profile.phone_verification_code = code

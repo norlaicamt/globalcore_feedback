@@ -141,6 +141,7 @@ export const adminGetProducts = (entity_id = null, branch_id = null, only_active
 export const adminCreateProduct = (data) => adminApi.post(`${API_BASE}/products`, data).then(r => r.data);
 export const adminUpdateProduct = (id, data) => adminApi.put(`${API_BASE}/products/${id}`, data).then(r => r.data);
 export const adminDeleteProduct = (id) => adminApi.delete(`${API_BASE}/products/${id}`).then(r => r.data);
+export const adminReactivateProduct = (id) => adminApi.post(`${API_BASE}/products/${id}/reactivate`).then(r => r.data);
 export const adminDuplicateProduct = (id) => adminApi.post(`${API_BASE}/products/${id}/duplicate`).then(r => r.data);
 export const adminBulkImportProducts = (data) => adminApi.post(`${API_BASE}/products/bulk`, data).then(r => r.data);
 export const adminGetProductAnalytics = (id) => adminApi.get(`${API_BASE}/products/${id}/analytics`).then(r => r.data);

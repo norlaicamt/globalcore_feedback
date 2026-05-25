@@ -608,9 +608,13 @@ export default function AdminTeam({ adminUser, onNavigate }) {
                     .map(u => (
                       <div key={u.id} style={{ padding: "12px", border: "1px solid #E5E7EB", borderRadius: "10px", display: "flex", justifyContent: "space-between", alignItems: "center", backgroundColor: "white" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                          <div style={{ width: "32px", height: "32px", borderRadius: "50%", backgroundColor: "#F3F4F6", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px", fontWeight: "700", color: "#4B5563" }}>
-                            {u.name.charAt(0).toUpperCase()}
-                          </div>
+                          {u.avatar_url ? (
+                            <img src={resolveMediaUrl(u.avatar_url)} alt={u.name} style={{ width: "32px", height: "32px", borderRadius: "50%", objectFit: "cover" }} />
+                          ) : (
+                            <div style={{ width: "32px", height: "32px", borderRadius: "50%", backgroundColor: "#F3F4F6", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px", fontWeight: "700", color: "#4B5563" }}>
+                              {u.name.charAt(0).toUpperCase()}
+                            </div>
+                          )}
                           <div>
                             <div style={{ fontWeight: "600", fontSize: "13px", color: "#111827" }}>{u.name}</div>
                             <div style={{ fontSize: "11px", color: "#6B7280" }}>{u.email}</div>

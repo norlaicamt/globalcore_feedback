@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { adminGetAuditLogs, adminGetStaffList } from "../../../services/adminApi";
+import { adminGetAuditLogs, adminGetStaffList, adminLogAction } from "../../../services/adminApi";
+import { exportToPDF, exportToExcel, exportToDOCX } from "../../../utils/exportUtils";
+import ExportDropdown from "../ExportDropdown";
 
 // --- HELPER: Relative Time ---
 const formatRelativeTime = (dateStr) => {
@@ -90,6 +92,49 @@ const AdminAuditLogs = ({ theme, darkMode, adminUser }) => {
     return true;
   });
 
+  const handleExport = async (format) => {
+    const headers = ["Timestamp", "Administrator", "Role", "Event", "Impact", "Target ID"];
+    const data = filteredLogs.map(log => {
+        const action = getActionData(log.action_type);
+        return [
+            new Date(log.timestamp).toLocaleString(),
+            log.performed_by?.name || "System",
+            log.performed_by?.role || "SYSTEM",
+            action.text,
+            action.severity,
+            log.target_id || "—"
+        ];
+    });
+
+    const filename = `executive_audit_trail_${Date.now()}`;
+    const exportOptions = {
+        title: "Governance & Audit Trail Report",
+        companyName: "GlobalCore Feedback Governance",
+        headers,
+        data,
+        fileName: filename,
+        adminUser
+    };
+
+    // Log the Export Action for Traceability
+    try {
+        await adminLogAction("export_data", { format, scope: "Audit Logs", count: data.length });
+    } catch (e) { console.error("Audit log failed", e); }
+
+    if (format === 'xls') {
+        await exportToExcel(exportOptions);
+    } else if (format === 'pdf') {
+        exportToPDF(exportOptions);
+    } else if (format === 'docx' || format === 'doc') {
+        await exportToDOCX(exportOptions);
+    } else if (format === 'csv') {
+        const csv = [headers, ...data].map(r => r.join(",")).join("\n");
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a"); a.href = url; a.download = `${filename}.csv`; a.click();
+    }
+  };
+
   const uniqueActions = [...new Set(logs.map(l => l.action_type))];
 
   return (
@@ -138,6 +183,8 @@ const AdminAuditLogs = ({ theme, darkMode, adminUser }) => {
               <option key={action} value={action}>{getActionData(action).text}</option>
             ))}
           </select>
+          <div style={{ height: "24px", width: "1px", background: theme.border, margin: "0 4px" }} />
+          <ExportDropdown onExport={handleExport} theme={theme} darkMode={darkMode} />
         </div>
       </div>
 

@@ -2501,9 +2501,10 @@ const DebugOverlay = ({ stepProgress, currentIndex, configLoaded, isMobile }) =>
 };
 
 const WorkflowStepper = React.memo(({ steps, currentIndex, primaryColor, onStepClick, validationState = [] }) => {
+  const isMobile = window.innerWidth < 768;
   if (steps.length <= 1) return null;
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: isMobile ? '4px' : '8px' }}>
       {steps.map((s, i) => {
         const isActive = i === currentIndex;
         const isPast = i < currentIndex;
@@ -2545,8 +2546,8 @@ const WorkflowStepper = React.memo(({ steps, currentIndex, primaryColor, onStepC
             <div
               onClick={() => isPast && onStepClick(s.id)}
               style={{
-                width: '28px',
-                height: '28px',
+                width: isMobile ? '22px' : '28px',
+                height: isMobile ? '22px' : '28px',
                 borderRadius: '50%',
                 background: bgColor,
                 color: textColor,
@@ -2557,7 +2558,7 @@ const WorkflowStepper = React.memo(({ steps, currentIndex, primaryColor, onStepC
                 boxShadow: isActive ? borderStyle : (hasError ? 'none' : 'none'),
                 border: hasError ? borderStyle : 'none',
                 cursor: isPast ? 'pointer' : 'default',
-                fontSize: '12px',
+                fontSize: isMobile ? '10px' : '12px',
                 fontWeight: '900',
                 position: 'relative',
                 transform: isActive ? 'scale(1.1)' : 'scale(1)'
@@ -2573,7 +2574,7 @@ const WorkflowStepper = React.memo(({ steps, currentIndex, primaryColor, onStepC
             </div>
             {i < steps.length - 1 && (
               <div style={{
-                width: '20px',
+                width: isMobile ? '12px' : '20px',
                 height: '2px',
                 background: isComplete ? primaryColor : (isPast ? primaryColor : '#F1F5F9'),
                 opacity: isPast ? 1 : 0.5,
@@ -2596,7 +2597,16 @@ const styles = {
   },
   header: { padding: 'var(--card-padding, 24px 20px)', background: 'rgba(255, 255, 255, 0.7)', backdropFilter: 'blur(12px)', display: 'flex', alignItems: 'center', gap: '15px', borderBottom: '1px solid rgba(255, 255, 255, 0.3)', position: 'sticky', top: 0, zIndex: 10 },
   headerTitle: { fontSize: 'var(--size-page-title, 14px)', fontWeight: '600', color: '#0F172A', letterSpacing: '-0.02em' },
-  content: { flex: 1, padding: 'var(--card-padding, 24px 20px)', overflowY: 'auto' },
+  content: { 
+    flex: 1, 
+    padding: 'var(--card-padding, 24px 20px)', 
+    overflowY: 'auto',
+    maxWidth: '600px',
+    margin: '0 auto',
+    width: '100%',
+    display: 'flex',
+    flexDirection: 'column'
+  },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' },
   typeCard: {
     display: 'flex',

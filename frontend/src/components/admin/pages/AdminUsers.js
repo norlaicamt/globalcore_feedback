@@ -4,12 +4,11 @@ import {
   adminUpdateUserDetails, adminGetEntities, adminResetPassword,
   adminLogAction
 } from "../../../services/adminApi";
-import { resolveMediaUrl } from "../../../utils/feedback";
+import { resolveMediaUrl, formatFeedbackDate } from "../../../utils/feedback";
 import { useTerminology } from "../../../context/TerminologyContext";
+import { exportToPDF, exportToExcel, exportToDOCX } from "../../../utils/exportUtils";
+import ExportDropdown from "../ExportDropdown";
 import CustomModal from "../../CustomModal";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
-import * as XLSX from "xlsx";
 
 // --- HELPER: Relative Time ---
 const formatRelativeTime = (dateStr) => {
@@ -121,44 +120,7 @@ const SortDropdown = ({ sortKey, onSort, theme, darkMode }) => {
   );
 };
 
-// --- COMPONENT: Export Dropdown ---
-const ExportDropdown = ({ onExport, theme, darkMode }) => {
-  const [open, setOpen] = useState(false);
-  const ref = useRef(null);
-  useEffect(() => {
-    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
-
-  const handleSelect = (format) => { onExport(format); setOpen(false); };
-
-  return (
-    <div ref={ref} style={{ position: "relative" }}>
-      <button 
-        onClick={() => setOpen(!open)} 
-        style={{ padding: "8px 16px", background: theme.surface, color: theme.text, border: `1.5px solid ${theme.border}`, borderRadius: "10px", fontSize: "12px", fontWeight: "700", cursor: "pointer", display: "flex", alignItems: "center", gap: "8px" }}
-      >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        Export
-      </button>
-      {open && (
-        <div style={{ position: "absolute", right: 0, top: "40px", background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: "12px", boxShadow: "0 10px 30px rgba(0,0,0,0.15)", zIndex: 100, minWidth: "160px", padding: "6px" }}>
-          {[
-            { id: 'pdf', label: 'PDF Report', icon: '📄' },
-            { id: 'xls', label: 'Excel (XLS)', icon: '📊' },
-            { id: 'csv', label: 'CSV File', icon: '📑' },
-            { id: 'doc', label: 'Word (DOC)', icon: '📝' }
-          ].map(fmt => (
-            <button key={fmt.id} onClick={() => handleSelect(fmt.id)} style={menuItemStyle(theme, darkMode)}>
-              <span style={{ marginRight: "10px" }}>{fmt.icon}</span> {fmt.label}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-};
+// --- COMPONENT: Sort Dropdown ---
 
 const menuItemStyle = (theme, darkMode) => ({
   display: "flex", alignItems: "center", width: "100%", padding: "10px 14px", background: "none", border: "none", borderRadius: "8px", textAlign: "left", fontSize: "13px", fontWeight: "600", color: theme.text, cursor: "pointer", fontFamily: "inherit"
@@ -174,7 +136,7 @@ const AdminUsers = ({ theme, darkMode, adminUser }) => {
   const [users, setUsers] = useState([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [sortKey, setSortKey] = useState("newest");
+  const [sortKey, setSortKey] = useState("az");
   const [selectedIds, setSelectedIds] = useState([]);
   const [isBulkMode, setIsBulkMode] = useState(false);
   const [profileUser, setProfileUser] = useState(null);
@@ -377,49 +339,44 @@ const AdminUsers = ({ theme, darkMode, adminUser }) => {
 
   const handleExport = async (format) => {
     const headers = ["Name", "Email", "Role", "Last Active", "Feedback", "Points", "Status"];
-    const data = filteredAndSorted.map(u => [u.name, u.email, u.role, formatRelativeTime(u.last_seen || u.last_login), u.total_posts, u.impact_points, u.is_active ? "Active" : "Inactive"]);
+    const data = filteredAndSorted.map(u => [
+      u.name, 
+      u.email, 
+      u.role, 
+      u.last_seen ? formatFeedbackDate(u.last_seen) : "Never", 
+      u.total_posts || 0, 
+      u.impact_points || 0, 
+      u.is_active ? "Active" : "Inactive"
+    ]);
     
     const scopeSlug = activeScope.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
-    const dateStr = new Date().toISOString().split('T')[0];
-    const filename = `users_${scopeSlug}_${dateStr}_all`;
+    const filename = `executive_users_${scopeSlug}_${Date.now()}`;
+
+    const exportOptions = {
+      title: `User Management Report - ${activeScope}`,
+      companyName: "GlobalCore Feedback Governance",
+      headers,
+      data,
+      fileName: filename,
+      adminUser
+    };
 
     // Log the Export Action for Traceability
     try {
       await adminLogAction("export_data", { format, scope: activeScope, count: data.length });
     } catch (e) { console.error("Audit log failed", e); }
 
-    if (format === 'csv') {
-      const csv = [headers, ...data].map(r => r.join(",")).join("\n");
-      const blob = new Blob([csv], { type: 'text/csv' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a"); a.href = url; a.download = `${filename}.csv`; a.click();
+    if (format === 'xls') {
+        await exportToExcel(exportOptions);
     } else if (format === 'pdf') {
-      const doc = new jsPDF();
-      doc.text(`User Management Report - ${activeScope}`, 14, 15);
-      doc.setFontSize(10);
-      doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 22);
-      autoTable(doc, { head: [headers], body: data, startY: 28, styles: { fontSize: 8 } });
-      doc.save(`${filename}.pdf`);
-    } else if (format === 'xls') {
-      const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
-      const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Users");
-      XLSX.writeFile(wb, `${filename}.xlsx`);
-    } else if (format === 'doc') {
-      let html = `
-        <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
-        <head><meta charset='utf-8'><title>User Report</title></head>
-        <body>
-          <h2>User Management Report - ${activeScope}</h2>
-          <p>Generated on: ${new Date().toLocaleString()}</p>
-          <table border='1'>
-            <thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead>
-            <tbody>${data.map(row => `<tr>${row.map(cell => `<td>${cell}</td>`).join('')}</tr>`).join('')}</tbody>
-          </table>
-        </body></html>
-      `;
-      const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a"); a.href = url; a.download = `${filename}.doc`; a.click();
+        exportToPDF(exportOptions);
+    } else if (format === 'docx' || format === 'doc') {
+        await exportToDOCX(exportOptions);
+    } else if (format === 'csv') {
+        const csv = [headers, ...data].map(r => r.join(",")).join("\n");
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a"); a.href = url; a.download = `${filename}.csv`; a.click();
     }
   };
 

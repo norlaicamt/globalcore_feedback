@@ -3,6 +3,7 @@ import * as XLSX from 'xlsx';
 import {
     adminGetEntities, adminGetBranches,
     adminGetProducts, adminCreateProduct, adminUpdateProduct, adminDeleteProduct,
+    adminReactivateProduct,
     adminDuplicateProduct, adminBulkImportProducts, adminGetProductAnalytics
 } from "../../../services/adminApi";
 import CustomModal from "../../CustomModal";
@@ -105,7 +106,7 @@ const AdminProducts = ({ theme, darkMode, adminUser, isScoped }) => {
         setLoading(true);
         try {
             const [prodData, entData] = await Promise.all([
-                adminGetProducts(filterEntity || null, filterBranch || null),
+                adminGetProducts(filterEntity || null, filterBranch || null, false), // Fetch all (active and inactive)
                 adminGetEntities()
             ]);
             setProducts(prodData);
@@ -313,6 +314,30 @@ const AdminProducts = ({ theme, darkMode, adminUser, isScoped }) => {
             onCancel: () => setDialog({ isOpen: false })
         });
     };
+ 
+    const handleReactivate = (product) => {
+        setDialog({
+            isOpen: true,
+            title: "Reactivate Product?",
+            message: `Are you sure you want to reactivate "${product.name}"? It will become visible in the feedback submission forms again.`,
+            confirmText: "Reactivate",
+            type: "info",
+            onConfirm: async () => {
+                try {
+                    await adminReactivateProduct(product.id);
+                    setDialog({ isOpen: false });
+                    loadData();
+                } catch (err) {
+                    setDialog({
+                        isOpen: true, type: "error", title: "Error",
+                        message: "Failed to reactivate product.",
+                        confirmText: "OK", onConfirm: () => setDialog({ isOpen: false })
+                    });
+                }
+            },
+            onCancel: () => setDialog({ isOpen: false })
+        });
+    };
 
     const filteredProducts = products
         .filter(p =>
@@ -344,6 +369,7 @@ const AdminProducts = ({ theme, darkMode, adminUser, isScoped }) => {
             if (type === 'Active') colors = { bg: 'rgba(16, 185, 129, 0.1)', text: '#10B981' };
             if (type === 'New') colors = { bg: 'rgba(59, 130, 246, 0.1)', text: '#3B82F6' };
             if (type === 'No Feedback') colors = { bg: 'rgba(107, 114, 128, 0.1)', text: '#6B7280' };
+            if (type === 'Deactivated') colors = { bg: 'rgba(239, 68, 68, 0.1)', text: '#EF4444' };
 
             return { display: 'inline-block', padding: '4px 10px', borderRadius: '20px', fontSize: '10px', fontWeight: '800', background: colors.bg, color: colors.text, textTransform: 'uppercase', letterSpacing: '0.05em' };
         },
@@ -412,7 +438,7 @@ const AdminProducts = ({ theme, darkMode, adminUser, isScoped }) => {
                             const suffix = e.name.toLowerCase() !== wsType.toLowerCase() ? ` (${wsType})` : '';
                             return (
                                 <option key={e.id} value={e.id}>
-                                    {e.name}
+                                    {e.name}{suffix}
                                 </option>
                             );
                         })}
@@ -574,6 +600,7 @@ const AdminProducts = ({ theme, darkMode, adminUser, isScoped }) => {
                                         <td style={styles.td}>
                                             {(() => {
                                                 const getStatus = () => {
+                                                    if (!p.is_active) return 'Deactivated';
                                                     if (p.feedback_count > 5) return 'Trending';
                                                     if (p.feedback_count > 0) return 'Active';
                                                     const createdDate = new Date(p.created_at);
@@ -601,7 +628,11 @@ const AdminProducts = ({ theme, darkMode, adminUser, isScoped }) => {
                                                 <button onClick={() => handleOpenAnalytics(p)} title="Analytics" style={{ background: 'none', border: 'none', color: '#6366F1', cursor: 'pointer' }}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 20V10M18 20V4M6 20v-4" /></svg></button>
                                                 <button onClick={() => handleDuplicate(p)} title="Duplicate" style={{ background: 'none', border: 'none', color: theme.textMuted, cursor: 'pointer' }}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" /></svg></button>
                                                 <button onClick={() => handleOpenModal(p)} style={{ background: 'none', border: 'none', color: 'var(--primary-color)', cursor: 'pointer', fontWeight: '700' }}>Edit</button>
-                                                <button onClick={() => handleDelete(p)} style={{ background: 'none', border: 'none', color: theme.textMuted, cursor: 'pointer', fontWeight: '700' }}>Deactivate</button>
+                                                {p.is_active ? (
+                                                    <button onClick={() => handleDelete(p)} style={{ background: 'none', border: 'none', color: theme.textMuted, cursor: 'pointer', fontWeight: '700' }}>Deactivate</button>
+                                                ) : (
+                                                    <button onClick={() => handleReactivate(p)} style={{ background: 'none', border: 'none', color: '#10B981', cursor: 'pointer', fontWeight: '700' }}>Reactivate</button>
+                                                )}
                                             </div>
                                         </td>
                                     )}

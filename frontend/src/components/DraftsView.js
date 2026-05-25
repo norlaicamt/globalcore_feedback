@@ -145,7 +145,16 @@ const DraftsView = ({ currentUser, onBack }) => {
 
   if (editingDraft) {
     return (
-      <div style={{ height: '100%', width: '100%', position: 'absolute', top: 0, left: 0, zIndex: 100, backgroundColor: 'var(--portal-surface-bg)' }}>
+      <div style={{ 
+        height: '100%', 
+        width: '100%', 
+        position: 'fixed', 
+        top: 0, 
+        left: 0, 
+        zIndex: 1000, 
+        backgroundColor: 'var(--portal-surface-bg)',
+        overflow: 'hidden'
+      }}>
         <GeneralFeedback
           currentUser={currentUser}
           initialDraft={editingDraft}
@@ -284,7 +293,7 @@ const styles = {
   bulkBar: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 'var(--card-padding, 12px 20px)', backgroundColor: 'var(--portal-surface-card)', borderBottom: '1px solid rgba(128,128,128,0.2)', width: '100%' },
   bulkActionBtn: { background: 'none', border: 'none', fontSize: 'var(--size-chip, 13px)', fontWeight: '900', cursor: 'pointer', padding: '6px 8px', textTransform: 'uppercase', letterSpacing: '0.05em' },
   iconBtn: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--primary-color)', padding: '4px', display: 'flex' },
-  mainContainer: { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: 'var(--card-padding, 16px)', maxWidth: '800px', margin: '0 auto', width: '100%' },
+  mainContainer: { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: 'var(--card-padding, 16px)', maxWidth: '600px', margin: '0 auto', width: '100%' },
   listContainer: { flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px', paddingBottom: '40px' },
   draftCard: { backgroundColor: 'var(--portal-surface-card)', borderRadius: '16px', padding: 'var(--card-padding, 16px)', border: '1px solid rgba(128,128,128,0.2)', cursor: 'pointer', transition: 'all 0.2s ease', display: 'flex', gap: '16px', alignItems: 'center' },
   cardHeader: { display: 'flex', justifyContent: 'space-between', marginBottom: '4px', alignItems: 'center' },

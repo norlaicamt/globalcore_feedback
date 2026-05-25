@@ -133,6 +133,28 @@ def delete_product(product_id: int, db: Session = Depends(get_db), admin: models
     )
     return {"status": "success"}
 
+@router.post("/{product_id}/reactivate")
+def reactivate_product(product_id: int, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
+    """Reactivate a previously deactivated product."""
+    db_product = db.query(models.Product).filter(models.Product.id == product_id).first()
+    if db_product is None:
+        raise HTTPException(status_code=404, detail="Product not found")
+    
+    db_product.is_active = True
+    db.commit()
+    
+    crud.create_audit_log(
+        db,
+        action_type="reactivate_product",
+        performed_by_id=admin.id,
+        target_id=str(product_id),
+        details={
+            "description": f"Product '{db_product.name}' was reactivated.",
+            "name": db_product.name
+        }
+    )
+    return {"status": "success"}
+
 # --- EVALUATION TEMPLATES ---
 
 @router.get("/templates/all", response_model=List[schemas.ProductEvaluationTemplate])

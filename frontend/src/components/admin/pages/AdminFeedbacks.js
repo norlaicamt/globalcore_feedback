@@ -2,10 +2,9 @@ import React, { useEffect, useRef, useState } from "react";
 import { adminDeleteFeedback, adminUpdateFeedbackStatus, adminGetResponseTemplates, adminUnifiedReply, adminRevealIdentity, adminGetInternalNotes, adminAddInternalNote, adminGetStaffList, adminAssignFeedback, adminGetFeedbacks } from "../../../services/adminApi";
 import { renderFeedbackResponses } from "../../../utils/feedback";
 import { useTerminology } from "../../../context/TerminologyContext";
+import { exportToPDF, exportToExcel, exportToDOCX } from "../../../utils/exportUtils";
+import ExportDropdown from "../ExportDropdown";
 import CustomModal from "../../CustomModal";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
-import * as XLSX from "xlsx";
 
 // --- CONFIG: Workflow Definitions ---
 const STATUSES = {
@@ -819,53 +818,7 @@ const DotsMenu = ({ onUpdateStatus, onDelete, theme, darkMode, currentStatus }) 
 };
 
 
-// --- COMPONENT: Export Dropdown ---
-const ExportDropdown = ({ onExport, theme, darkMode }) => {
-  const [open, setOpen] = useState(false);
-  const ref = useRef(null);
-  useEffect(() => {
-    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
-
-  return (
-    <div ref={ref} style={{ position: "relative" }}>
-      <button
-        onClick={() => setOpen(!open)}
-        style={{
-          display: "flex", alignItems: "center", gap: "8px", padding: "10px 16px",
-          background: theme.surface, color: theme.text, border: `1.5px solid ${theme.border}`,
-          borderRadius: "10px", fontSize: "13px", fontWeight: "600", cursor: "pointer", transition: "0.2s"
-        }}
-        onMouseEnter={e => e.currentTarget.style.borderColor = "var(--primary-color)"}
-        onMouseLeave={e => e.currentTarget.style.borderColor = theme.border}
-      >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
-        Export
-      </button>
-      {open && (
-        <div style={{ position: "absolute", right: 0, top: "42px", background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: "12px", boxShadow: "0 10px 30px rgba(0,0,0,0.15)", zIndex: 100, minWidth: "160px", padding: "6px" }}>
-          {[
-            { id: 'pdf', label: 'PDF Report', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg> },
-            { id: 'xls', label: 'Excel (XLS)', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="20" x2="12" y2="10"></line><line x1="18" y1="20" x2="18" y2="4"></line><line x1="6" y1="20" x2="6" y2="16"></line></svg> },
-            { id: 'csv', label: 'CSV (Legacy)', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg> }
-          ].map(fmt => (
-            <button
-              key={fmt.id}
-              onClick={() => { onExport(fmt.id); setOpen(false); }}
-              style={{ display: "flex", alignItems: "center", gap: "10px", width: "100%", padding: "10px 14px", background: "none", border: "none", borderRadius: "8px", textAlign: "left", fontSize: "13px", fontWeight: "600", color: theme.text, cursor: "pointer" }}
-              onMouseEnter={e => e.currentTarget.style.background = darkMode ? "rgba(255,255,255,0.05)" : "#F1F5F9"}
-              onMouseLeave={e => e.currentTarget.style.background = "none"}
-            >
-              <span>{fmt.icon}</span> {fmt.label}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-};
+// --- COMPONENT: Export // --- COMPONENT: Export Dropdown removed and moved to shared location ---
 
 // --- COMPONENT: Columns Visibility Dropdown ---
 const ColumnsDropdown = ({ visibleColumns, setVisibleColumns, theme, darkMode, isScopedAdmin }) => {
@@ -1065,6 +1018,7 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
     if (forcedFilter) {
       if (forcedFilter === "MY_CASES") setActiveTab("MY_CASES");
       else if (forcedFilter === "UNASSIGNED") setActiveTab("UNASSIGNED");
+      else if (["OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED"].includes(forcedFilter)) setActiveTab(forcedFilter);
       else {
         // Assume it's a user name or ID for search
         setSearch(forcedFilter);
@@ -1115,7 +1069,7 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
     });
   };
 
-  const handleExport = (format) => {
+  const handleExport = async (format) => {
     const headers = isScopedAdmin 
       ? ["ID", "User", "Location", "Status", "Date"]
       : ["ID", "Program", "User", "Location", "Status", "Date"];
@@ -1123,32 +1077,38 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
     const data = filtered.map(f => {
       const base = [
         f.id,
-        f.user_name || "Anonymous",
+        f.is_anonymous ? "Anonymous" : (f.user_name || "User"),
         f.dept_name || "—",
         STATUSES[f.status]?.label || f.status,
         f.created_at?.split("T")[0]
       ];
       if (!isScopedAdmin) {
-        // Insert Program at index 1 to match headers: ["ID", "Program", "User", "Location", ...]
         base.splice(1, 0, f.entity_name || "General");
       }
       return base;
     });
 
-    if (format === 'csv') {
-      const csv = [headers, ...data].map(r => r.join(",")).join("\n");
-      const blob = new Blob([csv], { type: 'text/csv' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url; link.download = `submissions_export.csv`; link.click();
-    } else if (format === 'xls') {
-      const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
-      const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Submissions");
-      XLSX.writeFile(wb, `submissions_report.xlsx`);
+    const exportOptions = {
+        title: "Operations Submissions Report",
+        companyName: "GlobalCore Feedback Governance",
+        headers,
+        data,
+        fileName: `executive_submissions_${Date.now()}`,
+        adminUser
+    };
+
+    if (format === 'xls') {
+        await exportToExcel(exportOptions);
     } else if (format === 'pdf') {
-      const doc = new jsPDF();
-      autoTable(doc, { head: [headers], body: data });
-      doc.save("submissions_report.pdf");
+        exportToPDF(exportOptions);
+    } else if (format === 'docx') {
+        await exportToDOCX(exportOptions);
+    } else if (format === 'csv') {
+        const csv = [headers, ...data].map(r => r.join(",")).join("\n");
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url; link.download = `submissions_export.csv`; link.click();
     }
   };
 

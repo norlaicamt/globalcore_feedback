@@ -140,6 +140,11 @@ class UserUpdate(BaseModel):
     avatar_url: Optional[str] = None
     id_photo_url: Optional[str] = None
     deactivated_until: Optional[datetime] = None
+    pending_email: Optional[str] = None
+    pending_phone: Optional[str] = None
+    email_verification_token: Optional[str] = None
+    phone_verification_code: Optional[str] = None
+    verification_expires_at: Optional[datetime] = None
 
 class UserPasswordUpdate(BaseModel):
     old_password: str

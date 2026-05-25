@@ -296,7 +296,10 @@ const AdminDashboard = ({ onNavigate, theme, darkMode, adminUser }) => {
             color="#EAB308"
             priority={newCount > 0}
             statusLabel="High Priority"
-            onClick={() => onNavigate("feedbacks")}
+            onClick={() => {
+              localStorage.setItem("admin_feedback_filter", "OPEN");
+              onNavigate("feedbacks");
+            }}
           />
           <KpiCard
             label="In Review"
@@ -306,7 +309,10 @@ const AdminDashboard = ({ onNavigate, theme, darkMode, adminUser }) => {
             color="#3B82F6"
             priority={inReviewCount > 0}
             statusLabel="Processing"
-            onClick={() => onNavigate("feedbacks")}
+            onClick={() => {
+              localStorage.setItem("admin_feedback_filter", "IN_PROGRESS");
+              onNavigate("feedbacks");
+            }}
           />
         </div>
 
