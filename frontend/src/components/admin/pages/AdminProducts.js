@@ -330,13 +330,13 @@ const AdminProducts = ({ theme, darkMode, adminUser, isScoped }) => {
         statVal: { fontSize: '24px', fontWeight: '900', color: 'var(--primary-color)', margin: '0 0 4px 0' },
         statLabel: { fontSize: '11px', fontWeight: '700', color: theme.textMuted, textTransform: 'uppercase' },
         controls: { display: 'flex', gap: '12px', marginBottom: '20px', alignItems: 'center' },
-        searchBox: { flex: 1, position: 'relative' },
+        searchBox: { flex: 1, position: 'relative', maxWidth: '400px' },
         input: { width: '100%', padding: '10px 16px', borderRadius: '10px', background: theme.surface, border: `1px solid ${theme.border}`, color: theme.text, fontSize: '14px', outline: 'none' },
         select: { padding: '10px 16px', borderRadius: '10px', background: theme.surface, border: `1px solid ${theme.border}`, color: theme.text, fontSize: '14px', outline: 'none', minWidth: '150px' },
         tableCard: { background: theme.surface, borderRadius: '16px', border: `1px solid ${theme.border}`, overflow: 'hidden' },
         table: { width: '100%', borderCollapse: 'collapse' },
-        th: { padding: '14px 20px', textAlign: 'left', fontSize: '11px', fontWeight: '800', color: theme.textMuted, textTransform: 'uppercase', background: darkMode ? 'rgba(255,255,255,0.02)' : '#F8FAFC', borderBottom: `1px solid ${theme.border}` },
-        td: { padding: '14px 20px', fontSize: '13px', color: theme.text, borderBottom: `1px solid ${theme.border}` },
+        th: { padding: '12px 16px', textAlign: 'left', fontSize: '11px', fontWeight: '800', color: theme.textMuted, textTransform: 'uppercase', background: darkMode ? 'rgba(255,255,255,0.02)' : '#F8FAFC', borderBottom: `1px solid ${theme.border}` },
+        td: { padding: '12px 16px', fontSize: '13px', color: theme.text, borderBottom: `1px solid ${theme.border}` },
         productThumb: { width: '36px', height: '36px', borderRadius: '8px', objectFit: 'cover', background: theme.bg },
         badge: (type) => {
             let colors = { bg: 'rgba(107, 114, 128, 0.1)', text: '#6B7280' }; // Default
@@ -357,7 +357,6 @@ const AdminProducts = ({ theme, darkMode, adminUser, isScoped }) => {
     const activeColsCount = [
         columns.showName,
         columns.showType,
-        columns.showScope,
         columns.showStatus,
         columns.showActions
     ].filter(Boolean).length;
@@ -489,7 +488,6 @@ const AdminProducts = ({ theme, darkMode, adminUser, isScoped }) => {
                                 {[
                                     { key: 'showName', label: 'Product Name' },
                                     { key: 'showType', label: 'Product Type' },
-                                    { key: 'showScope', label: 'Workspace' },
                                     { key: 'showStatus', label: 'Status' },
                                     { key: 'showActions', label: 'Actions' }
                                 ].map(col => (
@@ -536,11 +534,10 @@ const AdminProducts = ({ theme, darkMode, adminUser, isScoped }) => {
                 <table style={styles.table}>
                     <thead>
                         <tr>
-                            {columns.showName && <th style={styles.th}>Product</th>}
-                            {columns.showType && <th style={styles.th}>Product Type</th>}
-                            {columns.showScope && <th style={styles.th}>Workspace</th>}
-                            {columns.showStatus && <th style={styles.th}>Status</th>}
-                            {columns.showActions && <th style={styles.th}></th>}
+                            {columns.showName && <th style={{ ...styles.th }}>Product</th>}
+                            {columns.showType && <th style={{ ...styles.th, width: '160px' }}>Product Type</th>}
+                            {columns.showStatus && <th style={{ ...styles.th, width: '140px' }}>Status</th>}
+                            {columns.showActions && <th style={{ ...styles.th, width: '200px', textAlign: 'right' }}>Actions</th>}
                         </tr>
                     </thead>
                     <tbody>
@@ -567,25 +564,12 @@ const AdminProducts = ({ theme, darkMode, adminUser, isScoped }) => {
                                     )}
                                     {columns.showType && (
                                         <td style={styles.td}>
-                                            <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: '20px', fontSize: '10px', fontWeight: '800', background: 'rgba(99,102,241,0.1)', color: '#6366F1', textTransform: 'uppercase' }}>
+                                            <span style={{ fontSize: '13px', color: theme.text }}>
                                                 {p.category || '—'}
                                             </span>
                                         </td>
                                     )}
-                                    {columns.showScope && (
-                                        <td style={styles.td}>
-                                            <div style={{ fontSize: '11px', fontWeight: '700' }}>
-                                                {entities.find(e => e.id === p.entity_id)?.name || "Global"}
-                                            </div>
-                                            {p.branch_id && (
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
-                                                    <span style={{ fontSize: '10px', color: theme.textMuted }}>
-                                                        {branches.find(b => b.id === p.branch_id)?.name || 'Specific Branch'}
-                                                    </span>
-                                                </div>
-                                            )}
-                                        </td>
-                                    )}
+
                                     {columns.showStatus && (
                                         <td style={styles.td}>
                                             {(() => {
@@ -599,7 +583,7 @@ const AdminProducts = ({ theme, darkMode, adminUser, isScoped }) => {
                                                 };
                                                 const status = getStatus();
                                                 return (
-                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                         <span style={styles.badge(status)}>{status}</span>
                                                         {p.feedback_count > 0 && (
                                                             <span style={{ fontSize: '10px', color: theme.textMuted, fontWeight: '600' }}>
@@ -617,7 +601,7 @@ const AdminProducts = ({ theme, darkMode, adminUser, isScoped }) => {
                                                 <button onClick={() => handleOpenAnalytics(p)} title="Analytics" style={{ background: 'none', border: 'none', color: '#6366F1', cursor: 'pointer' }}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 20V10M18 20V4M6 20v-4" /></svg></button>
                                                 <button onClick={() => handleDuplicate(p)} title="Duplicate" style={{ background: 'none', border: 'none', color: theme.textMuted, cursor: 'pointer' }}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" /></svg></button>
                                                 <button onClick={() => handleOpenModal(p)} style={{ background: 'none', border: 'none', color: 'var(--primary-color)', cursor: 'pointer', fontWeight: '700' }}>Edit</button>
-                                                <button onClick={() => handleDelete(p)} style={{ background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer', fontWeight: '700' }}>Deactivate</button>
+                                                <button onClick={() => handleDelete(p)} style={{ background: 'none', border: 'none', color: theme.textMuted, cursor: 'pointer', fontWeight: '700' }}>Deactivate</button>
                                             </div>
                                         </td>
                                     )}

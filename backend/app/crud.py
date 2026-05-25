@@ -2308,14 +2308,18 @@ def create_audit_log(db: Session, action_type: str, performed_by_id: int, target
     return db_log
 
 def get_audit_logs(db: Session, skip: int = 0, limit: int = 200, dept_name: Optional[str] = None, entity_id: Optional[int] = None):
-    query = db.query(models.AuditLog).options(joinedload(models.AuditLog.performed_by))
+    # Always join User to filter by administrative roles
+    query = db.query(models.AuditLog).join(
+        models.User, models.AuditLog.performed_by_id == models.User.id
+    ).options(joinedload(models.AuditLog.performed_by))
+    
+    # Restrict to official administrative actions only
+    query = query.filter(models.User.role.in_(["admin", "superadmin", "staff"]))
     
     if entity_id:
-        query = query.join(models.User, models.AuditLog.performed_by_id == models.User.id)\
-                     .filter(models.User.entity_id == entity_id)
+        query = query.filter(models.User.entity_id == entity_id)
     elif dept_name:
-        query = query.join(models.User, models.AuditLog.performed_by_id == models.User.id)\
-                     .filter(models.User.department == dept_name)
+        query = query.filter(models.User.department == dept_name)
     
     return query.order_by(models.AuditLog.timestamp.desc()).offset(skip).limit(limit).all()
 

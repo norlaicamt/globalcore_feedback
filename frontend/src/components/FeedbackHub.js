@@ -360,7 +360,7 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
     fetchData();
   }, [localUser?.id]);
 
-  const handleUserUpdate = (updatedUser) => {
+  const handleUserUpdate = React.useCallback((updatedUser) => {
     setLocalUser((prev) => {
       const merged = { ...(prev || {}), ...(updatedUser || {}) };
 
@@ -377,7 +377,7 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
 
       return merged;
     });
-  };
+  }, []);
 
   const fetchTrending = React.useCallback(async () => {
     if (view !== 'home') return;

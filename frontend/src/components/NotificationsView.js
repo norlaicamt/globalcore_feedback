@@ -176,7 +176,13 @@ const NotificationsView = ({ currentUser, onBack, onOpenComment, onRead, notific
 
       <div style={styles.headerWrapper}>
         <header style={{ ...styles.header }}>
-          <div style={{ width: 40 }}></div>
+          {onBack ? (
+            <button onClick={onBack} style={styles.iconBtn} title="Back">
+              <Icons.Back />
+            </button>
+          ) : (
+            <div style={{ width: 40 }}></div>
+          )}
           <h1 style={styles.headerTitle}>System Notifications</h1>
           {notifications.some(n => !n.is_read) ? (
             <button 

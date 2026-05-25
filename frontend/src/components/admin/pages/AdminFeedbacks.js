@@ -10,15 +10,15 @@ import * as XLSX from "xlsx";
 // --- CONFIG: Workflow Definitions ---
 const STATUSES = {
   OPEN: {
-    label: "New", color: "#3B82F6", bg: "rgba(59, 130, 246, 0.1)",
+    label: "New", color: "inherit", bg: "transparent",
     icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
   },
   IN_PROGRESS: {
-    label: "In Review", color: "#EAB308", bg: "rgba(234, 179, 8, 0.1)",
+    label: "In Review", color: "inherit", bg: "transparent",
     icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
   },
   RESOLVED: {
-    label: "Resolved", color: "#10B981", bg: "rgba(16, 185, 129, 0.1)",
+    label: "Resolved", color: "inherit", bg: "transparent",
     icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
   }
 };
@@ -209,7 +209,7 @@ const FeedbackSidePanel = ({ feedback, isClosing, onClose, onUpdateStatus, theme
 
       <div style={{
         position: "fixed", right: 0, top: 0, width: "min(960px, 95vw)", height: "100vh",
-        background: theme.surface, borderLeft: `6px solid ${currentStatus.color}`,
+        background: theme.surface, borderLeft: `6px solid ${theme.border}`,
         boxShadow: "-15px 0 50px rgba(0,0,0,0.15)", zIndex: 1100,
         display: "flex", flexDirection: "column",
         animation: isClosing ? "slideOutRight 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards" : "slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1)"
@@ -255,7 +255,7 @@ const FeedbackSidePanel = ({ feedback, isClosing, onClose, onUpdateStatus, theme
 
           {/* Status Badge & Main Meta */}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ padding: "6px 14px", borderRadius: "8px", fontSize: "11px", fontWeight: "900", color: currentStatus.color, background: currentStatus.bg, border: `1px solid ${currentStatus.color}40`, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+            <span style={{ padding: "6px 14px", borderRadius: "8px", fontSize: "11px", fontWeight: "900", color: theme.text, background: theme.bg, border: `1px solid ${theme.border}`, textTransform: "uppercase", letterSpacing: "0.05em" }}>
               {currentStatus.label}
             </span>
             <span style={{ fontSize: "12px", fontWeight: "700", color: theme.textMuted }}>Received {feedback?.created_at ? new Date(feedback.created_at).toLocaleDateString() : "—"}</span>
@@ -440,15 +440,15 @@ const FeedbackSidePanel = ({ feedback, isClosing, onClose, onUpdateStatus, theme
                     <p style={{ margin: "0 0 10px", fontSize: "10px", fontWeight: "800", color: theme.textMuted, textTransform: "uppercase" }}>Next Operational Step</p>
                     <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
                       {[
-                        { id: "IN_PROGRESS", label: "In Review", color: "#EAB308", bg: "rgba(234, 179, 8, 0.1)" },
-                        { id: "RESOLVED", label: "Resolve Case", color: "#10B981", bg: "rgba(16, 185, 129, 0.1)" }
+                        { id: "IN_PROGRESS", label: "In Review", border: theme.border },
+                        { id: "RESOLVED", label: "Resolve Case", border: theme.border }
                       ].map(st => (
                         <button
                           key={st.id}
                           onClick={() => setSelectedStatus(selectedStatus === st.id ? null : st.id)}
                           style={{
-                            padding: "8px 14px", borderRadius: "10px", border: `1.5px solid ${selectedStatus === st.id ? st.color : theme.border}`,
-                            background: selectedStatus === st.id ? st.bg : theme.surface, color: selectedStatus === st.id ? st.color : theme.text,
+                            padding: "8px 14px", borderRadius: "10px", border: `1.5px solid ${selectedStatus === st.id ? "var(--primary-color)" : theme.border}`,
+                            background: selectedStatus === st.id ? "rgba(var(--primary-rgb), 0.1)" : theme.surface, color: selectedStatus === st.id ? "var(--primary-color)" : theme.text,
                             fontSize: "12px", fontWeight: "700", cursor: "pointer", transition: "0.2s"
                           }}
                         >
@@ -802,7 +802,7 @@ const DotsMenu = ({ onUpdateStatus, onDelete, theme, darkMode, currentStatus }) 
                 <button
                   key={key}
                   onClick={() => { onUpdateStatus(key); setOpen(false); }}
-                  style={{ display: "block", width: "100%", padding: "8px 12px", background: "none", border: "none", borderRadius: "7px", textAlign: "left", fontSize: "12px", fontWeight: currentStatus === key ? "700" : "500", color: currentStatus === key ? cfg.color : theme.text, cursor: "pointer" }}
+                  style={{ display: "block", width: "100%", padding: "8px 12px", background: "none", border: "none", borderRadius: "7px", textAlign: "left", fontSize: "12px", fontWeight: currentStatus === key ? "700" : "500", color: theme.text, cursor: "pointer" }}
                   onMouseEnter={e => e.currentTarget.style.background = darkMode ? "rgba(255,255,255,0.05)" : "#F1F5F9"}
                   onMouseLeave={e => e.currentTarget.style.background = "none"}
                 >
@@ -812,7 +812,6 @@ const DotsMenu = ({ onUpdateStatus, onDelete, theme, darkMode, currentStatus }) 
               <div style={{ margin: "6px 0", borderTop: `1px solid ${theme.border}` }} />
             </>
           )}
-          <button onClick={() => { onDelete(); setOpen(false); }} style={{ display: "block", width: "100%", padding: "8px 12px", background: "none", border: "none", borderRadius: "7px", textAlign: "left", fontSize: "12px", fontWeight: "700", color: "#EF4444", cursor: "pointer" }}>Delete Permanent</button>
         </div>
       )}
     </div>
@@ -910,7 +909,7 @@ const ColumnsDropdown = ({ visibleColumns, setVisibleColumns, theme, darkMode, i
         onMouseEnter={e => e.currentTarget.style.borderColor = "var(--primary-color)"}
         onMouseLeave={e => e.currentTarget.style.borderColor = theme.border}
       >
-        <span style={{ fontSize: "14px" }}>👁</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
         Columns
       </button>
       {open && (
@@ -1171,10 +1170,10 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
       <div style={{ display: "flex", gap: "8px", borderBottom: `1px solid ${theme.border}`, paddingBottom: "2px", marginBottom: "0", flexShrink: 0 }}>
         {[
           { key: "ALL", label: "All Submissions", count: stats.TOTAL },
-          { key: "MY_CASES", label: "My Cases", count: stats.MY_CASES, color: "var(--primary-color)" },
-          { key: "UNASSIGNED", label: "Unassigned", count: stats.UNASSIGNED, color: "#EF4444" },
-          { key: "IN_PROGRESS", label: "In Review", count: stats.IN_PROGRESS, color: "#EAB308" },
-          { key: "RESOLVED", label: "Resolved", count: stats.RESOLVED, color: "#10B981" }
+          { key: "MY_CASES", label: "My Cases", count: stats.MY_CASES },
+          { key: "UNASSIGNED", label: "Unassigned", count: stats.UNASSIGNED },
+          { key: "IN_PROGRESS", label: "In Review", count: stats.IN_PROGRESS },
+          { key: "RESOLVED", label: "Resolved", count: stats.RESOLVED }
         ].map(tab => (
           <button
             key={tab.key}
@@ -1346,8 +1345,8 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
                   <td style={{ padding: "16px 20px" }}>
                     <span style={{
                       padding: "6px 12px", borderRadius: "10px", fontSize: "10px", fontWeight: "700",
-                      textTransform: "uppercase", background: STATUSES[f.status]?.bg, color: STATUSES[f.status]?.color,
-                      border: `1px solid ${STATUSES[f.status]?.color}40`,
+                      textTransform: "uppercase", background: "none", color: theme.text,
+                      border: `1.5px solid ${theme.border}`,
                       display: "inline-flex", alignItems: "center", gap: "6px",
                       letterSpacing: "0.02em"
                     }}>
@@ -1359,9 +1358,6 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
                 {visibleColumns.assignee && (
                   <td style={{ padding: "16px 20px" }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: f.assigned_to_user_id ? 'var(--primary-color)' : theme.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: 'white', fontWeight: '800' }}>
-                        {f.assigned_to_name ? f.assigned_to_name.charAt(0) : '?'}
-                      </div>
                       <span style={{ fontSize: '12px', color: f.assigned_to_user_id ? theme.text : theme.textMuted, fontWeight: f.assigned_to_user_id ? '700' : '400' }}>
                         {f.assigned_to_user_id === adminUser.id ? "You" : (f.assigned_to_name || "Unassigned")}
                       </span>
