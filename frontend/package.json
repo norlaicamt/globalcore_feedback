@@ -54,6 +54,7 @@
     ]
   },
   "devDependencies": {
+    "@babel/plugin-transform-classes": "^7.29.7",
     "autoprefixer": "^10.4.27",
     "postcss": "^8.5.8",
     "workbox-webpack-plugin": "^7.4.0"
