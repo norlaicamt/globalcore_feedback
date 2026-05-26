@@ -1,21 +1,42 @@
-node_modules/
-.env
-**/.env
-build/
-dist/
+# python virtual env
+.venv/
+venv/
 *.pyc
 __pycache__/
-.DS_Store
-backend/scratch/
-backend/scripts/
-.gemini/
-*.db
+
+# environment files
+.env
+**/.env
+
+# dependencies
+node_modules/
+
+# uploads/media
+media/
 uploads/
-scratch/
 *.png
 *.jpg
 *.jpeg
 *.webp
 *.gif
+
+# backups
+*.backup
+*.dump
+*.db
+
+# pgadmin
+.pgadmin*
+
+# build artifacts
+dist/
+build/
+
+# logs and temp
 *.log
 *.txt
+.DS_Store
+.gemini/
+scratch/
+backend/scratch/
+backend/scripts/
