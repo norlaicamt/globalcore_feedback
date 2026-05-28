@@ -14,6 +14,8 @@ import {
 import CustomModal from "./CustomModal";
 import ImageCropperModal from "./ImageCropperModal";
 import { resolveMediaUrl } from "../utils/feedback";
+import { API_BASE } from "../config";
+
 
 // --- ICONS & REGISTRY ---
 
@@ -748,7 +750,8 @@ const PrivacyView = ({ currentUser, onUserUpdate, showToast, onLogout }) => {
             setNewEmailInput("");
             setEmailVerificationToken("");
             setSimulatedToken("");
-            const fullUser = await axios.get(`http://${window.location.hostname}:8000/users/${currentUser.id}`);
+            const fullUser = await axios.get(`${API_BASE}/users/${currentUser.id}`);
+
             onUserUpdate(fullUser.data);
         } catch (err) {
             showToast(err.response?.data?.detail || "Failed to verify email token.");
@@ -798,7 +801,8 @@ const PrivacyView = ({ currentUser, onUserUpdate, showToast, onLogout }) => {
             setNewPhoneInput("");
             setPhoneVerificationCode("");
             setSimulatedCode("");
-            const fullUser = await axios.get(`http://${window.location.hostname}:8000/users/${currentUser.id}`);
+            const fullUser = await axios.get(`${API_BASE}/users/${currentUser.id}`);
+
             onUserUpdate(fullUser.data);
         } catch (err) {
             showToast(err.response?.data?.detail || "Failed to verify phone code.");
@@ -810,7 +814,8 @@ const PrivacyView = ({ currentUser, onUserUpdate, showToast, onLogout }) => {
     const handleCancelEmailChange = async () => {
         setLoadingVerify(true);
         try {
-            await axios.put(`http://${window.location.hostname}:8000/users/${currentUser.id}`, {
+            await axios.put(`${API_BASE}/users/${currentUser.id}`, {
+
                 pending_email: null,
                 email_verification_token: null,
                 verification_expires_at: null
@@ -819,7 +824,8 @@ const PrivacyView = ({ currentUser, onUserUpdate, showToast, onLogout }) => {
             setNewEmailInput("");
             setSimulatedToken("");
             setEmailVerificationToken("");
-            const fullUser = await axios.get(`http://${window.location.hostname}:8000/users/${currentUser.id}`);
+            const fullUser = await axios.get(`${API_BASE}/users/${currentUser.id}`);
+
             onUserUpdate(fullUser.data);
         } catch (err) {
             showToast("Failed to cancel email update.");
@@ -840,7 +846,8 @@ const PrivacyView = ({ currentUser, onUserUpdate, showToast, onLogout }) => {
             setNewPhoneInput("");
             setSimulatedCode("");
             setPhoneVerificationCode("");
-            const fullUser = await axios.get(`http://${window.location.hostname}:8000/users/${currentUser.id}`);
+            const fullUser = await axios.get(`${API_BASE}/users/${currentUser.id}`);
+
             onUserUpdate(fullUser.data);
         } catch (err) {
             showToast("Failed to cancel phone number update.");

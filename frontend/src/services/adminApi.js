@@ -1,8 +1,7 @@
 import axios from "axios";
 import { STORAGE_KEYS } from "../utils/storage";
 
-// Base URL for your FastAPI backend
-const API_BASE = process.env.REACT_APP_API_URL || `http://${window.location.hostname}:8000`;
+import { API_BASE } from "../config";
 const BASE = `${API_BASE}/admin`;
 
 const adminApi = axios.create({ baseURL: BASE });

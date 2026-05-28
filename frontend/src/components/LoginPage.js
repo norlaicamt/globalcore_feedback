@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import axios from "axios";
 import { login } from "../services/api";
+import { API_BASE } from "../config";
 import CustomModal from "./CustomModal";
 import { useTerminology } from "../context/TerminologyContext";
 import { resolveMediaUrl } from "../utils/feedback";
@@ -47,7 +48,8 @@ const LoginPage = ({ onLoginSuccess }) => {
            return;
         }
         const newUser = { name: username, username: username, email, password };
-        await axios.post(`${process.env.REACT_APP_API_URL || `http://${window.location.hostname}:8000`}/users/`, newUser);
+        await axios.post(`${API_BASE}/users/`, newUser);
+
         setDialog({
           isOpen: true,
           type: "alert",

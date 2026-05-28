@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { getDepartments, getUserNotifications } from "../services/api"; 
 import { renderFeedbackAction, formatFeedbackDate } from "../utils/feedback";
+import { API_BASE } from "../config";
 import axios from "axios";
 import CustomModal from './CustomModal';
 
@@ -29,7 +30,8 @@ const InboxView = ({ currentUser, onBack, initialTab = "All", minimalist = false
     const fetchData = async () => {
       try {
         const [feedbackData, deptsData] = await Promise.all([
-          axios.get(`http://${window.location.hostname}:8000/feedbacks/?recipient_user_id=${currentUser?.id}`).then(r => r.data).catch(() => []),
+          axios.get(`${API_BASE}/feedbacks/?recipient_user_id=${currentUser?.id}`).then(r => r.data).catch(() => []),
+
           getDepartments().catch(() => [])
         ]);
         

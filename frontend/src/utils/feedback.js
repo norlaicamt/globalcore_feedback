@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLightbox } from '../context/LightboxContext';
+import { API_BASE } from '../config';
 
 /**
  * feedback.js — Schema-Driven Feed Rendering Engine
@@ -216,8 +217,6 @@ export const renderFeedbackAction = (post, currentUser) => {
 export const resolveMediaUrl = (url) => {
   if (!url || typeof url !== 'string') return url;
   if (url.startsWith('blob:') || url.startsWith('data:')) return url;
-
-  const API_BASE = process.env.REACT_APP_API_URL || `http://${window.location.hostname}:8000`;
 
   // Fix 1: If it contains /uploads/, always normalize it to the current API_BASE
   // This handles both relative paths and absolute URLs with stale IPs/localhost

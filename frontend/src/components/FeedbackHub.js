@@ -21,6 +21,8 @@ import { getFeedbacks, getTrendingFeedbacks, getUserById, getUserNotifications, 
 import { useTerminology } from "../context/TerminologyContext";
 import { IconRegistry } from "./IconRegistry";
 import { applyPortalAppearance, getPortalAppearanceClassName } from "../utils/portalAppearance";
+import { API_BASE } from "../config";
+
 
 const Icons = {
   CheckCircle: ({ size = 16, color = "currentColor" }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>,
@@ -520,7 +522,8 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
     fetchNotifications();
     fetchFeed(0);
 
-    const sseUrl = `${process.env.REACT_APP_API_URL || `http://${window.location.hostname}:8000`}/api/notifications/stream/${localUser.id}`;
+    const sseUrl = `${API_BASE}/api/notifications/stream/${localUser.id}`;
+
     const eventSource = new EventSource(sseUrl);
 
     eventSource.onmessage = (event) => {
@@ -600,7 +603,8 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
       const userObj = saved ? JSON.parse(saved) : null;
       const token = userObj?.token;
       if (token) {
-        await fetch(`${process.env.REACT_APP_API_URL || `http://${window.location.hostname}:8000`}/api/logout`, {
+        await fetch(`${API_BASE}/api/logout`, {
+
           method: "POST",
           headers: { "Authorization": `Bearer ${token}` }
         });

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { createFeedback, getEntities, getBranches, getProducts, getEntityFormConfig, createDraft, updateDraft, deleteDraft } from "../services/api";
+import { API_BASE } from "../config";
 import { useTerminology } from "../context/TerminologyContext";
 import { IconRegistry } from "./IconRegistry";
 import CustomModal from "./CustomModal";
@@ -255,10 +256,10 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
         }
 
         const uploadFile = async (f, isThumb = false) => {
-          const API_BASE = process.env.REACT_APP_API_URL || `http://${window.location.hostname}:8000`;
           const formData = new FormData();
           formData.append('file', f);
           const response = await fetch(`${API_BASE}/feedbacks/upload`, {
+
             method: 'POST',
             body: formData,
             headers: { 'X-Batch-ID': batchId, 'X-File-Index': index.toString() }
