@@ -348,7 +348,7 @@ def analytics_top_users(
     ).outerjoin(
         models.UserProfile,
         models.User.id == models.UserProfile.user_id
-    ).filter(models.User.role.notin_(["admin", "superadmin"]))
+    ).filter(models.UserModuleContext.role.notin_(["admin", "superadmin"]))
     
     if effective_dept:
         entity = db.query(models.Entity).filter(models.Entity.name == effective_dept).first()
@@ -479,20 +479,18 @@ def admin_get_users(entity_id: Optional[int] = None, skip: int = 0, limit: int =
         give_likes_sq,
         give_rlikes_sq,
         give_comm_sq
-    ).options(
-        # NOTE: User.entity is an association_proxy (via module_context), not a direct relationship.
-        # Load the module_context so the proxy can resolve entity_id safely.
-        joinedload(models.User.module_context)
+    ).join(
+        models.UserModuleContext, models.User.id == models.UserModuleContext.user_id
     )
     
     # Apply program-based scoping
     query = apply_data_scope(query, models.User, admin)
     
     if entity_id:
-        query = query.filter(models.User.entity_id == entity_id)
+        query = query.filter(models.UserModuleContext.entity_id == entity_id)
     
     # EXCLUSION: Hide global admins from account management list
-    query = query.filter(models.User.role != "superadmin")
+    query = query.filter(models.UserModuleContext.role != "superadmin")
         
     users_with_stats = query.order_by(models.User.id).offset(skip).limit(limit).all()
 
@@ -524,11 +522,13 @@ def admin_get_users(entity_id: Optional[int] = None, skip: int = 0, limit: int =
 @router.get("/staff")
 def admin_get_staff_list(skip: int = 0, limit: int = 50, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
     """Returns a list of administrative accounts. Global admins see everyone; scoped admins see their entity."""
-    query = db.query(models.User).filter(models.User.role.in_(["admin", "superadmin"]))
+    query = db.query(models.User).join(
+        models.UserModuleContext, models.User.id == models.UserModuleContext.user_id
+    ).filter(models.UserModuleContext.role.in_(["admin", "superadmin"]))
     
     if not has_global_admin_access(admin):
         # Scoped admins only see staff in their entity
-        query = query.filter(models.User.entity_id == admin.entity_id)
+        query = query.filter(models.UserModuleContext.entity_id == admin.entity_id)
     
     staff = query.order_by(models.User.name).offset(skip).limit(limit).all()
     

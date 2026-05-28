@@ -1764,13 +1764,14 @@ def get_analytics_summary(db: Session, dept_name: Optional[str] = None, entity_i
     u_reacted = db.query(models.Reaction.user_id).filter(models.Reaction.created_at >= cutoff_7d).scalar_subquery()
     
     active_citizens_7d = db.query(func.count(models.User.id.distinct()))\
+        .join(models.UserModuleContext, models.User.id == models.UserModuleContext.user_id)\
         .filter(
             (models.User.id.in_(u_posted)) | 
             (models.User.id.in_(u_commented)) | 
             (models.User.id.in_(u_reacted))
         )\
-        .filter(models.User.role.notin_(["admin", "superadmin"]))\
-        .filter(models.User.is_active == True).scalar() or 0
+        .filter(models.UserModuleContext.role.notin_(["admin", "superadmin"]))\
+        .filter(models.UserModuleContext.is_active == True).scalar() or 0
 
     # Deactivated Citizens
     deactivated_count = db.query(func.count(models.User.id))\
@@ -1927,7 +1928,9 @@ def get_sentiment_summary(db: Session, dept_name: Optional[str] = None, entity_i
         else:
             q = q.join(models.Entity).filter(models.Entity.name == dept_name)
     
-    q = q.join(models.User, models.Feedback.sender_id == models.User.id).filter(models.User.role.notin_(["admin", "superadmin"]))
+    q = q.join(models.User, models.Feedback.sender_id == models.User.id)\
+         .join(models.UserModuleContext, models.User.id == models.UserModuleContext.user_id)\
+         .filter(models.UserModuleContext.role.notin_(["admin", "superadmin"]))
     feedbacks = q.all()
     pos_words = {"great", "excellent", "good", "happy", "thanks", "improved", "perfect", "amazing", "love", "awesome", "fast", "efficient"}
     neg_words = {"broken", "failed", "slow", "terrible", "bad", "frustrated", "error", "problem", "urgent", "wrong", "annoying", "poor"}
