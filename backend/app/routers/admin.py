@@ -335,9 +335,16 @@ def analytics_top_users(
         models.User.id,
         models.User.display_name.label("name"),
         models.User.email,
-        func.coalesce(models.User.unit_name, models.User.program, models.User.department).label("department"),
+        func.coalesce(
+            models.UserModuleContext.unit_name, 
+            models.UserModuleContext.program, 
+            models.UserModuleContext.department
+        ).label("department"),
         post_count_sq.label("total_posts"),
         score_expr
+    ).join(
+        models.UserModuleContext, 
+        models.User.id == models.UserModuleContext.user_id
     ).filter(models.User.role.notin_(["admin", "superadmin"]))
     
     if effective_dept:
@@ -349,9 +356,9 @@ def analytics_top_users(
             )
         else:
             query = query.filter(
-                (models.User.unit_name == effective_dept) |
-                (models.User.program == effective_dept) |
-                (models.User.department == effective_dept)
+                (models.UserModuleContext.unit_name == effective_dept) |
+                (models.UserModuleContext.program == effective_dept) |
+                (models.UserModuleContext.department == effective_dept)
             )
         
     rows = query.order_by(score_expr.desc()).limit(limit).all()

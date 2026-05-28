@@ -166,33 +166,46 @@ def get_user_profiles(db: Session):
     return db.query(
         models.User.id,
         models.User.name,
-        func.coalesce(models.User.unit_name, models.User.program, models.User.department).label("department"),
-        models.User.program,
-        models.User.role_identity,
-        models.User.avatar_url,
-        models.User.show_activity_status,
+        func.coalesce(
+            models.UserModuleContext.unit_name, 
+            models.UserModuleContext.program, 
+            models.UserModuleContext.department
+        ).label("department"),
+        models.UserModuleContext.program,
+        models.UserModuleContext.role_identity,
+        models.UserProfile.avatar_url,
+        models.UserSetting.show_activity_status,
         models.User.created_at
-    ).filter(models.User.is_active == True).all()
+    ).join(models.UserModuleContext, models.User.id == models.UserModuleContext.user_id)\
+     .outerjoin(models.UserProfile, models.User.id == models.UserProfile.user_id)\
+     .outerjoin(models.UserSetting, models.User.id == models.UserSetting.user_id)\
+     .filter(models.UserModuleContext.is_active == True).all()
 
 def search_users(db: Session, query: str = None, roles: List[str] = None, limit: int = 10):
     q = db.query(
         models.User.id,
         models.User.name,
-        models.User.username,
-        func.coalesce(models.User.unit_name, models.User.program, models.User.department).label("department"),
-        models.User.role_identity,
-        models.User.avatar_url,
-        models.User.role
-    ).filter(models.User.is_active == True)
+        models.UserModuleContext.username,
+        func.coalesce(
+            models.UserModuleContext.unit_name, 
+            models.UserModuleContext.program, 
+            models.UserModuleContext.department
+        ).label("department"),
+        models.UserModuleContext.role_identity,
+        models.UserProfile.avatar_url,
+        models.UserModuleContext.role
+    ).join(models.UserModuleContext, models.User.id == models.UserModuleContext.user_id)\
+     .outerjoin(models.UserProfile, models.User.id == models.UserProfile.user_id)\
+     .filter(models.UserModuleContext.is_active == True)
     
     if roles:
-        q = q.filter(models.User.role.in_(roles))
+        q = q.filter(models.UserModuleContext.role.in_(roles))
         
     if query:
         from sqlalchemy import or_
         q = q.filter(or_(
             models.User.name.ilike(f"%{query}%"),
-            models.User.username.ilike(f"%{query}%")
+            models.UserModuleContext.username.ilike(f"%{query}%")
         ))
         
     return q.limit(limit).all()
