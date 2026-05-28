@@ -430,8 +430,16 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
     try {
       const updated = await getUserById(localUser.id);
       handleUserUpdate(updated);
-    } catch (e) { console.error("Could not refresh user profile", e); }
-  }, [localUser?.id, handleUserUpdate]);
+    } catch (e) { 
+      console.error("Could not refresh user profile", e);
+      // If the user no longer exists (e.g. fresh database), log them out
+      if (e.response?.status === 404) {
+        console.warn("[SESSION_EXPIRY] User ID no longer valid. Logging out.");
+        if (onLogout) onLogout();
+        else logoutUser();
+      }
+    }
+  }, [localUser?.id, handleUserUpdate, onLogout]);
 
   // Re-fetch profile on window focus for cross-device sync
   useEffect(() => {
