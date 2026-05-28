@@ -334,7 +334,7 @@ def analytics_top_users(
     query = db.query(
         models.User.id,
         models.User.display_name.label("name"),
-        models.User.email,
+        models.UserProfile.email,
         func.coalesce(
             models.UserModuleContext.unit_name, 
             models.UserModuleContext.program, 
@@ -345,6 +345,9 @@ def analytics_top_users(
     ).join(
         models.UserModuleContext, 
         models.User.id == models.UserModuleContext.user_id
+    ).outerjoin(
+        models.UserProfile,
+        models.User.id == models.UserProfile.user_id
     ).filter(models.User.role.notin_(["admin", "superadmin"]))
     
     if effective_dept:

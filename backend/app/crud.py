@@ -1732,14 +1732,20 @@ def get_analytics_summary(db: Session, dept_name: Optional[str] = None, entity_i
             if dept_exists:
                 dept_filter = db.query(models.Department.id).filter(models.Department.name == dept_name).scalar_subquery()
                 fb_q = fb_q.filter(models.Feedback.recipient_dept_id == dept_filter)
-                u_q = u_q.filter(models.User.unit_name == dept_name)
+                u_q = u_q.join(models.UserModuleContext, models.User.id == models.UserModuleContext.user_id)\
+                         .filter(models.UserModuleContext.unit_name == dept_name)
                 c_q = c_q.join(models.Feedback).filter(models.Feedback.recipient_dept_id == dept_filter)
                 r_q = r_q.join(models.Feedback).filter(models.Feedback.recipient_dept_id == dept_filter)
 
     # Filter out administrative accounts from metrics
-    u_q = u_q.filter(models.User.role.notin_(["admin", "superadmin"]))
-    c_q = c_q.join(models.User, models.Reply.user_id == models.User.id).filter(models.User.role.notin_(["admin", "superadmin"]))
-    r_q = r_q.join(models.User, models.Reaction.user_id == models.User.id).filter(models.User.role.notin_(["admin", "superadmin"]))
+    u_q = u_q.join(models.UserModuleContext, models.User.id == models.UserModuleContext.user_id, isouter=True)\
+             .filter(models.UserModuleContext.role.notin_(["admin", "superadmin"]))
+    c_q = c_q.join(models.User, models.Reply.user_id == models.User.id)\
+             .join(models.UserModuleContext, models.User.id == models.UserModuleContext.user_id, isouter=True)\
+             .filter(models.UserModuleContext.role.notin_(["admin", "superadmin"]))
+    r_q = r_q.join(models.User, models.Reaction.user_id == models.User.id)\
+             .join(models.UserModuleContext, models.User.id == models.UserModuleContext.user_id, isouter=True)\
+             .filter(models.UserModuleContext.role.notin_(["admin", "superadmin"]))
 
     # Apply Time Filter to dynamic counts
     total_feedback = fb_q.filter(models.Feedback.created_at >= cutoff).count()
