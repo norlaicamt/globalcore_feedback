@@ -5,6 +5,7 @@ import { useTerminology } from "../../../context/TerminologyContext";
 import { exportToPDF, exportToExcel, exportToDOCX } from "../../../utils/exportUtils";
 import ExportDropdown from "../ExportDropdown";
 import CustomModal from "../../CustomModal";
+import { safeArray } from "../../../utils/apiUtils";
 
 // --- CONFIG: Workflow Definitions ---
 const STATUSES = {
@@ -46,8 +47,8 @@ const FeedbackSidePanel = ({ feedback, isClosing, onClose, onUpdateStatus, theme
 
   useEffect(() => {
     if (feedback) {
-      adminGetResponseTemplates().then(setTemplates).catch(console.error);
-      adminGetStaffList().then(setStaff).catch(console.error);
+      adminGetResponseTemplates().then(data => setTemplates(safeArray(data))).catch(console.error);
+      adminGetStaffList().then(data => setStaff(safeArray(data))).catch(console.error);
       setSelectedStatus(null);
       setReplyMessage("");
       setSaveAsTemplate(false);
@@ -61,7 +62,7 @@ const FeedbackSidePanel = ({ feedback, isClosing, onClose, onUpdateStatus, theme
     if (feedback && activeTab === "discussion") {
       setNotesLoading(true);
       adminGetInternalNotes(feedback.id)
-        .then(setInternalNotes)
+        .then(data => setInternalNotes(safeArray(data)))
         .catch(console.error)
         .finally(() => setNotesLoading(false));
     }
@@ -1006,7 +1007,7 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
       product_id: null
     });
     adminGetFeedbacks({ limit: 200, entity_id: adminUser?.entity_id || null })
-      .then(setFeedbacks)
+      .then(data => setFeedbacks(safeArray(data)))
       .catch(console.error)
       .finally(() => setLoading(false));
   };

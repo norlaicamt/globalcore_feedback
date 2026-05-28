@@ -3,6 +3,7 @@ import { getSystemLabels } from '../services/adminApi';
 import { getAdminSettings } from '../services/api';
 
 import { resolveMediaUrl } from '../utils/feedback';
+import { safeArray, safeObject } from '../utils/apiUtils';
 
 const TerminologyContext = createContext();
 
@@ -88,13 +89,13 @@ export const TerminologyProvider = ({ children }) => {
       ]);
 
       const mappedLabels = {};
-      (labelsData || []).forEach(l => {
+      safeArray(labelsData).forEach(l => {
         mappedLabels[l.key] = l.value;
       });
       setLabels(mappedLabels);
 
       const mappedSettings = {};
-      (settingsData || []).forEach(s => {
+      safeArray(settingsData).forEach(s => {
         mappedSettings[s.key] = s.value;
       });
 

@@ -9,6 +9,7 @@ import {
 import CustomModal from "../../CustomModal";
 import { resolveMediaUrl } from "../../../utils/feedback";
 import { getFeedbacks } from "../../../services/api";
+import { safeArray, safeObject } from "../../../utils/apiUtils";
 
 // Service-type workspace types — only these can own Products
 const SERVICE_TYPES = ['Restaurant', 'Pool', 'Spa', 'Housekeeping', 'Shop', 'Store', 'Gift Shop'];
@@ -93,7 +94,7 @@ const AdminProducts = ({ theme, darkMode, adminUser, isScoped }) => {
                 product_id: product.id
             });
             const data = await getFeedbacks({ product_id: product.id, only_approved: false, limit: 100 });
-            setProductFeedbacks(Array.isArray(data) ? data : (data.items || []));
+            setProductFeedbacks(safeArray(Array.isArray(data) ? data : (data.items || [])));
         } catch (err) {
             console.error("Failed to load feedbacks for product:", err);
             setProductFeedbacks([]);
@@ -109,13 +110,13 @@ const AdminProducts = ({ theme, darkMode, adminUser, isScoped }) => {
                 adminGetProducts(filterEntity || null, filterBranch || null, false), // Fetch all (active and inactive)
                 adminGetEntities()
             ]);
-            setProducts(prodData);
+            setProducts(safeArray(prodData));
             // Only keep Service-type entities so products can't be assigned to non-service workspaces
-            setEntities(entData.filter(e => SERVICE_TYPES.includes(e.fields?.operational?.workspace_type)));
+            setEntities(safeArray(entData).filter(e => SERVICE_TYPES.includes(e.fields?.operational?.workspace_type)));
 
             if (filterEntity) {
                 const branchData = await adminGetBranches(filterEntity);
-                setBranches(branchData);
+                setBranches(safeArray(branchData));
             } else {
                 setBranches([]);
             }
@@ -196,7 +197,7 @@ const AdminProducts = ({ theme, darkMode, adminUser, isScoped }) => {
     const handleOpenAnalytics = async (product) => {
         try {
             const data = await adminGetProductAnalytics(product.id);
-            setAnalyticsData({ ...data, productName: product.name });
+            setAnalyticsData({ ...safeObject(data), productName: product.name });
             setIsAnalyticsOpen(true);
         } catch (err) {
             console.error("Failed to fetch analytics", err);

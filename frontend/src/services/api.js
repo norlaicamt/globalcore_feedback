@@ -39,17 +39,17 @@ const CACHE_TTL = 30000; // 30s cache TTL
 
 /* -------------------- AUTH -------------------- */
 export const login = async (email, password) => {
-  const response = await axios.post(`${API_BASE}/login?email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`);
+  const response = await axios.post(`${API_BASE}/api/login?email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`);
   return response.data;
 };
 
 export const forgotPassword = async (email) => {
-  const response = await axios.post(`${API_BASE}/users/auth/forgot-password`, { email });
+  const response = await axios.post(`${API_BASE}/api/users/auth/forgot-password`, { email });
   return response.data;
 };
 
 export const resetPassword = async (token, newPassword) => {
-  const response = await axios.post(`${API_BASE}/users/auth/reset-password`, {
+  const response = await axios.post(`${API_BASE}/api/users/auth/reset-password`, {
     token,
     new_password: newPassword
   });
@@ -58,42 +58,42 @@ export const resetPassword = async (token, newPassword) => {
 
 /* -------------------- USERS -------------------- */
 export const getUsers = async () => {
-  const response = await axios.get(`${API_BASE}/users/`);
+  const response = await axios.get(`${API_BASE}/api/users/`);
   return response.data;
 };
 
 export const getUserById = async (id) => {
-  const response = await axios.get(`${API_BASE}/users/${id}`);
+  const response = await axios.get(`${API_BASE}/api/users/${id}`);
   return response.data;
 };
 
 export const createUser = async (user) => {
-  const response = await axios.post(`${API_BASE}/users/`, user);
+  const response = await axios.post(`${API_BASE}/api/users/`, user);
   return response.data;
 };
 
 export const updateUser = async (id, user) => {
-  const response = await axios.put(`${API_BASE}/users/${id}`, user);
+  const response = await axios.put(`${API_BASE}/api/users/${id}`, user);
   return response.data;
 };
 
 export const deleteUser = async (id) => {
-  const response = await axios.delete(`${API_BASE}/users/${id}`);
+  const response = await axios.delete(`${API_BASE}/api/users/${id}`);
   return response.data;
 };
 
 export const deactivateUser = async (id, days) => {
-  const response = await axios.post(`${API_BASE}/users/${id}/deactivate?days=${days}`);
+  const response = await axios.post(`${API_BASE}/api/users/${id}/deactivate?days=${days}`);
   return response.data;
 };
 
 export const reactivateUser = async (id) => {
-  const response = await axios.post(`${API_BASE}/users/${id}/reactivate`);
+  const response = await axios.post(`${API_BASE}/api/users/${id}/reactivate`);
   return response.data;
 };
 
 export const changePassword = async (id, oldPassword, newPassword) => {
-  const response = await axios.post(`${API_BASE}/users/${id}/change-password`, {
+  const response = await axios.post(`${API_BASE}/api/users/${id}/change-password`, {
     old_password: oldPassword,
     new_password: newPassword
   });
@@ -101,42 +101,42 @@ export const changePassword = async (id, oldPassword, newPassword) => {
 };
 
 export const getUserNotifications = async (id) => {
-  const response = await axios.get(`${API_BASE}/users/${id}/notifications`);
+  const response = await axios.get(`${API_BASE}/api/users/${id}/notifications`);
   return response.data;
 };
 
 export const getUserActivity = async (id) => {
-  const response = await axios.get(`${API_BASE}/users/${id}/activity`);
+  const response = await axios.get(`${API_BASE}/api/users/${id}/activity`);
   return response.data;
 };
 
 export const markNotificationsAsRead = async (id) => {
-  const response = await axios.post(`${API_BASE}/users/${id}/notifications/read`);
+  const response = await axios.post(`${API_BASE}/api/users/${id}/notifications/read`);
   return response.data;
 };
 
 export const markNotificationAsRead = async (id) => {
-  const response = await axios.post(`${API_BASE}/users/notifications/${id}/read`);
+  const response = await axios.post(`${API_BASE}/api/users/notifications/${id}/read`);
   return response.data;
 };
 
 export const trackBroadcastView = async (userId, broadcastId) => {
-  const response = await axios.post(`${API_BASE}/users/${userId}/notifications/broadcast/${broadcastId}/view`);
+  const response = await axios.post(`${API_BASE}/api/users/${userId}/notifications/broadcast/${broadcastId}/view`);
   return response.data;
 };
 
 export const acknowledgeBroadcast = async (userId, broadcastId) => {
-  const response = await axios.post(`${API_BASE}/users/${userId}/notifications/broadcast/${broadcastId}/acknowledge`);
+  const response = await axios.post(`${API_BASE}/api/users/${userId}/notifications/broadcast/${broadcastId}/acknowledge`);
   return response.data;
 };
 
 export const getUserProfiles = async () => {
-  const response = await axios.get(`${API_BASE}/users/profiles`);
+  const response = await axios.get(`${API_BASE}/api/users/profiles`);
   return response.data;
 };
 
 export const searchUsers = async (query, roles = "") => {
-  const response = await axios.get(`${API_BASE}/users/search`, {
+  const response = await axios.get(`${API_BASE}/api/users/search`, {
     params: { q: query, roles: roles }
   });
   return response.data;
@@ -173,54 +173,54 @@ export const getFeedbacks = async (params = { skip: 0, limit: 10 }) => {
 };
 
 export const getFeedbackById = async (id) => {
-  const response = await axios.get(`${API_BASE}/feedbacks/${id}`);
+  const response = await axios.get(`${API_BASE}/api/feedbacks/${id}`);
   return response.data;
 };
 
 export const getTrendingFeedbacks = async (limit = 10) => {
-  const response = await axios.get(`${API_BASE}/feedbacks/trending`, { params: { limit } });
+  const response = await axios.get(`${API_BASE}/api/feedbacks/trending`, { params: { limit } });
   return response.data;
 };
 
 export const createFeedback = async (feedback) => {
-  const response = await axios.post(`${API_BASE}/feedbacks/`, feedback);
+  const response = await axios.post(`${API_BASE}/api/feedbacks/`, feedback);
   return response.data;
 };
 
 export const updateFeedback = async (id, feedback) => {
-  const response = await axios.put(`${API_BASE}/feedbacks/${id}`, feedback);
+  const response = await axios.put(`${API_BASE}/api/feedbacks/${id}`, feedback);
   return response.data;
 };
 
 export const deleteFeedback = async (id) => {
-  const response = await axios.delete(`${API_BASE}/feedbacks/${id}`);
+  const response = await axios.delete(`${API_BASE}/api/feedbacks/${id}`);
   return response.data;
 };
 
 export const getFeedbackReplies = async (feedbackId, userId = null) => {
   const params = userId ? { user_id: userId } : {};
-  const response = await axios.get(`${API_BASE}/feedbacks/${feedbackId}/replies`, { params });
+  const response = await axios.get(`${API_BASE}/api/feedbacks/${feedbackId}/replies`, { params });
   return response.data;
 };
 
 export const createFeedbackReply = async (feedbackId, reply) => {
-  const response = await axios.post(`${API_BASE}/feedbacks/${feedbackId}/replies`, reply);
+  const response = await axios.post(`${API_BASE}/api/feedbacks/${feedbackId}/replies`, reply);
   return response.data;
 };
 
 export const updateFeedbackReply = async (feedbackId, replyId, reply) => {
-  const response = await axios.put(`${API_BASE}/feedbacks/${feedbackId}/replies/${replyId}`, reply);
+  const response = await axios.put(`${API_BASE}/api/feedbacks/${feedbackId}/replies/${replyId}`, reply);
   return response.data;
 };
 
 export const deleteFeedbackReply = async (feedbackId, replyId) => {
-  const response = await axios.delete(`${API_BASE}/feedbacks/${feedbackId}/replies/${replyId}`);
+  const response = await axios.delete(`${API_BASE}/api/feedbacks/${feedbackId}/replies/${replyId}`);
   return response.data;
 };
 
 /* -------------------- REACTIONS -------------------- */
 export const toggleReaction = async (feedbackId, userId, isLike) => {
-  const response = await axios.post(`${API_BASE}/feedbacks/${feedbackId}/reactions`, {
+  const response = await axios.post(`${API_BASE}/api/feedbacks/${feedbackId}/reactions`, {
     user_id: userId,
     is_like: isLike
   });
@@ -228,7 +228,7 @@ export const toggleReaction = async (feedbackId, userId, isLike) => {
 };
 
 export const toggleReplyReaction = async (feedbackId, replyId, userId, isLike) => {
-  const response = await axios.post(`${API_BASE}/feedbacks/${feedbackId}/replies/${replyId}/reactions`, {
+  const response = await axios.post(`${API_BASE}/api/feedbacks/${feedbackId}/replies/${replyId}/reactions`, {
     user_id: userId,
     is_like: isLike
   });
@@ -237,7 +237,7 @@ export const toggleReplyReaction = async (feedbackId, replyId, userId, isLike) =
 
 export const getReactionsSummary = async (feedbackId, userId) => {
   const params = userId ? { user_id: userId } : {};
-  const response = await axios.get(`${API_BASE}/feedbacks/${feedbackId}/reactions`, { params });
+  const response = await axios.get(`${API_BASE}/api/feedbacks/${feedbackId}/reactions`, { params });
   return response.data;
 };
 
@@ -247,20 +247,20 @@ export const getEntities = async () => {
   if (apiCache.entities && (now - apiCache.lastFetch.entities < CACHE_TTL)) {
     return apiCache.entities;
   }
-  const response = await axios.get(`${API_BASE}/entities/`);
+  const response = await axios.get(`${API_BASE}/api/entities/`);
   apiCache.entities = response.data;
   apiCache.lastFetch.entities = now;
   return response.data;
 };
 
 export const getEntityFormConfig = async (id) => {
-  const response = await axios.get(`${API_BASE}/entities/${id}/form-config`);
+  const response = await axios.get(`${API_BASE}/api/entities/${id}/form-config`);
   return response.data;
 };
 
 export const getBranches = async (entity_id = null) => {
   const params = entity_id ? { entity_id } : {};
-  const response = await axios.get(`${API_BASE}/branches/`, { params });
+  const response = await axios.get(`${API_BASE}/api/branches/`, { params });
   return response.data;
 };
 
@@ -274,12 +274,12 @@ export const getProducts = async (entity_id = null, branch_id = null, only_activ
   const params = { only_active };
   if (entity_id) params.entity_id = entity_id;
   if (branch_id) params.branch_id = branch_id;
-  const response = await axios.get(`${API_BASE}/products/`, { params });
+  const response = await axios.get(`${API_BASE}/api/products/`, { params });
   return response.data;
 };
 
 export const createEntity = async (entity) => {
-  const response = await axios.post(`${API_BASE}/entities/`, entity);
+  const response = await axios.post(`${API_BASE}/api/entities/`, entity);
   return response.data;
 };
 
@@ -289,36 +289,36 @@ export const getDepartments = async () => {
   if (apiCache.departments && (now - apiCache.lastFetch.departments < CACHE_TTL)) {
     return apiCache.departments;
   }
-  const response = await axios.get(`${API_BASE}/departments/`);
+  const response = await axios.get(`${API_BASE}/api/departments/`);
   apiCache.departments = response.data;
   apiCache.lastFetch.departments = now;
   return response.data;
 };
 
 export const createDepartment = async (department) => {
-  const response = await axios.post(`${API_BASE}/departments/`, department); // match router path
+  const response = await axios.post(`${API_BASE}/api/departments/`, department); // match router path
   return response.data;
 };
 
 /* -------------------- ANALYTICS -------------------- */
 export const getAnalyticsSummary = async () => {
-  const response = await axios.get(`${API_BASE}/analytics/dashboard`);
+  const response = await axios.get(`${API_BASE}/api/analytics/dashboard`);
   return response.data;
 };
 
 /* -------------------- THEME & SYSTEM -------------------- */
 export const getAdminSettings = async () => {
-  const response = await axios.get(`${API_BASE}/admin/settings`);
+  const response = await axios.get(`${API_BASE}/api/admin/settings`);
   return response.data;
 };
 
 export const getFormFields = async () => {
-  const response = await axios.get(`${API_BASE}/admin/form-fields`);
+  const response = await axios.get(`${API_BASE}/api/admin/form-fields`);
   return response.data;
 };
 
 export const updateUserPresence = async (userId, currentModule) => {
-  const response = await axios.post(`${API_BASE}/users/${userId}/presence`, {
+  const response = await axios.post(`${API_BASE}/api/users/${userId}/presence`, {
     current_module: currentModule
   });
   return response.data;
@@ -326,29 +326,29 @@ export const updateUserPresence = async (userId, currentModule) => {
 
 /* -------------------- DRAFTS -------------------- */
 export const getDrafts = async (userId) => {
-  const response = await axios.get(`${API_BASE}/drafts/${userId}`);
+  const response = await axios.get(`${API_BASE}/api/drafts/${userId}`);
   return response.data;
 };
 
 export const createDraft = async (userId, draft) => {
-  const response = await axios.post(`${API_BASE}/drafts/${userId}`, draft);
+  const response = await axios.post(`${API_BASE}/api/drafts/${userId}`, draft);
   return response.data;
 };
 
 export const updateDraft = async (draftId, updates) => {
-  const response = await axios.put(`${API_BASE}/drafts/${draftId}`, updates);
+  const response = await axios.put(`${API_BASE}/api/drafts/${draftId}`, updates);
   return response.data;
 };
 
 export const deleteDraft = async (draftId) => {
-  const response = await axios.delete(`${API_BASE}/drafts/${draftId}`);
+  const response = await axios.delete(`${API_BASE}/api/drafts/${draftId}`);
   return response.data;
 };
 
 // (Update functions migrated to adminApi.js for authentication)
 
 export const requestEmailChange = async (userId, newEmail, password) => {
-  const response = await axios.post(`${API_BASE}/users/${userId}/request-email-change`, {
+  const response = await axios.post(`${API_BASE}/api/users/${userId}/request-email-change`, {
     new_email: newEmail,
     password: password
   });
@@ -356,14 +356,14 @@ export const requestEmailChange = async (userId, newEmail, password) => {
 };
 
 export const confirmEmailChange = async (token) => {
-  const response = await axios.post(`${API_BASE}/users/confirm-email-change`, {
+  const response = await axios.post(`${API_BASE}/api/users/confirm-email-change`, {
     token: token
   });
   return response.data;
 };
 
 export const requestPhoneChange = async (userId, newPhone, password) => {
-  const response = await axios.post(`${API_BASE}/users/${userId}/request-phone-change`, {
+  const response = await axios.post(`${API_BASE}/api/users/${userId}/request-phone-change`, {
     new_phone: newPhone,
     password: password
   });
@@ -371,7 +371,7 @@ export const requestPhoneChange = async (userId, newPhone, password) => {
 };
 
 export const confirmPhoneChange = async (userId, code) => {
-  const response = await axios.post(`${API_BASE}/users/${userId}/confirm-phone-change`, {
+  const response = await axios.post(`${API_BASE}/api/users/${userId}/confirm-phone-change`, {
     code: code
   });
   return response.data;

@@ -9,6 +9,7 @@ import { useTerminology } from "../../../context/TerminologyContext";
 import { exportToPDF, exportToExcel, exportToDOCX } from "../../../utils/exportUtils";
 import ExportDropdown from "../ExportDropdown";
 import CustomModal from "../../CustomModal";
+import { safeArray } from "../../../utils/apiUtils";
 
 // --- HELPER: Relative Time ---
 const formatRelativeTime = (dateStr) => {
@@ -157,8 +158,8 @@ const AdminUsers = ({ theme, darkMode, adminUser }) => {
     const targetEntity = entityFilter === "all" ? null : entityFilter;
     Promise.all([adminGetUsers(targetEntity), adminGetEntities()])
       .then(([userData, entityData]) => {
-        setUsers(userData);
-        setScopeOptions(entityData.map(e => ({ id: e.id, label: e.name })));
+        setUsers(safeArray(userData));
+        setScopeOptions(safeArray(entityData).map(e => ({ id: e.id, label: e.name })));
       })
       .catch(console.error);
   }, [entityFilter]);

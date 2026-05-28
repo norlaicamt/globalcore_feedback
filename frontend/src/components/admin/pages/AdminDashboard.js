@@ -3,6 +3,7 @@ import { useTerminology } from "../../../context/TerminologyContext";
 import {
   getAnalyticsSnapshot, adminGetScopeOptions
 } from "../../../services/adminApi";
+import { safeArray, safeObject } from "../../../utils/apiUtils";
 import {
   AreaChart, Area, BarChart, Bar, Cell,
   XAxis, YAxis, Tooltip, ResponsiveContainer, Legend
@@ -213,17 +214,17 @@ const AdminDashboard = ({ onNavigate, theme, darkMode, adminUser }) => {
         console.log("DEBUG DASHBOARD: Fetching with filter:", deptFilter);
         const data = await getAnalyticsSnapshot(deptFilter, days);
         console.log("DEBUG DASHBOARD: Received data:", data);
-        setSummary(data.summary);
-        setVolume(data.volume);
-        setByEntity(data.by_entity);
-        setByStatus(data.by_status);
-        setRatings(data.ratings);
-        setTopUsers(data.top_users);
-        setEngagement(data.engagement);
-        setSentiment(data.sentiment);
-        setUserDistribution(data.user_distribution || { by_entity: [], by_role: [] });
-        setProgramRankings(data.program_rankings || { top: [], lowest: [], all: [] });
-        setFeedbackTypeDist(data.feedback_type_distribution || {});
+        setSummary(safeObject(data.summary));
+        setVolume(safeArray(data.volume));
+        setByEntity(safeArray(data.by_entity));
+        setByStatus(safeArray(data.by_status));
+        setRatings(safeArray(data.ratings));
+        setTopUsers(safeArray(data.top_users));
+        setEngagement(safeArray(data.engagement));
+        setSentiment(safeObject(data.sentiment));
+        setUserDistribution(safeObject(data.user_distribution));
+        setProgramRankings(safeObject(data.program_rankings));
+        setFeedbackTypeDist(safeObject(data.feedback_type_distribution));
       } catch (err) {
         console.error(err);
       } finally {
@@ -242,7 +243,8 @@ const AdminDashboard = ({ onNavigate, theme, darkMode, adminUser }) => {
     </div>
   );
 
-  const lowestRated = programRankings.lowest[0];
+  const lowestRated = programRankings?.lowest?.[0];
+  const topRankings = safeArray(programRankings?.all || programRankings?.top);
 
   // Helper to get status counts for Overview
   const getStatusCount = (s) => byStatus.find(b => b.status === s)?.count || 0;
@@ -480,7 +482,7 @@ const AdminDashboard = ({ onNavigate, theme, darkMode, adminUser }) => {
           <Section theme={theme} title={`Performance Benchmarking (Volume vs Rating)`} empty={programRankings.all.length === 0}>
             <div style={{ height: '220px', width: '100%' }}>
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={programRankings.all.slice(0, 8)} layout="vertical" barGap={4}>
+                <BarChart data={topRankings.slice(0, 8)} layout="vertical" barGap={4}>
                   <XAxis type="number" hide />
                   <YAxis dataKey="name" type="category" tick={{ fontSize: 9, fontWeight: 700, fill: theme.textMuted }} width={110} axisLine={false} tickLine={false} />
                   <Tooltip contentStyle={tooltipStyle} />

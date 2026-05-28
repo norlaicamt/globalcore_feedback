@@ -16,6 +16,7 @@ import AdminTeam from "./pages/AdminTeam";
 import CustomModal from "../CustomModal";
 import { adminUpdatePresence, adminGetEntities } from "../../services/adminApi";
 import { resolveMediaUrl } from "../../utils/feedback";
+import { API_BASE } from "../../config";
 
 
 const NAV_ITEMS = [
@@ -51,15 +52,43 @@ const AdminHub = ({ adminUser, onLogout }) => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [scopedEntity, setScopedEntity] = useState(null);
 
-  // Fetch scoped entity settings if applicable
+  // Fetch scoped entity settings and initialize notification stream
   useEffect(() => {
+    let es = null;
+    
     if (localAdminUser?.entity_id) {
       adminGetEntities().then(entities => {
         const ent = entities.find(e => e.id === localAdminUser.entity_id);
         if (ent) setScopedEntity(ent);
       }).catch(err => console.error("Failed to fetch scoped entity", err));
     }
-  }, [localAdminUser?.entity_id]);
+
+    if (adminUser?.id) {
+      const url = `${API_BASE}/api/notifications/stream/${adminUser.id}`;
+      console.log("[SSE] Initializing stream:", url);
+      es = new EventSource(url);
+      
+      es.onmessage = (e) => {
+        if (e.data === 'new_notification') {
+          console.log("[SSE] New notification received");
+          // Add logic to refresh notifications if needed
+        }
+      };
+
+      es.onerror = (err) => {
+        console.error("[SSE] Stream error:", err);
+        // EventSource automatically retries, so we just log the error.
+        // If it returns HTML (e.g. 404), es.readyState will change.
+      };
+    }
+
+    return () => {
+      if (es) {
+        console.log("[SSE] Closing stream");
+        es.close();
+      }
+    };
+  }, [localAdminUser?.entity_id, adminUser?.id]);
 
   // Real-time Clock synchronization
   useEffect(() => {

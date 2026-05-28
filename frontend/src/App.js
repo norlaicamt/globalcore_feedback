@@ -11,6 +11,7 @@ import ResetPassword from "./components/ResetPassword";
 import GeneralFeedback from "./components/GeneralFeedback";
 import { LightboxProvider } from "./context/LightboxContext";
 import PhotoLightbox from "./components/PhotoLightbox";
+import ErrorBoundary from "./components/ErrorBoundary";
 
 import { STORAGE_KEYS } from "./utils/storage";
 import { logoutUser, logoutAdmin } from "./utils/auth";
@@ -77,50 +78,72 @@ function App() {
 
   return (
     <TerminologyProvider>
-      <LightboxProvider>
-        <Router>
-          <div className="App">
-            <Routes>
-              {/* ... existing routes ... */}
-              <Route path="/admin/*" element={
-                adminUser ? (
-                  <AdminHub adminUser={adminUser} onLogout={handleAdminLogout} />
-                ) : (
-                  <AdminLogin onLoginSuccess={(admin) => {
-                    localStorage.setItem(STORAGE_KEYS.ADMIN_CURRENT, JSON.stringify(admin));
-                    setAdminUser(admin);
-                  }} />
-                )
-              } />
-
-              <Route path="/forgot-password" element={<ForgotPassword />} />
-              <Route path="/reset-password" element={<ResetPassword />} />
-
-              <Route path="/preview" element={
-                <div style={{ minHeight: '100vh', background: '#F1F5F9', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '40px 16px' }}>
-                  <div style={{ width: '100%', maxWidth: '520px' }}>
-                    <div style={{ background: '#FEF3C7', borderRadius: '12px', padding: '10px 16px', marginBottom: '16px', fontSize: '13px', fontWeight: '600', color: '#92400E', textAlign: 'center' }}>
-                      🔍 Live Preview Mode — Changes from the Form Designer update automatically
-                    </div>
-                    <GeneralFeedback
-                      currentUser={{ id: 0, name: 'Preview User', email: 'preview@admin.com', role: 'user', is_anonymous: false }}
-                      onBack={() => window.close()}
-                      onSuccess={() => {}}
-                    />
-                  </div>
-                </div>
-              } />
-
-              <Route path="/" element={
-                currentUser ? (
-                  currentUser.onboarding_completed ? (
-                    <FeedbackHub currentUser={currentUser} onLogout={handleLogout} />
+      <ErrorBoundary>
+        <LightboxProvider>
+          <Router>
+            <div className="App">
+              <Routes>
+                {/* ... existing routes ... */}
+                <Route path="/admin/*" element={
+                  adminUser ? (
+                    <AdminHub adminUser={adminUser} onLogout={handleAdminLogout} />
                   ) : (
-                    <UserOnboarding
-                      currentUser={currentUser}
-                      onBack={handleLogout}
-                      onComplete={(updatedUser) => {
-                        const userForStorage = { ...updatedUser };
+                    <AdminLogin onLoginSuccess={(admin) => {
+                      localStorage.setItem(STORAGE_KEYS.ADMIN_CURRENT, JSON.stringify(admin));
+                      setAdminUser(admin);
+                    }} />
+                  )
+                } />
+
+                <Route path="/forgot-password" element={<ForgotPassword />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
+
+                <Route path="/preview" element={
+                  <div style={{ minHeight: '100vh', background: '#F1F5F9', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '40px 16px' }}>
+                    <div style={{ width: '100%', maxWidth: '520px' }}>
+                      <div style={{ background: '#FEF3C7', borderRadius: '12px', padding: '10px 16px', marginBottom: '16px', fontSize: '13px', fontWeight: '600', color: '#92400E', textAlign: 'center' }}>
+                        🔍 Live Preview Mode — Changes from the Form Designer update automatically
+                      </div>
+                      <GeneralFeedback
+                        currentUser={{ id: 0, name: 'Preview User', email: 'preview@admin.com', role: 'user', is_anonymous: false }}
+                        onBack={() => window.close()}
+                        onSuccess={() => {}}
+                      />
+                    </div>
+                  </div>
+                } />
+
+                <Route path="/" element={
+                  currentUser ? (
+                    currentUser.onboarding_completed ? (
+                      <FeedbackHub currentUser={currentUser} onLogout={handleLogout} />
+                    ) : (
+                      <UserOnboarding
+                        currentUser={currentUser}
+                        onBack={handleLogout}
+                        onComplete={(updatedUser) => {
+                          const userForStorage = { ...updatedUser };
+                          if (userForStorage.avatar_url && userForStorage.avatar_url.length > 100000) {
+                            delete userForStorage.avatar_url;
+                          }
+                          if (userForStorage.id_photo_url && userForStorage.id_photo_url.length > 100000) {
+                            delete userForStorage.id_photo_url;
+                          }
+                          try {
+                            localStorage.setItem(STORAGE_KEYS.USER_CURRENT, JSON.stringify(userForStorage));
+                          } catch (err) {
+                            delete userForStorage.avatar_url;
+                            delete userForStorage.id_photo_url;
+                            localStorage.setItem(STORAGE_KEYS.USER_CURRENT, JSON.stringify(userForStorage));
+                          }
+                          setCurrentUser(updatedUser);
+                        }}
+                      />
+                    )
+                  ) : (
+                    <LoginPage
+                      onLoginSuccess={(user) => {
+                        const userForStorage = { ...user };
                         if (userForStorage.avatar_url && userForStorage.avatar_url.length > 100000) {
                           delete userForStorage.avatar_url;
                         }
@@ -134,55 +157,35 @@ function App() {
                           delete userForStorage.id_photo_url;
                           localStorage.setItem(STORAGE_KEYS.USER_CURRENT, JSON.stringify(userForStorage));
                         }
-                        setCurrentUser(updatedUser);
+                        setCurrentUser(user);
                       }}
                     />
                   )
-                ) : (
-                  <LoginPage
-                    onLoginSuccess={(user) => {
-                      const userForStorage = { ...user };
-                      if (userForStorage.avatar_url && userForStorage.avatar_url.length > 100000) {
-                        delete userForStorage.avatar_url;
-                      }
-                      if (userForStorage.id_photo_url && userForStorage.id_photo_url.length > 100000) {
-                        delete userForStorage.id_photo_url;
-                      }
-                      try {
-                        localStorage.setItem(STORAGE_KEYS.USER_CURRENT, JSON.stringify(userForStorage));
-                      } catch (err) {
-                        delete userForStorage.avatar_url;
-                        delete userForStorage.id_photo_url;
-                        localStorage.setItem(STORAGE_KEYS.USER_CURRENT, JSON.stringify(userForStorage));
-                      }
-                      setCurrentUser(user);
-                    }}
-                  />
-                )
-              } />
+                } />
 
-              <Route path="*" element={<Navigate to="/" />} />
-            </Routes>
-            
-            {/* Developer Helper: Mobile Test URL */}
-            {process.env.NODE_ENV === 'development' && (
-              <div className="mobile-hide-dev" style={{
-                position: 'fixed', bottom: '20px', left: '20px', background: 'rgba(15, 23, 42, 0.9)',
-                color: 'white', padding: '10px 16px', borderRadius: '12px', fontSize: '11px',
-                fontWeight: '600', zIndex: 9999, boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
-                border: '1px solid rgba(255, 255, 255, 0.1)', backdropFilter: 'blur(8px)',
-                pointerEvents: 'none', display: 'flex', flexDirection: 'column', gap: '4px'
-              }}>
-                <div style={{ color: 'var(--primary-color)', fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Mobile Test URL (Tailscale)</div>
-                <div style={{ fontFamily: 'monospace' }}>http://100.125.146.69:3000</div>
-              </div>
-            )}
+                <Route path="*" element={<Navigate to="/" />} />
+              </Routes>
+              
+              {/* Developer Helper: Mobile Test URL */}
+              {process.env.NODE_ENV === 'development' && (
+                <div className="mobile-hide-dev" style={{
+                  position: 'fixed', bottom: '20px', left: '20px', background: 'rgba(15, 23, 42, 0.9)',
+                  color: 'white', padding: '10px 16px', borderRadius: '12px', fontSize: '11px',
+                  fontWeight: '600', zIndex: 9999, boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)', backdropFilter: 'blur(8px)',
+                  pointerEvents: 'none', display: 'flex', flexDirection: 'column', gap: '4px'
+                }}>
+                  <div style={{ color: 'var(--primary-color)', fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Mobile Test URL (Tailscale)</div>
+                  <div style={{ fontFamily: 'monospace' }}>http://100.125.146.69:3000</div>
+                </div>
+              )}
 
-            {/* Global Lightbox Component */}
-            <PhotoLightbox />
-          </div>
-        </Router>
-      </LightboxProvider>
+              {/* Global Lightbox Component */}
+              <PhotoLightbox />
+            </div>
+          </Router>
+        </LightboxProvider>
+      </ErrorBoundary>
     </TerminologyProvider>
   );
 }

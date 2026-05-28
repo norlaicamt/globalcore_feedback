@@ -44,7 +44,7 @@ async def add_cache_control_header(request: Request, call_next):
 
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
-@app.get("/")
+@app.get("/api/home")
 def home():
     return {"status": "online", "message": "Global Core Backend is Running Successfully"}
 
@@ -147,15 +147,15 @@ async def notification_stream(user_id: int):
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 # --- ROUTERS ---
-app.include_router(users.router)
-app.include_router(departments.router)
-app.include_router(categories.router)
-app.include_router(entities.router)
-app.include_router(branches.router)
-app.include_router(feedback.router)
-app.include_router(analytics.router)
-app.include_router(admin.router)
-app.include_router(drafts.router)
-app.include_router(products.router)
+app.include_router(users.router, prefix="/api")
+app.include_router(departments.router, prefix="/api")
+app.include_router(categories.router, prefix="/api")
+app.include_router(entities.router, prefix="/api")
+app.include_router(branches.router, prefix="/api")
+app.include_router(feedback.router, prefix="/api")
+app.include_router(analytics.router, prefix="/api")
+app.include_router(admin.router, prefix="/api")
+app.include_router(drafts.router, prefix="/api")
+app.include_router(products.router, prefix="/api")
 
 # trigger manual refresh

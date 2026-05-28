@@ -2,7 +2,7 @@ import axios from "axios";
 import { STORAGE_KEYS } from "../utils/storage";
 
 import { API_BASE } from "../config";
-const BASE = `${API_BASE}/admin`;
+const BASE = `${API_BASE}/api/admin`;
 
 const adminApi = axios.create({ baseURL: BASE });
  
@@ -135,21 +135,21 @@ export const adminGetProducts = (entity_id = null, branch_id = null, only_active
   if (entity_id) q.set("entity_id", entity_id);
   if (branch_id) q.set("branch_id", branch_id);
   q.set("only_active", only_active);
-  return adminApi.get(`${API_BASE}/products`, { params: Object.fromEntries(q) }).then(r => r.data);
+  return adminApi.get("/products", { params: Object.fromEntries(q) }).then(r => r.data);
 };
-export const adminCreateProduct = (data) => adminApi.post(`${API_BASE}/products`, data).then(r => r.data);
-export const adminUpdateProduct = (id, data) => adminApi.put(`${API_BASE}/products/${id}`, data).then(r => r.data);
-export const adminDeleteProduct = (id) => adminApi.delete(`${API_BASE}/products/${id}`).then(r => r.data);
-export const adminReactivateProduct = (id) => adminApi.post(`${API_BASE}/products/${id}/reactivate`).then(r => r.data);
-export const adminDuplicateProduct = (id) => adminApi.post(`${API_BASE}/products/${id}/duplicate`).then(r => r.data);
-export const adminBulkImportProducts = (data) => adminApi.post(`${API_BASE}/products/bulk`, data).then(r => r.data);
-export const adminGetProductAnalytics = (id) => adminApi.get(`${API_BASE}/products/${id}/analytics`).then(r => r.data);
+export const adminCreateProduct = (data) => adminApi.post("/products", data).then(r => r.data);
+export const adminUpdateProduct = (id, data) => adminApi.put(`/products/${id}`, data).then(r => r.data);
+export const adminDeleteProduct = (id) => adminApi.delete(`/products/${id}`).then(r => r.data);
+export const adminReactivateProduct = (id) => adminApi.post(`/products/${id}/reactivate`).then(r => r.data);
+export const adminDuplicateProduct = (id) => adminApi.post(`/products/${id}/duplicate`).then(r => r.data);
+export const adminBulkImportProducts = (data) => adminApi.post("/products/bulk", data).then(r => r.data);
+export const adminGetProductAnalytics = (id) => adminApi.get(`/products/${id}/analytics`).then(r => r.data);
  
 // Product Evaluation Templates
-export const adminGetProductEvaluationTemplates = () => adminApi.get(`${API_BASE}/products/templates/all`).then(r => r.data);
-export const adminCreateProductEvaluationTemplate = (data) => adminApi.post(`${API_BASE}/products/templates`, data).then(r => r.data);
-export const adminUpdateProductEvaluationTemplate = (id, data) => adminApi.put(`${API_BASE}/products/templates/${id}`, data).then(r => r.data);
-export const adminDeleteProductEvaluationTemplate = (id) => adminApi.delete(`${API_BASE}/products/templates/${id}`).then(r => r.data);
+export const adminGetProductEvaluationTemplates = () => adminApi.get("/products/templates/all").then(r => r.data);
+export const adminCreateProductEvaluationTemplate = (data) => adminApi.post("/products/templates", data).then(r => r.data);
+export const adminUpdateProductEvaluationTemplate = (id, data) => adminApi.put(`/products/templates/${id}`, data).then(r => r.data);
+export const adminDeleteProductEvaluationTemplate = (id) => adminApi.delete(`/products/templates/${id}`).then(r => r.data);
 
 // Broadcast
 export const adminBroadcast = (subject, message, broadcast_type = "announcement", target_group = "all", priority = "normal", status = "sent", require_ack = false, scheduled_at = null, broadcast_id = null, attachments = null) => {

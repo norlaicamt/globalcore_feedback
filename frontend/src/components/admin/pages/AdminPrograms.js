@@ -8,6 +8,7 @@ import {
 import { useTerminology } from "../../../context/TerminologyContext";
 import CustomModal from "../../CustomModal";
 import { IconRegistry, ICONS_LIST as ICONS } from "../../IconRegistry";
+import { safeArray, safeObject } from "../../../utils/apiUtils";
 
 // Workspace type classification
 const SERVICE_WORKSPACE_TYPES = ['Restaurant', 'Pool', 'Spa', 'Housekeeping', 'Shop', 'Store', 'Gift Shop'];
@@ -108,23 +109,23 @@ const AdminPrograms = ({ theme, darkMode, adminUser, onNavigate, initialTab }) =
 
             // Map ratings to distribution
             const distribution = [5, 4, 3, 2, 1].map(star => {
-                const r = ratings.find(x => x.rating === star);
+                const r = safeArray(ratings).find(x => x.rating === star);
                 return { star, count: r ? r.count : 0 };
             });
 
             setDetailedAnalytics({
-                summary,
-                sentiment,
-                volume,
+                summary: safeObject(summary),
+                sentiment: safeObject(sentiment),
+                volume: safeArray(volume),
                 distribution,
-                avg: summary.avg_rating || 0,
-                count: summary.total_feedback || 0,
-                openCases: summary.total_feedback - summary.total_comments,
-                resolvedRate: summary.total_feedback > 0 ? `${Math.round(((summary.total_feedback - summary.total_comments) / summary.total_feedback) * 100)}%` : "0%",
+                avg: summary?.avg_rating || 0,
+                count: summary?.total_feedback || 0,
+                openCases: (summary?.total_feedback || 0) - (summary?.total_comments || 0),
+                resolvedRate: summary?.total_feedback > 0 ? `${Math.round(((summary.total_feedback - summary.total_comments) / summary.total_feedback) * 100)}%` : "0%",
                 statuses: [
-                    { label: 'Feedback', count: summary.total_feedback, color: '#3B82F6' },
-                    { label: 'Comments', count: summary.total_comments, color: '#EAB308' },
-                    { label: 'Reactions', count: summary.total_reactions, color: '#10B981' }
+                    { label: 'Feedback', count: summary?.total_feedback || 0, color: '#3B82F6' },
+                    { label: 'Comments', count: summary?.total_comments || 0, color: '#EAB308' },
+                    { label: 'Reactions', count: summary?.total_reactions || 0, color: '#10B981' }
                 ]
             });
         } catch (err) {
@@ -160,7 +161,8 @@ const AdminPrograms = ({ theme, darkMode, adminUser, onNavigate, initialTab }) =
     const loadPrograms = useCallback(async () => {
         setLoading(true);
         try {
-            const data = await adminGetEntities();
+            const rawData = await adminGetEntities();
+            const data = safeArray(rawData);
             // Fetch location counts and real analytics for each program
             const enriched = await Promise.all(data.map(async (p) => {
                 try {
@@ -186,7 +188,7 @@ const AdminPrograms = ({ theme, darkMode, adminUser, onNavigate, initialTab }) =
 
                     return {
                         ...p,
-                        locationCount: locs.length,
+                        locationCount: safeArray(locs).length,
                         feedbackStats: feedbackStats,
                         alerts: (parseFloat(feedbackStats.avg) < 3.8 && feedbackStats.count > 0) ? [
                             { type: 'warning', message: `Low Rating Alert: Average rating dropped to ${feedbackStats.avg} in the last 7 days.` }
@@ -212,7 +214,7 @@ const AdminPrograms = ({ theme, darkMode, adminUser, onNavigate, initialTab }) =
         setLocLoading(true);
         try {
             const data = await adminGetBranches(programId);
-            setLocations(data);
+            setLocations(safeArray(data));
         } catch (err) { console.error(err); }
         setLocLoading(false);
     }, []);
@@ -221,7 +223,7 @@ const AdminPrograms = ({ theme, darkMode, adminUser, onNavigate, initialTab }) =
         setTeamLoading(true);
         try {
             const data = await adminGetUsers(programId);
-            setTeamUsers(data);
+            setTeamUsers(safeArray(data));
         } catch (err) { console.error(err); }
         setTeamLoading(false);
     }, []);

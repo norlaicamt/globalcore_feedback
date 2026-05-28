@@ -345,9 +345,9 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
           adminGetProfile()
         ]);
         let mergedSettings = { ...settings };
-        if (sysSettings?.length) {
+        if (sysSettings) {
           const mapped = {};
-          sysSettings.forEach(s => {
+          safeArray(sysSettings).forEach(s => {
             mapped[s.key] = (s.value === "true" || s.value === "false") ? (s.value === "true") : s.value;
           });
           mergedSettings = { ...settings, ...mapped };
@@ -407,7 +407,7 @@ const AdminSettings = ({ theme, darkMode, adminUser, onNavigate, onToggleTheme, 
     if (activeTab === "activity" && profile) {
       setActivityLoading(true);
       adminGetProfileActivity(5)
-        .then(res => setRecentActions(res))
+        .then(res => setRecentActions(safeArray(res)))
         .catch(err => console.error("Failed to load activity", err))
         .finally(() => setActivityLoading(false));
     }
