@@ -48,7 +48,7 @@ const LoginPage = ({ onLoginSuccess }) => {
            return;
         }
         const newUser = { name: username, username: username, email, password };
-        await axios.post(`${API_BASE}/users/`, newUser);
+        await axios.post(`${API_BASE}/api/users/`, newUser);
 
         setDialog({
           isOpen: true,

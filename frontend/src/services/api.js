@@ -144,7 +144,7 @@ export const searchUsers = async (query, roles = "") => {
 
 /* -------------------- FEEDBACK -------------------- */
 export const getFeedbacks = async (params = { skip: 0, limit: 10 }) => {
-  const response = await axios.get(`${API_BASE}/feedbacks/`, { params }); // must match FastAPI router
+  const response = await axios.get(`${API_BASE}/api/feedbacks/`, { params }); // must match FastAPI router
   if (window.DEBUG_MODE) {
     const items = Array.isArray(response.data) ? response.data : (response.data.items || []);
     items.forEach(post => {

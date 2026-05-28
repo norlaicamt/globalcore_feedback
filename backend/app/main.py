@@ -100,7 +100,7 @@ async def check_blacklist(token: str = Depends(oauth2_scheme)):
     return token
 
 # --- AUTH ---
-@app.post("/login", response_model=schemas.User)
+@app.post("/api/login", response_model=schemas.User)
 def login(email: str, password: str, db: Session = Depends(get_db)):
     user = crud.get_user_by_login_id(db, login_id=email)
     if not user:
