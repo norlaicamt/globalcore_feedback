@@ -4,6 +4,7 @@ import { useTerminology } from "../../../context/TerminologyContext";
 import { STORAGE_KEYS } from "../../../utils/storage";
 import { resolveMediaUrl } from "../../../utils/feedback";
 import ImageCropperModal from "../../ImageCropperModal";
+import { safeArray, safeObject } from "../../../utils/apiUtils";
 
 const hexToRgb = (hex) => {
   let defaultRgb = "31, 42, 86";
