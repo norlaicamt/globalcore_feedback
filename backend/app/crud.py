@@ -702,7 +702,7 @@ def create_organization(db: Session, organization: schemas.OrganizationCreate):
 def get_feedbacks(
     db: Session, 
     skip: int = 0, 
-    limit: int = 100, 
+    limit: int = 50, 
     sender_id: int = None, 
     recipient_user_id: int = None,
     recipient_dept_id: int = None,
@@ -748,11 +748,11 @@ def get_feedbacks(
         func.coalesce(dislikes_sq, 0).label("dislikes_count"),
     ).options(
         joinedload(models.Feedback.mentions),
-        joinedload(models.Feedback.sender),
-        joinedload(models.Feedback.recipient_user),
-        joinedload(models.Feedback.recipient_dept),
-        joinedload(models.Feedback.entity),
-        joinedload(models.Feedback.branch)
+        joinedload(models.Feedback.sender).load_only(
+            models.User.id, models.User.display_name, models.User.id_photo_url # Selective user fields
+        ),
+        joinedload(models.Feedback.entity).load_only(models.Entity.id, models.Entity.name),
+        joinedload(models.Feedback.branch).load_only(models.Branch.id, models.Branch.name)
     )
 
     # If mentioned_user_id provided, join with FeedbackMention

@@ -323,23 +323,29 @@ def analytics_top_users(
     give_rlikes_sq = (select(func.count(models.ReplyReaction.id)).where((models.ReplyReaction.user_id == models.User.id) & (models.ReplyReaction.is_like == True)).scalar_subquery())
     give_comm_sq = (select(func.count(models.Reply.id)).where((models.Reply.user_id == models.User.id) & (models.Reply.parent_id == None)).scalar_subquery())
 
-    # Calculate points in SQL or after fetch (SQL is better for sorting)
-    # But for simplicity and consistency with the main list, we'll fetch and calc
+    # Calculate points in SQL for efficient sorting and limiting
+    score_expr = (
+        (func.coalesce(post_count_sq, 0) * 3) +
+        (func.coalesce(recv_likes_sq, 0) * 0.5) +
+        ((func.coalesce(give_likes_sq, 0) + func.coalesce(give_rlikes_sq, 0)) * 0.5) +
+        (func.coalesce(give_comm_sq, 0) * 0.3)
+    ).label("impact_points")
+
     query = db.query(
-        models.User,
-        post_count_sq.label("p_cnt"),
-        recv_likes_sq.label("r_likes"),
-        give_likes_sq.label("r_give"),
-        give_rlikes_sq.label("rr_give"),
-        give_comm_sq.label("c_give")
+        models.User.id,
+        models.User.display_name.label("name"),
+        models.User.email,
+        func.coalesce(models.User.unit_name, models.User.program, models.User.department).label("department"),
+        post_count_sq.label("total_posts"),
+        score_expr
     ).filter(models.User.role.notin_(["admin", "superadmin"]))
     
     if effective_dept:
         entity = db.query(models.Entity).filter(models.Entity.name == effective_dept).first()
         if entity:
             query = query.filter(
-                (models.User.id.in_(db.query(models.Feedback.sender_id).filter(models.Feedback.entity_id == entity.id))) |
-                (models.User.id.in_(db.query(models.UserContext.user_id).filter(models.UserContext.entity_id == entity.id)))
+                (models.User.id.in_(db.query(models.Feedback.sender_id).filter(models.Feedback.entity_id == entity.id).scalar_subquery())) |
+                (models.User.id.in_(db.query(models.UserContext.user_id).filter(models.UserContext.entity_id == entity.id).scalar_subquery()))
             )
         else:
             query = query.filter(
@@ -348,25 +354,18 @@ def analytics_top_users(
                 (models.User.department == effective_dept)
             )
         
-    rows = query.all()
+    rows = query.order_by(score_expr.desc()).limit(limit).all()
     
-    # Calculate points and sort
-    results = []
-    for r in rows:
-        user_obj = r[0]
-        p_cnt = r[1] or 0
-        r_lks = r[2] or 0
-        g_lks = (r[3] or 0) + (r[4] or 0)
-        g_cms = r[5] or 0
-        
-        pts = (p_cnt * 3) + (r_lks * 0.5) + (g_lks * 0.5) + (g_cms * 0.3)
-        results.append({
-            "id": user_obj.id, "name": user_obj.name, "email": user_obj.email, "department": user_obj.department, 
-            "total_posts": p_cnt, "impact_points": round(float(pts), 1)
-        })
-    
-    results.sort(key=lambda x: x["impact_points"], reverse=True)
-    return results[:limit]
+    return [
+        {
+            "id": r.id, 
+            "name": r.name, 
+            "email": r.email, 
+            "department": r.department, 
+            "total_posts": r.total_posts or 0, 
+            "impact_points": round(float(r.impact_points), 1)
+        } for r in rows
+    ]
 
 
 @router.get("/analytics/engagement")
@@ -462,7 +461,7 @@ def admin_get_users(entity_id: Optional[int] = None, skip: int = 0, limit: int =
     # 4. Given Comments (Top-level only)
     give_comm_sq = (select(func.count(models.Reply.id)).where((models.Reply.user_id == models.User.id) & (models.Reply.parent_id == None)).scalar_subquery())
 
-    # Query with all factors
+    # Query with all factors and limited User columns
     query = db.query(
         models.User,
         post_count_sq,
@@ -470,6 +469,8 @@ def admin_get_users(entity_id: Optional[int] = None, skip: int = 0, limit: int =
         give_likes_sq,
         give_rlikes_sq,
         give_comm_sq
+    ).options(
+        joinedload(models.User.entity).load_only(models.Entity.id, models.Entity.name)
     )
     
     # Apply program-based scoping
@@ -487,31 +488,29 @@ def admin_get_users(entity_id: Optional[int] = None, skip: int = 0, limit: int =
     for u, p_cnt, r_likes, r_give, rr_give, c_give in users_with_stats:
         p_cnt = p_cnt or 0
         r_likes = r_likes or 0
-        r_give = r_give or 0
-        rr_give = rr_give or 0
+        r_sum = (r_give or 0) + (rr_give or 0)
         c_give = c_give or 0
         
-        # Calculate points using the same weights as CRUD
-        pts = (p_cnt * 3) + (r_likes * 0.5) + ((r_give + rr_give) * 0.5) + (c_give * 0.3)
+        # Calculate points
+        pts = (p_cnt * 3) + (r_likes * 0.5) + (r_sum * 0.5) + (c_give * 0.3)
         
         result.append({
-            "id": u.id, "name": u.name, "email": u.email, "department": u.department, 
-            "program": u.program, "entity_id": u.entity_id,
-            "entity_name": (u.entity.name if u.entity else None) or u.program or u.department or None,
-            "position_title": u.position_title, "role_identity": u.role_identity,
-            "role": "user" if u.role == "maker" else u.role,
-            "is_active": u.is_active, "avatar_url": u.avatar_url,
-            "created_at": str(u.created_at),
-            "last_login": str(u.last_login) if u.last_login else None,
-            "last_seen": str(u.last_seen) if u.last_seen else None,
-            "current_module": u.current_module,
+            "id": u.id, 
+            "name": u.name, 
+            "email": u.email, 
+            "role": u.role,
+            "is_active": u.is_active,
+            "entity_name": (u.entity.name if u.entity else None) or u.program or u.department,
+            "impact_points": round(float(pts), 1),
             "total_posts": p_cnt,
-            "impact_points": round(float(pts), 1)
+            "last_seen": str(u.last_seen) if u.last_seen else None,
+            "avatar_url": u.avatar_url
         })
     return result
 
+
 @router.get("/staff")
-def admin_get_staff_list(db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
+def admin_get_staff_list(skip: int = 0, limit: int = 50, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
     """Returns a list of administrative accounts. Global admins see everyone; scoped admins see their entity."""
     query = db.query(models.User).filter(models.User.role.in_(["admin", "superadmin"]))
     
@@ -519,7 +518,7 @@ def admin_get_staff_list(db: Session = Depends(get_db), admin: models.User = Dep
         # Scoped admins only see staff in their entity
         query = query.filter(models.User.entity_id == admin.entity_id)
     
-    staff = query.order_by(models.User.name).all()
+    staff = query.order_by(models.User.name).offset(skip).limit(limit).all()
     
     return [{
         "id": s.id,

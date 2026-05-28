@@ -178,6 +178,19 @@ class UserSearchEntry(BaseModel):
     current_module: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)
 
+class UserMini(BaseModel):
+    id: int
+    name: str
+    email: Optional[str] = None
+    role: Optional[str] = None
+    entity_id: Optional[int] = None
+    entity_name: Optional[str] = None
+    is_active: bool = True
+    avatar_url: Optional[str] = None
+    posts_count: int = 0
+    impact_points: float = 0.0
+    model_config = ConfigDict(from_attributes=True)
+
 class UserProfile(BaseModel):
     id: int
     name: str
@@ -464,6 +477,20 @@ class Feedback(FeedbackBase):
     dislikes_count: Optional[int] = 0
     replies_count: Optional[int] = 0
     user_reaction: Optional[bool] = None
+
+class FeedbackMini(BaseModel):
+    id: int
+    title: Optional[str] = None
+    status: FeedbackStatus
+    created_at: datetime
+    sender_id: Optional[int] = None
+    sender_name: Optional[str] = None
+    entity_id: int
+    entity_name: Optional[str] = None
+    rating: Optional[int] = None
+    replies_count: int = 0
+    likes_count: int = 0
+    model_config = ConfigDict(from_attributes=True)
 
 class NotificationBase(BaseModel):
     user_id: int
