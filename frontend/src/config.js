@@ -8,8 +8,17 @@
  */
 
 const getApiBase = () => {
-  if (process.env.REACT_APP_API_URL) {
-    return process.env.REACT_APP_API_URL.replace(/\/$/, ""); // Remove trailing slash if present
+  let url = process.env.REACT_APP_API_URL;
+  
+  if (url) {
+    url = url.trim().replace(/\/$/, ""); 
+    // Ensure protocol is present
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      // Default to https for production-like domains
+      const protocol = (url.includes('localhost') || url.includes('127.0.0.1')) ? 'http://' : 'https://';
+      url = protocol + url;
+    }
+    return url;
   }
   
   // Fallback for local development

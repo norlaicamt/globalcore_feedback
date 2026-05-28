@@ -77,8 +77,8 @@ function App() {
   }
 
   return (
-    <TerminologyProvider>
-      <ErrorBoundary>
+    <ErrorBoundary>
+      <TerminologyProvider>
         <LightboxProvider>
           <Router>
             <div className="App">
@@ -185,8 +185,8 @@ function App() {
             </div>
           </Router>
         </LightboxProvider>
-      </ErrorBoundary>
-    </TerminologyProvider>
+      </TerminologyProvider>
+    </ErrorBoundary>
   );
 }
 

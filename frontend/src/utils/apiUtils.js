@@ -7,13 +7,14 @@
  * @returns {Array} - The validated array or an empty array.
  */
 export const safeArray = (data) => {
-  if (Array.isArray(data)) return data;
+  if (data && Array.isArray(data)) return data;
   
   // Handle some common API wrappers if they exist
   if (data && typeof data === 'object' && Array.isArray(data.items)) {
     return data.items;
   }
 
+  // Explicitly return a fresh empty array if it's anything else (null, object, etc.)
   return [];
 };
 
