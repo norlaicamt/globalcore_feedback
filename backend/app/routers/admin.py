@@ -470,7 +470,9 @@ def admin_get_users(entity_id: Optional[int] = None, skip: int = 0, limit: int =
         give_rlikes_sq,
         give_comm_sq
     ).options(
-        joinedload(models.User.entity).load_only(models.Entity.id, models.Entity.name)
+        # NOTE: User.entity is an association_proxy (via module_context), not a direct relationship.
+        # Load the module_context so the proxy can resolve entity_id safely.
+        joinedload(models.User.module_context)
     )
     
     # Apply program-based scoping

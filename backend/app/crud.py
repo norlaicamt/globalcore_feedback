@@ -748,9 +748,10 @@ def get_feedbacks(
         func.coalesce(dislikes_sq, 0).label("dislikes_count"),
     ).options(
         joinedload(models.Feedback.mentions),
-        joinedload(models.Feedback.sender).load_only(
-            models.User.id, models.User.display_name, models.User.id_photo_url # Selective user fields
-        ),
+        # NOTE: load_only() cannot be used with association_proxy or hybrid fields.
+        # User.display_name is a real column but avatar_url, id_photo_url etc. are proxies.
+        # Use plain joinedload and let the caller select what it needs.
+        joinedload(models.Feedback.sender),
         joinedload(models.Feedback.entity).load_only(models.Entity.id, models.Entity.name),
         joinedload(models.Feedback.branch).load_only(models.Branch.id, models.Branch.name)
     )
