@@ -908,6 +908,10 @@ const FeedbackHub = React.memo(({ currentUser, onLogout }) => {
           from { opacity: 0; transform: translateY(-10px); }
           to { opacity: 1; transform: translateY(0); }
         }
+        @keyframes slideDown {
+          from { transform: translate(-50%, -100%); opacity: 0; }
+          to { transform: translate(-50%, 0); opacity: 1; }
+        }
         .fab-btn:hover {
           transform: scale(1.1) !important;
           background-color: var(--primary-color) !important;
@@ -2615,7 +2619,7 @@ const styles = {
   cancelReplyBtn: { background: 'none', border: 'none', color: '#EF4444', fontWeight: 'bold', cursor: 'pointer', marginLeft: '6px' },
   translateBtn: { background: 'none', border: 'none', color: 'var(--primary-color)', fontSize: '12px', textAlign: 'left', padding: '0 0 8px 0', cursor: 'pointer', fontWeight: 'bold', textDecoration: 'underline' },
   reactionBtn: { border: 'none', display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', borderRadius: '16px', fontSize: '11px', cursor: 'pointer', transition: 'background-color 0.2s', fontWeight: 'bold' },
-  toastModal: { position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', padding: '16px 24px', color: 'white', fontWeight: 'bold', fontSize: '15px', borderRadius: '30px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)', zIndex: 9999, animation: 'fadeIn 0.2s ease-out', pointerEvents: 'none' },
+  toastModal: { position: 'fixed', top: '24px', left: '50%', transform: 'translateX(-50%)', padding: '12px 20px', color: 'white', fontWeight: '800', fontSize: '13px', borderRadius: '16px', boxShadow: '0 12px 32px rgba(0,0,0,0.25)', zIndex: 10000, animation: 'slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1)', pointerEvents: 'none', maxWidth: '90%', width: 'auto', textAlign: 'center', border: '1px solid rgba(255,255,255,0.1)' },
   feedListContainer: { display: 'flex', flexDirection: 'column', gap: '6px', padding: '6px' },
   emptyFeedText: { textAlign: 'center', color: '#94A3B8', fontSize: '14px', width: '100%', margin: '40px 0' }
 };
