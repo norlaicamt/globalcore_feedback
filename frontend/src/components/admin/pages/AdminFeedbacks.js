@@ -775,89 +775,6 @@ const MetricBox = ({ label, value, icon, theme, extra, subValue }) => (
   </div>
 );
 
-// --- COMPONENT: 3-dot Menu ---
-const DotsMenu = ({ onUpdateStatus, onDelete, onView, theme, darkMode, currentStatus }) => {
-  const [open, setOpen] = useState(false);
-  const ref = useRef(null);
-
-  useEffect(() => {
-    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
-
-  const hasStatusActions = currentStatus !== 'RESOLVED' && currentStatus !== 'CLOSED';
-  const hasDeleteAction = !!onDelete;
-  const hasViewAction = !!onView;
-  const hasAnyActions = hasStatusActions || hasDeleteAction || hasViewAction;
-
-  if (!hasAnyActions) return null;
-
-  return (
-    <div ref={ref} style={{ position: "relative", display: "inline-block" }}>
-      <button onClick={() => setOpen(!open)} style={{ width: "30px", height: "30px", display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", borderRadius: "6px", cursor: "pointer", color: theme.textMuted }}>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle cx="12" cy="19" r="1.5" /></svg>
-      </button>
-      {open && (
-        <div
-          onClick={(e) => e.stopPropagation()}
-          style={{ position: "absolute", right: 0, top: "34px", background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: "10px", boxShadow: "0 8px 24px rgba(0,0,0,0.1)", zIndex: 100, minWidth: "180px", padding: "6px" }}
-        >
-          <p style={{ margin: "4px 8px 8px", fontSize: "9px", fontWeight: "800", color: theme.textMuted, textTransform: "uppercase" }}>Actions</p>
-          
-          {hasViewAction && (
-            <button
-              onClick={() => { onView(); setOpen(false); }}
-              style={{ display: "flex", alignItems: "center", gap: "8px", width: "100%", padding: "8px 12px", background: "none", border: "none", borderRadius: "7px", textAlign: "left", fontSize: "12px", fontWeight: "600", color: theme.text, cursor: "pointer" }}
-              onMouseEnter={e => e.currentTarget.style.background = darkMode ? "rgba(255,255,255,0.05)" : "#F1F5F9"}
-              onMouseLeave={e => e.currentTarget.style.background = "none"}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-              View Workspace
-            </button>
-          )}
-
-          {hasStatusActions && (
-            <>
-              <div style={{ margin: "6px 0", borderTop: `1px solid ${theme.border}` }} />
-              <p style={{ margin: "6px 8px 8px", fontSize: "9px", fontWeight: "800", color: theme.textMuted, textTransform: "uppercase" }}>Quick Status Update</p>
-              {Object.entries(STATUSES).filter(([key]) => key !== 'CLOSED').map(([key, cfg]) => (
-                <button
-                  key={key}
-                  onClick={() => { if (currentStatus !== key) onUpdateStatus(key); setOpen(false); }}
-                  style={{ display: "block", width: "100%", padding: "8px 12px", background: "none", border: "none", borderRadius: "7px", textAlign: "left", fontSize: "12px", fontWeight: currentStatus === key ? "700" : "500", color: currentStatus === key ? "var(--primary-color)" : theme.text, cursor: "pointer" }}
-                  onMouseEnter={e => e.currentTarget.style.background = darkMode ? "rgba(255,255,255,0.05)" : "#F1F5F9"}
-                  onMouseLeave={e => e.currentTarget.style.background = "none"}
-                >
-                  {cfg.label} {currentStatus === key && "(Current)"}
-                </button>
-              ))}
-            </>
-          )}
-
-          {hasDeleteAction && (
-            <>
-              <div style={{ margin: "6px 0", borderTop: `1px solid ${theme.border}` }} />
-              <button
-                onClick={() => { onDelete(); setOpen(false); }}
-                style={{ display: "flex", alignItems: "center", gap: "8px", width: "100%", padding: "8px 12px", background: "none", border: "none", borderRadius: "7px", textAlign: "left", fontSize: "12px", fontWeight: "600", color: "#EF4444", cursor: "pointer" }}
-                onMouseEnter={e => e.currentTarget.style.background = "rgba(239, 68, 68, 0.08)"}
-                onMouseLeave={e => e.currentTarget.style.background = "none"}
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
-                Delete Submission
-              </button>
-            </>
-          )}
-        </div>
-      )}
-    </div>
-  );
-};
-
-
-// --- COMPONENT: Export // --- COMPONENT: Export Dropdown removed and moved to shared location ---
-
 // --- COMPONENT: Columns Visibility Dropdown ---
 const ColumnsDropdown = ({ visibleColumns, setVisibleColumns, theme, darkMode, isScopedAdmin }) => {
   const [open, setOpen] = useState(false);
@@ -884,8 +801,7 @@ const ColumnsDropdown = ({ visibleColumns, setVisibleColumns, theme, darkMode, i
     { key: "location", label: "Location", show: true },
     { key: "status", label: "Status", show: true },
     { key: "assignee", label: "Assignee", show: true },
-    { key: "date", label: "Date", show: true },
-    { key: "actions", label: "Actions", show: true }
+    { key: "date", label: "Date", show: true }
   ];
 
   return (
@@ -990,8 +906,7 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
         location: false,
         status: true,
         assignee: false,
-        date: true,
-        actions: false
+        date: true
       };
     }
     return {
@@ -1000,8 +915,7 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
       location: true,
       status: true,
       assignee: true,
-      date: true,
-      actions: true
+      date: true
     };
   });
 
@@ -1073,10 +987,24 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
     } catch (e) { console.error(e); }
   };
 
+  // Active = any status that is NOT resolved/closed
+  const isActive = (f) => f.status !== "RESOLVED" && f.status !== "CLOSED";
+
   const filtered = feedbacks.filter(f => {
-    let tabMatch = activeTab === "ALL" || f.status === activeTab;
-    if (activeTab === "MY_CASES") tabMatch = String(f.assigned_to_user_id) === String(adminUser?.id) && f.status !== "RESOLVED" && f.status !== "CLOSED";
-    if (activeTab === "UNASSIGNED") tabMatch = !f.assigned_to_user_id;
+    let tabMatch;
+    if (activeTab === "ALL") {
+      tabMatch = isActive(f);
+    } else if (activeTab === "MY_CASES") {
+      tabMatch = String(f.assigned_to_user_id) === String(adminUser?.id) && isActive(f);
+    } else if (activeTab === "UNASSIGNED") {
+      tabMatch = !f.assigned_to_user_id && isActive(f);
+    } else if (activeTab === "IN_PROGRESS") {
+      tabMatch = f.status === "IN_PROGRESS";
+    } else if (activeTab === "RESOLVED") {
+      tabMatch = f.status === "RESOLVED" || f.status === "CLOSED";
+    } else {
+      tabMatch = f.status === activeTab;
+    }
 
     const programMatch = selectedProgram === "ALL" || f.entity_name === selectedProgram;
     const statusMatch = selectedStatusFilter === "ALL" || f.status === selectedStatusFilter;
@@ -1089,12 +1017,11 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
   });
 
   const stats = {
-    TOTAL: feedbacks.length,
-    MY_CASES: feedbacks.filter(f => String(f.assigned_to_user_id) === String(adminUser?.id) && f.status !== "RESOLVED" && f.status !== "CLOSED").length,
-    UNASSIGNED: feedbacks.filter(f => !f.assigned_to_user_id).length,
-    OPEN: feedbacks.filter(f => f.status === "OPEN").length,
+    TOTAL: feedbacks.filter(isActive).length,
+    MY_CASES: feedbacks.filter(f => String(f.assigned_to_user_id) === String(adminUser?.id) && isActive(f)).length,
+    UNASSIGNED: feedbacks.filter(f => !f.assigned_to_user_id && isActive(f)).length,
     IN_PROGRESS: feedbacks.filter(f => f.status === "IN_PROGRESS").length,
-    RESOLVED: feedbacks.filter(f => f.status === "RESOLVED").length,
+    RESOLVED: feedbacks.filter(f => f.status === "RESOLVED" || f.status === "CLOSED").length,
   };
 
   const handleDelete = (fb) => {
@@ -1296,7 +1223,6 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
               )}
               {visibleColumns.assignee && <th style={{ padding: "16px 20px", textAlign: "left", fontSize: "11px", fontWeight: "800", color: theme.textMuted, textTransform: "uppercase", letterSpacing: "0.05em" }}>Assignee</th>}
               {visibleColumns.date && <th style={{ padding: "16px 20px", textAlign: "left", fontSize: "11px", fontWeight: "800", color: theme.textMuted, textTransform: "uppercase", letterSpacing: "0.05em" }}>Date</th>}
-              {visibleColumns.actions && <th style={{ padding: "16px 20px", textAlign: "right", fontSize: "11px", fontWeight: "800", color: theme.textMuted, textTransform: "uppercase", letterSpacing: "0.05em" }}></th>}
             </tr>
           </thead>
           <tbody>
