@@ -1,7 +1,10 @@
+import sys
 import os
 import base64
 import uuid
 import re
+sys.path.append(os.path.join(os.getcwd(), "backend"))
+
 from sqlalchemy.orm import Session
 from app.database import SessionLocal
 from app import models
@@ -22,8 +25,10 @@ def migrate_avatars():
             try:
                 # Extract data from data:image/xxx;base64,yyyy
                 header, data = p.avatar_url.split(',', 1)
-                ext = header.split('/')[1].split(';')[0]
-                if ext == 'jpeg': ext = 'jpg'
+                match = re.search(r"image/([a-zA-Z]+)", header)
+                ext = match.group(1) if match else "png"
+                if ext.lower() in ['jpeg', 'jpg']: ext = 'jpg'
+                else: ext = ext.lower()
                 
                 filename = f"user_{p.user_id}_{uuid.uuid4().hex[:8]}.{ext}"
                 file_path = os.path.join(UPLOADS_DIR, filename)

@@ -5,6 +5,7 @@ from app import schemas
 import asyncio
 from typing import Optional, List
 from datetime import datetime, timezone
+from app.utils.media import save_base64_image
 
 def create_audit_log(db: Session, action_type: str, performed_by_id: int, target_id: str = None, details: dict = None):
     db_log = models.AuditLog(
@@ -258,7 +259,7 @@ def create_user(db: Session, user: schemas.UserCreate):
         first_name=data.get("first_name"),
         last_name=data.get("last_name"),
         middle_name=data.get("middle_name"),
-        avatar_url=data.get("avatar_url"),
+        avatar_url=save_base64_image(data.get("avatar_url"), "avatars", f"user_{db_user.id}"),
         region=data.get("region"),
         province=data.get("province"),
         city=data.get("city"),
@@ -322,6 +323,8 @@ def update_user(db: Session, user_id: int, updates: schemas.UserUpdate):
                 setattr(settings, key, value)
 
         for key, value in update_data.items():
+            if key == "avatar_url" and value and value.startswith("data:image/"):
+                value = save_base64_image(value, "avatars", f"user_{db_user.id}")
             setattr(db_user, key, value)
         db.commit()
         db.refresh(db_user)

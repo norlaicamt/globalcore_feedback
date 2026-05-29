@@ -1,3 +1,7 @@
+import sys
+import os
+sys.path.append(os.path.join(os.getcwd(), "backend"))
+
 from sqlalchemy.orm import Session
 from app.database import SessionLocal
 from app import models
@@ -13,12 +17,18 @@ def audit_media():
             print(f"Custom Data: {json.dumps(fb.custom_data, indent=2)}")
             
         print("\nAuditing User Avatars...")
-        users = db.query(models.User).filter(models.User.avatar_url != None).limit(5).all()
+        users = db.query(models.User).filter(models.User.avatar_url != None).all()
         for user in users:
-            print(f"User ID: {user.id}")
-            print(f"Legacy Avatar: {user._legacy_avatar_url}")
-            print(f"Normalized Avatar: {user.profile.avatar_url if user.profile else 'No Profile'}")
-            print(f"Effective Avatar: {user.avatar_url}")
+            url = user.avatar_url
+            is_malformed = url.endswith('.jpgg') or '.jpg' not in url and '.png' not in url and 'data:image' not in url
+            if is_malformed or 'data:image' in url:
+                print(f"User ID: {user.id}")
+                print(f"URL: {url}")
+                if is_malformed:
+                    print("Status: MALFORMED EXTENSION OR PATH")
+                if 'data:image' in url:
+                    print("Status: BASE64 DETECTED")
+                print("-" * 20)
 
     except Exception as e:
         print(f"Error: {e}")

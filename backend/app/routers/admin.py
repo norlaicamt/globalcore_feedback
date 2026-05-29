@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 from app import models, schemas, crud
 from app.database import get_db
 from app.form_defaults import DEFAULT_FORM_CONFIG, migrate_step_schema
+from app.utils.media import save_base64_image
 import copy
 
 load_dotenv()
@@ -1268,6 +1269,11 @@ def update_admin_setting(key: str, payload: dict = Body(...), db: Session = Depe
     setting = crud.update_system_setting(db, key, value)
     
     # Metadata Tracking for Branding
+    if key == "primary_organization_logo" and value and value.startswith("data:image/"):
+        image_url = save_base64_image(value, "branding", "system_logo")
+        setting = crud.update_system_setting(db, key, image_url)
+        value = image_url # For audit log
+
     if key in ["primary_organization_logo", "primary_organization_name", "primary_color"]:
         crud.update_system_setting(db, "logo_last_updated_at", datetime.now(timezone.utc).isoformat())
         crud.update_system_setting(db, "logo_updated_by", admin.name or admin.email)
@@ -1636,6 +1642,9 @@ def update_admin_profile(payload: dict = Body(...), db: Session = Depends(get_db
 
     for key, value in payload.items():
         if key in allowed_fields:
+            if key == "avatar_url" and value and value.startswith("data:image/"):
+                value = save_base64_image(value, "avatars", f"admin_{admin.id}")
+            
             setattr(db_admin, key, value)
             changed[key] = value
 
