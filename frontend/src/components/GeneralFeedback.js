@@ -31,7 +31,7 @@ const SMART_DEFAULTS = {
 
 const SMART_HELPERS = {
   star_rating: "Tap a star to give your rating",
-  rating_matrix: "1 is low, 5 is high",
+  rating_matrix: "Rate each criterion on a scale of 1–5, with 1 indicating Poor and 5 indicating Excellent.",
   photo_upload: "Images help us understand better",
   full_name: "We use this for internal verification",
   email_address: "We will only contact you if necessary",
@@ -140,6 +140,13 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
   const [productSearch, setProductSearch] = useState("");
   const [selectedProducts, setSelectedProducts] = useState(draft?.selectedProducts || []);
   const [productEvaluations, setProductEvaluations] = useState(draft?.productEvaluations || []);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // --- MEDIA GOVERNANCE HELPERS ---
   const generateThumbnail = async (file) => {
@@ -944,6 +951,9 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
       setModal({ isOpen: true, title: "Preview Mode", message: "Flow verified. Deployment ready.", type: "success", onConfirm: () => { if (typeof onSuccess === 'function') onSuccess(); setModal({ isOpen: false }); } });
       return;
     }
+
+    if (isSubmitting) return; // Prevent duplicate execution
+    setIsSubmitting(true);
     // --- PHASE 7: SUBMISSION AUDIT ---
     if (window.DEBUG_MODE) {
       console.log("[AUDIT:SUBMIT_START]", {
@@ -1343,9 +1353,10 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
                         next.splice(mIdx, 1);
                         setCustomFields({ ...customFields, [fieldId]: next });
                       }}
-                      style={{ position: 'absolute', top: '4px', right: '4px', width: '20px', height: '20px', borderRadius: '50%', background: 'rgba(0,0,0,0.5)', border: 'none', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                      style={{ position: 'absolute', top: '4px', right: '4px', width: '24px', height: '24px', borderRadius: '50%', background: 'rgba(0,0,0,0.6)', border: 'none', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 10 }}
+                      title="Remove Photo"
                     >
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                     </button>
                     <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'rgba(16,185,129,0.8)', color: 'white', fontSize: '8px', fontWeight: '900', textAlign: 'center', padding: '2px 0' }}>SAFE</div>
                   </div>
@@ -1353,13 +1364,26 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
 
                 {/* PROCESSING STATES AS THUMBNAILS */}
                 {processingUids.map(uid => (
-                  <div key={uid} style={{ flexShrink: 0, width: '100px', height: '100px', borderRadius: '16px', border: '1.5px dashed var(--primary-color)', background: 'rgba(var(--primary-rgb), 0.03)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                  <div key={uid} style={{ position: 'relative', flexShrink: 0, width: '100px', height: '100px', borderRadius: '16px', border: '1.5px dashed var(--primary-color)', background: 'rgba(var(--primary-rgb), 0.03)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px', overflow: 'hidden' }}>
                     {currentMediaMap[uid].preview ? (
                       <img src={currentMediaMap[uid].preview} style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.3 }} />
                     ) : (
                       <div className="loader-mini" style={{ width: '16px', height: '16px', border: '2px solid var(--primary-color)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }}></div>
                     )}
-                    <div style={{ position: 'absolute', fontSize: '8px', fontWeight: '900', color: 'var(--primary-color)', textTransform: 'uppercase' }}>{currentMediaMap[uid].status}</div>
+                    <button
+                      onClick={() => {
+                        setMediaStatus(prev => {
+                          const nextStatus = { ...(prev[fieldId] || {}) };
+                          delete nextStatus[uid];
+                          return { ...prev, [fieldId]: nextStatus };
+                        });
+                      }}
+                      style={{ position: 'absolute', top: '4px', right: '4px', width: '24px', height: '24px', borderRadius: '50%', background: 'rgba(239, 68, 68, 0.8)', border: 'none', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 10 }}
+                      title="Cancel Upload"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    </button>
+                    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, fontSize: '8px', fontWeight: '900', color: 'white', background: 'rgba(var(--primary-rgb), 0.8)', textTransform: 'uppercase', textAlign: 'center', padding: '2px 0' }}>{currentMediaMap[uid].status}</div>
                   </div>
                 ))}
 
@@ -1670,18 +1694,48 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
         const fieldId = item.id || key;
         return (
           <div style={{ background: 'white', borderRadius: '18px', border: '1px solid #E2E8F0', overflow: 'hidden' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 1fr', background: '#F8FAFC', padding: '14px', borderBottom: '1px solid #E2E8F0' }}>
-              <span style={{ fontSize: '10px', fontWeight: '900', color: '#64748B' }}>CRITERIA</span>
-              {[1, 2, 3, 4, 5].map(n => <span key={n} style={{ fontSize: '10px', fontWeight: '900', color: '#64748B', textAlign: 'center' }}>{n}</span>)}
+            <div style={{ 
+              display: 'grid', 
+              gridTemplateColumns: isMobile ? '1.2fr 1fr 1fr 1fr 1fr 1fr' : '2fr 1fr 1fr 1fr 1fr 1fr', 
+              background: '#F8FAFC', 
+              padding: isMobile ? '10px 8px' : '14px', 
+              borderBottom: '1px solid #E2E8F0' 
+            }}>
+              <span style={{ fontSize: isMobile ? '9px' : '10px', fontWeight: '900', color: '#64748B' }}>CRITERIA</span>
+              {[1, 2, 3, 4, 5].map(n => <span key={n} style={{ fontSize: isMobile ? '9px' : '10px', fontWeight: '900', color: '#64748B', textAlign: 'center' }}>{n}</span>)}
             </div>
             {(item.config?.criteria || []).map((c, cIdx) => (
-              <div key={cIdx} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 1fr', padding: '16px', borderBottom: cIdx === (item.config.criteria.length - 1) ? 'none' : '1px solid #F1F5F9', alignItems: 'center' }}>
-                <span style={{ fontSize: '13px', fontWeight: '700', color: '#1E293B' }}>{c}</span>
+              <div key={cIdx} style={{ 
+                display: 'grid', 
+                gridTemplateColumns: isMobile ? '1.2fr 1fr 1fr 1fr 1fr 1fr' : '2fr 1fr 1fr 1fr 1fr 1fr', 
+                padding: isMobile ? '12px 8px' : '16px', 
+                borderBottom: cIdx === (item.config.criteria.length - 1) ? 'none' : '1px solid #F1F5F9', 
+                alignItems: 'center' 
+              }}>
+                <span style={{ 
+                  fontSize: isMobile ? '11px' : '13px', 
+                  fontWeight: '700', 
+                  color: '#1E293B',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis'
+                }} title={c}>{c}</span>
                 {[1, 2, 3, 4, 5].map(n => {
                   const isSel = matrixRatings[fieldId]?.[c] === n;
                   return (
                     <div key={n} style={{ display: 'flex', justifyContent: 'center' }}>
-                      <button onClick={() => setMatrixRatings(prev => ({ ...prev, [fieldId]: { ...(prev[fieldId] || {}), [c]: n } }))} style={{ width: '26px', height: '26px', borderRadius: '8px', border: `2.5px solid ${isSel ? 'var(--primary-color)' : '#E2E8F0'}`, background: isSel ? 'var(--primary-color)' : 'white', cursor: 'pointer', transition: 'all 0.2s' }} />
+                      <button 
+                        onClick={() => setMatrixRatings(prev => ({ ...prev, [fieldId]: { ...(prev[fieldId] || {}), [c]: n } }))} 
+                        style={{ 
+                          width: isMobile ? '20px' : '26px', 
+                          height: isMobile ? '20px' : '26px', 
+                          borderRadius: '6px', 
+                          border: `2.5px solid ${isSel ? 'var(--primary-color)' : '#E2E8F0'}`, 
+                          background: isSel ? 'var(--primary-color)' : 'white', 
+                          cursor: 'pointer', 
+                          transition: 'all 0.2s' 
+                        }} 
+                      />
                     </div>
                   );
                 })}

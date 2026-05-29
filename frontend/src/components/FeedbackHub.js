@@ -1228,6 +1228,7 @@ const CommentModal = ({ item, currentUser, onClose, onShowToast, onRefreshProfil
   const [editCommentText, setEditCommentText] = useState("");
   const [replyingTo, setReplyingTo] = useState(null); // { id, name }
   const [itemMeta, setItemMeta] = useState(item);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   // expandedThreads managed via setExpandedThreads only
   // Expanded threads management removed (unused)
   const commentInputRef = useRef(null);
@@ -1261,7 +1262,8 @@ const CommentModal = ({ item, currentUser, onClose, onShowToast, onRefreshProfil
   }, [item, currentUser]);
 
   const handlePostComment = async () => {
-    if (!newComment.trim()) return;
+    if (!newComment.trim() || isSubmitting) return;
+    setIsSubmitting(true);
     try {
       await createFeedbackReply(item.id, {
         user_id: currentUser?.id || 1,
@@ -1277,6 +1279,8 @@ const CommentModal = ({ item, currentUser, onClose, onShowToast, onRefreshProfil
       if (typeof onRefreshProfile === 'function') onRefreshProfile();
     } catch (err) {
       onShowToast("Error posting comment", true);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -1585,9 +1589,18 @@ const CommentModal = ({ item, currentUser, onClose, onShowToast, onRefreshProfil
                 value={newComment}
                 onChange={(e) => setNewComment(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && handlePostComment()}
+                disabled={isSubmitting}
               />
-              <button style={{ ...styles.modalSendBtn, backgroundColor: 'var(--primary-color)' }} onClick={handlePostComment}>
-                Post
+              <button 
+                style={{ 
+                  ...styles.modalSendBtn, 
+                  backgroundColor: isSubmitting ? '#94A3B8' : 'var(--primary-color)',
+                  cursor: isSubmitting ? 'not-allowed' : 'pointer'
+                }} 
+                onClick={handlePostComment}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? "Posting..." : "Post"}
               </button>
             </div>
           ) : (
