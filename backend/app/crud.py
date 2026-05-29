@@ -38,6 +38,7 @@ def get_user_by_email(db: Session, email: str):
 
 def get_user_by_login_id(db: Session, login_id: str):
     if not login_id: return None
+    login_id = login_id.strip()
     from sqlalchemy import or_
     return db.query(models.User).options(
         joinedload(models.User.profile),
@@ -45,8 +46,8 @@ def get_user_by_login_id(db: Session, login_id: str):
         joinedload(models.User.module_context)
     ).filter(
         or_(
-            models.User.email.ilike(login_id),
-            models.User.username.ilike(login_id)
+            models.User._legacy_email.ilike(login_id),
+            models.User._legacy_username.ilike(login_id)
         )
     ).first()
 
