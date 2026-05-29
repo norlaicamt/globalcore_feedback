@@ -102,12 +102,13 @@ async def check_blacklist(token: str = Depends(oauth2_scheme)):
 # --- AUTH ---
 @app.post("/api/login", response_model=schemas.User)
 def login(email: str, password: str, db: Session = Depends(get_db)):
-    user = crud.get_user_by_login_id(db, login_id=email)
+    login_id = email.strip() if email else ""
+    user = crud.get_user_by_login_id(db, login_id=login_id)
     if not user:
-        raise HTTPException(status_code=404, detail="No existing account was detected.")
+        raise HTTPException(status_code=404, detail="No account found with that email or username.")
     
     if user.password != password:
-        raise HTTPException(status_code=401, detail="Incorrect password")
+        raise HTTPException(status_code=401, detail="Incorrect password. Please try again.")
     
     # Restrict administrative accounts from using the regular user login
     if user.role in ["admin", "superadmin"]:

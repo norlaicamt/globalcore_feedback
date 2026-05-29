@@ -30,7 +30,7 @@ const LoginPage = ({ onLoginSuccess }) => {
 
   React.useEffect(() => {
     if (error) setError(null);
-  }, [email, username, password, isSignUp]);
+  }, [email, username, password, isSignUp, error]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -62,13 +62,13 @@ const LoginPage = ({ onLoginSuccess }) => {
           },
         });
       } else {
-        const user = await login(email, password);
-        if (rememberMe) localStorage.setItem("remembered_user", email);
+        const user = await login(email.trim(), password);
+        if (rememberMe) localStorage.setItem("remembered_user", email.trim());
         else localStorage.removeItem("remembered_user");
         onLoginSuccess(user);
       }
     } catch (err) {
-      const msg = err.response?.data?.detail || (isSignUp ? "Account creation failed. Please try again." : "Invalid email or password. Please try again.");
+      const msg = err.response?.data?.detail || (isSignUp ? "Account creation failed. Please try again." : "Login failed. Check your email/username and password.");
       setError(msg);
       setAttempt(prev => prev + 1);
     } finally {
@@ -192,7 +192,7 @@ const LoginPage = ({ onLoginSuccess }) => {
 
               <div style={styles.inputGroup}>
                 <label style={styles.label}>{isSignUp ? "Email Address" : "Email or Username"}</label>
-                <input className="login-input" type={isSignUp ? "email" : "text"} placeholder="e.g. name@organization.com"
+                <input className="login-input" type={isSignUp ? "email" : "text"} placeholder={isSignUp ? "e.g. name@organization.com" : "Email or username"}
                   style={styles.input} value={email} onChange={e => setEmail(e.target.value)} required />
               </div>
 
