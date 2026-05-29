@@ -43,9 +43,9 @@ const LoginPage = ({ onLoginSuccess }) => {
     try {
       if (isSignUp) {
         if (!username.trim()) {
-           setError("Username is required for registration.");
-           setIsLoading(false);
-           return;
+          setError("Username is required for registration.");
+          setIsLoading(false);
+          return;
         }
         const newUser = { name: username, username: username, email, password };
         await axios.post(`${API_BASE}/api/users/`, newUser);
@@ -79,7 +79,7 @@ const LoginPage = ({ onLoginSuccess }) => {
   const Icons = {
     Eye: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>,
     EyeOff: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" /><line x1="1" y1="1" x2="23" y2="23" /></svg>,
-    Shield: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>,
+    Shield: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>,
     Zap: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563EB" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" /></svg>,
     Lock: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563EB" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>,
     Chart: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563EB" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>,
@@ -120,7 +120,7 @@ const LoginPage = ({ onLoginSuccess }) => {
                 <div>Real-Time Response Tracking</div>
               </div>
             </div>
-            
+
             <div style={{ ...styles.floatingBadge, top: '15%', right: '15%', animation: 'float 8s ease-in-out infinite' }}>
               <div style={styles.glassBadge}>
                 <div style={styles.badgeIcon}><Icons.Lock /></div>
@@ -210,7 +210,7 @@ const LoginPage = ({ onLoginSuccess }) => {
               {isSignUp && (
                 <div style={styles.inputGroup}>
                   <label style={styles.label}>Confirm Password</label>
-                  <div style={{ relative: 'relative' }}>
+                  <div style={{ position: 'relative' }}>
                     <input className="login-input" type={showConfirmPassword ? "text" : "password"} placeholder="••••••••"
                       style={{ ...styles.input, paddingRight: '44px' }} value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required />
                     <div onClick={() => setShowConfirmPassword(!showConfirmPassword)} style={styles.passwordToggle}>
@@ -233,7 +233,7 @@ const LoginPage = ({ onLoginSuccess }) => {
               {error && (
                 <div key={attempt} style={styles.errorBanner}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                    <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                    <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
                   </svg>
                   <span>{error}</span>
                 </div>
@@ -258,7 +258,7 @@ const LoginPage = ({ onLoginSuccess }) => {
               )}
             </div>
           </div>
-          
+
           <div style={styles.copyright}>
             © 2026 GlobalCore Intelligence • Secure Channel
           </div>
@@ -309,7 +309,7 @@ const getStyles = (isMobile) => ({
   logoBadgeBig: { width: "72px", height: "72px", borderRadius: "20px", background: "linear-gradient(135deg, #2563EB 0%, #3B82F6 100%)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 15px 35px rgba(37,99,235,0.3)", marginBottom: "32px", animation: "glow 4s infinite" },
   identityHeadline: { color: "white", fontSize: "56px", fontWeight: "900", letterSpacing: "-0.04em", lineHeight: "1", marginBottom: "20px" },
   identitySubtext: { color: "#94A3B8", fontSize: "18px", lineHeight: "1.6", fontWeight: "400", maxWidth: "440px" },
-  
+
   authSection: {
     flex: isMobile ? 1 : "0 0 560px",
     display: "flex",
@@ -325,7 +325,7 @@ const getStyles = (isMobile) => ({
   logoBadgeSmall: { width: "52px", height: "52px", borderRadius: "14px", background: "#2563EB", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px", boxShadow: "0 8px 20px rgba(37,99,235,0.2)" },
   mobileHeadline: { fontSize: "24px", fontWeight: "900", color: "#0F172A", marginBottom: "8px", letterSpacing: "-0.02em" },
   mobileSubtext: { fontSize: "14px", color: "#64748B", maxWidth: "260px", margin: "0 auto" },
-  
+
   formCard: { width: "100%", maxWidth: "420px", background: "white", padding: isMobile ? "28px 24px" : "48px 44px", borderRadius: "32px", boxShadow: isMobile ? "0 10px 40px rgba(0,0,0,0.05)" : "0 20px 60px -12px rgba(0,0,0,0.08)", border: "1px solid #E2E8F0", animation: "fadeUp 0.6s ease-out both" },
   cardHeader: { textAlign: "center", marginBottom: "32px" },
   cardTitle: { fontSize: "26px", fontWeight: "900", color: "#0F172A", marginBottom: "8px", letterSpacing: "-0.02em" },
@@ -339,7 +339,7 @@ const getStyles = (isMobile) => ({
   rememberMe: { display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", color: "#64748B", fontWeight: "600", cursor: "pointer" },
   checkbox: { width: "16px", height: "16px", accentColor: "#2563EB" },
   forgotLink: { fontSize: "13px", color: "#2563EB", fontWeight: "800", textDecoration: "none" },
-  submitBtn: { width: "100%", padding: "16px", background: "#2563EB", color: "white", borderRadius: "14px", border: "none", fontSize: "16px", fontWeight: "900", cursor: "pointer", boxShadow: "0 10px 25px -5px rgba(37,99,235,0.4)", transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)", marginTop: "8px" },
+  submitBtn: { width: "100%", padding: "16px", background: "#2563EB", color: "white", borderRadius: "14px", border: "none", fontSize: isMobile ? "14px" : "16px", fontWeight: "900", cursor: "pointer", boxShadow: "0 10px 25px -5px rgba(37,99,235,0.4)", transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)", marginTop: "8px" },
   errorBanner: { display: "flex", alignItems: "center", gap: "10px", color: "#B91C1C", fontSize: "13px", fontWeight: "700", animation: "shake 0.4s both", background: "rgba(185,28,28,0.05)", padding: "12px", borderRadius: "10px", border: "1px solid rgba(185,28,28,0.1)" },
   footer: { marginTop: "32px", textAlign: "center", borderTop: "1px solid #F1F5F9", paddingTop: "24px" },
   footerText: { fontSize: "14px", color: "#64748B", fontWeight: "600" },
