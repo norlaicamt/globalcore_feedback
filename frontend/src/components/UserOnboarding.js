@@ -3,6 +3,8 @@ import { updateUser, getDrafts, createDraft, updateDraft, deleteDraft } from "..
 import { useTerminology } from "../context/TerminologyContext";
 import { STORAGE_KEYS } from "../utils/storage";
 import { resolveMediaUrl } from "../utils/feedback";
+import "../styles/UserOnboarding.css";
+
 
 // Removed ROLE_OPTIONS as all users are now dynamic standard users
 const DRAFT_VERSION = 1;
@@ -281,93 +283,78 @@ const UserOnboarding = ({ currentUser, onBack, onComplete }) => {
   if (!currentUser) return null;
 
   return (
-    <div style={styles.wrap}>
-      <div style={styles.card}>
+    <div className="onboarding-wrap">
+      <div className="onboarding-card">
         {!isWelcome ? (
           <>
-            <div style={styles.header}>
+            <div className="onboarding-header">
               <button
                 onClick={onBack}
-                style={{
-                  position: 'absolute',
-                  top: '20px',
-                  right: '20px',
-                  background: 'rgba(0,0,0,0.03)',
-                  border: 'none',
-                  borderRadius: '50%',
-                  width: '32px',
-                  height: '32px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  color: '#64748B',
-                  transition: 'all 0.2s'
-                }}
+                className="onboarding-close-btn"
                 title="Close"
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
               </button>
-              <h2 style={styles.title}>Complete Your Profile</h2>
-              <p style={styles.sub}>{step === 1 ? "Basic Info" : "Community & Location"}</p>
+              <h2 className="onboarding-title">Complete Your Profile</h2>
+              <p className="onboarding-sub">{step === 1 ? "Basic Info" : "Community & Location"}</p>
             </div>
 
-            <div style={styles.body}>
+            <div className="onboarding-body">
               {restored && (
-                <div style={styles.restoredDraft}>
+                <div className="onboarding-restored-draft">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ marginRight: 8 }}>
                     <path d="M23 12a11 11 0 1 1-2.9-7.3L20 6V1h-5" />
                   </svg>
                   Your previous progress has been restored.
                 </div>
               )}
-              <div style={styles.progress}>
-                <div style={{ ...styles.progressFill, width: `${(step / 2) * 100}%` }} />
+              <div className="onboarding-progress">
+                <div className="onboarding-progress-fill" style={{ width: `${(step / 2) * 100}%` }} />
               </div>
 
               {step === 1 && (
                 <div style={{ animation: "fadeIn 0.3s ease-out" }}>
-                  <p style={styles.stepTitle}>Profile Setup</p>
+                  <p className="onboarding-step-title">Profile Setup</p>
 
                   {/* Identity Section */}
                   <div style={{ marginBottom: 24 }}>
-                    <p style={styles.sectionLabel}>Identity</p>
-                    <div style={styles.inputGroup}>
-                      <div style={{ flex: 1 }}>
-                        <p style={styles.fieldLabel}>First Name</p>
-                        <input style={styles.input} placeholder="e.g. Juan" value={form.firstName} onChange={(e) => setForm((p) => ({ ...p, firstName: e.target.value }))} />
+                    <p className="onboarding-section-label">Identity</p>
+                    <div className="onboarding-input-group">
+                      <div>
+                        <p className="onboarding-field-label">First Name</p>
+                        <input className="onboarding-input" placeholder="e.g. Juan" value={form.firstName} onChange={(e) => setForm((p) => ({ ...p, firstName: e.target.value }))} />
                       </div>
-                      <div style={{ flex: 1 }}>
-                        <p style={styles.fieldLabel}>Middle Name (Optional)</p>
-                        <input style={styles.input} placeholder="e.g. Santos" value={form.middleName} onChange={(e) => setForm((p) => ({ ...p, middleName: e.target.value }))} />
+                      <div>
+                        <p className="onboarding-field-label">Middle Name (Optional)</p>
+                        <input className="onboarding-input" placeholder="e.g. Santos" value={form.middleName} onChange={(e) => setForm((p) => ({ ...p, middleName: e.target.value }))} />
                       </div>
                     </div>
-                    <div style={{ ...styles.inputGroupFull, marginTop: 12 }}>
-                      <p style={styles.fieldLabel}>Last Name</p>
-                      <input style={styles.input} placeholder="e.g. Dela Cruz" value={form.lastName} onChange={(e) => setForm((p) => ({ ...p, lastName: e.target.value }))} />
+                    <div className="onboarding-input-group-full" style={{ marginTop: 12 }}>
+                      <p className="onboarding-field-label">Last Name</p>
+                      <input className="onboarding-input" placeholder="e.g. Dela Cruz" value={form.lastName} onChange={(e) => setForm((p) => ({ ...p, lastName: e.target.value }))} />
                     </div>
                   </div>
 
                   {/* Personal Information Section */}
-                  <div style={styles.optionalBox}>
-                    <p style={styles.sectionLabel}>Personal Information</p>
-                    <div style={styles.inputGroupFull}>
-                      <p style={styles.fieldLabel}>Date of Birth</p>
-                      <input type="date" style={styles.input} value={form.birthdate} onChange={(e) => setForm((p) => ({ ...p, birthdate: e.target.value }))} />
+                  <div className="onboarding-optional-box">
+                    <p className="onboarding-section-label">Personal Information</p>
+                    <div className="onboarding-input-group-full">
+                      <p className="onboarding-field-label">Date of Birth</p>
+                      <input type="date" className="onboarding-input" value={form.birthdate} onChange={(e) => setForm((p) => ({ ...p, birthdate: e.target.value }))} />
                     </div>
 
-                    <div style={styles.inputGroup}>
-                      <div style={{ flex: 1 }}>
-                        <p style={styles.fieldLabel}>Citizenship</p>
-                        <select style={styles.input} value={form.citizenship} onChange={(e) => setForm((p) => ({ ...p, citizenship: e.target.value }))}>
+                    <div className="onboarding-input-group">
+                      <div>
+                        <p className="onboarding-field-label">Citizenship</p>
+                        <select className="onboarding-input" value={form.citizenship} onChange={(e) => setForm((p) => ({ ...p, citizenship: e.target.value }))}>
                           <option value="Filipino">Filipino</option>
                           <option value="Dual Citizen">Dual Citizen</option>
                           <option value="Foreign National">Foreign National</option>
                         </select>
                       </div>
-                      <div style={{ flex: 1 }}>
-                        <p style={styles.fieldLabel}>Marital Status</p>
-                        <select style={styles.input} value={form.marital_status} onChange={(e) => setForm((p) => ({ ...p, marital_status: e.target.value }))}>
+                      <div>
+                        <p className="onboarding-field-label">Marital Status</p>
+                        <select className="onboarding-input" value={form.marital_status} onChange={(e) => setForm((p) => ({ ...p, marital_status: e.target.value }))}>
                           <option value="Single">Single</option>
                           <option value="Married">Married</option>
                           <option value="Widowed">Widowed</option>
@@ -381,10 +368,10 @@ const UserOnboarding = ({ currentUser, onBack, onComplete }) => {
 
                   {/* Contact Section */}
                   <div style={{ marginBottom: 12 }}>
-                    <p style={styles.sectionLabel}>Contact</p>
-                    <div style={styles.inputGroupFull}>
-                      <p style={styles.fieldLabel}>Contact Number</p>
-                      <input style={styles.input} placeholder="+63 9xx xxx xxxx" value={form.phone} onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} />
+                    <p className="onboarding-section-label">Contact</p>
+                    <div className="onboarding-input-group-full">
+                      <p className="onboarding-field-label">Contact Number</p>
+                      <input className="onboarding-input" placeholder="+63 9xx xxx xxxx" value={form.phone} onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} />
                     </div>
                   </div>
                 </div>
@@ -392,75 +379,75 @@ const UserOnboarding = ({ currentUser, onBack, onComplete }) => {
 
               {step === 2 && (
                 <div style={{ animation: "fadeIn 0.3s ease-out" }}>
-                  <p style={styles.stepTitle}>Step 2: Location & Finalization</p>
+                  <p className="onboarding-step-title">Step 2: Location & Finalization</p>
 
-                  <div style={styles.optionalBox}>
+                  <div className="onboarding-optional-box">
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                      <p style={styles.sectionLabel}>Profile Picture</p>
-                      <span style={styles.badgeOptional}>Optional</span>
+                      <p className="onboarding-section-label">Profile Picture</p>
+                      <span className="onboarding-badge-optional">Optional</span>
                     </div>
-                    <div style={styles.uploadBox}>
+                    <div className="onboarding-upload-box">
                       <input type="file" accept="image/*" onChange={(e) => handlePhotoUpload(e, "avatar_url")} style={{ fontSize: 12 }} />
                       {form.avatar_url && (
-                        <img src={resolveMediaUrl(form.avatar_url)} alt="profile" style={styles.avatarPreview} />
+                        <img src={resolveMediaUrl(form.avatar_url)} alt="profile" className="onboarding-avatar-preview" />
                       )}
                     </div>
                   </div>
 
                   <div style={{ marginTop: 8 }}>
-                    <p style={styles.sectionLabel}>Village / Community Location</p>
-                    <div style={styles.locationGrid}>
+                    <p className="onboarding-section-label">Village / Community Location</p>
+                    <div className="onboarding-location-grid">
                       <div>
-                        <p style={styles.fieldLabel}>Region</p>
-                        <select style={styles.input} value={form.region} onChange={(e) => setForm((p) => ({ ...p, region: e.target.value, province: "", city: "", barangay: "" }))}>
+                        <p className="onboarding-field-label">Region</p>
+                        <select className="onboarding-input" value={form.region} onChange={(e) => setForm((p) => ({ ...p, region: e.target.value, province: "", city: "", barangay: "" }))}>
                           <option value="">Select Region</option>
                           {regionList.map((r) => <option key={r} value={r}>{r}</option>)}
                         </select>
                       </div>
                       <div>
-                        <p style={styles.fieldLabel}>Province</p>
-                        <select style={styles.input} value={form.province} onChange={(e) => setForm((p) => ({ ...p, province: e.target.value, city: "", barangay: "" }))} disabled={!form.region}>
+                        <p className="onboarding-field-label">Province</p>
+                        <select className="onboarding-input" value={form.province} onChange={(e) => setForm((p) => ({ ...p, province: e.target.value, city: "", barangay: "" }))} disabled={!form.region}>
                           <option value="">Select Province</option>
                           {provinceList.map((p) => <option key={p} value={p}>{p}</option>)}
                         </select>
                       </div>
                     </div>
 
-                    <div style={{ ...styles.locationGrid, marginTop: 12 }}>
+                    <div className="onboarding-location-grid" style={{ marginTop: 12 }}>
                       <div>
-                        <p style={styles.fieldLabel}>City / Municipality</p>
-                        <select style={styles.input} value={form.city} onChange={(e) => setForm((p) => ({ ...p, city: e.target.value, barangay: "" }))} disabled={!form.province}>
+                        <p className="onboarding-field-label">City / Municipality</p>
+                        <select className="onboarding-input" value={form.city} onChange={(e) => setForm((p) => ({ ...p, city: e.target.value, barangay: "" }))} disabled={!form.province}>
                           <option value="">Select City</option>
                           {cityList.map((c) => <option key={c} value={c}>{c}</option>)}
                         </select>
                       </div>
                       <div>
-                        <p style={styles.fieldLabel}>Barangay</p>
-                        <select style={styles.input} value={form.barangay} onChange={(e) => setForm((p) => ({ ...p, barangay: e.target.value }))} disabled={!form.city || isLoadingLocations}>
+                        <p className="onboarding-field-label">Barangay</p>
+                        <select className="onboarding-input" value={form.barangay} onChange={(e) => setForm((p) => ({ ...p, barangay: e.target.value }))} disabled={!form.city || isLoadingLocations}>
                           <option value="">{isLoadingLocations ? "..." : "Select Barangay"}</option>
                           {barangayList.map((b) => <option key={b} value={b}>{b}</option>)}
                         </select>
                       </div>
                     </div>
                     <div style={{ marginTop: 12 }}>
-                      <p style={styles.fieldLabel}>Lot / Block / House No. / Street</p>
-                      <input style={styles.input} placeholder="Exact residence address" value={form.exact_address} onChange={(e) => setForm((p) => ({ ...p, exact_address: e.target.value }))} />
+                      <p className="onboarding-field-label">Lot / Block / House No. / Street</p>
+                      <input className="onboarding-input" placeholder="Exact residence address" value={form.exact_address} onChange={(e) => setForm((p) => ({ ...p, exact_address: e.target.value }))} />
                     </div>
                   </div>
                 </div>
               )}
 
-              <div style={styles.actions}>
-                <div style={{ display: "flex", flexDirection: "column", gap: "8px", width: "100%" }}>
+              <div className="onboarding-actions">
+                <div className="onboarding-btn-container">
                   {showErrors && !canNext && (
-                    <p style={styles.warning}>
+                    <p className="onboarding-warning">
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" style={{ marginRight: 6 }}>
                         <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
                       </svg>
                       {getMissingFields()[0]}
                     </p>
                   )}
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                  <div className="onboarding-btn-row">
                     <button
                       type="button"
                       onClick={() => {
@@ -469,7 +456,7 @@ const UserOnboarding = ({ currentUser, onBack, onComplete }) => {
                         setShowErrors(false);
                       }}
                       disabled={saving}
-                      style={styles.secondaryBtn}
+                      className="onboarding-secondary-btn"
                     >
                       Back
                     </button>
@@ -482,7 +469,7 @@ const UserOnboarding = ({ currentUser, onBack, onComplete }) => {
                             setShowErrors(false);
                           } else setShowErrors(true);
                         }}
-                        style={styles.primaryBtn}
+                        className="onboarding-primary-btn"
                       >
                         Next Step
                       </button>
@@ -494,7 +481,7 @@ const UserOnboarding = ({ currentUser, onBack, onComplete }) => {
                           else setShowErrors(true);
                         }}
                         disabled={saving}
-                        style={styles.primaryBtn}
+                        className="onboarding-primary-btn"
                       >
                         {saving ? "Creating Profile..." : "Complete Setup"}
                       </button>
@@ -505,16 +492,16 @@ const UserOnboarding = ({ currentUser, onBack, onComplete }) => {
             </div>
           </>
         ) : (
-          <div style={styles.welcomeWrap}>
-            <div style={styles.welcomeTick}>
+          <div className="onboarding-welcome-wrap">
+            <div className="onboarding-welcome-tick">
               <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="20 6 9 17 4 12" />
               </svg>
             </div>
-            <h2 style={styles.welcomeTitle}>Welcome aboard, {form.firstName} {form.lastName}!</h2>
-            <p style={styles.welcomeSub}>Your professional workspace is ready. Let's start making an impact together.</p>
+            <h2 className="onboarding-welcome-title">Welcome aboard, {form.firstName} {form.lastName}!</h2>
+            <p className="onboarding-welcome-sub">Your professional workspace is ready. Let's start making an impact together.</p>
             <button
-              style={styles.welcomeBtn}
+              className="onboarding-welcome-btn"
               onClick={() => {
                 // The saveOnboarding already updated localStorage, but we ensure final state is pushed
                 const updated = JSON.parse(localStorage.getItem(STORAGE_KEYS.USER_CURRENT));
@@ -528,99 +515,9 @@ const UserOnboarding = ({ currentUser, onBack, onComplete }) => {
       </div>
     </div>
   );
+
 };
 
-const styles = {
-  wrap: {
-    minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center",
-    background: `
-      radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.15) 0px, transparent 50%),
-      radial-gradient(at 100% 0%, rgba(139, 92, 246, 0.1) 0px, transparent 50%),
-      radial-gradient(at 100% 100%, rgba(236, 72, 153, 0.05) 0px, transparent 50%),
-      radial-gradient(at 0% 100%, rgba(34, 197, 94, 0.05) 0px, transparent 50%),
-      #F8FAFC
-    `,
-    padding: 20
-  },
-  card: {
-    width: "100%", maxWidth: 680,
-    background: "rgba(255, 255, 255, 0.8)",
-    backdropFilter: 'blur(20px)',
-    border: "1px solid rgba(255, 255, 255, 0.5)",
-    borderRadius: 32, padding: 0,
-    boxShadow: "0 40px 80px -15px rgba(0,0,0,0.15), inset 0 0 0 1px rgba(255, 255, 255, 0.5)",
-    overflow: "hidden"
-  },
-  header: {
-    padding: "40px 32px 24px",
-    textAlign: "center"
-  },
-  body: { padding: "0 40px 40px" },
-  title: { margin: 0, color: "#0F172A", fontSize: 24, fontWeight: 900, letterSpacing: "-0.03em" },
-  sub: { marginTop: 8, color: "var(--primary-color)", fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: "1.5px" },
-  warning: {
-    display: "flex", alignItems: "center", justifyContent: "center",
-    background: "rgba(239, 68, 68, 0.05)", color: "#EF4444", padding: "14px 20px", borderRadius: "16px",
-    fontSize: "13px", fontWeight: "700", border: "1px solid rgba(239, 68, 68, 0.1)", margin: "10px 0 24px"
-  },
-  restoredDraft: {
-    display: 'flex', alignItems: 'center', background: "rgba(var(--primary-rgb), 0.05)", color: "var(--primary-color)",
-    padding: "12px 20px", borderRadius: "16px", fontSize: "12px", fontWeight: "700",
-    border: "1px solid rgba(var(--primary-rgb), 0.1)", marginBottom: 24, animation: 'fadeIn 0.3s ease-out'
-  },
-  progress: { height: 8, background: "rgba(0,0,0,0.03)", borderRadius: 99, overflow: "hidden", margin: "0 0 40px" },
-  progressFill: { height: "100%", background: "linear-gradient(90deg, var(--primary-color), #6366F1)", boxShadow: "0 0 12px rgba(var(--primary-rgb), 0.3)", transition: "width 0.6s cubic-bezier(0.16, 1, 0.3, 1)" },
-  stepTitle: { fontWeight: 900, fontSize: 14, color: "#0F172A", textTransform: "uppercase", letterSpacing: "1px", marginBottom: 24, display: 'block' },
-  inputGroup: { display: "flex", gap: 20, marginTop: 20 },
-  inputGroupFull: { display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 },
-  fieldLabel: { fontSize: '10px', color: "#94A3B8", fontWeight: 800, textTransform: "uppercase", letterSpacing: "1px", paddingLeft: 4, marginBottom: 4 },
-  sectionLabel: { fontSize: 15, color: "#0F172A", fontWeight: 900, marginBottom: 20 },
-  input: {
-    width: "100%", padding: "14px 18px",
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-    border: "1.5px solid rgba(0,0,0,0.05)",
-    borderRadius: 16, fontSize: 15, boxSizing: "border-box", outline: "none",
-    transition: "all 0.2s",
-    color: "#1E293B", fontWeight: 600,
-    boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
-  },
-  optionalBox: {
-    background: "rgba(0,0,0,0.02)", padding: 24, borderRadius: 24, border: "1px solid rgba(0,0,0,0.03)", marginBottom: 24
-  },
-  badgeOptional: {
-    padding: "6px 12px", background: "rgba(0,0,0,0.05)", color: "#64748B", borderRadius: "20px", fontSize: "10px", fontWeight: "800", textTransform: "uppercase", letterSpacing: '0.5px'
-  },
-  locationGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 },
-  uploadBox: {
-    display: "flex", alignItems: "center", justifyContent: "space-between",
-    padding: "16px", border: "2px dashed rgba(0,0,0,0.1)", borderRadius: 16, background: "rgba(255,255,255,0.5)"
-  },
-  avatarPreview: { width: 56, height: 56, objectFit: "cover", borderRadius: "18px", border: "2px solid #fff", boxShadow: "0 8px 16px rgba(0,0,0,0.1)" },
-  actions: { marginTop: 40, display: "flex", justifyContent: "space-between", gap: 16 },
-  primaryBtn: {
-    flex: 2, background: "linear-gradient(135deg, var(--primary-color), #4F46E5)", color: "#fff", border: "none", borderRadius: 16,
-    padding: "16px 24px", cursor: "pointer", fontWeight: 800, fontSize: 15,
-    boxShadow: "0 12px 24px rgba(var(--primary-rgb), 0.25)", transition: "all 0.3s cubic-bezier(0.16, 1, 0.3, 1)"
-  },
-  secondaryBtn: {
-    flex: 1, background: "rgba(255, 255, 255, 0.8)", color: "#64748B", border: "1.5px solid rgba(0,0,0,0.05)",
-    borderRadius: 16, padding: "16px 24px", cursor: "pointer", fontWeight: 700, fontSize: 15, transition: 'all 0.2s'
-  },
-  // Welcome Screen
-  welcomeWrap: { padding: "80px 40px", textAlign: "center", animation: "fadeIn 0.8s ease-out" },
-  welcomeTick: {
-    width: 96, height: 96, background: "linear-gradient(135deg, #10B981, #059669)", borderRadius: "32px",
-    display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 40px",
-    boxShadow: "0 24px 48px rgba(16, 185, 129, 0.3)",
-    transform: 'rotate(-5deg)'
-  },
-  welcomeTitle: { fontSize: 28, fontWeight: 900, color: "#0F172A", marginBottom: 16, letterSpacing: "-0.04em" },
-  welcomeSub: { fontSize: 15, color: "#64748B", fontWeight: 500, lineHeight: 1.6, maxWidth: 380, margin: "0 auto 40px" },
-  welcomeBtn: {
-    background: "linear-gradient(135deg, var(--primary-color), #4F46E5)", color: "#fff", border: "none", borderRadius: 18,
-    padding: "18px 48px", cursor: "pointer", fontWeight: 800, fontSize: 15,
-    boxShadow: "0 16px 32px rgba(var(--primary-rgb), 0.3)", transition: 'all 0.3s'
-  }
-};
+
 
 export default UserOnboarding;
