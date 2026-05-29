@@ -12,6 +12,7 @@ import GeneralFeedback from "./components/GeneralFeedback";
 import { LightboxProvider } from "./context/LightboxContext";
 import PhotoLightbox from "./components/PhotoLightbox";
 import ErrorBoundary from "./components/ErrorBoundary";
+import InstallPrompt from "./components/InstallPrompt";
 
 import { STORAGE_KEYS } from "./utils/storage";
 import { logoutUser, logoutAdmin } from "./utils/auth";
@@ -80,6 +81,7 @@ function App() {
     <ErrorBoundary>
       <TerminologyProvider>
         <LightboxProvider>
+          <InstallPrompt />
           <Router>
             <div className="App">
               <Routes>
