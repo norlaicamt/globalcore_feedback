@@ -4,7 +4,7 @@ from app import models
 from app import schemas
 import asyncio
 from typing import Optional, List
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from app.utils.media import save_base64_image
 
 def create_audit_log(db: Session, action_type: str, performed_by_id: int, target_id: str = None, details: dict = None):
@@ -1072,6 +1072,22 @@ def create_feedback(db: Session, feedback: schemas.FeedbackCreate):
             # Strictly anonymous fallback
             data["identity_match_type"] = "anonymous"
 
+    # 2.5 Duplicate Check (Throttled)
+    if data.get("sender_id"):
+        dupe_window = datetime.now(timezone.utc) - timedelta(seconds=60)
+        existing_feedback = db.query(models.Feedback).filter(
+            models.Feedback.sender_id == data.get("sender_id"),
+            models.Feedback.entity_id == data.get("entity_id"),
+            models.Feedback.description == data.get("description"),
+            models.Feedback.rating == data.get("rating"),
+            models.Feedback.created_at >= dupe_window
+        ).first()
+        
+        if existing_feedback:
+            # [AUDIT:DUPLICATE_PREVENTED]
+            print(f"[AUDIT:DUPLICATE_PREVENTED] sender_id={data.get('sender_id')} entity_id={data.get('entity_id')}")
+            return existing_feedback
+
     # 3. Branch Validation & Snapshot logic
     branch_id = data.get("branch_id")
     entity_id = data.get("entity_id")
@@ -1252,6 +1268,22 @@ def get_replies_for_feedback(db: Session, feedback_id: int, current_user_id: int
     return replies
 
 def create_reply(db: Session, reply: schemas.ReplyCreate):
+    # 0. Duplicate Check (60s Window)
+    from datetime import timedelta
+    dupe_window = datetime.now(timezone.utc) - timedelta(seconds=60)
+    existing_reply = db.query(models.Reply).filter(
+        models.Reply.feedback_id == reply.feedback_id,
+        models.Reply.user_id == reply.user_id,
+        models.Reply.message == reply.message,
+        models.Reply.parent_id == reply.parent_id,
+        models.Reply.created_at >= dupe_window
+    ).first()
+    
+    if existing_reply:
+        # [AUDIT:DUPLICATE_REPLY_PREVENTED]
+        print(f"[AUDIT:DUPLICATE_REPLY_PREVENTED] user_id={reply.user_id} feedback_id={reply.feedback_id} parent_id={reply.parent_id}")
+        return existing_reply
+
     db_reply = models.Reply(
         feedback_id=reply.feedback_id,
         user_id=reply.user_id,
