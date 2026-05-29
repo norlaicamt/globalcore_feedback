@@ -964,9 +964,34 @@ const PrivacyView = ({ currentUser, onUserUpdate, showToast, onLogout }) => {
                             {!currentUser.pending_email ? (
                                 <button
                                     onClick={() => setEmailModalOpen(true)}
-                                    onMouseLeave={e => e.currentTarget.style.backgroundColor = '#1E293B'}
+                                    aria-label="Edit Email"
+                                    className="settings-icon-button"
+                                    style={{
+                                        position: 'absolute',
+                                        top: '16px',
+                                        right: '16px',
+                                        background: 'transparent',
+                                        border: 'none',
+                                        color: '#1E293B',
+                                        padding: '8px',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        transition: 'all 0.2s ease',
+                                        zIndex: 10
+                                    }}
+                                    onMouseEnter={e => {
+                                        e.currentTarget.style.backgroundColor = '#F1F5F9';
+                                        e.currentTarget.style.color = 'var(--primary-color)';
+                                    }}
+                                    onMouseLeave={e => {
+                                        e.currentTarget.style.backgroundColor = 'transparent';
+                                        e.currentTarget.style.color = '#1E293B';
+                                    }}
                                 >
-                                    Change
+                                    <Icons.Edit />
                                 </button>
                             ) : (
                                 <div style={{ display: 'flex', gap: '8px' }}>
@@ -1062,24 +1087,34 @@ const PrivacyView = ({ currentUser, onUserUpdate, showToast, onLogout }) => {
                             {!currentUser.pending_phone ? (
                                 <button
                                     onClick={() => setPhoneModalOpen(true)}
+                                    aria-label="Edit Contact Number"
+                                    className="settings-icon-button"
                                     style={{
-                                        backgroundColor: '#1E293B',
-                                        color: 'white',
+                                        position: 'absolute',
+                                        top: '16px',
+                                        right: '16px',
+                                        background: 'transparent',
                                         border: 'none',
-                                        borderRadius: '10px',
-                                        padding: '8px 16px',
-                                        fontSize: '12px',
-                                        fontWeight: '700',
+                                        color: '#1E293B',
+                                        padding: '8px',
+                                        borderRadius: '8px',
                                         cursor: 'pointer',
-                                        transition: 'background-color 0.2s',
                                         display: 'flex',
                                         alignItems: 'center',
-                                        gap: '6px'
+                                        justifyContent: 'center',
+                                        transition: 'all 0.2s ease',
+                                        zIndex: 10
                                     }}
-                                    onMouseEnter={e => e.currentTarget.style.backgroundColor = '#334155'}
-                                    onMouseLeave={e => e.currentTarget.style.backgroundColor = '#1E293B'}
+                                    onMouseEnter={e => {
+                                        e.currentTarget.style.backgroundColor = '#F1F5F9';
+                                        e.currentTarget.style.color = 'var(--primary-color)';
+                                    }}
+                                    onMouseLeave={e => {
+                                        e.currentTarget.style.backgroundColor = 'transparent';
+                                        e.currentTarget.style.color = '#1E293B';
+                                    }}
                                 >
-                                    Change
+                                    <Icons.Edit />
                                 </button>
                             ) : (
                                 <div style={{ display: 'flex', gap: '8px' }}>
