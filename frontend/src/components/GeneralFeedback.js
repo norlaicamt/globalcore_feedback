@@ -466,14 +466,7 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
       case 'abstract':
       default:
         return {
-          background: `
-            radial-gradient(at 0% 0%, ${p08} 0px, transparent 50%),
-            radial-gradient(at 100% 0%, rgba(59, 130, 246, 0.05) 0px, transparent 50%),
-            radial-gradient(at 100% 100%, ${p12} 0px, transparent 50%),
-            radial-gradient(at 0% 100%, rgba(59, 130, 246, 0.03) 0px, transparent 50%),
-            radial-gradient(at 50% 50%, rgba(255, 255, 255, 0.5) 0px, transparent 80%),
-            #F8FAFC
-          `
+          background: '#F8FAFC'
         };
     }
   }, [primaryColor, bgStyle]);

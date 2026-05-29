@@ -109,10 +109,6 @@ const LoginPage = ({ onLoginSuccess }) => {
       <div style={styles.mainWrapper}>
         {!isMobile && (
           <div style={styles.identitySection}>
-            <div style={styles.gradientSphere1} />
-            <div style={styles.gradientSphere2} />
-            <div style={styles.gridOverlay} />
-            
             <svg style={styles.networkLines} width="100%" height="100%" opacity="0.1">
               <path d="M0,100 Q200,50 400,100 T800,100" stroke="#3B82F6" strokeWidth="1" fill="none" />
               <path d="M0,400 Q200,450 400,400 T800,400" stroke="#3B82F6" strokeWidth="1" fill="none" />
@@ -305,9 +301,6 @@ const getStyles = (isMobile) => ({
     padding: "60px",
     overflow: "hidden",
   },
-  gradientSphere1: { position: "absolute", top: "10%", left: "10%", width: "400px", height: "400px", background: "radial-gradient(circle, rgba(37,99,235,0.15) 0%, transparent 70%)", animation: "glow 10s infinite", pointerEvents: "none" },
-  gradientSphere2: { position: "absolute", bottom: "10%", right: "10%", width: "450px", height: "450px", background: "radial-gradient(circle, rgba(30,58,138,0.2) 0%, transparent 70%)", animation: "glow 12s infinite alternate", pointerEvents: "none" },
-  gridOverlay: { position: "absolute", inset: 0, backgroundImage: "radial-gradient(rgba(255,255,255,0.03) 1px, transparent 1px)", backgroundSize: "40px 40px", opacity: 0.5 },
   networkLines: { position: "absolute", inset: 0, zIndex: 1 },
   floatingBadge: { position: "absolute", zIndex: 5, pointerEvents: "none" },
   glassBadge: { padding: "12px 20px", background: "rgba(255,255,255,0.03)", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "100px", color: "white", fontSize: "12px", fontWeight: "600", display: "flex", alignItems: "center", gap: "10px", boxShadow: "0 10px 30px rgba(0,0,0,0.2)" },

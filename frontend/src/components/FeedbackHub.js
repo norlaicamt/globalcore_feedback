@@ -2529,13 +2529,7 @@ const styles = {
   notifList: { flex: 1, padding: '10px' },
   reportOverlay: {
     position: 'fixed', inset: 0,
-    background: `
-      radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.2) 0px, transparent 50%),
-      radial-gradient(at 100% 0%, rgba(139, 92, 246, 0.15) 0px, transparent 50%),
-      radial-gradient(at 100% 100%, rgba(236, 72, 153, 0.1) 0px, transparent 50%),
-      radial-gradient(at 0% 100%, rgba(34, 197, 94, 0.1) 0px, transparent 50%),
-      rgba(15, 23, 42, 0.6)
-    `,
+    background: 'rgba(15, 23, 42, 0.6)',
     zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center',
     backdropFilter: 'blur(8px)', padding: '20px',
     animation: 'fadeIn 0.25s ease-out'
