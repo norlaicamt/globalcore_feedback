@@ -1696,7 +1696,7 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
           <div style={{ background: 'white', borderRadius: '18px', border: '1px solid #E2E8F0', overflow: 'hidden' }}>
             <div style={{ 
               display: 'grid', 
-              gridTemplateColumns: isMobile ? '2.5fr repeat(5, 1fr)' : '2.5fr repeat(5, 1fr)', 
+              gridTemplateColumns: isMobile ? '1fr repeat(5, 22px)' : '2.5fr repeat(5, 1fr)', 
               background: '#F8FAFC', 
               padding: isMobile ? '10px 8px' : '14px', 
               borderBottom: '1px solid #E2E8F0' 
@@ -1707,18 +1707,20 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
             {(item.config?.criteria || []).map((c, cIdx) => (
               <div key={cIdx} style={{ 
                 display: 'grid', 
-                gridTemplateColumns: isMobile ? '2.5fr repeat(5, 1fr)' : '2.5fr repeat(5, 1fr)', 
-                padding: isMobile ? '12px 6px' : '16px', 
+                gridTemplateColumns: isMobile ? '1fr repeat(5, 22px)' : '2.5fr repeat(5, 1fr)', 
+                padding: isMobile ? '10px 6px' : '16px', 
                 borderBottom: cIdx === (item.config.criteria.length - 1) ? 'none' : '1px solid #F1F5F9', 
                 alignItems: 'center' 
               }}>
                 <span style={{ 
-                  fontSize: isMobile ? '11px' : '13px', 
+                  fontSize: isMobile ? '10px' : '13px', 
                   fontWeight: '700', 
                   color: '#1E293B',
-                  whiteSpace: isMobile ? 'normal' : 'nowrap',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
                   lineHeight: '1.2',
-                  paddingRight: isMobile ? '4px' : '0'
+                  paddingRight: isMobile ? '2px' : '0'
                 }} title={c}>{c}</span>
                 {[1, 2, 3, 4, 5].map(n => {
                   const isSel = matrixRatings[fieldId]?.[c] === n;
@@ -1727,8 +1729,8 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
                       <button 
                         onClick={() => setMatrixRatings(prev => ({ ...prev, [fieldId]: { ...(prev[fieldId] || {}), [c]: n } }))} 
                         style={{ 
-                          width: isMobile ? '18px' : '26px', 
-                          height: isMobile ? '18px' : '26px', 
+                          width: isMobile ? '16px' : '26px', 
+                          height: isMobile ? '16px' : '26px', 
                           borderRadius: '6px', 
                           border: `2.5px solid ${isSel ? 'var(--primary-color)' : '#E2E8F0'}`, 
                           background: isSel ? 'var(--primary-color)' : 'white', 
