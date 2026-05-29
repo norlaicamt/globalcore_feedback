@@ -107,19 +107,51 @@ def login(email: str, password: str, db: Session = Depends(get_db)):
     if not user:
         raise HTTPException(status_code=404, detail="No account found with that email or username.")
     
-    if user.password != password:
+    # Password Check - Fallback to legacy column if proxy is None
+    effective_password = user.password if user.password is not None else user._legacy_password
+    if effective_password != password:
         raise HTTPException(status_code=401, detail="Incorrect password. Please try again.")
     
-    # Restrict administrative accounts from using the regular user login
-    if user.role in ["admin", "superadmin"]:
+    # Role Check - Fallback to legacy column if proxy is None
+    effective_role = user.role if user.role is not None else user._legacy_role
+    if effective_role in ["admin", "superadmin"]:
         raise HTTPException(
             status_code=403, 
             detail="Administrative accounts must log in through the Administrator Portal (/admin)."
         )
     
-    # Update tracking fields
-    user.last_login = datetime.now(timezone.utc)
-    user.last_seen = datetime.now(timezone.utc)
+    # Ensure missing sub-models are created for existing users (normalization recovery)
+    modified = False
+    if not user.profile:
+        user.profile = models.UserProfile(
+            user_id=user.id,
+            email=user._legacy_email,
+            first_name=user._legacy_first_name,
+            last_name=user._legacy_last_name,
+            phone=user._legacy_phone
+        )
+        modified = True
+    if not user.settings:
+        user.settings = models.UserSetting(user_id=user.id)
+        modified = True
+    if not user.module_context:
+        user.module_context = models.UserModuleContext(
+            user_id=user.id,
+            username=user._legacy_username,
+            password=user._legacy_password,
+            role=user._legacy_role or "user",
+            onboarding_completed=True # Assume legacy users already finished onboarding
+        )
+        modified = True
+
+    # Update tracking fields - Use legacy fallbacks
+    now = datetime.now(timezone.utc)
+    try:
+        user.last_login = now
+        user.last_seen = now
+    except Exception:
+        # If proxies fail, update legacy columns directly
+        user._legacy_last_seen = now
     
     db.commit()
     db.refresh(user)
