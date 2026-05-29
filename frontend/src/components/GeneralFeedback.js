@@ -265,7 +265,7 @@ const GeneralFeedback = React.memo(({ currentUser, onBack, onSuccess, onSaveDraf
         const uploadFile = async (f, isThumb = false) => {
           const formData = new FormData();
           formData.append('file', f);
-          const response = await fetch(`${API_BASE}/feedbacks/upload`, {
+          const response = await fetch(`${API_BASE}/api/feedbacks/upload`, {
 
             method: 'POST',
             body: formData,
