@@ -145,21 +145,31 @@ function App() {
                   ) : (
                     <LoginPage
                       onLoginSuccess={(user) => {
+                        console.log("Login success, updating state:", user?.id);
+                        // Trigger state update FIRST to ensure UI transition
+                        setCurrentUser(user);
+
+                        // Then handle persistence as a background task
                         const userForStorage = { ...user };
-                        if (userForStorage.avatar_url && userForStorage.avatar_url.length > 100000) {
+                        if (userForStorage.avatar_url && userForStorage.avatar_url.length > 50000) {
                           delete userForStorage.avatar_url;
                         }
-                        if (userForStorage.id_photo_url && userForStorage.id_photo_url.length > 100000) {
+                        if (userForStorage.id_photo_url && userForStorage.id_photo_url.length > 50000) {
                           delete userForStorage.id_photo_url;
                         }
+                        
                         try {
                           localStorage.setItem(STORAGE_KEYS.USER_CURRENT, JSON.stringify(userForStorage));
                         } catch (err) {
+                          console.warn("Primary storage failed, stripping all large assets:", err);
                           delete userForStorage.avatar_url;
                           delete userForStorage.id_photo_url;
-                          localStorage.setItem(STORAGE_KEYS.USER_CURRENT, JSON.stringify(userForStorage));
+                          try {
+                            localStorage.setItem(STORAGE_KEYS.USER_CURRENT, JSON.stringify(userForStorage));
+                          } catch (innerErr) {
+                            console.error("Critical storage failure:", innerErr);
+                          }
                         }
-                        setCurrentUser(user);
                       }}
                     />
                   )
