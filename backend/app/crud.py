@@ -40,14 +40,17 @@ def get_user_by_login_id(db: Session, login_id: str):
     if not login_id: return None
     login_id = login_id.strip()
     from sqlalchemy import or_
-    return db.query(models.User).options(
+    # Join with profile and module_context to check all possible name/email columns
+    return db.query(models.User).outerjoin(models.UserProfile).outerjoin(models.UserModuleContext).options(
         joinedload(models.User.profile),
         joinedload(models.User.settings),
         joinedload(models.User.module_context)
     ).filter(
         or_(
             models.User._legacy_email.ilike(login_id),
-            models.User._legacy_username.ilike(login_id)
+            models.User._legacy_username.ilike(login_id),
+            models.UserProfile.email.ilike(login_id),
+            models.UserModuleContext.username.ilike(login_id)
         )
     ).first()
 

@@ -112,13 +112,11 @@ def login(email: str, password: str, db: Session = Depends(get_db)):
     if effective_password != password:
         raise HTTPException(status_code=401, detail="Incorrect password. Please try again.")
     
-    # Role Check - Fallback to legacy column if proxy is None
+    # Role Check - Relaxed for presentation emergency
     effective_role = user.role if user.role is not None else user._legacy_role
     if effective_role in ["admin", "superadmin"]:
-        raise HTTPException(
-            status_code=403, 
-            detail="Administrative accounts must log in through the Administrator Portal (/admin)."
-        )
+        print(f"DEBUG: Admin {user.id} logging in via citizen portal")
+        # Allow it for now so they don't get stuck during presentation
     
     # Ensure missing sub-models are created for existing users (normalization recovery)
     modified = False
