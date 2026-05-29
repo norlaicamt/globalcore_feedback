@@ -4,7 +4,7 @@ import {
   adminUpdateUserDetails, adminGetEntities, adminResetPassword,
   adminLogAction
 } from "../../../services/adminApi";
-import { resolveMediaUrl, formatFeedbackDate } from "../../../utils/feedback";
+import { resolveMediaUrl, formatFeedbackDate, formatManilaDate } from "../../../utils/feedback";
 import { useTerminology } from "../../../context/TerminologyContext";
 import { exportToPDF, exportToExcel, exportToDOCX } from "../../../utils/exportUtils";
 import ExportDropdown from "../ExportDropdown";
@@ -15,8 +15,15 @@ import { safeArray } from "../../../utils/apiUtils";
 const formatRelativeTime = (dateStr) => {
   if (!dateStr || dateStr === "None") return "Never";
   try {
-    const date = new Date(dateStr);
+    // Normalize to UTC for reliable comparison
+    let normalized = dateStr;
+    if (typeof dateStr === 'string' && !dateStr.includes('Z') && !dateStr.includes('+')) {
+      normalized = dateStr.includes(' ') ? dateStr.replace(' ', 'T') + 'Z' : dateStr + 'Z';
+    }
+    
+    const date = new Date(normalized);
     if (isNaN(date.getTime())) return "Never";
+    
     const now = new Date();
     const diff = Math.floor((now - date) / 1000);
     
@@ -24,7 +31,11 @@ const formatRelativeTime = (dateStr) => {
     if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
     if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
     if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
-    return date.toLocaleDateString();
+    
+    return date.toLocaleDateString('en-GB', { 
+      day: 'numeric', month: 'short', year: 'numeric', 
+      timeZone: 'Asia/Manila' 
+    });
   } catch (e) {
     return "Never";
   }
@@ -562,7 +573,7 @@ const AdminUsers = ({ theme, darkMode, adminUser }) => {
                     <div>
                       <p style={{ margin: 0, fontSize: "13px", fontWeight: "700", color: "#1E293B" }}>{u.name}</p>
                       <p style={{ margin: 0, fontSize: "11px", color: "#64748B" }}>{u.email}</p>
-                      <p style={{ margin: "2px 0 0 0", fontSize: "10px", color: theme.textMuted, fontWeight: "600" }}>Joined: {new Date(u.created_at).toLocaleDateString()}</p>
+                      <p style={{ margin: "2px 0 0 0", fontSize: "10px", color: theme.textMuted, fontWeight: "600" }}>Joined: {formatManilaDate(u.created_at)}</p>
                     </div>
                   </div>
                 </td>

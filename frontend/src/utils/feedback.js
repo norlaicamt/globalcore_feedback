@@ -40,8 +40,7 @@ export const formatFeedbackDate = (dateStr) => {
 
   // Ensure the date string is treated as UTC if it doesn't have a timezone indicator
   let normalizedDateStr = dateStr;
-  if (!dateStr.includes('Z') && !dateStr.includes('+') && !dateStr.match(/-\d{2}:\d{2}$/)) {
-    // If it looks like a naive ISO string (e.g. 2026-05-29T10:39:01), append Z
+  if (typeof dateStr === 'string' && !dateStr.includes('Z') && !dateStr.includes('+') && !dateStr.match(/-\d{2}:\d{2}$/)) {
     normalizedDateStr = dateStr.includes(' ') ? dateStr.replace(' ', 'T') + 'Z' : dateStr + 'Z';
   }
 
@@ -52,11 +51,44 @@ export const formatFeedbackDate = (dateStr) => {
   if (diff < 60) return 'Just now';
   if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
   if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  
+  // Format in Asia/Manila (GMT+8) specifically
   const datePart = date.toLocaleDateString('en-US', {
-    month: 'long', day: 'numeric',
+    month: 'long', 
+    day: 'numeric',
     year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
+    timeZone: 'Asia/Manila'
   });
-  return `${datePart} at ${date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`;
+  const timePart = date.toLocaleTimeString('en-US', { 
+    hour: 'numeric', 
+    minute: '2-digit',
+    timeZone: 'Asia/Manila'
+  });
+  
+  return `${datePart} at ${timePart}`;
+};
+
+/**
+ * Specifically for User Management "Joined Date" (e.g., 29 May 2026)
+ * Forces Asia/Manila timezone and handles nulls.
+ */
+export const formatManilaDate = (dateStr, fallback = '-') => {
+  if (!dateStr) return fallback;
+  
+  let normalized = dateStr;
+  if (typeof dateStr === 'string' && !dateStr.includes('Z') && !dateStr.includes('+') && !dateStr.match(/-\d{2}:\d{2}$/)) {
+    normalized = dateStr.includes(' ') ? dateStr.replace(' ', 'T') + 'Z' : dateStr + 'Z';
+  }
+  
+  const date = new Date(normalized);
+  if (isNaN(date.getTime())) return fallback;
+  
+  return date.toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'Asia/Manila'
+  });
 };
 
 export const getDisplayName = (post, currentUser) => {
