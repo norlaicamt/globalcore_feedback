@@ -36,8 +36,16 @@ export const formatLocation = (post) => {
 };
 
 export const formatFeedbackDate = (dateStr) => {
-  if (!dateStr) return 'Recently';
-  const date = new Date(dateStr);
+  if (!dateStr) return 'Just now';
+
+  // Ensure the date string is treated as UTC if it doesn't have a timezone indicator
+  let normalizedDateStr = dateStr;
+  if (!dateStr.includes('Z') && !dateStr.includes('+') && !dateStr.match(/-\d{2}:\d{2}$/)) {
+    // If it looks like a naive ISO string (e.g. 2026-05-29T10:39:01), append Z
+    normalizedDateStr = dateStr.includes(' ') ? dateStr.replace(' ', 'T') + 'Z' : dateStr + 'Z';
+  }
+
+  const date = new Date(normalizedDateStr);
   if (isNaN(date.getTime())) return 'Recently';
   const now = new Date();
   const diff = Math.floor((now - date) / 1000);

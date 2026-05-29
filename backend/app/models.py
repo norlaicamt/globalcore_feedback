@@ -35,7 +35,7 @@ class User(Base):
     source = Column(String, nullable=False, default="local")
     role_context = Column(String, nullable=False, default="citizen")
     attributes = Column(JSONB, nullable=False, default=dict)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     # --- LEGACY COLUMN MAPPINGS (Backward Compatibility) ---
     # These columns exist in the 'global_user' table but are being normalized 
@@ -247,8 +247,8 @@ class UserProfile(Base):
     email_verification_token = Column(String, nullable=True)
     phone_verification_code = Column(String, nullable=True)
     verification_expires_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     
     user = relationship("User", back_populates="profile")
 
@@ -276,8 +276,8 @@ class UserSetting(Base):
     appearance_pattern = Column(String(32), default="soft_circles")
     appearance_accent = Column(String(16), nullable=True)
     appearance_mode = Column(String(16), default="light")
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     
     user = relationship("User", back_populates="settings")
 
@@ -314,8 +314,8 @@ class UserModuleContext(Base):
     organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=True)
     impact_points = Column(Integer, default=0)
     completed_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     
     user = relationship("User", back_populates="module_context")
     organization = relationship("Organization", back_populates="user_contexts")
@@ -481,8 +481,8 @@ class Feedback(Base):
     closed_at = Column(DateTime, nullable=True)
     closed_by_id = Column(Integer, ForeignKey("global_user.id"), nullable=True)
     
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     entity = relationship("Entity", back_populates="feedbacks")
     branch = relationship("Branch", back_populates="feedbacks")
@@ -615,7 +615,7 @@ class BroadcastLog(Base):
     entity_id = Column(Integer, ForeignKey("entities.id"), nullable=True)
     attachments = Column(JSONB, nullable=True) # List of {url, name, size, type}
     scheduled_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     entity = relationship("Entity")
 
@@ -686,7 +686,7 @@ class AuditLog(Base):
     performed_by_id = Column(Integer, ForeignKey("global_user.id"))
     target_id = Column(String, nullable=True)
     details = Column(JSONB, nullable=True)
-    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    timestamp = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     performed_by = relationship("User")
 

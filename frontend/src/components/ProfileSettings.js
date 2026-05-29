@@ -929,20 +929,34 @@ const PrivacyView = ({ currentUser, onUserUpdate, showToast, onLogout }) => {
                 </h4>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                    {/* EMAIL FIELD CARD */}
-                    <div className="settings-inner-panel" style={{ background: '#F8FAFC', padding: '20px', borderRadius: '16px', border: '1px solid #E2E8F0', position: 'relative' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
-                            <div>
+                    {/* Email Field Card */}
+                    <div className="settings-inner-panel" style={{ 
+                        background: '#F8FAFC', 
+                        padding: '20px', 
+                        borderRadius: '16px', 
+                        border: '1px solid #E2E8F0', 
+                        position: 'relative',
+                        marginBottom: '16px'
+                    }}>
+                        <div style={{ 
+                            display: 'flex', 
+                            justifyContent: 'space-between', 
+                            alignItems: 'center', 
+                            flexWrap: 'wrap', 
+                            gap: '12px' 
+                        }}>
+                            <div style={{ flex: '1', minWidth: '200px' }}>
                                 <span style={{ ...styles.fieldLabel, color: '#64748B', display: 'block', marginBottom: '4px', fontSize: '11px', textTransform: 'uppercase', fontWeight: '700' }}>Registered Email</span>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                                    <span style={{ fontSize: '16px', fontWeight: '700', color: '#1E293B' }}>{currentUser.email}</span>
+                                    <span style={{ fontSize: '16px', fontWeight: '700', color: '#1E293B', wordBreak: 'break-all' }}>{currentUser.email}</span>
                                     <span style={{
                                         backgroundColor: '#DEF7EC',
                                         color: '#03543F',
                                         fontSize: '9px',
                                         fontWeight: '700',
                                         padding: '2px 7px',
-                                        borderRadius: '6px'
+                                        borderRadius: '6px',
+                                        whiteSpace: 'nowrap'
                                     }}>Verified</span>
                                 </div>
                             </div>
@@ -950,21 +964,6 @@ const PrivacyView = ({ currentUser, onUserUpdate, showToast, onLogout }) => {
                             {!currentUser.pending_email ? (
                                 <button
                                     onClick={() => setEmailModalOpen(true)}
-                                    style={{
-                                        backgroundColor: '#1E293B',
-                                        color: 'white',
-                                        border: 'none',
-                                        borderRadius: '10px',
-                                        padding: '8px 16px',
-                                        fontSize: '12px',
-                                        fontWeight: '700',
-                                        cursor: 'pointer',
-                                        transition: 'background-color 0.2s',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '6px'
-                                    }}
-                                    onMouseEnter={e => e.currentTarget.style.backgroundColor = '#334155'}
                                     onMouseLeave={e => e.currentTarget.style.backgroundColor = '#1E293B'}
                                 >
                                     Change
