@@ -1289,18 +1289,7 @@ const AdminFeedbacks = ({ theme, darkMode, adminUser }) => {
                   </td>
                 )}
                 {visibleColumns.date && <td style={{ padding: "16px 20px", color: theme.textMuted, fontWeight: "500", fontSize: "12px" }}>{f.created_at?.split("T")[0]}</td>}
-                {visibleColumns.actions && (
-                  <td style={{ padding: "16px 20px", textAlign: "right" }} onClick={e => e.stopPropagation()}>
-                    <DotsMenu 
-                      onUpdateStatus={(s) => handleUpdateStatus(f.id, s)} 
-                      onDelete={() => handleDelete(f)} 
-                      onView={() => handleSelectFeedback(f)}
-                      theme={theme} 
-                      darkMode={darkMode} 
-                      currentStatus={f.status} 
-                    />
-                  </td>
-                )}
+
               </tr>
             );
             })}
