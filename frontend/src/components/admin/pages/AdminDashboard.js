@@ -183,54 +183,59 @@ const AdminDashboard = ({ onNavigate, theme, darkMode, adminUser }) => {
   };
 
   const [days, setDays] = useState(30);
-  const [summary, setSummary] = useState(null);
-  const [volume, setVolume] = useState([]);
-  const [byEntity, setByEntity] = useState([]);
-  const [byStatus, setByStatus] = useState([]);
-  const [ratings, setRatings] = useState([]);
-  const [topUsers, setTopUsers] = useState([]);
-  const [engagement, setEngagement] = useState([]);
-  const [sentiment, setSentiment] = useState({ positive: 0, neutral: 0, frustrated: 0 });
-  const [programRankings, setProgramRankings] = useState({ top: [], lowest: [], all: [] });
-  const [feedbackTypeDist, setFeedbackTypeDist] = useState({});
-  const [userDistribution, setUserDistribution] = useState({ by_entity: [], by_role: [] });
-  const [loading, setLoading] = useState(true);
+    const [dashboardData, setDashboardData] = useState({
+      summary: null,
+      volume: [],
+      byEntity: [],
+      byStatus: [],
+      ratings: [],
+      topUsers: [],
+      engagement: [],
+      sentiment: { positive: 0, neutral: 0, frustrated: 0 },
+      programRankings: { top: [], lowest: [], all: [] },
+      feedbackTypeDist: {},
+      userDistribution: { by_entity: [], by_role: [] }
+    });
+    const [loading, setLoading] = useState(true);
 
-  const [scopeCategories, setScopeCategories] = useState([]);
-  const [selectedDept, setSelectedDept] = useState("");
+    const [scopeCategories, setScopeCategories] = useState([]);
+    const [selectedDept, setSelectedDept] = useState("");
 
-  useEffect(() => {
-    if (hasGlobalAdminAccess) {
-      adminGetScopeOptions().then(setScopeCategories).catch(console.error);
-    }
-  }, [adminUser, hasGlobalAdminAccess]);
-
-  useEffect(() => {
-    const deptFilter = hasGlobalAdminAccess ? selectedDept : (adminUser?.department || "");
-
-    const fetchAnalytics = async (isInitial = false) => {
-      if (isInitial) setLoading(true);
-      try {
-        console.log("DEBUG DASHBOARD: Fetching with filter:", deptFilter);
-        const data = await getAnalyticsSnapshot(deptFilter, days);
-        console.log("DEBUG DASHBOARD: Received data:", data);
-        setSummary(safeObject(data.summary));
-        setVolume(safeArray(data.volume));
-        setByEntity(safeArray(data.by_entity));
-        setByStatus(safeArray(data.by_status));
-        setRatings(safeArray(data.ratings));
-        setTopUsers(safeArray(data.top_users));
-        setEngagement(safeArray(data.engagement));
-        setSentiment(safeObject(data.sentiment));
-        setUserDistribution(safeObject(data.user_distribution));
-        setProgramRankings(safeObject(data.program_rankings));
-        setFeedbackTypeDist(safeObject(data.feedback_type_distribution));
-      } catch (err) {
-        console.error(err);
-      } finally {
-        if (isInitial) setLoading(false);
+    useEffect(() => {
+      if (hasGlobalAdminAccess) {
+        adminGetScopeOptions().then(setScopeCategories).catch(console.error);
       }
-    };
+    }, [adminUser, hasGlobalAdminAccess]);
+
+    useEffect(() => {
+      const deptFilter = hasGlobalAdminAccess ? selectedDept : (adminUser?.department || "");
+
+      const fetchAnalytics = async (isInitial = false) => {
+        if (isInitial) setLoading(true);
+        try {
+          console.log("DEBUG DASHBOARD: Fetching with filter:", deptFilter);
+          const data = await getAnalyticsSnapshot(deptFilter, days);
+          console.log("DEBUG DASHBOARD: Received data:", data);
+          
+          setDashboardData({
+            summary: safeObject(data.summary),
+            volume: safeArray(data.volume),
+            byEntity: safeArray(data.by_entity),
+            byStatus: safeArray(data.by_status),
+            ratings: safeArray(data.ratings),
+            topUsers: safeArray(data.top_users),
+            engagement: safeArray(data.engagement),
+            sentiment: safeObject(data.sentiment),
+            userDistribution: safeObject(data.user_distribution),
+            programRankings: safeObject(data.program_rankings),
+            feedbackTypeDist: safeObject(data.feedback_type_distribution)
+          });
+        } catch (err) {
+          console.error(err);
+        } finally {
+          if (isInitial) setLoading(false);
+        }
+      };
 
     fetchAnalytics(true);
     const intervalId = setInterval(() => fetchAnalytics(false), 15000);
@@ -243,11 +248,11 @@ const AdminDashboard = ({ onNavigate, theme, darkMode, adminUser }) => {
     </div>
   );
 
-  const lowestRated = programRankings?.lowest?.[0];
-  const topRankings = safeArray(programRankings?.all || programRankings?.top);
+  const lowestRated = dashboardData.programRankings?.lowest?.[0];
+  const topRankings = safeArray(dashboardData.programRankings?.all || dashboardData.programRankings?.top);
 
   // Helper to get status counts for Overview
-  const getStatusCount = (s) => byStatus.find(b => b.status === s)?.count || 0;
+  const getStatusCount = (s) => dashboardData.byStatus.find(b => b.status === s)?.count || 0;
   const newCount = getStatusCount("OPEN");
   const inReviewCount = getStatusCount("IN_PROGRESS");
   const resolvedCount = getStatusCount("RESOLVED");
@@ -322,13 +327,13 @@ const AdminDashboard = ({ onNavigate, theme, darkMode, adminUser }) => {
         <div style={{ display: "flex", gap: "12px" }}>
           <KpiCard
             label="Total Citizens"
-            value={summary?.global_total_users ?? 0}
+            value={dashboardData.summary?.global_total_users ?? 0}
             theme={theme}
             light
           />
           <KpiCard
             label="Engaged"
-            value={summary?.total_users ?? 0}
+            value={dashboardData.summary?.total_users ?? 0}
             theme={theme}
             light
           />
@@ -341,7 +346,7 @@ const AdminDashboard = ({ onNavigate, theme, darkMode, adminUser }) => {
           />
           <KpiCard
             label="Deactivated"
-            value={summary?.deactivated_users ?? 0}
+            value={dashboardData.summary?.deactivated_users ?? 0}
             theme={theme}
             light
             color="#EF4444"
@@ -358,11 +363,11 @@ const AdminDashboard = ({ onNavigate, theme, darkMode, adminUser }) => {
           theme={theme}
           timeContext={`Last ${days} days`}
         />
-        <Section theme={theme} title="Volume & Engagement Analysis" empty={volume.length === 0} emptyText="No activity data detected for this scope.">
+        <Section theme={theme} title="Volume & Engagement Analysis" empty={dashboardData.volume.length === 0} emptyText="No activity data detected for this scope.">
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 200px', gap: '20px' }}>
             <ResponsiveContainer width="100%" height={240}>
-              <AreaChart data={volume.map((v) => {
-                const dayEngagement = engagement.find(e => e.day === v.day);
+              <AreaChart data={dashboardData.volume.map((v) => {
+                const dayEngagement = dashboardData.engagement.find(e => e.day === v.day);
                 return { ...v, engagement: dayEngagement ? dayEngagement.comments : 0 };
               })}>
                 <defs>
@@ -384,8 +389,8 @@ const AdminDashboard = ({ onNavigate, theme, darkMode, adminUser }) => {
             }}>
               <h4 style={{ margin: 0, fontSize: '9px', fontWeight: '800', color: theme.textMuted, textTransform: 'uppercase' }}>Summary</h4>
               {(() => {
-                const recent = volume.slice(-3).reduce((acc, v) => acc + v.count, 0);
-                const previous = volume.slice(-6, -3).reduce((acc, v) => acc + v.count, 0);
+                const recent = dashboardData.volume.slice(-3).reduce((acc, v) => acc + v.count, 0);
+                const previous = dashboardData.volume.slice(-6, -3).reduce((acc, v) => acc + v.count, 0);
                 const diff = previous > 0 ? ((recent - previous) / previous) * 100 : 0;
                 
                 return (
@@ -427,25 +432,25 @@ const AdminDashboard = ({ onNavigate, theme, darkMode, adminUser }) => {
         />
         <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: "16px" }}>
           <Section theme={theme} title="Mood Trend (Sentiment)">
-            <SentimentTrendLine volume={volume} sentiment={sentiment} theme={theme} darkMode={darkMode} />
+            <SentimentTrendLine volume={dashboardData.volume} sentiment={dashboardData.sentiment} theme={theme} darkMode={darkMode} />
           </Section>
 
-          <Section theme={theme} title="Rating Spread (Distribution)" empty={summary?.total_feedback === 0}>
+          <Section theme={theme} title="Rating Spread (Distribution)" empty={dashboardData.summary?.total_feedback === 0}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <ResponsiveContainer width="100%" height={100}>
-                <BarChart data={ratings}>
+                <BarChart data={dashboardData.ratings}>
                   <XAxis dataKey="rating" hide />
                   <YAxis hide />
                   <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'transparent' }} />
                   <Bar dataKey="count" radius={[4, 4, 4, 4]} barSize={20}>
-                    {ratings.map((entry, index) => (
+                    {dashboardData.ratings.map((entry, index) => (
                       <Cell key={`r-${index}`} fill={entry.rating >= 4 ? "#10B981" : entry.rating <= 2 ? "#EF4444" : "#FBBF24"} fillOpacity={0.8} />
                     ))}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
               <div style={{ display: 'flex', width: '100%', height: '6px', borderRadius: '3px', overflow: 'hidden', background: theme.bg }}>
-                {ratings.map((r, i) => (
+                {dashboardData.ratings.map((r, i) => (
                   <div 
                     key={i} 
                     style={{ 
@@ -458,7 +463,7 @@ const AdminDashboard = ({ onNavigate, theme, darkMode, adminUser }) => {
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', fontWeight: '800', color: theme.textMuted }}>
                 <span>CRITICAL</span>
-                <span>AVERAGE: {summary?.avg_rating?.toFixed(1) || "0.0"}★</span>
+                <span>AVERAGE: {dashboardData.summary?.avg_rating?.toFixed(1) || "0.0"}★</span>
                 <span>EXCELLENT</span>
               </div>
             </div>
@@ -479,7 +484,7 @@ const AdminDashboard = ({ onNavigate, theme, darkMode, adminUser }) => {
 
 
         <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: "16px" }}>
-          <Section theme={theme} title={`Performance Benchmarking (Volume vs Rating)`} empty={programRankings.all.length === 0}>
+          <Section theme={theme} title={`Performance Benchmarking (Volume vs Rating)`} empty={dashboardData.programRankings.all.length === 0}>
             <div style={{ height: '220px', width: '100%' }}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={topRankings.slice(0, 8)} layout="vertical" barGap={4}>
@@ -494,9 +499,9 @@ const AdminDashboard = ({ onNavigate, theme, darkMode, adminUser }) => {
             </div>
           </Section>
 
-          <Section theme={theme} title="Top Contributors & Activity" empty={topUsers.length === 0} emptyText="No community activity detected.">
+          <Section theme={theme} title="Top Contributors & Activity" empty={dashboardData.topUsers.length === 0} emptyText="No community activity detected.">
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {topUsers.slice(0, 5).map((u, i) => (
+              {dashboardData.topUsers.slice(0, 5).map((u, i) => (
                 <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '6px 0', borderBottom: i < 4 ? `1px solid ${theme.border}40` : 'none' }}>
                   <div style={{ 
                     width: '32px', height: '32px', borderRadius: '10px', 
@@ -510,7 +515,7 @@ const AdminDashboard = ({ onNavigate, theme, darkMode, adminUser }) => {
                     <p style={{ margin: 0, fontSize: '12px', fontWeight: '800', color: theme.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.name}</p>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                       <div style={{ width: '40px', height: '4px', background: theme.border, borderRadius: '2px', overflow: 'hidden' }}>
-                        <div style={{ width: `${Math.min(100, (u.count / (topUsers[0].count || 1)) * 100)}%`, height: '100%', background: 'var(--primary-color)' }} />
+                        <div style={{ width: `${Math.min(100, (u.count / (dashboardData.topUsers[0].count || 1)) * 100)}%`, height: '100%', background: 'var(--primary-color)' }} />
                       </div>
                       <span style={{ fontSize: '9px', fontWeight: '700', color: theme.textMuted }}>{u.count} posts</span>
                     </div>

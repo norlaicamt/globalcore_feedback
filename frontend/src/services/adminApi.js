@@ -4,6 +4,17 @@ import { STORAGE_KEYS } from "../utils/storage";
 import { API_BASE } from "../config";
 const BASE = `${API_BASE}/api/admin`;
 
+/* -------------------- CACHE -------------------- */
+const adminCache = {
+  scopeOptions: null,
+  entities: null,
+  lastFetch: {
+    scopeOptions: 0,
+    entities: 0
+  }
+};
+const CACHE_TTL = 60000; // 60s cache TTL
+
 const adminApi = axios.create({ baseURL: BASE });
  
 // Request interceptor to add admin context headers
@@ -108,10 +119,30 @@ export const adminUpdateDepartment = (id, name, entity_id = null) =>
 export const adminDeleteDepartment = (id) => adminApi.delete(`/departments/${id}`);
 
 // Dashboard scope options (Program/Office/Entities)
-export const adminGetScopeOptions = () => adminApi.get("/scope-options").then(r => r.data);
+export const adminGetScopeOptions = () => {
+  const now = Date.now();
+  if (adminCache.scopeOptions && (now - adminCache.lastFetch.scopeOptions < CACHE_TTL)) {
+    return Promise.resolve(adminCache.scopeOptions);
+  }
+  return adminApi.get("/scope-options").then(r => {
+    adminCache.scopeOptions = r.data;
+    adminCache.lastFetch.scopeOptions = now;
+    return r.data;
+  });
+};
 
 // Entities
-export const adminGetEntities = () => adminApi.get("/entities").then(r => r.data);
+export const adminGetEntities = () => {
+  const now = Date.now();
+  if (adminCache.entities && (now - adminCache.lastFetch.entities < CACHE_TTL)) {
+    return Promise.resolve(adminCache.entities);
+  }
+  return adminApi.get("/entities").then(r => {
+    adminCache.entities = r.data;
+    adminCache.lastFetch.entities = now;
+    return r.data;
+  });
+};
 export const adminCreateEntity = (name, description = "", fields = {}, icon = "default", organization_id = null) => 
   adminApi.post("/entities", { name, description, fields, icon, organization_id }).then(r => r.data);
 export const adminUpdateEntity = (id, name, description = "", fields = {}, icon = "default") => 
