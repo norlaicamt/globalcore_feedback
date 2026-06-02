@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 
 from app import models, schemas, crud
 from app.database import get_db
+from app.utils import security
 
 load_dotenv()
 
@@ -50,7 +51,7 @@ def admin_login(email: str, password: str, db: Session = Depends(get_db)):
     
     # 2. Check Database for Admin/Superadmin users
     user = db.query(models.User).filter(models.User.email == email).first()
-    if user and user.password == password: # In production, use hash checking
+    if user and security.verify_password(password, user.password):
         if user.role in ["admin", "superadmin"]:
             if not user.is_active:
                 raise HTTPException(status_code=403, detail="Account is deactivated")

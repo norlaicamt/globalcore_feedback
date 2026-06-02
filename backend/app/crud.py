@@ -6,6 +6,7 @@ import asyncio
 from typing import Optional, List
 from datetime import datetime, timezone, timedelta
 from app.utils.media import save_base64_image
+from app.utils import security
 
 def create_audit_log(db: Session, action_type: str, performed_by_id: int, target_id: str = None, details: dict = None):
     db_log = models.AuditLog(
@@ -272,15 +273,17 @@ def create_user(db: Session, user: schemas.UserCreate):
     )
     db.add(profile)
 
-    # Module Identity & Auth (username, password, roles)
+    # 3. Add Module Context (Auth & Role)
+    hashed_password = security.get_password_hash(data.get("password", "Pass123!"))
     umc = models.UserModuleContext(
         user_id=db_user.id,
         username=username,
-        password=password,
+        password=hashed_password,
         role=data.get("role", "user"),
-        is_active=data.get("is_active", True),
-        organization_id=data.get("organization_id"),
+        is_global_user=data.get("is_global_user", False),
+        onboarding_completed=True,
         entity_id=data.get("entity_id"),
+        organization_id=data.get("organization_id"),
         department=data.get("department"),
         program=data.get("program")
     )
@@ -448,17 +451,18 @@ def reactivate_user(db: Session, user_id: int):
     return db_user
 
 def update_user_password(db: Session, user_id: int, old_password: str, new_password: str):
-    db_user = db.query(models.User).filter(models.User.id == user_id).first()
+    db_user = get_user(db, user_id=user_id)
     if not db_user:
         return None
-    
-    # Verify old password
-    # NOTE: In a real system, use pwd_context.verify(old_password, db_user.password)
-    # But current system uses plain text for simplicity (based on previous observations of login)
-    if db_user.password != old_password:
+        
+    # Correctly verify old password using hash-aware utility
+    if not security.verify_password(old_password, db_user.password):
         return False
-    
-    db_user.password = new_password
+        
+    # Hash and save new password
+    hashed_password = security.get_password_hash(new_password)
+    db_user.password = hashed_password
+    db_user._legacy_password = hashed_password
     db.commit()
     return True
 

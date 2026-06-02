@@ -286,6 +286,7 @@ class UserSession(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("global_user.id"), unique=True)
     session_token = Column(String, nullable=True, index=True)
+    expires_at = Column(DateTime, nullable=True)
     last_login = Column(DateTime, nullable=True)
     last_seen = Column(DateTime, nullable=True)
     deactivated_until = Column(DateTime, nullable=True)
