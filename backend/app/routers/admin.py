@@ -525,6 +525,7 @@ def admin_get_users(entity_id: Optional[int] = None, skip: int = 0, limit: int =
             "impact_points": round(float(pts), 1),
             "total_posts": p_cnt,
             "last_seen": str(u.last_seen) if u.last_seen else None,
+            "created_at": u.created_at,
             "avatar_url": u.avatar_url
         })
     return result
@@ -554,7 +555,8 @@ def admin_get_staff_list(skip: int = 0, limit: int = 50, db: Session = Depends(g
         "current_module": s.current_module,
         "position_title": s.position_title,
         "entity_id": s.entity_id,
-        "entity_name": (s.entity.name if s.entity else None) or s.program or s.department or None
+        "entity_name": (s.entity.name if s.entity else None) or s.program or s.department or None,
+        "created_at": s.created_at
     } for s in staff]
 
 @router.post("/users/{user_id}/reset-password")

@@ -7,6 +7,33 @@ from typing import Optional, List
 from datetime import datetime, timezone, timedelta
 from app.utils.media import save_base64_image
 from app.utils import security
+import uuid
+
+def normalize_user_data(data: dict) -> dict:
+    """
+    Standardize user names and addresses to Title Case, and email to lowercase.
+    """
+    if not data:
+        return data
+
+    # 1. Normalize Email to Lowercase
+    if "email" in data and data["email"]:
+        data["email"] = data["email"].strip().lower()
+
+    # 2. Normalize Names to Title Case
+    name_fields = ["first_name", "last_name", "middle_name", "name", "display_name"]
+    for field in name_fields:
+        if field in data and data[field]:
+            # Use .title() for simple title casing
+            data[field] = data[field].strip().title()
+
+    # 3. Normalize Address Fields to Title Case
+    address_fields = ["region", "province", "city", "barangay", "exact_address"]
+    for field in address_fields:
+        if field in data and data[field]:
+            data[field] = data[field].strip().title()
+
+    return data
 
 def create_audit_log(db: Session, action_type: str, performed_by_id: int, target_id: str = None, details: dict = None):
     db_log = models.AuditLog(
@@ -159,7 +186,8 @@ def get_service_team_members(db: Session, entity_id: int, current_user_id: int):
             "active_cases": case_map.get(u.id, 0),
             "avatar_url": u.avatar_url,
             "email": u.email,
-            "entity_id": u.entity_id
+            "entity_id": u.entity_id,
+            "created_at": u.created_at
         })
         
     return {
@@ -238,7 +266,8 @@ def create_user(db: Session, user: schemas.UserCreate):
     data = user.model_dump()
     
     # 1. Normalize and extract key fields
-    email = data.get("email", "").lower()
+    data = normalize_user_data(data)
+    email = data.get("email", "")
     password = data.get("password")
     username = data.get("username")
     name = data.get("name") or data.get("display_name") or username or email
@@ -313,15 +342,15 @@ def update_user(db: Session, user_id: int, updates: schemas.UserUpdate):
     if db_user:
         update_data = updates.model_dump(exclude_unset=True)
         
-        # Data Integrity: Normalize email and check for collisions
+        # Data Integrity: Normalize and check for collisions
+        update_data = normalize_user_data(update_data)
         if "email" in update_data:
-            new_email = update_data["email"].lower()
+            new_email = update_data["email"]
             if new_email != db_user.email:
                 existing = db.query(models.User).filter(models.User.email.ilike(new_email)).first()
                 if existing:
                     # In this generic CRUD, we'll raise an error that the router can handle
                     raise ValueError(f"Email {new_email} is already taken")
-            update_data["email"] = new_email
 
         settings_updates = {k: update_data.pop(k) for k in list(update_data.keys()) if k in USER_SETTING_FIELDS}
         if settings_updates:

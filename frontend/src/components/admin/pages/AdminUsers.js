@@ -632,7 +632,7 @@ const AdminUsers = ({ theme, darkMode, adminUser }) => {
                  <div style={profileStatStyle(theme)}><p style={statLabel}>Impact Score</p><p style={statVal}>{(profileUser.impact_points || 0).toFixed(0)}</p></div>
                  <div style={profileStatStyle(theme)}><p style={statLabel}>Assigned Program</p><p style={statVal}>{profileUser.program || "None"}</p></div>
                  <div style={profileStatStyle(theme)}><p style={statLabel}>Total Reports</p><p style={statVal}>{profileUser.total_posts}</p></div>
-                 <div style={profileStatStyle(theme)}><p style={statLabel}>Joined Date</p><p style={statVal}>{new Date(profileUser.created_at).toLocaleDateString()}</p></div>
+                 <div style={profileStatStyle(theme)}><p style={statLabel}>Joined Date</p><p style={statVal}>{formatManilaDate(profileUser.created_at)}</p></div>
                  <div style={profileStatStyle(theme)}><p style={statLabel}>Last Active</p><p style={statVal}>{formatRelativeTime(profileUser.last_seen || profileUser.last_login)}</p></div>
              </div>
              
