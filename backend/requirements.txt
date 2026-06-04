@@ -9,3 +9,5 @@ alembic
 email-validator
 python-dotenv
 requests
+passlib[bcrypt]
+bcrypt
