@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 
 from app import models, schemas, crud
 from app.database import get_db
+from app.utils import security
 from app.form_defaults import DEFAULT_FORM_CONFIG, migrate_step_schema
 from app.utils.media import save_base64_image
 import copy
@@ -41,6 +42,13 @@ def get_current_admin(
     
     if not admin:
         raise HTTPException(status_code=401, detail="Invalid or expired session")
+    
+    # Check for session expiration
+    if admin.session and security.is_token_expired(admin.session.expires_at):
+        raise HTTPException(
+            status_code=401, 
+            detail="Session has expired. Please log in again."
+        )
     
     if admin.role not in ["admin", "superadmin"]:
         raise HTTPException(status_code=403, detail="Access denied: Administrative privileges required")
@@ -101,17 +109,19 @@ def apply_data_scope(query, model, admin_user: models.User):
 
 @router.post("/login")
 def admin_login(email: str, password: str, db: Session = Depends(get_db)):
-    # Check Database for Admin users
-    user = db.query(models.User).filter(models.User.email.ilike(email)).first()
-    
-    if not user:
-        raise HTTPException(status_code=401, detail="Invalid admin credentials.")
-
-    if user.password == password: # In production, use hash checking
-        # Allow both 'admin' and 'superadmin' roles
+    #    # 2. Check Database for Admin/Superadmin users
+    user = db.query(models.User).filter(models.User.email == email).first()
+    if user and security.verify_password(password, user.password):
         if user.role in ["admin", "superadmin"]:
-            # if not user.is_active:
-            #     raise HTTPException(status_code=403, detail="Account is deactivated")
+            if not user.is_active:
+                raise HTTPException(status_code=403, detail="Account is deactivated")
+            
+            # Update session tracking
+            if user.session:
+                user.session.last_login = datetime.now(timezone.utc)
+                user.session.expires_at = security.create_session_expiry(days=7)
+                db.commit()
+            
             # Generate/Update session token
             token = str(uuid.uuid4())
             
@@ -558,8 +568,8 @@ def admin_reset_password(user_id: int, db: Session = Depends(get_db), admin: mod
     if not has_global_admin_access(admin):
         if user.entity_id != admin.entity_id:
             raise HTTPException(status_code=403, detail="Cannot reset password for users outside your assigned program")
-    from app import auth
-    user.password = auth.get_password_hash("Welcome123")
+    
+    user.password = security.get_password_hash("Welcome123")
     
     # Audit Log
     crud.create_audit_log(

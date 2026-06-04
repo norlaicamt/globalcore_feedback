@@ -12,6 +12,7 @@ from typing import Dict
 from app.database import engine, get_db
 from app import models, crud, schemas
 from app.routers import users, departments, categories, entities, branches, feedback, analytics, admin, drafts, products
+from app.utils import security
 from dotenv import load_dotenv
 import os
 
@@ -109,7 +110,7 @@ def login(email: str, password: str, db: Session = Depends(get_db)):
     
     # Password Check - Fallback to legacy column if proxy is None
     effective_password = user.password if user.password is not None else user._legacy_password
-    if effective_password != password:
+    if not security.verify_password(password, effective_password):
         raise HTTPException(status_code=401, detail="Incorrect password. Please try again.")
     
     # Role Check - Relaxed for presentation emergency
@@ -147,6 +148,9 @@ def login(email: str, password: str, db: Session = Depends(get_db)):
     try:
         user.last_login = now
         user.last_seen = now
+        # Set session expiry (e.g., 7 days)
+        if user.session:
+            user.session.expires_at = security.create_session_expiry(days=7)
     except Exception:
         # If proxies fail, update legacy columns directly
         user._legacy_last_seen = now

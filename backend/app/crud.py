@@ -6,6 +6,7 @@ import asyncio
 from typing import Optional, List
 from datetime import datetime, timezone, timedelta
 from app.utils.media import save_base64_image
+from app.utils import security
 
 def create_audit_log(db: Session, action_type: str, performed_by_id: int, target_id: str = None, details: dict = None):
     db_log = models.AuditLog(
@@ -272,15 +273,17 @@ def create_user(db: Session, user: schemas.UserCreate):
     )
     db.add(profile)
 
-    # Module Identity & Auth (username, password, roles)
+    # 3. Add Module Context (Auth & Role)
+    hashed_password = security.get_password_hash(data.get("password", "Pass123!"))
     umc = models.UserModuleContext(
         user_id=db_user.id,
         username=username,
-        password=password,
+        password=hashed_password,
         role=data.get("role", "user"),
-        is_active=data.get("is_active", True),
-        organization_id=data.get("organization_id"),
+        is_global_user=data.get("is_global_user", False),
+        onboarding_completed=True,
         entity_id=data.get("entity_id"),
+        organization_id=data.get("organization_id"),
         department=data.get("department"),
         program=data.get("program")
     )
@@ -448,17 +451,18 @@ def reactivate_user(db: Session, user_id: int):
     return db_user
 
 def update_user_password(db: Session, user_id: int, old_password: str, new_password: str):
-    db_user = db.query(models.User).filter(models.User.id == user_id).first()
+    db_user = get_user(db, user_id=user_id)
     if not db_user:
         return None
-    
-    # Verify old password
-    # NOTE: In a real system, use pwd_context.verify(old_password, db_user.password)
-    # But current system uses plain text for simplicity (based on previous observations of login)
-    if db_user.password != old_password:
+        
+    # Correctly verify old password using hash-aware utility
+    if not security.verify_password(old_password, db_user.password):
         return False
-    
-    db_user.password = new_password
+        
+    # Hash and save new password
+    hashed_password = security.get_password_hash(new_password)
+    db_user.password = hashed_password
+    db_user._legacy_password = hashed_password
     db.commit()
     return True
 
@@ -773,7 +777,8 @@ def get_feedbacks(
         # Use plain joinedload and let the caller select what it needs.
         joinedload(models.Feedback.sender),
         joinedload(models.Feedback.entity).load_only(models.Entity.id, models.Entity.name),
-        joinedload(models.Feedback.branch).load_only(models.Branch.id, models.Branch.name)
+        joinedload(models.Feedback.branch).load_only(models.Branch.id, models.Branch.name),
+        joinedload(models.Feedback.recipient_dept).load_only(models.Department.id, models.Department.name)
     )
 
     # If mentioned_user_id provided, join with FeedbackMention
@@ -1786,22 +1791,48 @@ def get_analytics_summary(db: Session, dept_name: Optional[str] = None, entity_i
              .join(models.UserModuleContext, models.User.id == models.UserModuleContext.user_id, isouter=True)\
              .filter(models.UserModuleContext.role.notin_(["admin", "superadmin"]))
 
-    # Apply Time Filter to dynamic counts
-    total_feedback = fb_q.filter(models.Feedback.created_at >= cutoff).count()
-    total_comments = c_q.filter(models.Reply.created_at >= cutoff).count()
-    total_reactions = r_q.filter(models.Reaction.created_at >= cutoff).count()
+    # Pre-calculate 7d cutoff for activity metrics
+    cutoff_7d = datetime.now(timezone.utc) - timedelta(days=7)
     
-    # Lifetime/Scoped users (Distinct Users)
+    # Consolidated Count Queries for efficiency
+    stats = db.query(
+        func.count(models.Feedback.id).label("total_feedback"),
+        func.count(models.Reply.id).label("total_comments"),
+        func.count(models.Reaction.id).label("total_reactions"),
+        func.avg(models.Feedback.rating).label("avg_rating")
+    ).select_from(models.Feedback)\
+     .outerjoin(models.Reply, (models.Reply.feedback_id == models.Feedback.id) & (models.Reply.created_at >= cutoff))\
+     .outerjoin(models.Reaction, (models.Reaction.feedback_id == models.Feedback.id) & (models.Reaction.created_at >= cutoff))\
+     .filter(models.Feedback.created_at >= cutoff)
+    
+    if entity_id:
+        stats = stats.filter(models.Feedback.entity_id == entity_id)
+    elif dept_name:
+        entity = db.query(models.Entity).filter(models.Entity.name == dept_name).first()
+        if entity:
+            stats = stats.filter(models.Feedback.entity_id == entity.id)
+        else:
+            dept_exists = db.query(models.Department.id).filter(models.Department.name == dept_name).first() is not None
+            if dept_exists:
+                dept_filter = db.query(models.Department.id).filter(models.Department.name == dept_name).scalar_subquery()
+                stats = stats.filter(models.Feedback.recipient_dept_id == dept_filter)
+
+    stats_result = stats.one()
+    total_feedback = stats_result.total_feedback
+    total_comments = stats_result.total_comments
+    total_reactions = stats_result.total_reactions
+    avg_rating = round(float(stats_result.avg_rating), 2) if stats_result.avg_rating else 0.0
+
+    # Lifetime/Scoped users
     total_users = db.query(func.count(models.User.id))\
         .filter(models.User.id.in_(u_q.with_entities(models.User.id)))\
         .scalar() or 0
 
-    # New: Active Citizens (Interacted in last 7 days)
-    cutoff_7d = datetime.now(timezone.utc) - timedelta(days=7)
+    # Restore 7d subqueries for active citizen tracking
     u_posted = db.query(models.Feedback.sender_id).filter(models.Feedback.created_at >= cutoff_7d).scalar_subquery()
     u_commented = db.query(models.Reply.user_id).filter(models.Reply.created_at >= cutoff_7d).scalar_subquery()
     u_reacted = db.query(models.Reaction.user_id).filter(models.Reaction.created_at >= cutoff_7d).scalar_subquery()
-    
+
     active_citizens_7d = db.query(func.count(models.User.id.distinct()))\
         .join(models.UserModuleContext, models.User.id == models.UserModuleContext.user_id)\
         .filter(
@@ -1812,32 +1843,24 @@ def get_analytics_summary(db: Session, dept_name: Optional[str] = None, entity_i
         .filter(models.UserModuleContext.role.notin_(["admin", "superadmin"]))\
         .filter(models.UserModuleContext.is_active == True).scalar() or 0
 
-    # Deactivated Citizens
     deactivated_count = db.query(func.count(models.User.id))\
         .filter(models.User.id.in_(u_q.with_entities(models.User.id)))\
         .filter(models.User.is_active == False).scalar() or 0
 
-    # Cross-Program Reach: Users interacting with multiple distinct entities
+    new_reports_7d = fb_q.filter(models.Feedback.created_at >= cutoff_7d).count()
+    new_signups_7d = u_q.filter(models.User.created_at >= cutoff_7d).count()
+
+    # Restore Global and Cross-Program metrics
+    global_total_users = db.query(func.count(models.User.id.distinct()))\
+        .join(models.UserModuleContext, models.User.id == models.UserModuleContext.user_id, isouter=True)\
+        .filter(models.UserModuleContext.role.notin_(["admin", "superadmin"])).scalar() or 0
+
     cross_program_count = db.query(models.Feedback.sender_id)\
         .group_by(models.Feedback.sender_id)\
         .having(func.count(models.Feedback.entity_id.distinct()) > 1).count()
 
-    # Global metrics (Ignoring scope)
-    global_total_users = db.query(func.count(models.User.id.distinct()))\
-        .filter(models.User.role.notin_(["admin", "superadmin"])).scalar() or 0
-    
-    # New: Reports this Week (last 7 days)
-    new_reports_7d = fb_q.filter(models.Feedback.created_at >= cutoff_7d).count()
-
-    # New: New Signups this Week
-    new_signups_7d = u_q.filter(models.User.created_at >= cutoff_7d).count()
-
-    avg_rating = fb_q.filter(models.Feedback.created_at >= cutoff).with_entities(func.avg(models.Feedback.rating)).scalar()
-    avg_rating = round(float(avg_rating), 2) if avg_rating else 0.0
-
     anon_count = fb_q.filter(models.Feedback.created_at >= cutoff, models.Feedback.is_anonymous == True).count()
     anon_rate = round((anon_count / total_feedback * 100), 1) if total_feedback else 0
-
     idle_7d_count = max(0, (total_users - deactivated_count) - active_citizens_7d)
     
     # Fetch Latest Dispatch (Broadcast) for KPI integration
