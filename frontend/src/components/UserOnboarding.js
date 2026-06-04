@@ -172,11 +172,16 @@ const UserOnboarding = ({ currentUser, onBack, onComplete }) => {
 
   useEffect(() => {
     if (form.province && allCities[form.province]) {
-      setCityList(allCities[form.province]);
+      const cities = allCities[form.province];
+      setCityList(cities);
+      // Auto-select if there's only one city (especially for NCR where province is same as city)
+      if (cities.length === 1 && form.city !== cities[0]) {
+        setForm(p => ({ ...p, city: cities[0] }));
+      }
     } else {
       setCityList([]);
     }
-  }, [form.province, allCities]);
+  }, [form.province, allCities, form.city]);
 
   useEffect(() => {
     const loadBarangays = async () => {
