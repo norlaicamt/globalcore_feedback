@@ -28,6 +28,16 @@ token_blacklist = set()
 # Create database tables
 models.Base.metadata.create_all(bind=engine)
 
+# Safe Schema Migration for normalized tables
+with engine.connect() as connection:
+    from sqlalchemy import text
+    try:
+        connection.execute(text("ALTER TABLE user_sessions ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP;"))
+        connection.execute(text("ALTER TABLE user_sessions ADD COLUMN IF NOT EXISTS deactivated_until TIMESTAMP;"))
+        connection.commit()
+    except Exception as e:
+        print(f"Migration Notice: {e}")
+
 app = FastAPI(title="Global Core - Feedback Module")
 
 # Mount static files for media uploads
