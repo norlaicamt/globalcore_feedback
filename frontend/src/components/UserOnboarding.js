@@ -188,7 +188,7 @@ const UserOnboarding = ({ currentUser, onBack, onComplete }) => {
       if (form.city) {
         setIsLoadingLocations(true);
         try {
-          const safeCity = form.city.replace(/[^a-z0-9]/gi, (x) => (" -_".includes(x) ? x : "")).trim();
+          const safeCity = form.city.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9 -_]/gi, "").trim();
           const res = await fetch(`/assets/locations/barangays/${safeCity}.json`);
           if (res.ok) setBarangayList(await res.json());
           else setBarangayList([]);

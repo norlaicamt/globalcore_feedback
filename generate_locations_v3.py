@@ -3,6 +3,7 @@ import os
 import urllib.request
 import time
 import re
+import unicodedata
 
 # PSGC Cloud API endpoints
 BASE_URL = "https://psgc.cloud/api"
@@ -125,7 +126,9 @@ def run():
     total = len(cities_to_fetch)
     for i, c in enumerate(cities_to_fetch):
         city_name = clean_name(c['name'])
-        safe_name = "".join(x for x in city_name if x.isalnum() or x in " -_").strip()
+        # ASCII normalize for filename safety (e.g. Parañaque -> Paranaque)
+        safe_name = "".join(x for x in unicodedata.normalize('NFD', city_name) if unicodedata.category(x) != 'Mn')
+        safe_name = "".join(x for x in safe_name if x.isalnum() or x in " -_").strip()
         path = os.path.join(BARANGAY_DIR, f"{safe_name}.json")
         
         if os.path.exists(path): continue
